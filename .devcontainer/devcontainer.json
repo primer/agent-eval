@@ -7,7 +7,7 @@
     }
   },
   "forwardPorts": [],
-  "onCreateCommand": ["/bin/bash", "-c", "npm run setup"],
+  "onCreateCommand": ["/bin/bash", "script/setup"],
   "remoteUser": "node",
   "features": {
     "ghcr.io/devcontainers/features/sshd:1": {

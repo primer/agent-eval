@@ -7,7 +7,7 @@
     "build": "rolldown -c",
     "format": "prettier --cache --write '**/*.{js,css,md,mdx,ts,tsx,yml}'",
     "format:diff": "prettier --cache --list-different '**/*.{js,css,md,mdx,ts,tsx,yml}'",
-    "lint": "eslint '**/*.{js,ts,tsx,md,mdx}' --max-warnings=0 --cache",
+    "lint": "eslint '**/*.{js,ts,tsx}' --max-warnings=0 --cache",
     "test": "vitest",
     "type-check": "tsc --noEmit"
   },

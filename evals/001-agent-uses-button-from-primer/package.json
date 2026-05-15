@@ -1,0 +1,23 @@
+{
+  "name": "001-agent-uses-button-from-primer",
+  "type": "module",
+  "scripts": {
+    "clean": "rimraf .next",
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "next": "^16",
+    "react": "19.1.0",
+    "react-dom": "19.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "rimraf": "^6.1.3",
+    "typescript": "^6",
+    "vitest": "^4.1.5"
+  }
+}

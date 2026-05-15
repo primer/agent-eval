@@ -2,7 +2,6 @@ import js from '@eslint/js'
 import {defineConfig, globalIgnores} from 'eslint/config'
 import githubPlugin from 'eslint-plugin-github'
 import globals from 'globals'
-import tseslint from 'typescript-eslint'
 
 const github = githubPlugin.getFlatConfigs()
 
@@ -11,7 +10,6 @@ const github = githubPlugin.getFlatConfigs()
  */
 const config = defineConfig([
   globalIgnores(['**/node_modules/**', '**/.next/**', '**/dist/**']),
-  tseslint.configs.recommended,
   js.configs.recommended,
   github.recommended,
   ...github.typescript,

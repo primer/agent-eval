@@ -1,0 +1,22 @@
+{
+  "name": "@primer/agent-eval",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "rolldown -c"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/primer/agent-eval.git"
+  },
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/primer/agent-eval/issues"
+  },
+  "devDependencies": {
+    "@types/node": "^24.12.4",
+    "rolldown": "^1.0.1",
+    "typescript": "^6.0.3"
+  }
+}

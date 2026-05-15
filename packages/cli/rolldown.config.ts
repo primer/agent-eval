@@ -1,5 +1,5 @@
 import {defineConfig} from 'rolldown/config'
-import packageJson from './package.json' with {type: 'json'}
+import packageJson from './package.json' with {type: 'json '}
 
 const dependencies = [...Object.keys(packageJson.devDependencies)]
 const external = dependencies.map(name => {

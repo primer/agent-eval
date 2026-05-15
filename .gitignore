@@ -1,0 +1,30 @@
+# Build folders
+dist/
+
+# Editor
+.DS_Store
+*.swp
+.idea
+.tool-versions
+
+# Environment
+.env
+
+# Dependencies
+node_modules
+
+# Next.js
+.next
+
+# TypeScript
+*.tsbuildinfo
+
+# ESLint
+.eslintcache
+
+# Vitest
+**/__screenshots__/**
+
+# Generated files
+src/evals/generated.ts
+artifacts/

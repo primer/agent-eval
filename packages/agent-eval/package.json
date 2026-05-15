@@ -3,10 +3,14 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "exports": {
+    "./config": "./src/config.ts"
+  },
   "scripts": {
     "build": "rolldown -c",
     "clean": "rimraf dist",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "watch": "rolldown -c -w"
   },
   "repository": {
     "type": "git",
@@ -15,6 +19,12 @@
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/primer/agent-eval/issues"
+  },
+  "dependencies": {
+    "@primer/agent-evals": "workspace:*",
+    "@primer/agent-experiments": "workspace:*",
+    "@primer/agent-sandbox": "workspace:*",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "^24.12.4",

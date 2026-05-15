@@ -18,7 +18,8 @@
     "isolatedModules": true,
     "moduleDetection": "force",
     "erasableSyntaxOnly": true,
-    "verbatimModuleSyntax": true
+    "verbatimModuleSyntax": true,
+    "allowImportingTsExtensions": true,
   },
 }
 

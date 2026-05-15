@@ -2,4 +2,7 @@ packages:
   - 'evals/*'
   - 'packages/*'
 allowBuilds:
+  cpu-features: true
+  protobufjs: true
   sharp: true
+  ssh2: true

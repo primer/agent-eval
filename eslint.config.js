@@ -9,7 +9,14 @@ const github = githubPlugin.getFlatConfigs()
  * @type {import('@eslint/js').FlatConfig}
  */
 const config = defineConfig([
-  globalIgnores(['**/node_modules/**', '**/.next/**', '**/dist/**']),
+  globalIgnores([
+    '**/node_modules/**',
+    '**/.next/**',
+    '**/dist/**',
+    '**/next-env.d.ts',
+    '**/generated/**',
+    '**/artifacts/**',
+  ]),
   js.configs.recommended,
   github.recommended,
   ...github.typescript,
@@ -28,6 +35,7 @@ const config = defineConfig([
       },
     },
     rules: {
+      '@typescript-eslint/array-type': 'off',
       'no-shadow': 'off',
       'filenames/match-regex': 'off',
       'import/extensions': 'off',
@@ -39,6 +47,8 @@ const config = defineConfig([
       'i18n-text/no-en': 'off',
       'github/filenames-match-regex': 'off',
       'github/no-inner-html': 'off',
+      'import/no-namespace': 'off',
+      'github/no-then': 'off',
       'github/role-supports-aria-props': 'off',
       'no-restricted-syntax': 'off',
     },

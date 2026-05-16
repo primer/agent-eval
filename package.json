@@ -3,11 +3,12 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "build": "pnpm --recursive run build",
     "format": "prettier --cache --write '**/*.{js,css,md,mdx,ts,tsx,yml}'",
     "format:diff": "prettier --cache --list-different '**/*.{js,css,md,mdx,ts,tsx,yml}'",
     "lint": "eslint '**/*.{js,ts,tsx}' --max-warnings=0 --cache",
     "test": "vitest",
-    "type-check": "tsc --noEmit && pnpm --recursive --if-present run type-check"
+    "type-check": "tsc --noEmit && pnpm --recursive run type-check"
   },
   "devDependencies": {
     "@eslint/js": "9.39.4",

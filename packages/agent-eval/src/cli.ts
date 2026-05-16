@@ -24,6 +24,11 @@ const {values} = parseArgs({
       short: 'a',
       description: 'The directory to save artifacts to',
     },
+    concurrency: {
+      type: 'string',
+      short: 'c',
+      description: 'The number of treatments to run in parallel',
+    },
     experiment: {
       type: 'string',
       short: 'e',
@@ -32,6 +37,7 @@ const {values} = parseArgs({
   },
 })
 
+const MAX_CONCURRENCY = values.concurrency ? parseInt(values.concurrency, 10) : 1
 const experimentConfigs: Array<ExperimentConfig> = []
 const ARTIFACTS_DIR = path.resolve(values.artifacts ?? 'artifacts')
 
@@ -124,7 +130,7 @@ for (const config of experimentConfigs) {
   // rate limits, resource constraints), they are more likely to impact all
   // evals rather than just the ones at the end.
   const runResults = await run(randomize(treatments), {
-    maxConcurrency: 2,
+    maxConcurrency: MAX_CONCURRENCY,
   })
   results.push(...runResults)
 }

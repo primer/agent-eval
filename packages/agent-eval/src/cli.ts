@@ -156,13 +156,14 @@ type RunOptions = {
 function run(treatments: Array<Treatment>, options?: RunOptions): Promise<Array<TreatmentResult>> {
   const maxConcurrency = options?.maxConcurrency ?? 1
   const queue = treatments.slice()
+  // eslint-disable-next-line @typescript-eslint/no-shadow
   const results: Array<TreatmentResult> = []
   const pending = new Set()
   let cancelled = false
 
   let resolve: (value: Array<TreatmentResult>) => void
   let reject: (reason: unknown) => void
-  const promise = new Promise<Array<TreatmentResult>>((_resolve, _reject) => {
+  const deferred = new Promise<Array<TreatmentResult>>((_resolve, _reject) => {
     resolve = _resolve
     reject = _reject
   })
@@ -207,7 +208,7 @@ function run(treatments: Array<Treatment>, options?: RunOptions): Promise<Array<
 
   execute()
 
-  return promise
+  return deferred
 }
 
 async function retry<T>(fn: () => Promise<T>, retries: number): Promise<T> {
@@ -307,7 +308,7 @@ async function runTreatment(treatment: Treatment): Promise<TreatmentResult> {
   const testResultsContent = await sandbox.readFile('test-results.json')
   const testResults = parseTestResults(JSON.parse(testResultsContent))
   if (!testResults.success) {
-    throw new Error('Failed to parse test results: ' + testResults.error)
+    throw new Error(`Failed to parse test results: ${testResults.error}`)
   }
 
   // Turns

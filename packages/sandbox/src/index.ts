@@ -382,18 +382,18 @@ async function readFileFromArchive(archive: NodeJS.ReadableStream): Promise<Buff
 
 function pullImage(docker: Docker, name: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    docker.pull(name, (err: Error | null, stream: NodeJS.ReadableStream) => {
-      if (err) {
-        reject(err)
+    docker.pull(name, (error: Error | null, stream: NodeJS.ReadableStream) => {
+      if (error) {
+        reject(error)
         return
       }
 
       // Follow the pull progress
       docker.modem.followProgress(
         stream,
-        (err: Error | null) => {
-          if (err) {
-            reject(err)
+        (progressError: Error | null) => {
+          if (progressError) {
+            reject(progressError)
           } else {
             resolve()
           }

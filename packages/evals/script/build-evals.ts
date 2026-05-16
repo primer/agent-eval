@@ -5,35 +5,37 @@ import path from 'node:path'
 const EVALS_DIR = path.resolve(import.meta.dirname, '../../../evals')
 const SRC_DIR = path.resolve(import.meta.dirname, '../src')
 
-const evals = await fs.readdir(EVALS_DIR).then(filenames => {
-  return Promise.all(
-    filenames.flatMap(async filename => {
-      const directory = path.join(EVALS_DIR, filename)
-      const stats = await fs.stat(directory)
-      if (!stats.isDirectory()) {
-        return []
-      }
+const evals = await fs.readdir(EVALS_DIR).then(async filenames => {
+  const results = []
 
-      const configPath = path.join(directory, 'eval.config.ts')
-      if (!existsSync(configPath)) {
-        throw new Error(`No eval.config.ts found in ${path.basename(directory)}`)
-      }
+  for (const filename of filenames) {
+    const directory = path.join(EVALS_DIR, filename)
+    const stats = await fs.stat(directory)
+    if (!stats.isDirectory()) {
+      continue
+    }
 
-      const configModule = await import(configPath)
+    const configPath = path.join(directory, 'eval.config.ts')
+    if (!existsSync(configPath)) {
+      throw new Error(`No eval.config.ts found in ${path.basename(directory)}`)
+    }
 
-      const testPath = path.join(directory, 'eval.test.ts')
-      if (!existsSync(testPath)) {
-        throw new Error(`No eval.test.ts found in ${path.basename(directory)}`)
-      }
+    const configModule = await import(configPath)
 
-      return {
-        id: filename,
-        directory,
-        config: configModule.default,
-        testPath,
-      }
-    }),
-  )
+    const testPath = path.join(directory, 'eval.test.ts')
+    if (!existsSync(testPath)) {
+      throw new Error(`No eval.test.ts found in ${path.basename(directory)}`)
+    }
+
+    results.push({
+      id: filename,
+      directory,
+      config: configModule.default,
+      testPath,
+    })
+  }
+
+  return results
 })
 
 const GENERATED_FOLDER = path.join(SRC_DIR, 'generated')

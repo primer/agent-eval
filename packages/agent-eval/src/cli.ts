@@ -38,7 +38,11 @@ const {values} = parseArgs({
 })
 
 const ARTIFACTS_DIR = path.resolve(values.artifacts ?? 'artifacts')
-const MAX_CONCURRENCY = values.concurrency ? parseInt(values.concurrency, 10) : 1
+const parsedConcurrency = values.concurrency ? parseInt(values.concurrency, 10) : 1
+const MAX_CONCURRENCY =
+  Number.isFinite(parsedConcurrency) && Number.isInteger(parsedConcurrency) && parsedConcurrency >= 1
+    ? parsedConcurrency
+    : 1
 const experimentConfigs: Array<ExperimentConfig> = []
 
 if (!existsSync(ARTIFACTS_DIR)) {

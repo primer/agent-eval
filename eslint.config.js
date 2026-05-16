@@ -36,6 +36,7 @@ const config = defineConfig([
     },
     rules: {
       '@typescript-eslint/array-type': 'off',
+      'no-console': 'off',
       'no-shadow': 'off',
       'filenames/match-regex': 'off',
       'import/extensions': 'off',

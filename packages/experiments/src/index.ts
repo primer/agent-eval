@@ -6,7 +6,7 @@ const EXPERIMENTS_DIR = path.join(import.meta.dirname, 'experiments')
 
 const filenames = await fs
   .readdir(EXPERIMENTS_DIR)
-  .then(filenames => filenames.filter(filename => path.extname(filename) === '.ts'))
+  .then(result => result.filter(filename => path.extname(filename) === '.ts'))
 const modules: Array<[string, ExperimentConfig]> = await Promise.all(
   filenames.map(async filename => {
     const filepath = path.join(EXPERIMENTS_DIR, filename)

@@ -331,7 +331,7 @@ async function runTreatment(treatment: Treatment): Promise<TreatmentResult> {
     }
   }
 
-  const result = messages.find(message => {
+  const result = messages.find((message): message is Extract<Message, {type: 'result'}> => {
     return message.type === 'result'
   })
   if (!result) {

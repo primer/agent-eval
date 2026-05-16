@@ -37,9 +37,9 @@ const {values} = parseArgs({
   },
 })
 
+const ARTIFACTS_DIR = path.resolve(values.artifacts ?? 'artifacts')
 const MAX_CONCURRENCY = values.concurrency ? parseInt(values.concurrency, 10) : 1
 const experimentConfigs: Array<ExperimentConfig> = []
-const ARTIFACTS_DIR = path.resolve(values.artifacts ?? 'artifacts')
 
 if (!existsSync(ARTIFACTS_DIR)) {
   await fs.mkdir(ARTIFACTS_DIR, {recursive: true})

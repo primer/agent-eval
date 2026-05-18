@@ -4,7 +4,7 @@ export const experiment: ExperimentConfig = {
   name: 'MCP',
   description: 'Compare MCP versus local instructions performance for Primer usage.',
   models: ['gpt-5.5', 'claude-opus-4.7', 'claude-sonnet-4.6'],
-  evals: ['001-agent-uses-button-from-primer'],
+  evals: ['001-agent-uses-button-from-primer', '002-agent-uses-octicon-from-primer'],
   treatments: [
     {
       name: 'MCP with local instructions',

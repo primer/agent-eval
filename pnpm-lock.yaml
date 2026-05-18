@@ -79,6 +79,43 @@ importers:
         specifier: ^4.1.6
         version: 4.1.6(@types/node@24.12.4)(vite@8.0.13(@types/node@24.12.4))
 
+  evals/002-agent-uses-octicon-from-primer:
+    dependencies:
+      '@primer/octicons-react':
+        specifier: ^19.25.0
+        version: 19.25.0(react@19.1.0)
+      next:
+        specifier: ^16
+        version: 16.2.6(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      react:
+        specifier: 19.1.0
+        version: 19.1.0
+      react-dom:
+        specifier: 19.1.0
+        version: 19.1.0(react@19.1.0)
+    devDependencies:
+      '@primer/agent-eval':
+        specifier: workspace:*
+        version: link:../../packages/agent-eval
+      '@types/node':
+        specifier: ^24
+        version: 24.12.4
+      '@types/react':
+        specifier: ^19
+        version: 19.2.14
+      '@types/react-dom':
+        specifier: ^19
+        version: 19.2.3(@types/react@19.2.14)
+      rimraf:
+        specifier: ^6.1.3
+        version: 6.1.3
+      typescript:
+        specifier: ^6
+        version: 6.0.3
+      vitest:
+        specifier: ^4.1.6
+        version: 4.1.6(@types/node@24.12.4)(vite@8.0.13(@types/node@24.12.4))
+
   packages/agent-eval:
     dependencies:
       '@primer/agent-evals':
@@ -495,6 +532,12 @@ packages:
   '@pkgr/core@0.2.9':
     resolution: {integrity: sha512-QNqXyfVS2wm9hweSYD2O7F0G06uurj9kZ96TRQE5Y9hU7+tgdZwIkbAKc5Ocy1HxEY2kuDQa6cQ1WRs/O5LFKA==}
     engines: {node: ^12.20.0 || ^14.18.0 || >=16.0.0}
+
+  '@primer/octicons-react@19.25.0':
+    resolution: {integrity: sha512-Cv7l7Mk4ahe6pOJ4A59viOQ22q5QkJ3jtkMyrQ2lpOofcKpVzvVg4CpYiq76Lj0RRlYC4qk1Tp9FpfzQnf4AuQ==}
+    engines: {node: '>=8'}
+    peerDependencies:
+      react: '>=16.3'
 
   '@protobufjs/aspromise@1.1.2':
     resolution: {integrity: sha512-j+gKExEuLmKwvz3OgROXtrJ2UG2x8Ch2YZUxahh+s1F2HZ+wAceUNLkvy6zKCPVRkU++ZWQrdxsUeQXmcg4uoQ==}
@@ -2586,6 +2629,10 @@ snapshots:
   '@oxc-project/types@0.130.0': {}
 
   '@pkgr/core@0.2.9': {}
+
+  '@primer/octicons-react@19.25.0(react@19.1.0)':
+    dependencies:
+      react: 19.1.0
 
   '@protobufjs/aspromise@1.1.2': {}
 

@@ -1,6 +1,6 @@
 type EvalConfig = {
   prompt: string
-  testFiles?: Array<string>
+  testFiles: Array<string>
 }
 
 function defineConfig(config: EvalConfig) {

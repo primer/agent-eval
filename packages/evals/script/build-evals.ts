@@ -61,10 +61,6 @@ export type { EvalId, Eval }
 await fs.writeFile(GENERATED_FILEPATH, contents)
 
 function normalizeTestFiles(testFiles: unknown): Array<string> {
-  if (testFiles === undefined) {
-    return ['eval.test.ts']
-  }
-
   if (
     !Array.isArray(testFiles) ||
     testFiles.length === 0 ||

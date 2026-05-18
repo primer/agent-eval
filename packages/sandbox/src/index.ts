@@ -30,6 +30,11 @@ const AGENTS_DIR = '/home/node/.agents'
 const SKILLS_DIR = '/home/node/.agents/skills'
 
 /**
+ * Path for project agent instructions.
+ */
+const AGENT_INSTRUCTIONS_PATH = path.posix.join(CONTAINER_WORKDIR, 'AGENTS.md')
+
+/**
  * Path for MCP server configuration file.
  */
 const MCP_CONFIG_PATH = path.join(COPILOT_DIR, 'mcp-config.json')
@@ -52,6 +57,7 @@ const NPM_GLOBAL_DIR = '/home/node/.npm-global'
 type RunOptions = {
   env?: Record<string, string>
   user?: string
+  allowNonZeroExitCode?: boolean
 }
 
 type CopyOptions = {
@@ -186,6 +192,15 @@ class Sandbox {
     await upload
   }
 
+  async exists(filepath: string): Promise<boolean> {
+    const result = await execCommand(this.#docker, this.#container, 'test', ['-e', resolveContainerPath(filepath)], {
+      user: NODE_USER,
+      allowNonZeroExitCode: true,
+    })
+
+    return result.exitCode === 0
+  }
+
   async runCommand(command: string, args: Array<string> = [], options?: RunOptions): Promise<CommandResult> {
     return execCommand(this.#docker, this.#container, command, args, {
       env: {
@@ -194,7 +209,26 @@ class Sandbox {
         PATH: `${NPM_GLOBAL_DIR}/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin`,
       },
       user: options?.user ?? NODE_USER,
+      allowNonZeroExitCode: options?.allowNonZeroExitCode,
     })
+  }
+
+  async addAgentInstruction(text: string): Promise<void> {
+    const contents = await this.#findOrCreateFile(AGENT_INSTRUCTIONS_PATH)
+    await this.writeFile(AGENT_INSTRUCTIONS_PATH, appendText(contents, text))
+  }
+
+  async addAgentSkill(name: string, description: string, contents: string): Promise<void> {
+    assertValidSkillName(name)
+
+    const skillDirectory = path.posix.join(SKILLS_DIR, name)
+    const skillPath = path.posix.join(skillDirectory, 'SKILL.md')
+    if (await this.exists(skillPath)) {
+      throw new Error(`Agent skill with name "${name}" already exists`)
+    }
+
+    await this.runCommand('mkdir', ['-p', skillDirectory])
+    await this.writeFile(skillPath, createSkillContents(name, description, contents))
   }
 
   async addMcpServer(name: string, config: McpServerConfig): Promise<void> {
@@ -216,6 +250,15 @@ class Sandbox {
     await this.runCommand('chown', ['-R', NODE_USER, MCP_CONFIG_PATH], {
       user: 'root',
     })
+  }
+
+  async #findOrCreateFile(filepath: string): Promise<string> {
+    if (await this.exists(filepath)) {
+      return this.readFile(filepath)
+    }
+
+    await this.writeFile(filepath, '')
+    return ''
   }
 }
 
@@ -348,6 +391,40 @@ function isExcluded(relativePath: string, excludedPaths: ReadonlySet<string>): b
   return false
 }
 
+function appendText(contents: string, text: string): string {
+  const suffix = ensureTrailingNewline(text)
+  if (contents.length === 0) {
+    return suffix
+  }
+
+  if (contents.endsWith('\n')) {
+    return `${contents}${suffix}`
+  }
+
+  return `${contents}\n${suffix}`
+}
+
+function ensureTrailingNewline(text: string): string {
+  return text.endsWith('\n') ? text : `${text}\n`
+}
+
+function assertValidSkillName(name: string): void {
+  if (/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(name)) {
+    return
+  }
+
+  throw new Error(`Invalid agent skill name "${name}". Skill names must be lowercase and use hyphens for spaces.`)
+}
+
+function createSkillContents(name: string, description: string, contents: string): string {
+  return `---
+name: ${JSON.stringify(name)}
+description: ${JSON.stringify(description)}
+---
+
+${ensureTrailingNewline(contents)}`
+}
+
 async function readFileFromArchive(archive: NodeJS.ReadableStream): Promise<Buffer> {
   const extract = tarStream.extract()
 
@@ -461,7 +538,7 @@ async function execCommand(
           exitCode,
         }
 
-        if (exitCode === 0) {
+        if (exitCode === 0 || options.allowNonZeroExitCode) {
           resolve(result)
           return
         }

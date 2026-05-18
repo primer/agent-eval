@@ -87,6 +87,7 @@ type TreatmentResult = {
   }
   assistant: {
     turns: number
+    outputTokens: number
     premiumRequests: number
     totalApiDurationMs: number
     sessionDurationMs: number
@@ -113,6 +114,284 @@ function randomize<T>(input: Array<T>): Array<T> {
   return randomized
 }
 
+function getSuccessRate(result: TreatmentResult): number {
+  if (result.testResults.numTotalTests === 0) {
+    return 0
+  }
+
+  return result.testResults.numPassedTests / result.testResults.numTotalTests
+}
+
+function compareResults(a: TreatmentResult, b: TreatmentResult): number {
+  return (
+    getSuccessRate(b) - getSuccessRate(a) ||
+    a.assistant.outputTokens - b.assistant.outputTokens ||
+    a.assistant.sessionDurationMs - b.assistant.sessionDurationMs ||
+    a.assistant.premiumRequests - b.assistant.premiumRequests ||
+    a.treatment.experiment.name.localeCompare(b.treatment.experiment.name) ||
+    a.treatment.config.name.localeCompare(b.treatment.config.name) ||
+    a.treatment.model.localeCompare(b.treatment.model) ||
+    a.treatment.eval.id.localeCompare(b.treatment.eval.id)
+  )
+}
+
+type ResultSummary = {
+  experiment: string
+  treatment?: string
+  eval?: string
+  model?: Model
+  runs: number
+  numPassedTests: number
+  numTotalTests: number
+  outputTokens: number
+  premiumRequests: number
+  sessionDurationMs: number
+  totalApiDurationMs: number
+}
+
+type ResultSummaryValues = {
+  treatment?: string
+  eval?: string
+  model?: Model
+}
+
+function createResultSummary(result: TreatmentResult, summaryValues: ResultSummaryValues = {}): ResultSummary {
+  return {
+    experiment: result.treatment.experiment.name,
+    treatment: summaryValues.treatment,
+    eval: summaryValues.eval,
+    model: summaryValues.model,
+    runs: 0,
+    numPassedTests: 0,
+    numTotalTests: 0,
+    outputTokens: 0,
+    premiumRequests: 0,
+    sessionDurationMs: 0,
+    totalApiDurationMs: 0,
+  }
+}
+
+function addResultToSummary(summary: ResultSummary, result: TreatmentResult) {
+  summary.runs += 1
+  summary.numPassedTests += result.testResults.numPassedTests
+  summary.numTotalTests += result.testResults.numTotalTests
+  summary.outputTokens += result.assistant.outputTokens
+  summary.premiumRequests += result.assistant.premiumRequests
+  summary.sessionDurationMs += result.assistant.sessionDurationMs
+  summary.totalApiDurationMs += result.assistant.totalApiDurationMs
+}
+
+function getSummarySuccessRate(summary: ResultSummary): number {
+  if (summary.numTotalTests === 0) {
+    return 0
+  }
+
+  return summary.numPassedTests / summary.numTotalTests
+}
+
+function compareSummaries(a: ResultSummary, b: ResultSummary): number {
+  return (
+    getSummarySuccessRate(b) - getSummarySuccessRate(a) ||
+    a.outputTokens - b.outputTokens ||
+    a.sessionDurationMs - b.sessionDurationMs ||
+    a.premiumRequests - b.premiumRequests ||
+    a.experiment.localeCompare(b.experiment) ||
+    (a.treatment ?? '').localeCompare(b.treatment ?? '') ||
+    (a.eval ?? '').localeCompare(b.eval ?? '') ||
+    (a.model ?? '').localeCompare(b.model ?? '')
+  )
+}
+
+function formatPercent(value: number): string {
+  return `${(value * 100).toFixed(1)}%`
+}
+
+function formatDuration(ms: number): string {
+  const seconds = ms / 1000
+
+  if (seconds < 60) {
+    return `${seconds.toFixed(1)}s`
+  }
+
+  const minutes = Math.floor(seconds / 60)
+  const remainingSeconds = seconds - minutes * 60
+  return `${minutes}m ${remainingSeconds.toFixed(1)}s`
+}
+
+function formatNumber(value: number): string {
+  return new Intl.NumberFormat('en-US').format(value)
+}
+
+type TableRow = Record<string, string | number>
+
+function formatTable(rows: Array<TableRow>, columns: Array<string>): string {
+  const columnWidths = columns.map(column => {
+    let width = column.length
+
+    for (const row of rows) {
+      width = Math.max(width, String(row[column] ?? '').length)
+    }
+
+    return width
+  })
+
+  const formatRow = (row: TableRow) => {
+    return columns
+      .map((column, index) => {
+        return String(row[column] ?? '').padEnd(columnWidths[index])
+      })
+      .join('  ')
+  }
+
+  return [
+    formatRow(Object.fromEntries(columns.map(column => [column, column]))),
+    columnWidths.map(width => '-'.repeat(width)).join('  '),
+    ...rows.map(formatRow),
+  ].join('\n')
+}
+
+function getSummaryKey(result: TreatmentResult, summaryValues: ResultSummaryValues = {}): string {
+  return [
+    result.treatment.experiment.name,
+    summaryValues.treatment ?? '',
+    summaryValues.eval ?? '',
+    summaryValues.model ?? '',
+  ].join('\0')
+}
+
+type ResultHierarchy = Array<{
+  experiment: string
+  treatments: Array<{
+    summary: ResultSummary
+    evals: Array<{
+      summary: ResultSummary
+      models: Array<ResultSummary>
+    }>
+  }>
+}>
+
+function getResultSummaries(results: Array<TreatmentResult>): ResultHierarchy {
+  const experiments = new Set<string>()
+  const treatmentSummaries = new Map<string, ResultSummary>()
+  const evalSummaries = new Map<string, ResultSummary>()
+  const modelSummaries = new Map<string, ResultSummary>()
+
+  for (const result of results) {
+    experiments.add(result.treatment.experiment.name)
+
+    const treatmentValues = {
+      treatment: result.treatment.config.name,
+    }
+    const treatmentKey = getSummaryKey(result, treatmentValues)
+    const treatmentSummary = treatmentSummaries.get(treatmentKey) ?? createResultSummary(result, treatmentValues)
+    addResultToSummary(treatmentSummary, result)
+    treatmentSummaries.set(treatmentKey, treatmentSummary)
+
+    const evalValues = {
+      treatment: result.treatment.config.name,
+      eval: result.treatment.eval.id,
+    }
+    const evalKey = getSummaryKey(result, evalValues)
+    const evalSummary = evalSummaries.get(evalKey) ?? createResultSummary(result, evalValues)
+    addResultToSummary(evalSummary, result)
+    evalSummaries.set(evalKey, evalSummary)
+
+    const modelValues = {
+      treatment: result.treatment.config.name,
+      eval: result.treatment.eval.id,
+      model: result.treatment.model,
+    }
+    const modelKey = getSummaryKey(result, modelValues)
+    const modelSummary = modelSummaries.get(modelKey) ?? createResultSummary(result, modelValues)
+    addResultToSummary(modelSummary, result)
+    modelSummaries.set(modelKey, modelSummary)
+  }
+
+  return [...experiments].toSorted().map(experiment => {
+    return {
+      experiment,
+      treatments: [...treatmentSummaries.values()]
+        .filter(treatmentSummary => {
+          return treatmentSummary.experiment === experiment
+        })
+        .toSorted(compareSummaries)
+        .map(summary => {
+          return {
+            summary,
+            evals: [...evalSummaries.values()]
+              .filter(evalSummary => {
+                return evalSummary.experiment === experiment && evalSummary.treatment === summary.treatment
+              })
+              .toSorted(compareSummaries)
+              .map(evalSummary => {
+                return {
+                  summary: evalSummary,
+                  models: [...modelSummaries.values()]
+                    .filter(modelSummary => {
+                      return (
+                        modelSummary.experiment === experiment &&
+                        modelSummary.treatment === summary.treatment &&
+                        modelSummary.eval === evalSummary.eval
+                      )
+                    })
+                    .toSorted(compareSummaries),
+                }
+              }),
+          }
+        }),
+    }
+  })
+}
+
+function formatResultSummaries(results: Array<TreatmentResult>): string {
+  const columns = [
+    'Experiment',
+    'Treatment',
+    'Eval',
+    'Model',
+    'Success Rate',
+    'Tests',
+    'Runs',
+    'Output Tokens',
+    'Premium Requests',
+    'Session Time',
+    'API Time',
+  ]
+  const rows: Array<TableRow> = []
+
+  for (const {treatments} of getResultSummaries(results)) {
+    for (const {summary, evals} of treatments) {
+      rows.push(formatSummaryRow(summary, 'treatment'))
+
+      for (const {summary: evalSummary, models} of evals) {
+        rows.push(formatSummaryRow(evalSummary, 'eval'))
+
+        for (const model of models) {
+          rows.push(formatSummaryRow(model, 'model'))
+        }
+      }
+    }
+  }
+
+  return formatTable(rows, columns)
+}
+
+function formatSummaryRow(summary: ResultSummary, level: 'treatment' | 'eval' | 'model'): TableRow {
+  return {
+    Experiment: level === 'treatment' ? summary.experiment : '',
+    Treatment: level === 'treatment' ? (summary.treatment ?? '') : '',
+    Eval: level === 'treatment' ? 'All evals' : level === 'eval' ? `  ${summary.eval ?? ''}` : '',
+    Model: level === 'model' ? `    ${summary.model ?? ''}` : 'All models',
+    'Success Rate': formatPercent(getSummarySuccessRate(summary)),
+    Tests: `${summary.numPassedTests}/${summary.numTotalTests}`,
+    Runs: summary.runs,
+    'Output Tokens': formatNumber(summary.outputTokens),
+    'Premium Requests': formatNumber(summary.premiumRequests),
+    'Session Time': formatDuration(summary.sessionDurationMs),
+    'API Time': formatDuration(summary.totalApiDurationMs),
+  }
+}
+
 type RunOptions = {
   maxConcurrency?: number
 }
@@ -120,7 +399,6 @@ type RunOptions = {
 function run(treatments: Array<Treatment>, options?: RunOptions): Promise<Array<TreatmentResult>> {
   const maxConcurrency = options?.maxConcurrency ?? 1
   const queue = treatments.slice()
-  // eslint-disable-next-line @typescript-eslint/no-shadow
   const results: Array<TreatmentResult> = []
   const pending = new Set()
   let cancelled = false
@@ -279,10 +557,15 @@ async function runTreatment(treatment: Treatment): Promise<TreatmentResult> {
   const assistantTurns = new Set()
   // Tools
   const toolCalls = new Map()
+  let outputTokens = 0
 
   for (const message of messages) {
     if (message.type === 'assistant.turn_start') {
       assistantTurns.add(message.data.turnId)
+    }
+
+    if (message.type === 'assistant.message') {
+      outputTokens += message.data.outputTokens
     }
 
     if (message.type === 'tool.execution_start') {
@@ -330,7 +613,7 @@ async function runTreatment(treatment: Treatment): Promise<TreatmentResult> {
     },
     assistant: {
       turns: assistantTurns.size,
-      // Tokens
+      outputTokens,
       premiumRequests: result.usage.premiumRequests,
       // Time to complete (latency)
       totalApiDurationMs: result.usage.totalApiDurationMs,
@@ -385,4 +668,7 @@ for (const config of experimentConfigs) {
   results.push(...runResults)
 }
 
-await fs.writeFile('results.json', JSON.stringify(results, null, 2))
+const sortedResults = results.toSorted(compareResults)
+console.log(formatResultSummaries(sortedResults))
+
+await fs.writeFile('results.json', JSON.stringify(sortedResults, null, 2))

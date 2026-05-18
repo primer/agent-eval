@@ -79,7 +79,7 @@ importers:
         specifier: ^4.1.6
         version: 4.1.6(@types/node@24.12.4)(vite@8.0.13(@types/node@24.12.4))
 
-  evals/002-agent-uses-primer-primitives-tokens:
+  evals/003-agent-uses-primer-primitives-tokens:
     dependencies:
       '@primer/primitives':
         specifier: ^11.9.0

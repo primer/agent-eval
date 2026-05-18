@@ -1,5 +1,5 @@
 {
-  "name": "002-agent-uses-primer-primitives-tokens",
+  "name": "003-agent-uses-primer-primitives-tokens",
   "type": "module",
   "scripts": {
     "clean": "rimraf .next",

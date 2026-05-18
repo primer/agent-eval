@@ -233,7 +233,7 @@ async function runTreatment(treatment: Treatment): Promise<TreatmentResult> {
 
   console.log('Copying files from: %s...', treatment.eval.directory)
   await sandbox.copy(treatment.eval.directory, CONTAINER_WORKDIR, {
-    exclude: ['eval.config.ts', 'eval.test.ts', 'node_modules', '.next'],
+    exclude: ['eval.config.ts', ...treatment.eval.testFiles, 'node_modules', '.next'],
   })
   await sandbox.runCommand('chown', ['-R', NODE_USER, '.'], {
     user: 'root',
@@ -298,12 +298,13 @@ async function runTreatment(treatment: Treatment): Promise<TreatmentResult> {
     return []
   })
 
-  const TEST_PATH = 'eval.test.ts'
-  await sandbox.copy(treatment.eval.testPath, TEST_PATH)
+  for (const [index, testPath] of treatment.eval.testPaths.entries()) {
+    await sandbox.copy(testPath, treatment.eval.testFiles[index])
+  }
   // Always pass vitest calls even if test suite fails
   await sandbox.runCommand(
     'sh',
-    ['-c', 'npx vitest run "$1" --reporter json --outputFile test-results.json || true', 'vitest-run', TEST_PATH],
+    ['-c', 'npx vitest run "$@" --reporter json --outputFile test-results.json || true', 'vitest-run', ...treatment.eval.testFiles],
     {
       user: NODE_USER,
     },

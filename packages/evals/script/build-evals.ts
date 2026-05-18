@@ -21,17 +21,22 @@ const evals = await fs.readdir(EVALS_DIR).then(async filenames => {
     }
 
     const configModule = await import(configPath)
+    const config = configModule.default
+    const testFiles = normalizeTestFiles(config.testFiles)
 
-    const testPath = path.join(directory, 'eval.test.ts')
-    if (!existsSync(testPath)) {
-      throw new Error(`No eval.test.ts found in ${path.basename(directory)}`)
+    const testPaths = testFiles.map(testFile => path.join(directory, testFile))
+    for (const [index, testPath] of testPaths.entries()) {
+      if (!existsSync(testPath)) {
+        throw new Error(`No test file "${testFiles[index]}" found in ${path.basename(directory)}`)
+      }
     }
 
     results.push({
       id: filename,
       directory,
-      config: configModule.default,
-      testPath,
+      config,
+      testFiles,
+      testPaths,
     })
   }
 
@@ -54,3 +59,27 @@ export type { EvalId, Eval }
 `
 
 await fs.writeFile(GENERATED_FILEPATH, contents)
+
+function normalizeTestFiles(testFiles: unknown): Array<string> {
+  if (testFiles === undefined) {
+    return ['eval.test.ts']
+  }
+
+  if (!Array.isArray(testFiles) || testFiles.length === 0 || !testFiles.every(testFile => typeof testFile === 'string')) {
+    throw new Error('Eval config testFiles must be a non-empty array of file paths')
+  }
+
+  const normalizedTestFiles = testFiles.map(testFile => {
+    const normalized = path.posix.normalize(testFile.split(path.sep).join(path.posix.sep))
+    if (normalized === '.' || normalized.startsWith('../') || path.posix.isAbsolute(normalized)) {
+      throw new Error(`Eval config testFiles must stay within the eval directory: "${testFile}"`)
+    }
+    return normalized
+  })
+
+  if (new Set(normalizedTestFiles).size !== normalizedTestFiles.length) {
+    throw new Error('Eval config testFiles must not contain duplicates')
+  }
+
+  return normalizedTestFiles
+}

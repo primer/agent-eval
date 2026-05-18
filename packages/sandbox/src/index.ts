@@ -203,8 +203,8 @@ class Sandbox {
   }
 
   async addAgentInstruction(text: string): Promise<void> {
-    const contents = await this.readOptionalFile(AGENT_INSTRUCTIONS_PATH)
-    await this.writeFile(AGENT_INSTRUCTIONS_PATH, appendText(contents ?? '', text))
+    const contents = await this.findOrCreateFile(AGENT_INSTRUCTIONS_PATH)
+    await this.writeFile(AGENT_INSTRUCTIONS_PATH, appendText(contents, text))
   }
 
   async addAgentSkill(name: string, description: string, contents: string): Promise<void> {
@@ -252,6 +252,16 @@ class Sandbox {
 
       throw error
     }
+  }
+
+  private async findOrCreateFile(filepath: string): Promise<string> {
+    const contents = await this.readOptionalFile(filepath)
+    if (contents !== undefined) {
+      return contents
+    }
+
+    await this.writeFile(filepath, '')
+    return ''
   }
 }
 

@@ -101,46 +101,6 @@ type TreatmentResult = {
   }
 }
 
-const results: Array<TreatmentResult> = []
-
-for (const config of experimentConfigs) {
-  console.log('Running experiment:', config.name)
-
-  const treatments: Array<Treatment> = config.models.flatMap(model => {
-    return config.evals.flatMap(evalId => {
-      return [
-        {
-          config: ControlTreatment,
-          eval: getEval(evalId),
-          experiment: config,
-          id: randomUUID(),
-          model,
-        },
-        ...config.treatments.map(treatment => {
-          return {
-            config: treatment,
-            eval: getEval(evalId),
-            experiment: config,
-            id: randomUUID(),
-            model,
-          }
-        }),
-      ]
-    })
-  })
-
-  // Randomize treatments to mitigate any ordering effects. We want to make sure
-  // that if there are any external factors that could impact the evals (e.g.
-  // rate limits, resource constraints), they are more likely to impact all
-  // evals rather than just the ones at the end.
-  const runResults = await run(randomize(treatments), {
-    maxConcurrency: MAX_CONCURRENCY,
-  })
-  results.push(...runResults)
-}
-
-await fs.writeFile('results.json', JSON.stringify(results, null, 2))
-
 function randomize<T>(input: Array<T>): Array<T> {
   const randomized: Array<T> = input.slice()
 
@@ -386,3 +346,43 @@ async function runTreatment(treatment: Treatment): Promise<TreatmentResult> {
     },
   }
 }
+
+const results: Array<TreatmentResult> = []
+
+for (const config of experimentConfigs) {
+  console.log('Running experiment:', config.name)
+
+  const treatments: Array<Treatment> = config.models.flatMap(model => {
+    return config.evals.flatMap(evalId => {
+      return [
+        {
+          config: ControlTreatment,
+          eval: getEval(evalId),
+          experiment: config,
+          id: randomUUID(),
+          model,
+        },
+        ...config.treatments.map(treatment => {
+          return {
+            config: treatment,
+            eval: getEval(evalId),
+            experiment: config,
+            id: randomUUID(),
+            model,
+          }
+        }),
+      ]
+    })
+  })
+
+  // Randomize treatments to mitigate any ordering effects. We want to make sure
+  // that if there are any external factors that could impact the evals (e.g.
+  // rate limits, resource constraints), they are more likely to impact all
+  // evals rather than just the ones at the end.
+  const runResults = await run(randomize(treatments), {
+    maxConcurrency: MAX_CONCURRENCY,
+  })
+  results.push(...runResults)
+}
+
+await fs.writeFile('results.json', JSON.stringify(results, null, 2))

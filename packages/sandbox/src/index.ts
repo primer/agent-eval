@@ -57,6 +57,7 @@ const NPM_GLOBAL_DIR = '/home/node/.npm-global'
 type RunOptions = {
   env?: Record<string, string>
   user?: string
+  allowNonZeroExitCode?: boolean
 }
 
 type CopyOptions = {
@@ -191,6 +192,15 @@ class Sandbox {
     await upload
   }
 
+  async exists(filepath: string): Promise<boolean> {
+    const result = await execCommand(this.#docker, this.#container, 'test', ['-e', resolveContainerPath(filepath)], {
+      user: NODE_USER,
+      allowNonZeroExitCode: true,
+    })
+
+    return result.exitCode === 0
+  }
+
   async runCommand(command: string, args: Array<string> = [], options?: RunOptions): Promise<CommandResult> {
     return execCommand(this.#docker, this.#container, command, args, {
       env: {
@@ -199,11 +209,12 @@ class Sandbox {
         PATH: `${NPM_GLOBAL_DIR}/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin`,
       },
       user: options?.user ?? NODE_USER,
+      allowNonZeroExitCode: options?.allowNonZeroExitCode,
     })
   }
 
   async addAgentInstruction(text: string): Promise<void> {
-    const contents = await this.findOrCreateFile(AGENT_INSTRUCTIONS_PATH)
+    const contents = await this.#findOrCreateFile(AGENT_INSTRUCTIONS_PATH)
     await this.writeFile(AGENT_INSTRUCTIONS_PATH, appendText(contents, text))
   }
 
@@ -212,8 +223,7 @@ class Sandbox {
 
     const skillDirectory = path.posix.join(SKILLS_DIR, name)
     const skillPath = path.posix.join(skillDirectory, 'SKILL.md')
-    const existingSkill = await this.readOptionalFile(skillPath)
-    if (existingSkill !== undefined) {
+    if (await this.exists(skillPath)) {
       throw new Error(`Agent skill with name "${name}" already exists`)
     }
 
@@ -242,22 +252,9 @@ class Sandbox {
     })
   }
 
-  private async readOptionalFile(filepath: string): Promise<string | undefined> {
-    try {
-      return await this.readFile(filepath)
-    } catch (error) {
-      if (isNotFoundError(error)) {
-        return undefined
-      }
-
-      throw error
-    }
-  }
-
-  private async findOrCreateFile(filepath: string): Promise<string> {
-    const contents = await this.readOptionalFile(filepath)
-    if (contents !== undefined) {
-      return contents
+  async #findOrCreateFile(filepath: string): Promise<string> {
+    if (await this.exists(filepath)) {
+      return this.readFile(filepath)
     }
 
     await this.writeFile(filepath, '')
@@ -428,16 +425,6 @@ description: ${JSON.stringify(description)}
 ${ensureTrailingNewline(contents)}`
 }
 
-function isNotFoundError(error: unknown): boolean {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    (('statusCode' in error && error.statusCode === 404) ||
-      ('status' in error && error.status === 404) ||
-      ('code' in error && error.code === 'ENOENT'))
-  )
-}
-
 async function readFileFromArchive(archive: NodeJS.ReadableStream): Promise<Buffer> {
   const extract = tarStream.extract()
 
@@ -551,7 +538,7 @@ async function execCommand(
           exitCode,
         }
 
-        if (exitCode === 0) {
+        if (exitCode === 0 || options.allowNonZeroExitCode) {
           resolve(result)
           return
         }

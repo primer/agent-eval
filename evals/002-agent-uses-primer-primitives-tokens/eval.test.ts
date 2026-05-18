@@ -8,7 +8,7 @@ const source = files.map(file => file.contents).join('\n')
 
 async function readTextFiles(directory: string): Promise<Array<{path: string; contents: string}>> {
   const entries = await fs.readdir(directory, {withFileTypes: true})
-  const files = await Promise.all(
+  const entriesByPath = await Promise.all(
     entries.map(async entry => {
       const entryPath = path.join(directory, entry.name)
       if (entry.isDirectory()) {
@@ -23,15 +23,17 @@ async function readTextFiles(directory: string): Promise<Array<{path: string; co
     }),
   )
 
-  return files.flat()
+  return entriesByPath.flat()
 }
 
 test('app imports Primer primitives CSS', () => {
-  expect(source).toMatch(/import\s+(?:['"]@primer\/primitives\/dist\/css\/[^'"]+\.css['"]|[^'";]+\s+from\s+['"]@primer\/primitives['"])/)
+  expect(source).toMatch(/(?:import|@import)\s+['"]@primer\/primitives\/dist\/css\/[^'"]+\.css['"]/)
 })
 
 test('app styles the announcement card with Primer CSS variable tokens', () => {
-  const tokens = new Set(source.match(/var\(\s*--(?:bgColor|fgColor|borderColor|borderRadius|borderWidth|space)-[\w-]+\s*\)/g) ?? [])
+  const tokens = new Set(
+    source.match(/var\(\s*--(?:bgColor|fgColor|borderColor|borderRadius|borderWidth|space)-[\w-]+\s*\)/g) ?? [],
+  )
 
   expect(tokens.size).toBeGreaterThanOrEqual(4)
 })

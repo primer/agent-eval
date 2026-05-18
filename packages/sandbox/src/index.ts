@@ -30,6 +30,11 @@ const AGENTS_DIR = '/home/node/.agents'
 const SKILLS_DIR = '/home/node/.agents/skills'
 
 /**
+ * Path for project agent instructions.
+ */
+const AGENT_INSTRUCTIONS_PATH = path.posix.join(CONTAINER_WORKDIR, 'AGENTS.md')
+
+/**
  * Path for MCP server configuration file.
  */
 const MCP_CONFIG_PATH = path.join(COPILOT_DIR, 'mcp-config.json')
@@ -197,6 +202,25 @@ class Sandbox {
     })
   }
 
+  async addAgentInstruction(text: string): Promise<void> {
+    const contents = await this.readOptionalFile(AGENT_INSTRUCTIONS_PATH)
+    await this.writeFile(AGENT_INSTRUCTIONS_PATH, appendText(contents ?? '', text))
+  }
+
+  async addAgentSkill(name: string, description: string, contents: string): Promise<void> {
+    assertValidSkillName(name)
+
+    const skillDirectory = path.posix.join(SKILLS_DIR, name)
+    const skillPath = path.posix.join(skillDirectory, 'SKILL.md')
+    const existingSkill = await this.readOptionalFile(skillPath)
+    if (existingSkill !== undefined) {
+      throw new Error(`Agent skill with name "${name}" already exists`)
+    }
+
+    await this.runCommand('mkdir', ['-p', skillDirectory])
+    await this.writeFile(skillPath, createSkillContents(name, description, contents))
+  }
+
   async addMcpServer(name: string, config: McpServerConfig): Promise<void> {
     const contents = await this.readFile(MCP_CONFIG_PATH)
     const mcpConfig = contents === '' ? DEFAULT_MCP_CONFIG : McpConfigFileSchema.parse(JSON.parse(contents))
@@ -216,6 +240,18 @@ class Sandbox {
     await this.runCommand('chown', ['-R', NODE_USER, MCP_CONFIG_PATH], {
       user: 'root',
     })
+  }
+
+  private async readOptionalFile(filepath: string): Promise<string | undefined> {
+    try {
+      return await this.readFile(filepath)
+    } catch (error) {
+      if (isNotFoundError(error)) {
+        return undefined
+      }
+
+      throw error
+    }
   }
 }
 
@@ -346,6 +382,50 @@ function isExcluded(relativePath: string, excludedPaths: ReadonlySet<string>): b
   }
 
   return false
+}
+
+function appendText(contents: string, text: string): string {
+  const suffix = ensureTrailingNewline(text)
+  if (contents.length === 0) {
+    return suffix
+  }
+
+  if (contents.endsWith('\n')) {
+    return `${contents}${suffix}`
+  }
+
+  return `${contents}\n${suffix}`
+}
+
+function ensureTrailingNewline(text: string): string {
+  return text.endsWith('\n') ? text : `${text}\n`
+}
+
+function assertValidSkillName(name: string): void {
+  if (/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(name)) {
+    return
+  }
+
+  throw new Error(`Invalid agent skill name "${name}". Skill names must be lowercase and use hyphens for spaces.`)
+}
+
+function createSkillContents(name: string, description: string, contents: string): string {
+  return `---
+name: ${JSON.stringify(name)}
+description: ${JSON.stringify(description)}
+---
+
+${ensureTrailingNewline(contents)}`
+}
+
+function isNotFoundError(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    (('statusCode' in error && error.statusCode === 404) ||
+      ('status' in error && error.status === 404) ||
+      ('code' in error && error.code === 'ENOENT'))
+  )
 }
 
 async function readFileFromArchive(archive: NodeJS.ReadableStream): Promise<Buffer> {

@@ -304,7 +304,12 @@ async function runTreatment(treatment: Treatment): Promise<TreatmentResult> {
   // Always pass vitest calls even if test suite fails
   await sandbox.runCommand(
     'sh',
-    ['-c', 'npx vitest run "$@" --reporter json --outputFile test-results.json || true', 'vitest-run', ...treatment.eval.testFiles],
+    [
+      '-c',
+      'npx vitest run "$@" --reporter json --outputFile test-results.json || true',
+      'vitest-run',
+      ...treatment.eval.testFiles,
+    ],
     {
       user: NODE_USER,
     },

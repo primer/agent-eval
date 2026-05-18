@@ -65,7 +65,11 @@ function normalizeTestFiles(testFiles: unknown): Array<string> {
     return ['eval.test.ts']
   }
 
-  if (!Array.isArray(testFiles) || testFiles.length === 0 || !testFiles.every(testFile => typeof testFile === 'string')) {
+  if (
+    !Array.isArray(testFiles) ||
+    testFiles.length === 0 ||
+    !testFiles.every(testFile => typeof testFile === 'string')
+  ) {
     throw new Error('Eval config testFiles must be a non-empty array of file paths')
   }
 

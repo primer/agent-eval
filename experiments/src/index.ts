@@ -1,12 +1,12 @@
+import type {ExperimentConfig} from '@primer/agent-experiment'
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import type {ExperimentConfig, TreatmentConfig} from './config.ts'
 
-const EXPERIMENTS_DIR = path.join(import.meta.dirname, 'experiments')
+const EXPERIMENTS_DIR = import.meta.dirname
 
 const filenames = await fs
   .readdir(EXPERIMENTS_DIR)
-  .then(result => result.filter(filename => path.extname(filename) === '.ts'))
+  .then(result => result.filter(filename => path.extname(filename) === '.ts' && filename !== 'index.ts'))
 const modules: Array<[string, ExperimentConfig]> = await Promise.all(
   filenames.map(async filename => {
     const filepath = path.join(EXPERIMENTS_DIR, filename)
@@ -33,5 +33,3 @@ function find(id: string): ExperimentConfig | undefined {
 }
 
 export {list, get, find}
-export type {ExperimentConfig, TreatmentConfig}
-export type {Model} from './model'

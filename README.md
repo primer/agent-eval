@@ -16,3 +16,42 @@ based on:
 - Correctness: how many of the tests does the agent output pass
 - Cost: how much did the agent spend in API calls
 - Latency: how long did the agent take to complete the evals
+
+## Experiments
+
+Experiments live in [`./experiments/src`](./experiments/src/). Each experiment
+is a new TypeScript file that exports an experiment config:
+
+```ts
+import type {ExperimentConfig} from '@primer/agent-experiment'
+
+export const experiment: ExperimentConfig = {
+  name: 'Example experiment',
+  description: 'Experiment config demonstrating different options',
+  models: ['gpt-5.5', 'claude-opus-4.7', 'claude-sonnet-4.6'],
+  evals: ['001-agent-uses-button-from-primer', '002-agent-uses-octicon-from-primer'],
+  treatments: [
+    {
+      name: 'Treatment one',
+      async setup({sandbox}) {
+        // ...
+      },
+    },
+    {
+      name: 'Treatment two',
+      async setup({sandbox}) {
+        // ...
+      },
+    },
+  ],
+}
+```
+
+The experiment config will specify:
+
+- A name for the experiment
+- A description for the experiment describing more about what it is for
+- Models against which you would like to run the experiment
+- Evaluations (evals) that are used to grade the output of the model
+- Treatments that specify the different conditions you would like to test (for
+  example, testing with an MCP server versus without)

@@ -45,6 +45,40 @@ importers:
         specifier: ^4.1.6
         version: 4.1.6(@types/node@24.12.4)(vite@8.0.13(@types/node@24.12.4))
 
+  evals/000-nextjs-template:
+    dependencies:
+      next:
+        specifier: ^16
+        version: 16.2.6(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      react:
+        specifier: 19.1.0
+        version: 19.1.0
+      react-dom:
+        specifier: 19.1.0
+        version: 19.1.0(react@19.1.0)
+    devDependencies:
+      '@primer/agent-eval':
+        specifier: workspace:*
+        version: link:../../packages/agent-eval
+      '@types/node':
+        specifier: ^24
+        version: 24.12.4
+      '@types/react':
+        specifier: ^19
+        version: 19.2.14
+      '@types/react-dom':
+        specifier: ^19
+        version: 19.2.3(@types/react@19.2.14)
+      rimraf:
+        specifier: ^6.1.3
+        version: 6.1.3
+      typescript:
+        specifier: ^6
+        version: 6.0.3
+      vitest:
+        specifier: ^4.1.6
+        version: 4.1.6(@types/node@24.12.4)(vite@8.0.13(@types/node@24.12.4))
+
   evals/001-agent-uses-button-from-primer:
     dependencies:
       next:
@@ -156,14 +190,30 @@ importers:
         specifier: ^4.1.6
         version: 4.1.6(@types/node@24.12.4)(vite@8.0.13(@types/node@24.12.4))
 
+  experiments:
+    dependencies:
+      '@primer/agent-experiment':
+        specifier: workspace:*
+        version: link:../packages/experiment
+    devDependencies:
+      '@types/node':
+        specifier: ^24.12.4
+        version: 24.12.4
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+
   packages/agent-eval:
     dependencies:
       '@primer/agent-evals':
         specifier: workspace:*
         version: link:../evals
+      '@primer/agent-experiment':
+        specifier: workspace:*
+        version: link:../experiment
       '@primer/agent-experiments':
         specifier: workspace:*
-        version: link:../experiments
+        version: link:../../experiments
       '@primer/agent-sandbox':
         specifier: workspace:*
         version: link:../sandbox
@@ -199,7 +249,7 @@ importers:
         specifier: ^6.0.3
         version: 6.0.3
 
-  packages/experiments:
+  packages/experiment:
     devDependencies:
       '@primer/agent-evals':
         specifier: workspace:*

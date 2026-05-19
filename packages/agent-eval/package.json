@@ -22,6 +22,7 @@
   },
   "dependencies": {
     "@primer/agent-evals": "workspace:*",
+    "@primer/agent-experiment": "workspace:*",
     "@primer/agent-experiments": "workspace:*",
     "@primer/agent-sandbox": "workspace:*",
     "zod": "^4.4.3"

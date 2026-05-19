@@ -9,8 +9,7 @@ export const experiment: ExperimentConfig = {
     {
       name: 'MCP with local instructions',
       async setup({sandbox}) {
-        await sandbox.writeFile(
-          'AGENTS.md',
+        await sandbox.addAgentInstruction(
           `For any UI-related change, React component change, styling change, accessibility change, icon change, or design-system question, use the Primer MCP server before editing.`,
         )
         await sandbox.runCommand('npm', ['install', '-g', '@primer/mcp@latest'])
@@ -25,8 +24,7 @@ export const experiment: ExperimentConfig = {
     {
       name: 'Local instructions',
       async setup({sandbox}) {
-        await sandbox.writeFile(
-          'AGENTS.md',
+        await sandbox.addAgentInstruction(
           `For any UI-related change, React component change, styling change, accessibility change, icon change, or design-system question, refer to the Primer documentation before editing.`,
         )
       },

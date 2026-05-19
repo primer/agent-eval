@@ -1,5 +1,6 @@
 packages:
   - 'evals/*'
+  - 'experiments'
   - 'packages/*'
 allowBuilds:
   cpu-features: true

@@ -24,3 +24,33 @@
 - Example: "feat: Add new authentication method for improved security"
 - Fill out the pull request template for the repo
 - Always run the tasks in ci.yml before committing so that ci is green
+
+## Adding evaluations (evals)
+
+When adding an evaluation, follow these rules:
+
+- Unless explicitly asked for, use `evals/000-nextjs-template` as the base for
+  the evaluation
+- Add evaluations to `./evals` with the next number in the sequence
+- Describe (at a high level) what we are testing for the agent
+- When authoring the prompt for the evaluation, use general language to describe
+  the task. Unless explicitly asked for, do not directly mention Primer or
+  include in the prompt instructions on how to access/use Primer. We are testing
+  tooling that should include Primer into context so things don't need that in
+  the prompt
+
+## Adding experiments
+
+When adding an experiment, follow these rules:
+
+- Check to see if an experiment might already exist for this use-case and share
+  it, when appropriate
+- New experiments are added at `./experiments/src` as a new `*.ts` file
+- Provide an appropriate name for the experiment as its file name
+- Export a `experiment` named export that matches `ExperimentConfig`
+- Provide an appropriate name and description for what we are testing
+- Select appropriate models and evals based on the experiment
+- For treatments, make sure to include the fewest number possible to meet the
+  experiment goals
+- If you are not sure about experiment goals, prompt the user for more
+  information before creating the experiment

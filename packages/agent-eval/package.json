@@ -4,8 +4,7 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./config": "./src/config.ts",
-    "./experiment": "./src/experiment.ts"
+    "./config": "./src/config.ts"
   },
   "scripts": {
     "build": "rolldown -c",
@@ -24,6 +23,7 @@
   "dependencies": {
     "@primer/agent-evals": "workspace:*",
     "@primer/agent-experiment": "workspace:*",
+    "@primer/agent-experiments": "workspace:*",
     "@primer/agent-sandbox": "workspace:*",
     "zod": "^4.4.3"
   },

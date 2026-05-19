@@ -1,0 +1,16 @@
+{
+  "name": "@primer/agent-experiments",
+  "private": true,
+  "type": "module",
+  "exports": "./index.ts",
+  "scripts": {
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@primer/agent-experiment": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.12.4",
+    "typescript": "^6.0.3"
+  }
+}

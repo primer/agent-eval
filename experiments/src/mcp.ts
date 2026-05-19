@@ -1,4 +1,4 @@
-import type {ExperimentConfig} from '../config'
+import type {ExperimentConfig} from '@primer/agent-experiment'
 
 export const experiment: ExperimentConfig = {
   name: 'MCP',

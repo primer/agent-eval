@@ -161,9 +161,9 @@ importers:
       '@primer/agent-evals':
         specifier: workspace:*
         version: link:../evals
-      '@primer/agent-experiments':
+      '@primer/agent-experiment':
         specifier: workspace:*
-        version: link:../experiments
+        version: link:../experiment
       '@primer/agent-sandbox':
         specifier: workspace:*
         version: link:../sandbox
@@ -199,7 +199,7 @@ importers:
         specifier: ^6.0.3
         version: 6.0.3
 
-  packages/experiments:
+  packages/experiment:
     devDependencies:
       '@primer/agent-evals':
         specifier: workspace:*

@@ -46,14 +46,8 @@ jobs:
           EOF
           )
 
-          artifact_name=$(node --input-type=module "$experiment_name" <<'EOF'
-          const experimentName = process.argv[1]
-          console.log(`agent-eval-${experimentName}`.replace(/[^A-Za-z0-9_.-]/g, '-'))
-          EOF
-          )
-
           echo "experiment=$experiment_name" >> "$GITHUB_OUTPUT"
-          echo "artifact-name=$artifact_name" >> "$GITHUB_OUTPUT"
+          echo "artifact-name=agent-eval-$experiment_name" >> "$GITHUB_OUTPUT"
 
       - name: Checkout repository
         if: ${{ steps.parse.outputs.experiment != '' }}

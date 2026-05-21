@@ -54,6 +54,12 @@ const NODE_USER = `${SANDBOX_UID}:${SANDBOX_GID}` as const
  */
 const NPM_GLOBAL_DIR = '/home/node/.npm-global'
 
+const DEFAULT_SANDBOX_IMAGE = 'node:24-slim'
+
+const SANDBOX_IMAGE = process.env.AGENT_EVAL_SANDBOX_IMAGE ?? DEFAULT_SANDBOX_IMAGE
+
+const USE_PREBUILT_SANDBOX_IMAGE = process.env.AGENT_EVAL_SANDBOX_IMAGE_PREBUILT === 'true'
+
 type RunOptions = {
   env?: Record<string, string>
   user?: string
@@ -269,10 +275,10 @@ type InitializedContainer = Docker.Container & {
 }
 
 async function createContainer(docker: Docker): Promise<InitializedContainer> {
-  await pullImage(docker, 'node:24-slim')
+  await pullImage(docker, SANDBOX_IMAGE)
 
   const container = await docker.createContainer({
-    Image: 'node:24-slim',
+    Image: SANDBOX_IMAGE,
     Cmd: ['sleep', 'infinity'],
     WorkingDir: CONTAINER_WORKDIR,
     Tty: true,
@@ -282,6 +288,12 @@ async function createContainer(docker: Docker): Promise<InitializedContainer> {
   })
 
   await container.start()
+
+  if (USE_PREBUILT_SANDBOX_IMAGE) {
+    console.log('Using prebuilt sandbox image: %s', SANDBOX_IMAGE)
+    await verifyPrebuiltContainer(docker, container)
+    return container as InitializedContainer
+  }
 
   console.log('Creating workspace directory...')
   await execCommand(docker, container, 'mkdir', ['-p', CONTAINER_WORKDIR], {
@@ -336,6 +348,21 @@ async function createContainer(docker: Docker): Promise<InitializedContainer> {
   })
 
   return container as InitializedContainer
+}
+
+async function verifyPrebuiltContainer(docker: Docker, container: Docker.Container): Promise<void> {
+  await execCommand(docker, container, 'test', ['-w', CONTAINER_WORKDIR], {
+    user: NODE_USER,
+  })
+  await execCommand(docker, container, 'test', ['-f', MCP_CONFIG_PATH], {
+    user: NODE_USER,
+  })
+  await execCommand(docker, container, 'test', ['-d', AGENTS_DIR], {
+    user: NODE_USER,
+  })
+  await execCommand(docker, container, 'command', ['-v', 'copilot'], {
+    user: NODE_USER,
+  })
 }
 
 function resolveContainerPath(filepath: string): string {

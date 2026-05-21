@@ -1,0 +1,32 @@
+name: sandbox image
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - docker/sandbox/Dockerfile
+      - .github/workflows/sandbox-image.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Build and publish sandbox image
+        env:
+          GHCR_TOKEN: ${{ github.token }}
+          SANDBOX_IMAGE: ghcr.io/${{ github.repository }}/sandbox
+        run: |
+          echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker build --pull -f docker/sandbox/Dockerfile \
+            -t "$SANDBOX_IMAGE:${GITHUB_SHA}" \
+            -t "$SANDBOX_IMAGE:latest" \
+            .
+          docker push "$SANDBOX_IMAGE:${GITHUB_SHA}"
+          docker push "$SANDBOX_IMAGE:latest"

@@ -13,6 +13,7 @@ concurrency:
 
 permissions:
   contents: read
+  packages: read
 
 jobs:
   run:
@@ -31,8 +32,17 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Build project
         run: pnpm run build
+      - name: Prepare sandbox image
+        env:
+          GHCR_TOKEN: ${{ github.token }}
+          SANDBOX_IMAGE: ghcr.io/${{ github.repository }}/sandbox:latest
+        run: |
+          echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker pull "$SANDBOX_IMAGE" || docker build --pull -f docker/sandbox/Dockerfile -t "$SANDBOX_IMAGE" .
       - name: Run experiment
         env:
+          AGENT_EVAL_SANDBOX_IMAGE: ghcr.io/${{ github.repository }}/sandbox:latest
+          AGENT_EVAL_SANDBOX_IMAGE_PREBUILT: 'true'
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
           EXPERIMENT_NAME: ${{ inputs.experiment }}
         run: |

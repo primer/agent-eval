@@ -214,8 +214,8 @@ async function runTreatment(
 
   const artifactDirectory = path.join(artifactsDirectory, treatment.id)
   const workspacePath = path.join(artifactDirectory, 'workspace')
-  const copilotConfigPath = path.join(artifactDirectory, '.copilot')
-  const skillsConfigPath = path.join(artifactDirectory, '.agents')
+  const copilotConfigPath = path.join(artifactDirectory, 'copilot')
+  const skillsConfigPath = path.join(artifactDirectory, 'agents')
   const testResultsPath = path.join(workspacePath, 'test-results.json')
   await fs.mkdir(workspacePath, {recursive: true})
 

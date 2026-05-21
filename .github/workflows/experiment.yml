@@ -1,0 +1,51 @@
+name: experiment
+on:
+  workflow_dispatch:
+    inputs:
+      experiment:
+        description: Experiment name to run
+        required: true
+        type: string
+
+concurrency:
+  group: ${{ github.workflow }}-${{ inputs.experiment }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Set up pnpm
+        uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build project
+        run: pnpm run build
+      - name: Run experiment
+        env:
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          EXPERIMENT_NAME: ${{ inputs.experiment }}
+        run: |
+          set -o pipefail
+          node packages/agent-eval/dist/cli.js \
+            --experiment "$EXPERIMENT_NAME" \
+            --artifacts artifacts
+      - name: Upload experiment results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: experiment
+          path: |
+            results.json
+            artifacts
+          if-no-files-found: ignore

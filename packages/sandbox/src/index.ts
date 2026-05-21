@@ -275,7 +275,11 @@ type InitializedContainer = Docker.Container & {
 }
 
 async function createContainer(docker: Docker): Promise<InitializedContainer> {
-  await pullImage(docker, SANDBOX_IMAGE)
+  if (USE_PREBUILT_SANDBOX_IMAGE && (await imageExists(docker, SANDBOX_IMAGE))) {
+    console.log('Using local sandbox image: %s', SANDBOX_IMAGE)
+  } else {
+    await pullImage(docker, SANDBOX_IMAGE)
+  }
 
   const container = await docker.createContainer({
     Image: SANDBOX_IMAGE,
@@ -350,6 +354,15 @@ async function createContainer(docker: Docker): Promise<InitializedContainer> {
   return container as InitializedContainer
 }
 
+async function imageExists(docker: Docker, name: string): Promise<boolean> {
+  try {
+    await docker.getImage(name).inspect()
+    return true
+  } catch {
+    return false
+  }
+}
+
 async function verifyPrebuiltContainer(docker: Docker, container: Docker.Container): Promise<void> {
   await execCommand(docker, container, 'test', ['-w', CONTAINER_WORKDIR], {
     user: NODE_USER,
@@ -360,7 +373,7 @@ async function verifyPrebuiltContainer(docker: Docker, container: Docker.Contain
   await execCommand(docker, container, 'test', ['-d', AGENTS_DIR], {
     user: NODE_USER,
   })
-  await execCommand(docker, container, 'command', ['-v', 'copilot'], {
+  await execCommand(docker, container, 'sh', ['-c', 'command -v copilot'], {
     user: NODE_USER,
   })
 }

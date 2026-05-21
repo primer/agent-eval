@@ -40,7 +40,6 @@ jobs:
           node packages/agent-eval/dist/cli.js \
             --experiment "$EXPERIMENT_NAME" \
             --artifacts artifacts
-
       - name: Upload experiment results
         if: ${{ always() }}
         uses: actions/upload-artifact@v4.6.2

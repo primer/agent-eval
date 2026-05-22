@@ -153,8 +153,8 @@ importers:
   evals/003-agent-uses-form-from-primer:
     dependencies:
       '@primer/react':
-        specifier: ^38.23.0
-        version: 38.23.0(@types/react-dom@19.2.3(@types/react@19.2.15))(@types/react@19.2.15)(react-dom@19.2.6(react@19.2.6))(react-is@19.2.6)(react@19.2.6)
+        specifier: ^38.24.0
+        version: 38.24.0(@types/react-dom@19.2.3(@types/react@19.2.15))(@types/react@19.2.15)(react-dom@19.2.6(react@19.2.6))(react-is@19.2.6)(react@19.2.6)
       next:
         specifier: ^16
         version: 16.2.6(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
@@ -657,11 +657,17 @@ packages:
     peerDependencies:
       react: '>=16.3'
 
+  '@primer/octicons-react@19.27.0':
+    resolution: {integrity: sha512-9bm6DPfMlRMPnAfbqKhRIk9aaYbEw89DHqE9L0k2Xph0AjR+OxCy59of5X0G0epuplMBGFCnkaNhR2HmeJnNJw==}
+    engines: {node: '>=8'}
+    peerDependencies:
+      react: '>=16.3'
+
   '@primer/primitives@11.9.0':
     resolution: {integrity: sha512-yESOalhd7s7S3unV1V32v3Z0RszXiiz6pzy6hVI9xpdTh1q1Gt8vyDFxRlqIvuwc5ZaO1+gYQTDbjxb4nWBzMw==}
 
-  '@primer/react@38.23.0':
-    resolution: {integrity: sha512-BjhrGi5U3ZfMcFuOvMssx9mn3GePY2rYNBY+xUfQwtf17AuYvtUHZCA5p35Q7gcW2Qu6dnR/uj0tqIkfxGQWPg==}
+  '@primer/react@38.24.0':
+    resolution: {integrity: sha512-n+2sZSNM0UTmLnIuJdsQZLI4rfBN339raqjWaPoWmuT5BrLWMMxGMiunWSPDt46Sl3J0hErOWp98vl4IynyFkg==}
     engines: {node: '>=12', npm: '>=7'}
     peerDependencies:
       '@types/react': 18.x || 19.x
@@ -815,14 +821,14 @@ packages:
   '@swc/helpers@0.5.15':
     resolution: {integrity: sha512-JQ5TuMi45Owi4/BIMAJBoSQoOJu12oOk/gADqlcUL9JEdHB8vyjUSsxqeNXnmXHjYKMi2WcYtezGEEhqUI/E2g==}
 
-  '@tanstack/react-virtual@3.13.24':
-    resolution: {integrity: sha512-aIJvz5OSkhNIhZIpYivrxrPTKYsjW9Uzy+sP/mx0S3sev2HyvPb7xmjbYvokzEpfgYHy/HjzJ2zFAETuUfgCpg==}
+  '@tanstack/react-virtual@3.13.25':
+    resolution: {integrity: sha512-bmNoqMu6gcAW9JGrKVB0Q1tN1i5RONZF8r1fW0bbE4Oyf3DwEGnzzQJ2OW+Ozg1P4s8PyugkHg2ULZoFQN+cqw==}
     peerDependencies:
       react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
       react-dom: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
-  '@tanstack/virtual-core@3.14.0':
-    resolution: {integrity: sha512-JLANqGy/D6k4Ujmh8Tr25lGimuOXNiaVyXaCAZS0W+1390sADdGnyUdSWNIfd49gebtIxGMij4IktRVzrdr12Q==}
+  '@tanstack/virtual-core@3.15.0':
+    resolution: {integrity: sha512-0AwPGx0I8QxPYjAxShT/+z+ZOe9u8mW5rsXvivCTjRfRmz9a43+3mRyi4wwlyoUqOC56q/jatKa0Bh9M99BEHQ==}
 
   '@turbo/darwin-64@2.9.14':
     resolution: {integrity: sha512-t7QiPflaEyBE4oayeZtSmu4mEfjgIrcNlNNl1z1dmIVPqEdtA7+CfTf8d7KXsOGPh6aNgWjKxyvQg9uGfDQF+A==}
@@ -2845,9 +2851,13 @@ snapshots:
     dependencies:
       react: 19.2.6
 
+  '@primer/octicons-react@19.27.0(react@19.2.6)':
+    dependencies:
+      react: 19.2.6
+
   '@primer/primitives@11.9.0': {}
 
-  '@primer/react@38.23.0(@types/react-dom@19.2.3(@types/react@19.2.15))(@types/react@19.2.15)(react-dom@19.2.6(react@19.2.6))(react-is@19.2.6)(react@19.2.6)':
+  '@primer/react@38.24.0(@types/react-dom@19.2.3(@types/react@19.2.15))(@types/react@19.2.15)(react-dom@19.2.6(react@19.2.6))(react-is@19.2.6)(react@19.2.6)':
     dependencies:
       '@github/mini-throttle': 2.1.1
       '@github/relative-time-element': 5.0.0
@@ -2856,9 +2866,9 @@ snapshots:
       '@oddbird/popover-polyfill': 0.5.2
       '@primer/behaviors': 1.10.2
       '@primer/live-region-element': 0.7.2
-      '@primer/octicons-react': 19.25.0(react@19.2.6)
+      '@primer/octicons-react': 19.27.0(react@19.2.6)
       '@primer/primitives': 11.9.0
-      '@tanstack/react-virtual': 3.13.24(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      '@tanstack/react-virtual': 3.13.25(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       clsx: 2.1.1
       color2k: 2.0.3
       deepmerge: 4.3.1
@@ -2958,13 +2968,13 @@ snapshots:
     dependencies:
       tslib: 2.8.1
 
-  '@tanstack/react-virtual@3.13.24(react-dom@19.2.6(react@19.2.6))(react@19.2.6)':
+  '@tanstack/react-virtual@3.13.25(react-dom@19.2.6(react@19.2.6))(react@19.2.6)':
     dependencies:
-      '@tanstack/virtual-core': 3.14.0
+      '@tanstack/virtual-core': 3.15.0
       react: 19.2.6
       react-dom: 19.2.6(react@19.2.6)
 
-  '@tanstack/virtual-core@3.14.0': {}
+  '@tanstack/virtual-core@3.15.0': {}
 
   '@turbo/darwin-64@2.9.14':
     optional: true

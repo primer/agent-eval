@@ -15,6 +15,8 @@ type TreatmentResult = {
   artifacts: {
     copilotConfigPath: string
     directory: string
+    stderrLogPath: string
+    stdoutLogPath: string
     skillsConfigPath: string
     testResultsPath: string
     workspacePath: string

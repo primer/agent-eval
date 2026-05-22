@@ -58,6 +58,11 @@ type RunOptions = {
   env?: Record<string, string>
   user?: string
   allowNonZeroExitCode?: boolean
+  onOutput?: (event: CommandOutputEvent) => void
+}
+
+type CreateOptions = {
+  onOutput?: (event: CommandOutputEvent) => void
 }
 
 type CopyOptions = {
@@ -73,18 +78,20 @@ const DEFAULT_MCP_CONFIG: McpConfigFile = {
 }
 
 class Sandbox {
-  static async create() {
+  static async create(options: CreateOptions = {}) {
     const docker = new Docker()
-    const container = await createContainer(docker)
-    return new Sandbox(docker, container)
+    const container = await createContainer(docker, options)
+    return new Sandbox(docker, container, options)
   }
 
   #docker: Docker
   #container: Docker.Container
+  #onOutput?: (event: CommandOutputEvent) => void
 
-  constructor(docker: Docker, container: InitializedContainer) {
+  constructor(docker: Docker, container: InitializedContainer, options: CreateOptions = {}) {
     this.#docker = docker
     this.#container = container
+    this.#onOutput = options.onOutput
   }
 
   async [Symbol.asyncDispose]() {
@@ -210,6 +217,7 @@ class Sandbox {
       },
       user: options?.user ?? NODE_USER,
       allowNonZeroExitCode: options?.allowNonZeroExitCode,
+      onOutput: options?.onOutput ?? this.#onOutput,
     })
   }
 
@@ -268,7 +276,7 @@ type InitializedContainer = Docker.Container & {
   readonly [INITIALIZED_CONTAINER]?: true
 }
 
-async function createContainer(docker: Docker): Promise<InitializedContainer> {
+async function createContainer(docker: Docker, options: CreateOptions = {}): Promise<InitializedContainer> {
   await pullImage(docker, 'node:24-slim')
 
   const container = await docker.createContainer({
@@ -286,53 +294,67 @@ async function createContainer(docker: Docker): Promise<InitializedContainer> {
   console.log('Creating workspace directory...')
   await execCommand(docker, container, 'mkdir', ['-p', CONTAINER_WORKDIR], {
     user: 'root',
+    onOutput: options.onOutput,
   })
   await execCommand(docker, container, 'chown', ['-R', NODE_USER, CONTAINER_WORKDIR], {
     user: 'root',
+    onOutput: options.onOutput,
   })
 
   console.log('Installing CA certificates...')
   await execCommand(docker, container, 'apt-get', ['update'], {
     user: 'root',
+    onOutput: options.onOutput,
   })
   await execCommand(docker, container, 'apt-get', ['install', '-y', '--no-install-recommends', 'ca-certificates'], {
     user: 'root',
+    onOutput: options.onOutput,
   })
   await execCommand(docker, container, 'test', ['-d', '/etc/ssl/certs'], {
     user: 'root',
+    onOutput: options.onOutput,
   })
 
   console.log('Setting up npm for non-root global installs')
   await execCommand(docker, container, 'mkdir', ['-p', NPM_GLOBAL_DIR], {
     user: 'root',
+    onOutput: options.onOutput,
   })
   await execCommand(docker, container, 'chown', ['-R', NODE_USER, NPM_GLOBAL_DIR], {
     user: 'root',
+    onOutput: options.onOutput,
   })
   await execCommand(docker, container, 'npm', ['config', 'set', 'prefix', NPM_GLOBAL_DIR], {
     user: NODE_USER,
+    onOutput: options.onOutput,
   })
 
   console.log('Setting up copilot...')
   await execCommand(docker, container, 'mkdir', ['-p', COPILOT_DIR], {
     user: 'root',
+    onOutput: options.onOutput,
   })
   await execCommand(docker, container, 'chown', ['-R', NODE_USER, COPILOT_DIR], {
     user: 'root',
+    onOutput: options.onOutput,
   })
   await execCommand(docker, container, 'npm', ['install', '-g', '@github/copilot'], {
     user: NODE_USER,
+    onOutput: options.onOutput,
   })
   await execCommand(docker, container, 'touch', [path.join(COPILOT_DIR, 'mcp-config.json')], {
     user: NODE_USER,
+    onOutput: options.onOutput,
   })
 
   console.log('Setting up agents config...')
   await execCommand(docker, container, 'mkdir', ['-p', AGENTS_DIR], {
     user: 'root',
+    onOutput: options.onOutput,
   })
   await execCommand(docker, container, 'chown', ['-R', NODE_USER, AGENTS_DIR], {
     user: 'root',
+    onOutput: options.onOutput,
   })
 
   return container as InitializedContainer
@@ -487,6 +509,12 @@ type CommandResult = {
   exitCode: number
 }
 
+type CommandOutputEvent = {
+  command: ReadonlyArray<string>
+  stream: 'stdout' | 'stderr'
+  chunk: string
+}
+
 class CommandError extends Error {
   command: ReadonlyArray<string>
   result: CommandResult
@@ -507,7 +535,7 @@ async function execCommand(
   options: RunOptions,
 ): Promise<CommandResult> {
   const cmd = [command, ...args]
-  const env = options.env ? Object.entries(options.env).map(([key, value]) => `${key}=${value}`) : undefined
+    const env = options.env ? Object.entries(options.env).map(([key, value]) => `${key}=${value}`) : undefined
   const exec = await container.exec({
     Cmd: cmd,
     AttachStdout: true,
@@ -523,8 +551,20 @@ async function execCommand(
   })
 
   return new Promise((resolve, reject) => {
-    const stdout = captureStream(process.stdout)
-    const stderr = captureStream(process.stderr)
+    const stdout = captureStream(chunk => {
+      options.onOutput?.({
+        command: cmd,
+        stream: 'stdout',
+        chunk,
+      })
+    })
+    const stderr = captureStream(chunk => {
+      options.onOutput?.({
+        command: cmd,
+        stream: 'stderr',
+        chunk,
+      })
+    })
 
     docker.modem.demuxStream(stream, stdout.stream, stderr.stream)
 
@@ -552,13 +592,13 @@ async function execCommand(
   })
 }
 
-function captureStream(destination: NodeJS.WritableStream): {stream: Writable; read(): string} {
+function captureStream(onChunk: (chunk: string) => void): {stream: Writable; read(): string} {
   const chunks: Array<Buffer> = []
   const stream = new Writable({
     write(chunk: Buffer | string, encoding, callback) {
       const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk, encoding)
       chunks.push(buffer)
-      destination.write(buffer)
+      onChunk(buffer.toString('utf8'))
       callback()
     },
   })

@@ -32,6 +32,10 @@ const {values} = parseArgs({
       short: 'e',
       description: 'The file name of the experiment to run',
     },
+    'show-output': {
+      type: 'boolean',
+      description: 'Show stdout and stderr from experiment runs, prefixed with experiment context',
+    },
   },
 })
 
@@ -41,6 +45,7 @@ const MAX_CONCURRENCY =
   Number.isFinite(parsedConcurrency) && Number.isInteger(parsedConcurrency) && parsedConcurrency >= 1
     ? parsedConcurrency
     : 1
+const SHOW_OUTPUT = values['show-output'] ?? false
 const experimentConfigs: Array<ExperimentConfig> = []
 
 if (!existsSync(ARTIFACTS_DIR)) {
@@ -179,6 +184,29 @@ function formatDuration(ms: number): string {
 
 function formatNumber(value: number): string {
   return new Intl.NumberFormat('en-US').format(value)
+}
+
+function getTreatmentPrefix(treatment: Treatment): string {
+  return [
+    treatment.experiment.name,
+    treatment.config.name,
+    treatment.eval.id,
+    treatment.model,
+  ].join(' | ')
+}
+
+function writePrefixedOutput(prefix: string, chunk: string) {
+  const lines = chunk.split('\n')
+  const output = lines
+    .map((line, index) => {
+      if (line === '' && index === lines.length - 1) {
+        return ''
+      }
+      return `${prefix}${line}`
+    })
+    .join('\n')
+
+  process.stdout.write(output)
 }
 
 type TableRow = Record<string, string | number>
@@ -387,6 +415,28 @@ for (const config of experimentConfigs) {
     artifactsDirectory: ARTIFACTS_DIR,
     copilotToken: COPILOT_GITHUB_TOKEN,
     maxConcurrency: MAX_CONCURRENCY,
+    onEvent(event) {
+      if (event.type === 'progress') {
+        console.log(
+          `Progress: ${event.completed}/${event.total} completed, ${event.running} running, ${event.remaining} left`,
+        )
+        return
+      }
+
+      if (event.type === 'log') {
+        const prefix = event.treatment ? `[${getTreatmentPrefix(event.treatment)}]` : `[${config.name}]`
+        if (event.level === 'error') {
+          console.error(`${prefix} ${event.message}`)
+        } else if (SHOW_OUTPUT) {
+          console.log(`${prefix} ${event.message}`)
+        }
+        return
+      }
+
+      if (SHOW_OUTPUT) {
+        writePrefixedOutput(`[${getTreatmentPrefix(event.treatment)} | ${event.stream}] `, event.chunk)
+      }
+    },
   })
   results.push(...runResults)
 }

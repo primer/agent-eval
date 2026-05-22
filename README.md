@@ -55,3 +55,10 @@ The experiment config will specify:
 - Evaluations (evals) that are used to grade the output of the model
 - Treatments that specify the different conditions you would like to test (for
   example, testing with an MCP server versus without)
+
+## Run output
+
+Experiment runs show progress as treatments start and finish. Command stdout and
+stderr from each treatment are saved under that treatment's artifact directory as
+`stdout.log` and `stderr.log`. Pass `--show-output` to also mirror run output to
+stdout with the experiment, treatment, eval, model, and stream as a prefix.

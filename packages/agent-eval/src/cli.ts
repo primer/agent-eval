@@ -187,12 +187,7 @@ function formatNumber(value: number): string {
 }
 
 function getTreatmentPrefix(treatment: Treatment): string {
-  return [
-    treatment.experiment.name,
-    treatment.config.name,
-    treatment.eval.id,
-    treatment.model,
-  ].join(' | ')
+  return [treatment.experiment.name, treatment.config.name, treatment.eval.id, treatment.model].join(' | ')
 }
 
 function writePrefixedOutput(prefix: string, chunk: string) {

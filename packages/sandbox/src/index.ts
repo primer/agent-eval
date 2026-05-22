@@ -291,7 +291,6 @@ async function createContainer(docker: Docker, options: CreateOptions = {}): Pro
 
   await container.start()
 
-  console.log('Creating workspace directory...')
   await execCommand(docker, container, 'mkdir', ['-p', CONTAINER_WORKDIR], {
     user: 'root',
     onOutput: options.onOutput,
@@ -301,7 +300,6 @@ async function createContainer(docker: Docker, options: CreateOptions = {}): Pro
     onOutput: options.onOutput,
   })
 
-  console.log('Installing CA certificates...')
   await execCommand(docker, container, 'apt-get', ['update'], {
     user: 'root',
     onOutput: options.onOutput,
@@ -315,7 +313,6 @@ async function createContainer(docker: Docker, options: CreateOptions = {}): Pro
     onOutput: options.onOutput,
   })
 
-  console.log('Setting up npm for non-root global installs')
   await execCommand(docker, container, 'mkdir', ['-p', NPM_GLOBAL_DIR], {
     user: 'root',
     onOutput: options.onOutput,
@@ -329,7 +326,6 @@ async function createContainer(docker: Docker, options: CreateOptions = {}): Pro
     onOutput: options.onOutput,
   })
 
-  console.log('Setting up copilot...')
   await execCommand(docker, container, 'mkdir', ['-p', COPILOT_DIR], {
     user: 'root',
     onOutput: options.onOutput,
@@ -347,7 +343,6 @@ async function createContainer(docker: Docker, options: CreateOptions = {}): Pro
     onOutput: options.onOutput,
   })
 
-  console.log('Setting up agents config...')
   await execCommand(docker, container, 'mkdir', ['-p', AGENTS_DIR], {
     user: 'root',
     onOutput: options.onOutput,
@@ -535,7 +530,7 @@ async function execCommand(
   options: RunOptions,
 ): Promise<CommandResult> {
   const cmd = [command, ...args]
-    const env = options.env ? Object.entries(options.env).map(([key, value]) => `${key}=${value}`) : undefined
+  const env = options.env ? Object.entries(options.env).map(([key, value]) => `${key}=${value}`) : undefined
   const exec = await container.exec({
     Cmd: cmd,
     AttachStdout: true,

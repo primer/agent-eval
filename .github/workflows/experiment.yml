@@ -6,6 +6,11 @@ on:
         description: Experiment name to run
         required: true
         type: string
+      concurrency:
+        description: Number of treatments to run in parallel
+        required: false
+        default: '1'
+        type: string
 
 concurrency:
   group: ${{ github.workflow }}-${{ inputs.experiment }}
@@ -34,10 +39,12 @@ jobs:
       - name: Run experiment
         env:
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          CONCURRENCY: ${{ inputs.concurrency }}
           EXPERIMENT_NAME: ${{ inputs.experiment }}
         run: |
           set -o pipefail
           node packages/agent-eval/dist/cli.js \
+            --concurrency "$CONCURRENCY" \
             --experiment "$EXPERIMENT_NAME" \
             --artifacts artifacts
       - name: Upload experiment results

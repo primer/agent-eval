@@ -30,6 +30,7 @@ export const experiment: ExperimentConfig = {
     '001-agent-uses-button-from-primer',
     '002-agent-uses-octicon-from-primer',
     '004-agent-uses-form-validation-from-primer',
+    '005-agent-uses-design-tokens-from-primer',
   ],
   treatments: [
     {

@@ -26,7 +26,11 @@ export const experiment: ExperimentConfig = {
   name: 'Skill with Primer CLI',
   description: 'Compare performance of existing MCP tooling to a skill with the Primer CLI',
   models: ['gpt-5.5', 'claude-opus-4.7', 'claude-sonnet-4.6'],
-  evals: ['001-agent-uses-button-from-primer', '002-agent-uses-octicon-from-primer'],
+  evals: [
+    '001-agent-uses-button-from-primer',
+    '002-agent-uses-octicon-from-primer',
+    '004-agent-uses-form-validation-from-primer',
+  ],
   treatments: [
     {
       name: 'MCP with local instructions',

@@ -25,7 +25,7 @@ const ToolTelemetrySchema = z.object({
 const ServerSchema = z.object({
   name: z.string(),
   status: z.string(),
-  source: z.string(),
+  source: z.optional(z.string()),
 })
 
 const SkillSchema = z.object({
@@ -109,7 +109,7 @@ const AssistantMessageStartMessageSchema = z.object({
   ...EphemeralEventFieldsSchema,
   data: z.object({
     messageId: z.string(),
-    phase: z.string(),
+    phase: z.optional(z.string()),
   }),
 })
 
@@ -145,6 +145,15 @@ const AssistantReasoningMessageSchema = z.object({
   data: z.object({
     reasoningId: z.string(),
     content: z.string(),
+  }),
+})
+
+const AssistantReasoningDeltaMessageSchema = z.object({
+  type: z.literal('assistant.reasoning_delta'),
+  ...EphemeralEventFieldsSchema,
+  data: z.object({
+    reasoningId: z.string(),
+    deltaContent: z.string(),
   }),
 })
 
@@ -233,6 +242,7 @@ const MessageSchema = z.discriminatedUnion('type', [
   AssistantMessageDeltaMessageSchema,
   AssistantMessageSchema,
   AssistantReasoningMessageSchema,
+  AssistantReasoningDeltaMessageSchema,
   ToolExecutionStartMessageSchema,
   ToolExecutionCompleteMessageSchema,
   AssistantTurnEndMessageSchema,

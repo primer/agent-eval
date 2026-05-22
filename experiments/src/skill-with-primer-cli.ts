@@ -31,6 +31,7 @@ export const experiment: ExperimentConfig = {
     '002-agent-uses-octicon-from-primer',
     '004-agent-uses-form-validation-from-primer',
     '005-agent-uses-design-tokens-from-primer',
+    '006-agent-uses-search-toolbar-from-primer',
   ],
   treatments: [
     {

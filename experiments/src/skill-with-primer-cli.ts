@@ -32,6 +32,7 @@ export const experiment: ExperimentConfig = {
     '004-agent-uses-form-validation-from-primer',
     '005-agent-uses-design-tokens-from-primer',
     '006-agent-uses-search-toolbar-from-primer',
+    '007-agent-uses-status-icons-from-primer',
   ],
   treatments: [
     {

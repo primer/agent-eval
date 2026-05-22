@@ -29,10 +29,8 @@ export const experiment: ExperimentConfig = {
   evals: [
     '001-agent-uses-button-from-primer',
     '002-agent-uses-octicon-from-primer',
-    '004-agent-uses-form-validation-from-primer',
-    '005-agent-uses-design-tokens-from-primer',
-    '006-agent-uses-search-toolbar-from-primer',
-    '007-agent-uses-status-icons-from-primer',
+    '003-agent-uses-form-from-primer',
+    '004-agent-uses-design-tokens-from-primer',
   ],
   treatments: [
     {

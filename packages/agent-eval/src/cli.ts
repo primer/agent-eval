@@ -10,6 +10,7 @@ import type {Treatment, TreatmentResult} from './treatment'
 import {run} from './run'
 
 const COPILOT_GITHUB_TOKEN = process.env.COPILOT_GITHUB_TOKEN
+const GITHUB_STEP_SUMMARY = process.env.GITHUB_STEP_SUMMARY
 
 if (!COPILOT_GITHUB_TOKEN) {
   throw new Error('COPILOT_GITHUB_TOKEN environment variable is required to run the experiments')
@@ -335,6 +336,14 @@ function formatResultSummaries(results: Array<TreatmentResult>): string {
   return formatTable(rows, columns)
 }
 
+async function appendResultsToJobSummary(resultSummaries: string) {
+  if (!GITHUB_STEP_SUMMARY) {
+    return
+  }
+
+  await fs.appendFile(GITHUB_STEP_SUMMARY, `## Experiment results\n\n\`\`\`\n${resultSummaries}\n\`\`\`\n`)
+}
+
 function formatSummaryRow(summary: ResultSummary, level: 'treatment' | 'eval' | 'model'): TableRow {
   return {
     Experiment: level === 'treatment' ? summary.experiment : '',
@@ -392,6 +401,8 @@ for (const config of experimentConfigs) {
 }
 
 const sortedResults = results.toSorted(compareResults)
-console.log(formatResultSummaries(sortedResults))
+const resultSummaries = formatResultSummaries(sortedResults)
+console.log(resultSummaries)
+await appendResultsToJobSummary(resultSummaries)
 
 await fs.writeFile('results.json', JSON.stringify(sortedResults, null, 2))

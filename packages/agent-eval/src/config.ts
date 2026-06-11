@@ -1,6 +1,4 @@
-type EvalConfig = {
-  prompt: string
-}
+import type {EvalConfig} from '@primer/agent-experiment'
 
 function defineConfig(config: EvalConfig) {
   return config

@@ -1,0 +1,56 @@
+import fs from 'node:fs/promises'
+import os from 'node:os'
+import path from 'node:path'
+import {describe, expect, test} from 'vitest'
+import {findExperiment, listExperiments, loadExperimentConfigs} from './experiments.ts'
+
+async function createExperimentsDirectory() {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-eval-experiments-'))
+  await fs.writeFile(
+    path.join(directory, 'example.mjs'),
+    `export const experiment = {
+      name: 'Example',
+      description: 'Example experiment',
+      models: ['gpt-5.5'],
+      evals: ['001-agent-uses-button-from-primer'],
+      treatments: []
+    }`,
+  )
+  await fs.writeFile(
+    path.join(directory, 'default-export.mjs'),
+    `export default {
+      name: 'Default export',
+      description: 'Default export experiment',
+      models: ['gpt-5.5'],
+      evals: ['001-agent-uses-button-from-primer'],
+      treatments: []
+    }`,
+  )
+  await fs.writeFile(path.join(directory, 'index.ts'), 'throw new Error("index should be ignored")')
+  return directory
+}
+
+describe('local experiment loading', () => {
+  test('lists experiments from a local directory', async () => {
+    const directory = await createExperimentsDirectory()
+
+    await expect(listExperiments({experimentsDirectory: directory})).resolves.toEqual([
+      ['default-export', expect.objectContaining({name: 'Default export'})],
+      ['example', expect.objectContaining({name: 'Example'})],
+    ])
+  })
+
+  test('finds a named experiment from a local directory', async () => {
+    const directory = await createExperimentsDirectory()
+
+    await expect(findExperiment('example', {experimentsDirectory: directory})).resolves.toEqual(
+      expect.objectContaining({name: 'Example'}),
+    )
+  })
+
+  test('loads all experiments when no experiment is specified', async () => {
+    const directory = await createExperimentsDirectory()
+
+    await expect(loadExperimentConfigs({experimentsDirectory: directory})).resolves.toHaveLength(2)
+  })
+})

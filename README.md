@@ -47,6 +47,27 @@ export const experiment: ExperimentConfig = {
 }
 ```
 
+When authoring experiments outside of this repository, import the helper from
+`@primer/agent-eval/config` to keep the experiment config typed:
+
+```ts
+import {defineExperimentConfig} from '@primer/agent-eval/config'
+
+export const experiment = defineExperimentConfig({
+  name: 'Example experiment',
+  description: 'Experiment config demonstrating different options',
+  models: ['gpt-5.5'],
+  evals: ['001-agent-uses-button-from-primer'],
+  treatments: [],
+})
+```
+
+Run local experiments with the `agent-eval` CLI:
+
+```sh
+COPILOT_GITHUB_TOKEN=... agent-eval --experiments ./experiments --experiment example
+```
+
 The experiment config will specify:
 
 - A name for the experiment

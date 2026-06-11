@@ -12,7 +12,9 @@ on:
         default: '1'
         type: string
       docker-image:
-        description: Docker container image to use for running treatments
+        description: >-
+          Docker container image to use for running treatments.
+          Must be a Debian-based Node image with apt-get and a node user (e.g. node:24-slim).
         required: false
         default: 'node:24-slim'
         type: string
@@ -45,7 +47,7 @@ jobs:
         env:
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
           CONCURRENCY: ${{ inputs.concurrency }}
-          DOCKER_IMAGE: ${{ inputs.docker-image }}
+          DOCKER_IMAGE: ${{ inputs.docker-image || 'node:24-slim' }}
           EXPERIMENT_NAME: ${{ inputs.experiment }}
         run: |
           set -o pipefail

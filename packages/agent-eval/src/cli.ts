@@ -35,13 +35,14 @@ const {values} = parseArgs({
     },
     'docker-image': {
       type: 'string',
-      description: 'The Docker container image to use for running treatments',
+      description:
+        'The Docker container image to use for running treatments (must be a Debian-based Node image with apt-get and a node user, e.g. node:24-slim)',
     },
   },
 })
 
 const ARTIFACTS_DIR = path.resolve(values.artifacts ?? 'artifacts')
-const DOCKER_IMAGE = values['docker-image']
+const DOCKER_IMAGE = values['docker-image']?.trim() || undefined
 const parsedConcurrency = values.concurrency ? parseInt(values.concurrency, 10) : 1
 const MAX_CONCURRENCY =
   Number.isFinite(parsedConcurrency) && Number.isInteger(parsedConcurrency) && parsedConcurrency >= 1

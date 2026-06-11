@@ -79,7 +79,8 @@ const DEFAULT_MCP_CONFIG: McpConfigFile = {
 class Sandbox {
   static async create(options: SandboxCreateOptions = {}) {
     const docker = new Docker()
-    const container = await createContainer(docker, options.dockerImage ?? DEFAULT_DOCKER_IMAGE)
+    const dockerImage = options.dockerImage?.trim() || DEFAULT_DOCKER_IMAGE
+    const container = await createContainer(docker, dockerImage)
     return new Sandbox(docker, container)
   }
 

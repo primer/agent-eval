@@ -1,4 +1,4 @@
-import type {EvalConfig, ExperimentConfig, ExperimentEvalConfig, InlineEvalConfig, TreatmentConfig} from './config.ts'
+import type {EvalConfig, ExperimentConfig, ExperimentEvalConfig, InlineEvalConfig, TreatmentConfig} from './config'
 
 const ControlTreatment: TreatmentConfig = {
   name: 'Control',

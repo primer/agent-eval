@@ -68,14 +68,18 @@ type DownloadOptions = {
   ignore?: (name: string) => boolean
 }
 
+type SandboxCreateOptions = {
+  dockerImage?: string
+}
+
 const DEFAULT_MCP_CONFIG: McpConfigFile = {
   mcpServers: {},
 }
 
 class Sandbox {
-  static async create() {
+  static async create(options: SandboxCreateOptions = {}) {
     const docker = new Docker()
-    const container = await createContainer(docker)
+    const container = await createContainer(docker, options.dockerImage ?? DEFAULT_DOCKER_IMAGE)
     return new Sandbox(docker, container)
   }
 
@@ -264,15 +268,17 @@ class Sandbox {
 
 const INITIALIZED_CONTAINER: unique symbol = Symbol('InitializedContainer')
 
+const DEFAULT_DOCKER_IMAGE = 'node:24-slim'
+
 type InitializedContainer = Docker.Container & {
   readonly [INITIALIZED_CONTAINER]?: true
 }
 
-async function createContainer(docker: Docker): Promise<InitializedContainer> {
-  await pullImage(docker, 'node:24-slim')
+async function createContainer(docker: Docker, dockerImage: string): Promise<InitializedContainer> {
+  await pullImage(docker, dockerImage)
 
   const container = await docker.createContainer({
-    Image: 'node:24-slim',
+    Image: dockerImage,
     Cmd: ['sleep', 'infinity'],
     WorkingDir: CONTAINER_WORKDIR,
     Tty: true,

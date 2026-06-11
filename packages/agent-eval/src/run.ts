@@ -98,9 +98,12 @@ async function runTreatment(
   {artifactsDirectory, copilotToken}: RunTreatmentOptions,
 ): Promise<TreatmentResult> {
   console.log('Running treatment: %s (%s)', treatment.config.name, treatment.id)
-  await using sandbox = await Sandbox.create({
-    mounts: treatment.config.mounts,
-  })
+  await using sandbox = await Sandbox.create()
+  for (const mount of treatment.config.mounts ?? []) {
+    await sandbox.mount(mount.source, mount.destination, {
+      readonly: mount.readonly,
+    })
+  }
 
   console.log('Copying files from: %s...', treatment.eval.directory)
   await sandbox.copy(treatment.eval.directory, CONTAINER_WORKDIR, {

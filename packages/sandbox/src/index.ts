@@ -74,8 +74,8 @@ type SandboxMount = {
   readonly?: boolean
 }
 
-type SandboxOptions = {
-  mounts?: Array<SandboxMount>
+type SandboxMountOptions = {
+  readonly?: boolean
 }
 
 const DEFAULT_MCP_CONFIG: McpConfigFile = {
@@ -83,25 +83,48 @@ const DEFAULT_MCP_CONFIG: McpConfigFile = {
 }
 
 class Sandbox {
-  static async create(options: SandboxOptions = {}) {
+  static async create() {
     const docker = new Docker()
-    const container = await createContainer(docker, options)
-    return new Sandbox(docker, container)
+    return new Sandbox(docker)
   }
 
   #docker: Docker
-  #container: Docker.Container
+  #container?: Promise<InitializedContainer>
+  #mounts: Array<SandboxMount> = []
 
-  constructor(docker: Docker, container: InitializedContainer) {
+  constructor(docker: Docker) {
     this.#docker = docker
-    this.#container = container
   }
 
   async [Symbol.asyncDispose]() {
-    await this.#container.stop()
+    if (!this.#container) {
+      return
+    }
+
+    const container = await this.#container
+    await container.stop()
+  }
+
+  async mount(sourcePath: string, destinationPath: string, options: SandboxMountOptions = {}): Promise<void> {
+    if (this.#container) {
+      throw new Error(`Cannot mount "${sourcePath}" after the sandbox container has started`)
+    }
+
+    const source = path.resolve(sourcePath)
+    const stats = await fs.stat(source)
+    if (!stats.isDirectory()) {
+      throw new Error(`Cannot mount "${sourcePath}" because it is not a directory`)
+    }
+
+    this.#mounts.push({
+      source,
+      destination: resolveContainerPath(destinationPath),
+      readonly: options.readonly,
+    })
   }
 
   async copy(sourcePath: string, destinationPath: string, options: CopyOptions = {}): Promise<void> {
+    const container = await this.#getContainer()
     const source = path.resolve(sourcePath)
     const sourceStats = await fs.stat(source)
     if (!sourceStats.isDirectory() && !sourceStats.isFile()) {
@@ -115,7 +138,7 @@ class Sandbox {
       throw new Error(`Cannot copy "${sourcePath}" to "${destinationPath}" because the destination must include a name`)
     }
 
-    await execCommand(this.#docker, this.#container, 'mkdir', ['-p', containerDirectory], {
+    await execCommand(this.#docker, container, 'mkdir', ['-p', containerDirectory], {
       user: NODE_USER,
     })
 
@@ -134,17 +157,18 @@ class Sandbox {
       },
     })
 
-    await this.#container.putArchive(archive, {
+    await container.putArchive(archive, {
       path: containerDirectory,
     })
   }
 
   async download(containerFilePath: string, hostDestinationPath: string, options: DownloadOptions = {}): Promise<void> {
+    const container = await this.#getContainer()
     await fs.mkdir(hostDestinationPath, {
       recursive: true,
     })
 
-    const archive = await this.#container.getArchive({
+    const archive = await container.getArchive({
       path: containerFilePath,
     })
     const sourceName = path.posix.basename(containerFilePath)
@@ -171,7 +195,8 @@ class Sandbox {
   }
 
   async readFile(filepath: string): Promise<string> {
-    const archive = await this.#container.getArchive({
+    const container = await this.#getContainer()
+    const archive = await container.getArchive({
       path: resolveContainerPath(filepath),
     })
     const buffer = await readFileFromArchive(archive)
@@ -179,11 +204,12 @@ class Sandbox {
   }
 
   async writeFile(filepath: string, contents: string): Promise<void> {
+    const container = await this.#getContainer()
     const containerPath = resolveContainerPath(filepath)
     const directory = path.dirname(containerPath)
     const name = path.basename(containerPath)
     const pack = tarStream.pack()
-    const upload = this.#container.putArchive(pack, {
+    const upload = container.putArchive(pack, {
       path: directory,
     })
 
@@ -203,7 +229,8 @@ class Sandbox {
   }
 
   async exists(filepath: string): Promise<boolean> {
-    const result = await execCommand(this.#docker, this.#container, 'test', ['-e', resolveContainerPath(filepath)], {
+    const container = await this.#getContainer()
+    const result = await execCommand(this.#docker, container, 'test', ['-e', resolveContainerPath(filepath)], {
       user: NODE_USER,
       allowNonZeroExitCode: true,
     })
@@ -212,7 +239,8 @@ class Sandbox {
   }
 
   async runCommand(command: string, args: Array<string> = [], options?: RunOptions): Promise<CommandResult> {
-    return execCommand(this.#docker, this.#container, command, args, {
+    const container = await this.#getContainer()
+    return execCommand(this.#docker, container, command, args, {
       env: {
         HOME: options?.user === 'root' ? '/root' : '/home/node',
         ...options?.env,
@@ -262,6 +290,11 @@ class Sandbox {
     })
   }
 
+  #getContainer(): Promise<InitializedContainer> {
+    this.#container ??= createContainer(this.#docker, this.#mounts)
+    return this.#container
+  }
+
   async #findOrCreateFile(filepath: string): Promise<string> {
     if (await this.exists(filepath)) {
       return this.readFile(filepath)
@@ -278,9 +311,9 @@ type InitializedContainer = Docker.Container & {
   readonly [INITIALIZED_CONTAINER]?: true
 }
 
-async function createContainer(docker: Docker, options: SandboxOptions): Promise<InitializedContainer> {
+async function createContainer(docker: Docker, mounts: Array<SandboxMount>): Promise<InitializedContainer> {
   await pullImage(docker, 'node:24-slim')
-  const binds = await createBindMounts(options.mounts ?? [])
+  const binds = createBindMounts(mounts)
 
   const container = await docker.createContainer({
     Image: 'node:24-slim',
@@ -350,18 +383,11 @@ async function createContainer(docker: Docker, options: SandboxOptions): Promise
   return container as InitializedContainer
 }
 
-async function createBindMounts(mounts: Array<SandboxMount>): Promise<Array<string>> {
+function createBindMounts(mounts: Array<SandboxMount>): Array<string> {
   const binds: Array<string> = []
 
   for (const mount of mounts) {
-    const source = path.resolve(mount.source)
-    const stats = await fs.stat(source)
-    if (!stats.isDirectory()) {
-      throw new Error(`Cannot mount "${mount.source}" because it is not a directory`)
-    }
-
-    const destination = resolveContainerPath(mount.destination)
-    binds.push(`${source}:${destination}${mount.readonly ? ':ro' : ''}`)
+    binds.push(`${mount.source}:${mount.destination}${mount.readonly ? ':ro' : ''}`)
   }
 
   return binds
@@ -601,4 +627,4 @@ function captureStream(destination: NodeJS.WritableStream): {stream: Writable; r
 }
 
 export {CONTAINER_WORKDIR, COPILOT_DIR, SKILLS_DIR, AGENTS_DIR, NODE_USER, Sandbox}
-export type {SandboxMount, SandboxOptions}
+export type {SandboxMount, SandboxMountOptions}

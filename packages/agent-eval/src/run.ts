@@ -9,6 +9,7 @@ import {parseTestResults} from './vitest'
 type RunOptions = {
   artifactsDirectory: string
   copilotToken: string
+  dockerImage?: string
   maxConcurrency?: number
 }
 
@@ -52,6 +53,7 @@ function run(treatments: Array<Treatment>, options: RunOptions): Promise<Array<T
         runTreatment(treatment, {
           artifactsDirectory: options.artifactsDirectory,
           copilotToken: options.copilotToken,
+          dockerImage: options.dockerImage,
         }),
       3,
     ).then(
@@ -91,14 +93,15 @@ async function retry<T>(fn: () => Promise<T>, retries: number): Promise<T> {
 type RunTreatmentOptions = {
   artifactsDirectory: string
   copilotToken: string
+  dockerImage?: string
 }
 
 async function runTreatment(
   treatment: Treatment,
-  {artifactsDirectory, copilotToken}: RunTreatmentOptions,
+  {artifactsDirectory, copilotToken, dockerImage}: RunTreatmentOptions,
 ): Promise<TreatmentResult> {
   console.log('Running treatment: %s (%s)', treatment.config.name, treatment.id)
-  await using sandbox = await Sandbox.create()
+  await using sandbox = await Sandbox.create({dockerImage})
 
   console.log('Copying files from: %s...', treatment.eval.directory)
   await sandbox.copy(treatment.eval.directory, CONTAINER_WORKDIR, {

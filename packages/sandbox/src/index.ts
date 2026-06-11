@@ -68,14 +68,24 @@ type DownloadOptions = {
   ignore?: (name: string) => boolean
 }
 
+type SandboxMount = {
+  source: string
+  destination: string
+  readonly?: boolean
+}
+
+type SandboxOptions = {
+  mounts?: Array<SandboxMount>
+}
+
 const DEFAULT_MCP_CONFIG: McpConfigFile = {
   mcpServers: {},
 }
 
 class Sandbox {
-  static async create() {
+  static async create(options: SandboxOptions = {}) {
     const docker = new Docker()
-    const container = await createContainer(docker)
+    const container = await createContainer(docker, options)
     return new Sandbox(docker, container)
   }
 
@@ -268,8 +278,9 @@ type InitializedContainer = Docker.Container & {
   readonly [INITIALIZED_CONTAINER]?: true
 }
 
-async function createContainer(docker: Docker): Promise<InitializedContainer> {
+async function createContainer(docker: Docker, options: SandboxOptions): Promise<InitializedContainer> {
   await pullImage(docker, 'node:24-slim')
+  const binds = await createBindMounts(options.mounts ?? [])
 
   const container = await docker.createContainer({
     Image: 'node:24-slim',
@@ -278,6 +289,7 @@ async function createContainer(docker: Docker): Promise<InitializedContainer> {
     Tty: true,
     HostConfig: {
       AutoRemove: true,
+      Binds: binds,
     },
   })
 
@@ -336,6 +348,23 @@ async function createContainer(docker: Docker): Promise<InitializedContainer> {
   })
 
   return container as InitializedContainer
+}
+
+async function createBindMounts(mounts: Array<SandboxMount>): Promise<Array<string>> {
+  const binds: Array<string> = []
+
+  for (const mount of mounts) {
+    const source = path.resolve(mount.source)
+    const stats = await fs.stat(source)
+    if (!stats.isDirectory()) {
+      throw new Error(`Cannot mount "${mount.source}" because it is not a directory`)
+    }
+
+    const destination = resolveContainerPath(mount.destination)
+    binds.push(`${source}:${destination}${mount.readonly ? ':ro' : ''}`)
+  }
+
+  return binds
 }
 
 function resolveContainerPath(filepath: string): string {
@@ -572,3 +601,4 @@ function captureStream(destination: NodeJS.WritableStream): {stream: Writable; r
 }
 
 export {CONTAINER_WORKDIR, COPILOT_DIR, SKILLS_DIR, AGENTS_DIR, NODE_USER, Sandbox}
+export type {SandboxMount, SandboxOptions}

@@ -55,3 +55,19 @@ The experiment config will specify:
 - Evaluations (evals) that are used to grade the output of the model
 - Treatments that specify the different conditions you would like to test (for
   example, testing with an MCP server versus without)
+
+Treatments can mount local directories into the sandbox container before setup
+runs:
+
+```ts
+{
+  name: 'Treatment with local packages',
+  mounts: [
+    {
+      source: '../primer',
+      destination: '/home/sandbox/primer',
+      readonly: true,
+    },
+  ],
+}
+```

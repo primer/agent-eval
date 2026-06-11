@@ -1,5 +1,5 @@
 import type {EvalId} from '@primer/agent-evals'
-import type {Sandbox} from '@primer/agent-sandbox'
+import type {Sandbox, SandboxMount} from '@primer/agent-sandbox'
 import type {Model} from './model'
 
 type ExperimentConfig = {
@@ -12,6 +12,7 @@ type ExperimentConfig = {
 
 type TreatmentConfig = {
   name: string
+  mounts?: Array<SandboxMount>
   setup?: ({sandbox}: {sandbox: Sandbox}) => Promise<void>
 }
 

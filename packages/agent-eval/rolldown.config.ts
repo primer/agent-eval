@@ -1,3 +1,4 @@
+import type {RolldownOptions} from 'rolldown'
 import {defineConfig} from 'rolldown/config'
 import packageJson from './package.json' with {type: 'json '}
 
@@ -6,11 +7,13 @@ const external = dependencies.map(name => {
   return new RegExp(`^${name}(/.*)?`)
 })
 
-export default defineConfig({
+const config: RolldownOptions = {
   input: 'src/cli.ts',
   platform: 'node',
   external,
   output: {
     dir: 'dist',
   },
-})
+}
+
+export default defineConfig(config)

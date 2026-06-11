@@ -126,10 +126,19 @@ async function runTreatment(
     user: NODE_USER,
   })
 
-  console.log('Running treatment setup...')
-  await treatment.config.setup?.({
-    sandbox,
-  })
+  if (treatment.experiment.setup) {
+    console.log('Running experiment setup...')
+    await treatment.experiment.setup({
+      sandbox,
+    })
+  }
+
+  if (treatment.config.setup) {
+    console.log('Running treatment setup...')
+    await treatment.config.setup({
+      sandbox,
+    })
+  }
 
   console.log('Run build script...')
   await sandbox.runCommand('npm', ['run', 'build', '--if-present'], {

@@ -116,7 +116,7 @@ importers:
   evals/002-agent-uses-octicon-from-primer:
     dependencies:
       '@primer/octicons-react':
-        specifier: ^19.27.0
+        specifier: ^19.28.1
         version: 19.28.1(react@19.2.7)
       next:
         specifier: ^16

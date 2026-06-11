@@ -11,9 +11,9 @@
   "dependencies": {
     "@primer/react": "^38.25.0",
     "next": "^16",
-    "react": "19.2.6",
-    "react-dom": "19.2.6",
-    "react-is": "19.2.6"
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "react-is": "19.2.7"
   },
   "devDependencies": {
     "@primer/agent-eval": "workspace:*",
@@ -22,6 +22,6 @@
     "@types/react-dom": "^19",
     "rimraf": "^6.1.3",
     "typescript": "^6",
-    "vitest": "^4.1.7"
+    "vitest": "^4.1.8"
   }
 }

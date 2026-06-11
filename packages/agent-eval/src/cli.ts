@@ -63,7 +63,7 @@ if (values.experiment) {
     console.log(
       (
         await listExperiments({
-        experimentsDirectory: values.experiments,
+          experimentsDirectory: values.experiments,
         })
       )
         .map(([name]) => name)

@@ -6,17 +6,17 @@
     "agent-eval": "./dist/cli.js"
   },
   "exports": {
-    ".": {
-      "types": "./dist/config.d.ts",
-      "import": "./dist/config.js"
-    },
     "./config": {
       "types": "./dist/config.d.ts",
-      "import": "./dist/config.js"
+      "default": "./src/config.ts"
     }
   },
+  "engines": {
+    "node": ">=24"
+  },
   "files": [
-    "dist"
+    "dist",
+    "src/config.ts"
   ],
   "scripts": {
     "build": "rimraf dist && rolldown -c && tsc -p tsconfig.build.json",
@@ -33,6 +33,9 @@
     "url": "https://github.com/primer/agent-eval/issues"
   },
   "dependencies": {
+    "dockerode": "^5.0.0",
+    "tar-fs": "^3.1.2",
+    "tar-stream": "^3.2.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {

@@ -205,6 +205,19 @@ importers:
 
   packages/agent-eval:
     dependencies:
+      dockerode:
+        specifier: ^5.0.0
+        version: 5.0.0
+      tar-fs:
+        specifier: ^3.1.2
+        version: 3.1.2
+      tar-stream:
+        specifier: ^3.2.0
+        version: 3.2.0
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
+    devDependencies:
       '@primer/agent-evals':
         specifier: workspace:*
         version: link:../evals
@@ -217,10 +230,6 @@ importers:
       '@primer/agent-sandbox':
         specifier: workspace:*
         version: link:../sandbox
-      zod:
-        specifier: ^4.4.3
-        version: 4.4.3
-    devDependencies:
       '@types/node':
         specifier: ^24.12.4
         version: 24.12.4
@@ -4961,11 +4970,6 @@ snapshots:
   tinybench@2.9.0: {}
 
   tinyexec@1.2.4: {}
-
-  tinyglobby@0.2.17:
-    dependencies:
-      fdir: 6.5.0(picomatch@4.0.4)
-      picomatch: 4.0.4
 
   tinyglobby@0.2.17:
     dependencies:

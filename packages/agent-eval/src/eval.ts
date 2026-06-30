@@ -59,10 +59,8 @@ async function resolveExperimentEval(
   const directory = path.resolve(cwd, evalConfig.path)
   await assertDirectory(directory, evalConfig.name)
 
-  const config =
-    evalConfig.config ??
-    (await loadEvalConfig(path.resolve(directory, evalConfig.configPath ?? 'eval.config.ts'), evalConfig.name))
-  const testPath = path.resolve(directory, evalConfig.testPath ?? 'eval.test.ts')
+  const config = await loadEvalConfig(path.resolve(directory, 'eval.config.ts'), evalConfig.name)
+  const testPath = path.resolve(directory, 'eval.test.ts')
   await assertFile(testPath, evalConfig.name)
 
   return {

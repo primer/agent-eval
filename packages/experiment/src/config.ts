@@ -9,9 +9,6 @@ type EvalConfig = {
 type InlineEvalConfig = {
   name: string
   path: string
-  config?: EvalConfig
-  configPath?: string
-  testPath?: string
 }
 
 type ExperimentEvalConfig = EvalId | InlineEvalConfig

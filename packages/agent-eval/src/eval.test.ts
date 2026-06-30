@@ -46,6 +46,8 @@ describe(resolveExperimentEval, () => {
     const cwd = await createTemporaryDirectory()
     const directory = path.join(cwd, 'evals', 'local-eval')
     await fs.mkdir(directory, {recursive: true})
+    await fs.writeFile(path.join(directory, 'eval.config.mjs'), `export default {prompt: 'Use ignored config'}`)
+    await fs.writeFile(path.join(directory, 'eval.config.ts'), `export default {prompt: 'Update the local project'}`)
     await fs.writeFile(path.join(directory, 'eval.test.ts'), '')
 
     await expect(
@@ -53,9 +55,6 @@ describe(resolveExperimentEval, () => {
         {
           name: 'local-eval',
           path: 'evals/local-eval',
-          config: {
-            prompt: 'Update the local project',
-          },
         },
         {
           builtInEvalResolver() {
@@ -74,21 +73,18 @@ describe(resolveExperimentEval, () => {
     })
   })
 
-  test('loads custom config and test paths relative to the inline eval directory', async () => {
+  test('requires inline evals to use the default eval file structure', async () => {
     const cwd = await createTemporaryDirectory()
-    const directory = path.join(cwd, 'fixtures', 'custom-eval')
-    const testsDirectory = path.join(directory, 'tests')
-    await fs.mkdir(testsDirectory, {recursive: true})
-    await fs.writeFile(path.join(directory, 'config.mjs'), `export default {prompt: 'Use custom config'}`)
-    await fs.writeFile(path.join(testsDirectory, 'eval.test.ts'), '')
+    const directory = path.join(cwd, 'fixtures', 'local-eval')
+    await fs.mkdir(directory, {recursive: true})
+    await fs.writeFile(path.join(directory, 'eval.config.ts'), `export default {prompt: 'Use default config'}`)
+    await fs.writeFile(path.join(directory, 'custom.test.ts'), '')
 
     await expect(
       resolveExperimentEval(
         {
-          name: 'custom-eval',
-          path: 'fixtures/custom-eval',
-          configPath: 'config.mjs',
-          testPath: 'tests/eval.test.ts',
+          name: 'local-eval',
+          path: 'fixtures/local-eval',
         },
         {
           builtInEvalResolver() {
@@ -97,13 +93,6 @@ describe(resolveExperimentEval, () => {
           cwd,
         },
       ),
-    ).resolves.toEqual({
-      id: 'custom-eval',
-      directory,
-      config: {
-        prompt: 'Use custom config',
-      },
-      testPath: path.join(testsDirectory, 'eval.test.ts'),
-    })
+    ).rejects.toThrow(`Eval "local-eval" test file was not found: ${path.join(directory, 'eval.test.ts')}`)
   })
 })

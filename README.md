@@ -57,8 +57,8 @@ The experiment config will specify:
   example, testing with an MCP server versus without)
 
 Evals can also be defined inline in an experiment. Inline eval paths resolve
-from the directory where the CLI is run, and custom `configPath` and `testPath`
-values resolve from the eval directory:
+from the directory where the CLI is run, and use the same `eval.config.ts` and
+`eval.test.ts` files as repository evals:
 
 ```ts
 export const experiment: ExperimentConfig = {
@@ -69,10 +69,6 @@ export const experiment: ExperimentConfig = {
     {
       name: 'local-button-eval',
       path: './evals/button',
-      config: {
-        prompt: 'Update the local project to use a Primer button',
-      },
-      testPath: 'button.eval.test.ts',
     },
   ],
   treatments: [],

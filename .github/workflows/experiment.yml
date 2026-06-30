@@ -55,6 +55,7 @@ jobs:
             --concurrency "$CONCURRENCY" \
             --docker-image "$DOCKER_IMAGE" \
             --experiment "$EXPERIMENT_NAME" \
+            --experiments experiments/src \
             --artifacts artifacts
       - name: Upload experiment results
         if: ${{ always() }}

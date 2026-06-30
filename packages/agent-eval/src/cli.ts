@@ -1,12 +1,13 @@
+#!/usr/bin/env node
 import {randomUUID} from 'node:crypto'
 import {existsSync} from 'node:fs'
 import path from 'node:path'
 import fs from 'node:fs/promises'
 import {parseArgs} from 'node:util'
 import {get as getEval} from '@primer/agent-evals'
-import {list, find} from '@primer/agent-experiments'
 import {ControlTreatment, type ExperimentConfig, type Model} from '@primer/agent-experiment'
 import type {Treatment, TreatmentResult} from './treatment'
+import {listExperiments, loadExperimentConfigs} from './experiments.ts'
 import {resolveExperimentEval} from './eval'
 import {run} from './run'
 
@@ -34,6 +35,10 @@ const {values} = parseArgs({
       short: 'e',
       description: 'The file name of the experiment to run',
     },
+    experiments: {
+      type: 'string',
+      description: 'The directory containing local experiment files',
+    },
     'docker-image': {
       type: 'string',
       description:
@@ -49,24 +54,33 @@ const MAX_CONCURRENCY =
   Number.isFinite(parsedConcurrency) && Number.isInteger(parsedConcurrency) && parsedConcurrency >= 1
     ? parsedConcurrency
     : 1
-const experimentConfigs: Array<ExperimentConfig> = []
+let experimentConfigs: Array<ExperimentConfig> = []
 
 if (!existsSync(ARTIFACTS_DIR)) {
   await fs.mkdir(ARTIFACTS_DIR, {recursive: true})
 }
 
 if (values.experiment) {
-  const experiment = find(values.experiment)
-  if (experiment) {
-    experimentConfigs.push(experiment)
-  } else {
+  experimentConfigs = await loadExperimentConfigs({
+    experiment: values.experiment,
+    experimentsDirectory: values.experiments,
+  })
+  if (experimentConfigs.length === 0) {
     console.log('Experiments:')
     console.log(
-      list()
+      (
+        await listExperiments({
+          experimentsDirectory: values.experiments,
+        })
+      )
         .map(([name]) => name)
         .join('\n'),
     )
   }
+} else {
+  experimentConfigs = await loadExperimentConfigs({
+    experimentsDirectory: values.experiments,
+  })
 }
 
 function randomize<T>(input: Array<T>): Array<T> {

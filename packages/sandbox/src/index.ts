@@ -579,3 +579,4 @@ function captureStream(destination: NodeJS.WritableStream): {stream: Writable; r
 }
 
 export {CONTAINER_WORKDIR, COPILOT_DIR, SKILLS_DIR, AGENTS_DIR, NODE_USER, Sandbox}
+export type {McpServerConfig} from './mcp-config.ts'

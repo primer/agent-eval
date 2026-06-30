@@ -51,9 +51,9 @@ When authoring experiments outside of this repository, import the helper from
 `@primer/agent-eval/config` to keep the experiment config typed:
 
 ```ts
-import {defineExperimentConfig} from '@primer/agent-eval/config'
+import {createExperiment} from '@primer/agent-eval/config'
 
-export const experiment = defineExperimentConfig({
+export const experiment = createExperiment({
   name: 'Example experiment',
   description: 'Experiment config demonstrating different options',
   models: ['gpt-5.5'],

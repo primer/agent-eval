@@ -1,4 +1,5 @@
 import {defineConfig} from 'rolldown/config'
+import {dts} from 'rolldown-plugin-dts'
 import packageJson from './package.json' with {type: 'json'}
 
 const bundledDependencies = new Set([
@@ -20,9 +21,11 @@ export default defineConfig({
   input: {
     cli: 'src/cli.ts',
     config: 'src/config.ts',
+    index: 'src/index.ts',
   },
   platform: 'node',
   external,
+  plugins: [dts({eager: true, sourcemap: true})],
   output: {
     dir: 'dist',
     entryFileNames: '[name].js',

@@ -1,9 +1,12 @@
-packages:
-  - 'evals/*'
-  - 'experiments'
-  - 'packages/*'
 allowBuilds:
   cpu-features: true
   protobufjs: true
   sharp: true
   ssh2: true
+
+minimumReleaseAge: 10080
+
+packages:
+  - 'evals/*'
+  - 'experiments'
+  - 'packages/*'

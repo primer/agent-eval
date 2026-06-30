@@ -12,7 +12,7 @@
   "devDependencies": {
     "@primer/agent-evals": "workspace:*",
     "@primer/agent-sandbox": "workspace:*",
-    "@types/node": "^26.0.1",
+    "@types/node": "^26.0.0",
     "typescript": "^6.0.3"
   }
 }

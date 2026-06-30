@@ -1,15 +1,11 @@
-# To get started with Dependabot version updates, you'll need to specify which
-# package ecosystems to update and where the package manifests are located.
-# Please see the documentation for all configuration options:
-# https://help.github.com/github/administering-a-repository/configuration-options-for-dependency-updates
-
 version: 2
 updates:
   - package-ecosystem: 'npm'
     directory: '/'
     schedule:
       interval: 'weekly'
-    versioning-strategy: increase
+    cooldown:
+      default-days: 7
     labels:
       - 'dependencies'
     groups:
@@ -30,11 +26,11 @@ updates:
           - '@types/react'
           - '@types/react-dom'
           - '@types/react-is'
-      rollup:
+      rolldown:
         patterns:
-          - '@rollup/*'
-          - 'rollup'
-          - 'rollup-plugin-*'
+          - '@rolldown/*'
+          - 'rolldown'
+          - 'rolldown-plugin-*'
       storybook:
         patterns:
           - '@storybook/*'
@@ -48,5 +44,7 @@ updates:
     directory: '/'
     schedule:
       interval: 'weekly'
+    cooldown:
+      default-days: 7
     labels:
       - 'dependencies'

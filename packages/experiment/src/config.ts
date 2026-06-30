@@ -2,11 +2,22 @@ import type {EvalId} from '@primer/agent-evals'
 import type {Sandbox} from '@primer/agent-sandbox'
 import type {Model} from './model'
 
+type EvalConfig = {
+  prompt: string
+}
+
+type InlineEvalConfig = {
+  name?: string
+  path: string
+}
+
+type ExperimentEvalConfig = EvalId | InlineEvalConfig
+
 type ExperimentConfig = {
   name: string
   description: string
   models: Array<Model>
-  evals: Array<EvalId>
+  evals: Array<ExperimentEvalConfig>
   setup?: Setup
   treatments: Array<TreatmentConfig>
 }
@@ -18,4 +29,4 @@ type TreatmentConfig = {
 
 type Setup = ({sandbox}: {sandbox: Sandbox}) => Promise<void>
 
-export type {ExperimentConfig, TreatmentConfig}
+export type {EvalConfig, ExperimentConfig, ExperimentEvalConfig, InlineEvalConfig, TreatmentConfig}

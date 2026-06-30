@@ -55,3 +55,21 @@ The experiment config will specify:
 - Evaluations (evals) that are used to grade the output of the model
 - Treatments that specify the different conditions you would like to test (for
   example, testing with an MCP server versus without)
+
+Evals can also be defined inline in an experiment. Inline eval paths resolve
+from the directory where the CLI is run, and use the same `eval.config.ts` and
+`eval.test.ts` files as repository evals:
+
+```ts
+export const experiment: ExperimentConfig = {
+  name: 'Local project experiment',
+  description: 'Run an eval from the current project',
+  models: ['gpt-5.5'],
+  evals: [
+    {
+      path: './evals/local-button-eval',
+    },
+  ],
+  treatments: [],
+}
+```

@@ -7,6 +7,7 @@ import {get as getEval} from '@primer/agent-evals'
 import {list, find} from '@primer/agent-experiments'
 import {ControlTreatment, type ExperimentConfig, type Model} from '@primer/agent-experiment'
 import type {Treatment, TreatmentResult} from './treatment'
+import {resolveExperimentEval} from './eval'
 import {run} from './run'
 
 const COPILOT_GITHUB_TOKEN = process.env.COPILOT_GITHUB_TOKEN
@@ -371,12 +372,20 @@ const results: Array<TreatmentResult> = []
 for (const config of experimentConfigs) {
   console.log('Running experiment:', config.name)
 
+  const evals = await Promise.all(
+    config.evals.map(evalConfig => {
+      return resolveExperimentEval(evalConfig, {
+        builtInEvalResolver: getEval,
+      })
+    }),
+  )
+
   const treatments: Array<Treatment> = config.models.flatMap(model => {
-    return config.evals.flatMap(evalId => {
+    return evals.flatMap(evalConfig => {
       return [
         {
           config: ControlTreatment,
-          eval: getEval(evalId),
+          eval: evalConfig,
           experiment: config,
           id: randomUUID(),
           model,
@@ -384,7 +393,7 @@ for (const config of experimentConfigs) {
         ...config.treatments.map(treatment => {
           return {
             config: treatment,
-            eval: getEval(evalId),
+            eval: evalConfig,
             experiment: config,
             id: randomUUID(),
             model,

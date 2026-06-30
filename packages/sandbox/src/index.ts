@@ -6,8 +6,8 @@ import Docker from 'dockerode'
 import tarFs from 'tar-fs'
 import type {Headers} from 'tar-fs'
 import tarStream from 'tar-stream'
-import {McpConfigFileSchema} from './mcp-config.ts'
-import type {McpConfigFile, McpServerConfig} from './mcp-config.ts'
+import {McpConfigFileSchema} from './mcp-config'
+import type {McpConfigFile, McpServerConfig} from './mcp-config'
 
 /**
  * Working directory inside the container.

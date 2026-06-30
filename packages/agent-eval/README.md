@@ -11,7 +11,9 @@ COPILOT_GITHUB_TOKEN=... agent-eval --experiments ./experiments --experiment exa
 ```
 
 Use `--experiments` to load experiment files from a local directory. Experiment
-files may export an `experiment` named export or a default export.
+files may export an `experiment` named export or a default export. `--experiment`
+may also be a path to a local experiment file when you only want to run one
+experiment.
 
 ## Experiment config authoring
 

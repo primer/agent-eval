@@ -68,6 +68,12 @@ Run local experiments with the `agent-eval` CLI:
 COPILOT_GITHUB_TOKEN=... agent-eval --experiments ./experiments --experiment example
 ```
 
+You can also provide a path directly to `--experiment`:
+
+```sh
+COPILOT_GITHUB_TOKEN=... agent-eval --experiment ./experiments/example.ts
+```
+
 The experiment config will specify:
 
 - A name for the experiment

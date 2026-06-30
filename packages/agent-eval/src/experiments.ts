@@ -32,6 +32,17 @@ function isExperimentFile(filename: string): boolean {
   return filename !== 'index.ts' && EXPERIMENT_FILE_EXTENSIONS.has(path.extname(filename))
 }
 
+async function loadExperimentFile(filepath: string): Promise<ExperimentConfig> {
+  const resolvedPath = path.resolve(filepath)
+  const mod = (await import(pathToFileURL(resolvedPath).href)) as ExperimentModule
+  const experiment = mod.experiment ?? mod.default
+  if (!experiment) {
+    throw new Error(`Experiment file must export "experiment" or a default export: ${resolvedPath}`)
+  }
+
+  return experiment
+}
+
 async function getLocalExperimentEntries(experimentsDirectory: string): Promise<Array<[string, ExperimentConfig]>> {
   const directory = path.resolve(experimentsDirectory)
   if (!existsSync(directory)) {
@@ -47,13 +58,7 @@ async function getLocalExperimentEntries(experimentsDirectory: string): Promise<
   return Promise.all(
     filenames.filter(isExperimentFile).map(async filename => {
       const filepath = path.join(directory, filename)
-      const mod = (await import(pathToFileURL(filepath).href)) as ExperimentModule
-      const experiment = mod.experiment ?? mod.default
-      if (!experiment) {
-        throw new Error(`Experiment file must export "experiment" or a default export: ${filepath}`)
-      }
-
-      return [getExperimentId(filename), experiment]
+      return [getExperimentId(filename), await loadExperimentFile(filepath)]
     }),
   )
 }
@@ -73,6 +78,10 @@ async function findExperiment(
   if (options.experimentsDirectory) {
     const experiments = await getLocalExperimentEntries(options.experimentsDirectory)
     return experiments.find(([name]) => name === id)?.[1]
+  }
+
+  if (existsSync(id)) {
+    return loadExperimentFile(id)
   }
 
   return findPackagedExperiment(id)

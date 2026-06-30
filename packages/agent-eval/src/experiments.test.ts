@@ -48,6 +48,22 @@ describe('local experiment loading', () => {
     )
   })
 
+  test('finds an experiment from a local file path', async () => {
+    const directory = await createExperimentsDirectory()
+
+    await expect(findExperiment(path.join(directory, 'example.mjs'))).resolves.toEqual(
+      expect.objectContaining({name: 'Example'}),
+    )
+  })
+
+  test('loads an experiment from a local file path', async () => {
+    const directory = await createExperimentsDirectory()
+
+    await expect(loadExperimentConfigs({experiment: path.join(directory, 'example.mjs')})).resolves.toEqual([
+      expect.objectContaining({name: 'Example'}),
+    ])
+  })
+
   test('loads all experiments when no experiment is specified', async () => {
     const directory = await createExperimentsDirectory()
 

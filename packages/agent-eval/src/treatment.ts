@@ -1,9 +1,9 @@
-import type {Eval} from '@primer/agent-evals'
 import type {ExperimentConfig, Model, TreatmentConfig} from '@primer/agent-experiment'
+import type {ResolvedEval} from './eval'
 
 type Treatment = {
   config: TreatmentConfig
-  eval: Eval
+  eval: ResolvedEval
   experiment: ExperimentConfig
   id: string
   model: Model

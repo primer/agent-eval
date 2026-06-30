@@ -1,5 +1,5 @@
-import {data} from './generated/evals.ts'
-import type {EvalId, Eval} from './generated/evals.ts'
+import {data} from './generated/evals'
+import type {EvalId, Eval} from './generated/evals'
 
 function list(): ReadonlyArray<Eval> {
   return data

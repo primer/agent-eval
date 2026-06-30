@@ -17,7 +17,7 @@ const external = dependencies.map(name => {
   return new RegExp(`^${name}(/.*)?`)
 })
 
-export default defineConfig({
+const config = defineConfig({
   input: {
     cli: 'src/cli.ts',
     config: 'src/config.ts',
@@ -31,3 +31,5 @@ export default defineConfig({
     entryFileNames: '[name].js',
   },
 })
+
+export default config

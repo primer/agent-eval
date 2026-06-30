@@ -34,10 +34,16 @@ const {values} = parseArgs({
       short: 'e',
       description: 'The file name of the experiment to run',
     },
+    'docker-image': {
+      type: 'string',
+      description:
+        'The Docker container image to use for running treatments (must be a Debian-based Node image with apt-get and a node user, e.g. node:24-slim)',
+    },
   },
 })
 
 const ARTIFACTS_DIR = path.resolve(values.artifacts ?? 'artifacts')
+const DOCKER_IMAGE = values['docker-image']?.trim() || undefined
 const parsedConcurrency = values.concurrency ? parseInt(values.concurrency, 10) : 1
 const MAX_CONCURRENCY =
   Number.isFinite(parsedConcurrency) && Number.isInteger(parsedConcurrency) && parsedConcurrency >= 1
@@ -404,6 +410,7 @@ for (const config of experimentConfigs) {
   const runResults = await run(randomize(treatments), {
     artifactsDirectory: ARTIFACTS_DIR,
     copilotToken: COPILOT_GITHUB_TOKEN,
+    dockerImage: DOCKER_IMAGE,
     maxConcurrency: MAX_CONCURRENCY,
   })
   results.push(...runResults)

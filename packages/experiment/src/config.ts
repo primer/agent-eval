@@ -18,12 +18,15 @@ type ExperimentConfig = {
   description: string
   models: Array<Model>
   evals: Array<ExperimentEvalConfig>
+  setup?: Setup
   treatments: Array<TreatmentConfig>
 }
 
 type TreatmentConfig = {
   name: string
-  setup?: ({sandbox}: {sandbox: Sandbox}) => Promise<void>
+  setup?: Setup
 }
+
+type Setup = ({sandbox}: {sandbox: Sandbox}) => Promise<void>
 
 export type {EvalConfig, ExperimentConfig, ExperimentEvalConfig, InlineEvalConfig, TreatmentConfig}

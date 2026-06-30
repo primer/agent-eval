@@ -67,8 +67,7 @@ export const experiment: ExperimentConfig = {
   models: ['gpt-5.5'],
   evals: [
     {
-      name: 'local-button-eval',
-      path: './evals/button',
+      path: './evals/local-button-eval',
     },
   ],
   treatments: [],

@@ -73,6 +73,31 @@ describe(resolveExperimentEval, () => {
     })
   })
 
+  test('defaults inline eval names to the directory name', async () => {
+    const cwd = await createTemporaryDirectory()
+    const directory = path.join(cwd, 'evals', 'local-button-eval')
+    await fs.mkdir(directory, {recursive: true})
+    await fs.writeFile(path.join(directory, 'eval.config.ts'), `export default {prompt: 'Update the local project'}`)
+    await fs.writeFile(path.join(directory, 'eval.test.ts'), '')
+
+    await expect(
+      resolveExperimentEval(
+        {
+          path: './evals/local-button-eval',
+        },
+        {
+          builtInEvalResolver() {
+            throw new Error('Unexpected built-in eval lookup')
+          },
+          cwd,
+        },
+      ),
+    ).resolves.toMatchObject({
+      id: 'local-button-eval',
+      directory,
+    })
+  })
+
   test('requires inline evals to use the default eval file structure', async () => {
     const cwd = await createTemporaryDirectory()
     const directory = path.join(cwd, 'fixtures', 'local-eval')

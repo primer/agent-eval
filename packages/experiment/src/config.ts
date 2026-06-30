@@ -7,7 +7,7 @@ type EvalConfig = {
 }
 
 type InlineEvalConfig = {
-  name: string
+  name?: string
   path: string
 }
 

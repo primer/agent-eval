@@ -32,6 +32,18 @@ export const experiment = createExperiment({
 })
 ```
 
+Treatment setup can add custom Copilot sub-agents to `~/.copilot/agents`:
+
+```ts
+await sandbox.addCustomAgent('test-specialist', 'Focuses on test coverage', 'Write focused tests.', {
+  tools: ['read', 'search', 'edit'],
+  files: [
+    {sourcePath: './docs/testing.md', destinationPath: 'test-specialist/testing.md'},
+    {path: 'test-specialist/context.md', content: 'Prioritize deterministic tests.'},
+  ],
+})
+```
+
 ## Programmatic usage
 
 The package index exports the experiment loading and runner APIs:

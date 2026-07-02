@@ -47,6 +47,39 @@ export const experiment: ExperimentConfig = {
 }
 ```
 
+Treatments can configure custom Copilot sub-agents under `~/.copilot/agents`.
+Use `files` when the sub-agent should reference additional local files, folders,
+or inline content:
+
+```ts
+export const experiment: ExperimentConfig = {
+  name: 'Custom agent experiment',
+  description: 'Compare behavior with a custom implementation planner',
+  models: ['gpt-5.5'],
+  evals: ['001-agent-uses-button-from-primer'],
+  treatments: [
+    {
+      name: 'With custom sub-agent',
+      async setup({sandbox}) {
+        await sandbox.addCustomAgent('implementation-planner', 'Plans implementation work', 'Create concise plans.', {
+          tools: ['read', 'search'],
+          files: [
+            {
+              sourcePath: './docs/planning-guidelines.md',
+              destinationPath: 'implementation-planner/guidelines.md',
+            },
+            {
+              path: 'implementation-planner/context.md',
+              content: 'Prefer short, actionable implementation plans.',
+            },
+          ],
+        })
+      },
+    },
+  ],
+}
+```
+
 When authoring experiments outside of this repository, import the helper from
 `@primer/agent-eval/config` to keep the experiment config typed:
 

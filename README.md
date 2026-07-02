@@ -14,7 +14,7 @@ against the evaluations we care about.
 
 Results are scored by:
 
-- Correctness: how many of the tests the agent's output passes
+- Correctness: how many tests the agent's output passes
 - Cost: how much the agent spends in API calls
 - Latency: how long the agent takes to complete the evals
 

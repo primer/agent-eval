@@ -37,7 +37,7 @@ COPILOT_GITHUB_TOKEN=... agent-eval --experiments ./experiments/src --experiment
 You can also provide a path directly to `--experiment`:
 
 ```sh
-COPILOT_GITHUB_TOKEN=... agent-eval --experiment ./experiments/example.ts
+COPILOT_GITHUB_TOKEN=... agent-eval --experiment ./experiments/src/mcp.ts
 ```
 
 ## Authoring experiments

@@ -44,6 +44,18 @@ await sandbox.addCustomAgent('test-specialist', 'Focuses on test coverage', 'Wri
 })
 ```
 
+Treatment setup can also add Copilot skills to `~/.agents/skills` with
+additional files next to `SKILL.md`:
+
+```ts
+await sandbox.addAgentSkill('test-planning', 'Plans test coverage', 'Create focused test plans.', {
+  files: [
+    {sourcePath: './docs/testing.md', destinationPath: 'testing.md'},
+    {path: 'context.md', content: 'Prioritize deterministic tests.'},
+  ],
+})
+```
+
 ## Programmatic usage
 
 The package index exports the experiment loading and runner APIs:

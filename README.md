@@ -80,6 +80,38 @@ export const experiment: ExperimentConfig = {
 }
 ```
 
+Treatments can also configure Copilot skills under `~/.agents/skills`.
+Use `files` when the skill should include additional local files, folders, or
+inline content next to `SKILL.md`:
+
+```ts
+export const experiment: ExperimentConfig = {
+  name: 'Skill experiment',
+  description: 'Compare behavior with a planning skill',
+  models: ['gpt-5.5'],
+  evals: ['001-agent-uses-button-from-primer'],
+  treatments: [
+    {
+      name: 'With planning skill',
+      async setup({sandbox}) {
+        await sandbox.addAgentSkill('planning', 'Plans implementation work', 'Create concise plans.', {
+          files: [
+            {
+              sourcePath: './docs/planning-guidelines.md',
+              destinationPath: 'guidelines.md',
+            },
+            {
+              path: 'context.md',
+              content: 'Prefer short, actionable implementation plans.',
+            },
+          ],
+        })
+      },
+    },
+  ],
+}
+```
+
 When authoring experiments outside of this repository, import the helper from
 `@primer/agent-eval/config` to keep the experiment config typed:
 

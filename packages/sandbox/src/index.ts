@@ -255,7 +255,12 @@ class Sandbox {
     await this.writeFile(AGENT_INSTRUCTIONS_PATH, appendText(contents, text))
   }
 
-  async addAgentSkill(name: string, description: string, contents: string, options: AgentSkillOptions = {}): Promise<void> {
+  async addAgentSkill(
+    name: string,
+    description: string,
+    contents: string,
+    options: AgentSkillOptions = {},
+  ): Promise<void> {
     assertValidSkillName(name)
 
     const skillDirectory = path.posix.join(SKILLS_DIR, name)
@@ -541,9 +546,7 @@ function getAgentSkillFileDestination(file: AgentSkillFile): string {
 }
 
 function getAdditionalFileDestination(file: CustomAgentFile | AgentSkillFile, fileKind: string): string {
-  const destinationPath = isWrittenFile(file)
-    ? file.path
-    : (file.destinationPath ?? path.basename(file.sourcePath))
+  const destinationPath = isWrittenFile(file) ? file.path : (file.destinationPath ?? path.basename(file.sourcePath))
   const normalized = normalizeCopyPath(destinationPath)
 
   if (!normalized || path.posix.isAbsolute(normalized) || normalized === '..' || normalized.startsWith('../')) {

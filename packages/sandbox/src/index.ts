@@ -20,6 +20,11 @@ const CONTAINER_WORKDIR = '/home/sandbox/workspace'
 const COPILOT_DIR = '/home/node/.copilot'
 
 /**
+ * Directory for custom Copilot sub-agents.
+ */
+const CUSTOM_AGENTS_DIR = '/home/node/.copilot/agents'
+
+/**
  * Directory for agents configuration and skills.
  */
 const AGENTS_DIR = '/home/node/.agents'
@@ -62,6 +67,16 @@ type RunOptions = {
 
 type CopyOptions = {
   exclude?: string[]
+}
+
+type CustomAgentFile = {
+  sourcePath: string
+  destinationPath?: string
+}
+
+type CustomAgentOptions = {
+  files?: Array<CustomAgentFile>
+  tools?: Array<string>
 }
 
 type DownloadOptions = {
@@ -236,6 +251,28 @@ class Sandbox {
     await this.writeFile(skillPath, createSkillContents(name, description, contents))
   }
 
+  async addCustomAgent(
+    name: string,
+    description: string,
+    contents: string,
+    options: CustomAgentOptions = {},
+  ): Promise<void> {
+    assertValidCustomAgentName(name)
+
+    const agentPath = path.posix.join(CUSTOM_AGENTS_DIR, `${name}.agent.md`)
+    if (await this.exists(agentPath)) {
+      throw new Error(`Custom agent with name "${name}" already exists`)
+    }
+
+    await this.runCommand('mkdir', ['-p', CUSTOM_AGENTS_DIR])
+    await this.writeFile(agentPath, createCustomAgentContents(name, description, contents, options))
+
+    for (const file of options.files ?? []) {
+      const destinationPath = path.posix.join(CUSTOM_AGENTS_DIR, getCustomAgentFileDestination(file))
+      await this.copy(file.sourcePath, destinationPath)
+    }
+  }
+
   async addMcpServer(name: string, config: McpServerConfig): Promise<void> {
     const contents = await this.readFile(MCP_CONFIG_PATH)
     const mcpConfig = contents === '' ? DEFAULT_MCP_CONFIG : McpConfigFileSchema.parse(JSON.parse(contents))
@@ -333,6 +370,9 @@ async function createContainer(docker: Docker, dockerImage: string): Promise<Ini
   await execCommand(docker, container, 'touch', [path.join(COPILOT_DIR, 'mcp-config.json')], {
     user: NODE_USER,
   })
+  await execCommand(docker, container, 'mkdir', ['-p', CUSTOM_AGENTS_DIR], {
+    user: NODE_USER,
+  })
 
   console.log('Setting up agents config...')
   await execCommand(docker, container, 'mkdir', ['-p', AGENTS_DIR], {
@@ -423,6 +463,14 @@ function assertValidSkillName(name: string): void {
   throw new Error(`Invalid agent skill name "${name}". Skill names must be lowercase and use hyphens for spaces.`)
 }
 
+function assertValidCustomAgentName(name: string): void {
+  if (/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(name)) {
+    return
+  }
+
+  throw new Error(`Invalid custom agent name "${name}". Custom agent names must be lowercase and use hyphens for spaces.`)
+}
+
 function createSkillContents(name: string, description: string, contents: string): string {
   return `---
 name: ${JSON.stringify(name)}
@@ -430,6 +478,33 @@ description: ${JSON.stringify(description)}
 ---
 
 ${ensureTrailingNewline(contents)}`
+}
+
+function createCustomAgentContents(
+  name: string,
+  description: string,
+  contents: string,
+  options: CustomAgentOptions,
+): string {
+  const tools = options.tools ? `tools: ${JSON.stringify(options.tools)}\n` : ''
+
+  return `---
+name: ${JSON.stringify(name)}
+description: ${JSON.stringify(description)}
+${tools}---
+
+${ensureTrailingNewline(contents)}`
+}
+
+function getCustomAgentFileDestination(file: CustomAgentFile): string {
+  const destinationPath = file.destinationPath ?? path.basename(file.sourcePath)
+  const normalized = normalizeCopyPath(destinationPath)
+
+  if (!normalized || path.posix.isAbsolute(normalized) || normalized === '..' || normalized.startsWith('../')) {
+    throw new Error(`Invalid custom agent file destination "${destinationPath}"`)
+  }
+
+  return normalized
 }
 
 async function readFileFromArchive(archive: NodeJS.ReadableStream): Promise<Buffer> {
@@ -578,5 +653,6 @@ function captureStream(destination: NodeJS.WritableStream): {stream: Writable; r
   }
 }
 
-export {CONTAINER_WORKDIR, COPILOT_DIR, SKILLS_DIR, AGENTS_DIR, NODE_USER, Sandbox}
+export {CONTAINER_WORKDIR, COPILOT_DIR, CUSTOM_AGENTS_DIR, SKILLS_DIR, AGENTS_DIR, NODE_USER, Sandbox}
+export type {CustomAgentFile, CustomAgentOptions}
 export type {McpServerConfig} from './mcp-config.ts'

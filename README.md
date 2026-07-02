@@ -21,7 +21,7 @@ Results are scored by:
 ## Core concepts
 
 - **Evaluations (evals)** describe the task scenario and tests used to grade the
-  agent output.
+  agent's output.
 - **Experiments** select the models, evals, and treatments to run together.
 - **Treatments** define the conditions for a run, such as adding an MCP server,
   custom sub-agent, or skill before the eval starts.

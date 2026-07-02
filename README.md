@@ -123,6 +123,36 @@ export const experiment: ExperimentConfig = {
 
 Treatments can progressively add setup behavior for the agent environment.
 
+### Configure MCP servers
+
+Treatments can configure MCP servers for the agent to use during an eval. For
+example, install a server in the sandbox, add instructions for when to use it,
+and register it with `addMcpServer`:
+
+```ts
+export const experiment: ExperimentConfig = {
+  name: 'MCP experiment',
+  description: 'Compare behavior with a Primer MCP server',
+  models: ['gpt-5.5'],
+  evals: ['001-agent-uses-button-from-primer'],
+  treatments: [
+    {
+      name: 'With Primer MCP',
+      async setup({sandbox}) {
+        await sandbox.addAgentInstruction('For UI-related changes, use the Primer MCP server before editing.')
+        await sandbox.runCommand('npm', ['install', '-g', '@primer/mcp@latest'])
+        await sandbox.addMcpServer('primer', {
+          type: 'local',
+          command: 'npx',
+          args: ['--no-install', '@primer/mcp'],
+          tools: ['*'],
+        })
+      },
+    },
+  ],
+}
+```
+
 ### Configure custom Copilot sub-agents
 
 Treatments can configure custom Copilot sub-agents under `~/.copilot/agents`.

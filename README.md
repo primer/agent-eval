@@ -48,8 +48,8 @@ export const experiment: ExperimentConfig = {
 ```
 
 Treatments can configure custom Copilot sub-agents under `~/.copilot/agents`.
-Use `files` when the sub-agent should reference additional local files or
-folders:
+Use `files` when the sub-agent should reference additional local files, folders,
+or inline content:
 
 ```ts
 export const experiment: ExperimentConfig = {
@@ -67,6 +67,10 @@ export const experiment: ExperimentConfig = {
             {
               sourcePath: './docs/planning-guidelines.md',
               destinationPath: 'implementation-planner/guidelines.md',
+            },
+            {
+              path: 'implementation-planner/context.md',
+              content: 'Prefer short, actionable implementation plans.',
             },
           ],
         })

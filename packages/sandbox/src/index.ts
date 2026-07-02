@@ -69,10 +69,17 @@ type CopyOptions = {
   exclude?: string[]
 }
 
-type CustomAgentFile = {
+type CustomAgentCopiedFile = {
   sourcePath: string
   destinationPath?: string
 }
+
+type CustomAgentWrittenFile = {
+  path: string
+  content: string
+}
+
+type CustomAgentFile = CustomAgentCopiedFile | CustomAgentWrittenFile
 
 type CustomAgentOptions = {
   files?: Array<CustomAgentFile>
@@ -269,7 +276,13 @@ class Sandbox {
 
     for (const file of options.files ?? []) {
       const destinationPath = path.posix.join(CUSTOM_AGENTS_DIR, getCustomAgentFileDestination(file))
-      await this.copy(file.sourcePath, destinationPath)
+
+      if (isCustomAgentWrittenFile(file)) {
+        await this.runCommand('mkdir', ['-p', path.posix.dirname(destinationPath)])
+        await this.writeFile(destinationPath, file.content)
+      } else {
+        await this.copy(file.sourcePath, destinationPath)
+      }
     }
   }
 
@@ -499,7 +512,9 @@ ${ensureTrailingNewline(contents)}`
 }
 
 function getCustomAgentFileDestination(file: CustomAgentFile): string {
-  const destinationPath = file.destinationPath ?? path.basename(file.sourcePath)
+  const destinationPath = isCustomAgentWrittenFile(file)
+    ? file.path
+    : (file.destinationPath ?? path.basename(file.sourcePath))
   const normalized = normalizeCopyPath(destinationPath)
 
   if (!normalized || path.posix.isAbsolute(normalized) || normalized === '..' || normalized.startsWith('../')) {
@@ -507,6 +522,10 @@ function getCustomAgentFileDestination(file: CustomAgentFile): string {
   }
 
   return normalized
+}
+
+function isCustomAgentWrittenFile(file: CustomAgentFile): file is CustomAgentWrittenFile {
+  return 'content' in file
 }
 
 async function readFileFromArchive(archive: NodeJS.ReadableStream): Promise<Buffer> {
@@ -656,5 +675,5 @@ function captureStream(destination: NodeJS.WritableStream): {stream: Writable; r
 }
 
 export {CONTAINER_WORKDIR, COPILOT_DIR, CUSTOM_AGENTS_DIR, SKILLS_DIR, AGENTS_DIR, NODE_USER, Sandbox}
-export type {CustomAgentFile, CustomAgentOptions}
+export type {CustomAgentCopiedFile, CustomAgentFile, CustomAgentOptions, CustomAgentWrittenFile}
 export type {McpServerConfig} from './mcp-config.ts'

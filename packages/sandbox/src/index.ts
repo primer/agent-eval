@@ -468,7 +468,9 @@ function assertValidCustomAgentName(name: string): void {
     return
   }
 
-  throw new Error(`Invalid custom agent name "${name}". Custom agent names must be lowercase and use hyphens for spaces.`)
+  throw new Error(
+    `Invalid custom agent name "${name}". Custom agent names must be lowercase and use hyphens for spaces.`,
+  )
 }
 
 function createSkillContents(name: string, description: string, contents: string): string {

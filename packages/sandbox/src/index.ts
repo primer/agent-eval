@@ -81,6 +81,16 @@ type CustomAgentWrittenFile = {
 
 type CustomAgentFile = CustomAgentCopiedFile | CustomAgentWrittenFile
 
+type AgentSkillCopiedFile = CustomAgentCopiedFile
+
+type AgentSkillWrittenFile = CustomAgentWrittenFile
+
+type AgentSkillFile = AgentSkillCopiedFile | AgentSkillWrittenFile
+
+type AgentSkillOptions = {
+  files?: Array<AgentSkillFile>
+}
+
 type CustomAgentOptions = {
   files?: Array<CustomAgentFile>
   tools?: Array<string>
@@ -245,7 +255,7 @@ class Sandbox {
     await this.writeFile(AGENT_INSTRUCTIONS_PATH, appendText(contents, text))
   }
 
-  async addAgentSkill(name: string, description: string, contents: string): Promise<void> {
+  async addAgentSkill(name: string, description: string, contents: string, options: AgentSkillOptions = {}): Promise<void> {
     assertValidSkillName(name)
 
     const skillDirectory = path.posix.join(SKILLS_DIR, name)
@@ -256,6 +266,17 @@ class Sandbox {
 
     await this.runCommand('mkdir', ['-p', skillDirectory])
     await this.writeFile(skillPath, createSkillContents(name, description, contents))
+
+    for (const file of options.files ?? []) {
+      const destinationPath = path.posix.join(skillDirectory, getAgentSkillFileDestination(file))
+
+      if (isWrittenFile(file)) {
+        await this.runCommand('mkdir', ['-p', path.posix.dirname(destinationPath)])
+        await this.writeFile(destinationPath, file.content)
+      } else {
+        await this.copy(file.sourcePath, destinationPath)
+      }
+    }
   }
 
   async addCustomAgent(
@@ -277,7 +298,7 @@ class Sandbox {
     for (const file of options.files ?? []) {
       const destinationPath = path.posix.join(CUSTOM_AGENTS_DIR, getCustomAgentFileDestination(file))
 
-      if (isCustomAgentWrittenFile(file)) {
+      if (isWrittenFile(file)) {
         await this.runCommand('mkdir', ['-p', path.posix.dirname(destinationPath)])
         await this.writeFile(destinationPath, file.content)
       } else {
@@ -512,19 +533,27 @@ ${ensureTrailingNewline(contents)}`
 }
 
 function getCustomAgentFileDestination(file: CustomAgentFile): string {
-  const destinationPath = isCustomAgentWrittenFile(file)
+  return getAdditionalFileDestination(file, 'custom agent')
+}
+
+function getAgentSkillFileDestination(file: AgentSkillFile): string {
+  return getAdditionalFileDestination(file, 'agent skill')
+}
+
+function getAdditionalFileDestination(file: CustomAgentFile | AgentSkillFile, fileKind: string): string {
+  const destinationPath = isWrittenFile(file)
     ? file.path
     : (file.destinationPath ?? path.basename(file.sourcePath))
   const normalized = normalizeCopyPath(destinationPath)
 
   if (!normalized || path.posix.isAbsolute(normalized) || normalized === '..' || normalized.startsWith('../')) {
-    throw new Error(`Invalid custom agent file destination "${destinationPath}"`)
+    throw new Error(`Invalid ${fileKind} file destination "${destinationPath}"`)
   }
 
   return normalized
 }
 
-function isCustomAgentWrittenFile(file: CustomAgentFile): file is CustomAgentWrittenFile {
+function isWrittenFile(file: CustomAgentFile | AgentSkillFile): file is CustomAgentWrittenFile | AgentSkillWrittenFile {
   return 'content' in file
 }
 
@@ -675,5 +704,14 @@ function captureStream(destination: NodeJS.WritableStream): {stream: Writable; r
 }
 
 export {CONTAINER_WORKDIR, COPILOT_DIR, CUSTOM_AGENTS_DIR, SKILLS_DIR, AGENTS_DIR, NODE_USER, Sandbox}
-export type {CustomAgentCopiedFile, CustomAgentFile, CustomAgentOptions, CustomAgentWrittenFile}
+export type {
+  AgentSkillCopiedFile,
+  AgentSkillFile,
+  AgentSkillOptions,
+  AgentSkillWrittenFile,
+  CustomAgentCopiedFile,
+  CustomAgentFile,
+  CustomAgentOptions,
+  CustomAgentWrittenFile,
+}
 export type {McpServerConfig} from './mcp-config.ts'

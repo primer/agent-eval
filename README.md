@@ -31,7 +31,7 @@ Results are scored by:
 Run local experiments with the `agent-eval` CLI:
 
 ```sh
-COPILOT_GITHUB_TOKEN=... agent-eval --experiments ./experiments --experiment example
+COPILOT_GITHUB_TOKEN=... agent-eval --experiments ./experiments/src --experiment mcp
 ```
 
 You can also provide a path directly to `--experiment`:

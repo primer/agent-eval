@@ -180,16 +180,24 @@ async function runTreatment(
   })
 
   const TEST_PATH = 'eval.test.ts'
+  const VITEST_CONFIG_PATH = 'vitest.agent-eval.config.ts'
   await sandbox.copy(treatment.eval.testPath, TEST_PATH)
+  await sandbox.writeFile(
+    VITEST_CONFIG_PATH,
+    `
+import {defineConfig} from 'vitest/config'
+
+export default defineConfig({
+  test: {
+    reporters: [['json', {outputFile: 'test-results.json', includeTaskLocation: true}]],
+  },
+})
+`,
+  )
   // Always pass vitest calls even if test suite fails
   await sandbox.runCommand(
     'sh',
-    [
-      '-c',
-      'npx vitest run "$1" --reporter json --outputFile test-results.json --includeTaskLocation || true',
-      'vitest-run',
-      TEST_PATH,
-    ],
+    ['-c', 'npx vitest run --config "$1" "$2" || true', 'vitest-run', VITEST_CONFIG_PATH, TEST_PATH],
     {
       user: NODE_USER,
     },

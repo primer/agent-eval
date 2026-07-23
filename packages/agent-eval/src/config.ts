@@ -11,9 +11,9 @@ type Model = ProjectModel
 type Sandbox = ProjectSandbox
 type TreatmentConfig = ProjectTreatmentConfig
 
-function createExperiment(config: ExperimentConfig) {
+function defineConfig(config: ExperimentConfig) {
   return config
 }
 
 export type {ExperimentConfig, McpServerConfig, Model, Sandbox, TreatmentConfig}
-export {createExperiment}
+export {defineConfig}

@@ -2,7 +2,7 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import {describe, expect, test} from 'vitest'
-import {findExperiment, listExperiments, loadExperimentConfigs} from './experiments.ts'
+import {findExperiment, listExperiments, loadExperimentConfigs} from './experiments'
 
 async function createExperimentsDirectory() {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-eval-experiments-'))

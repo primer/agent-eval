@@ -1,4 +1,3 @@
-import type {ScenarioId} from '@primer/agent-scenarios'
 import type {Sandbox} from '@primer/agent-sandbox'
 import type {Model} from './model'
 
@@ -11,7 +10,7 @@ type InlineScenarioConfig = {
   path: string
 }
 
-type ExperimentScenarioConfig = ScenarioId | InlineScenarioConfig
+type ExperimentScenarioConfig = string | InlineScenarioConfig
 
 type ExperimentConfig = {
   name: string

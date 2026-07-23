@@ -1,5 +1,5 @@
 import {describe, expect, test} from 'vitest'
-import {parseMessage} from './copilot-cli.ts'
+import {parseMessage} from './copilot-cli'
 
 describe(parseMessage, () => {
   test.each([

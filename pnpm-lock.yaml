@@ -82,9 +82,6 @@ importers:
       '@primer/agent-sandbox':
         specifier: workspace:*
         version: link:../sandbox
-      '@primer/agent-scenarios':
-        specifier: workspace:*
-        version: link:../scenarios
       '@types/node':
         specifier: ^26.0.1
         version: 26.1.1
@@ -106,9 +103,6 @@ importers:
       '@primer/agent-sandbox':
         specifier: workspace:*
         version: link:../sandbox
-      '@primer/agent-scenarios':
-        specifier: workspace:*
-        version: link:../scenarios
       '@types/node':
         specifier: ^26.0.1
         version: 26.1.1
@@ -143,21 +137,6 @@ importers:
       '@types/tar-stream':
         specifier: ^3.1.4
         version: 3.1.4
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-
-  packages/scenarios:
-    devDependencies:
-      '@types/node':
-        specifier: ^26.0.1
-        version: 26.1.1
-      rimraf:
-        specifier: ^6.1.3
-        version: 6.1.3
-      rolldown:
-        specifier: ^1.1.5
-        version: 1.2.0
       typescript:
         specifier: ^6.0.3
         version: 6.0.3

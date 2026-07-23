@@ -4,10 +4,9 @@ import {existsSync} from 'node:fs'
 import path from 'node:path'
 import fs from 'node:fs/promises'
 import {parseArgs} from 'node:util'
-import {get as getScenario} from '@primer/agent-scenarios'
 import {ControlTreatment, type ExperimentConfig, type Model} from '@primer/agent-experiment'
 import type {Treatment, TreatmentResult} from './treatment'
-import {listExperiments, loadExperimentConfigs} from './experiments.ts'
+import {listExperiments, loadExperimentConfigs} from './experiments'
 import {resolveExperimentScenario} from './scenario'
 import {run} from './run'
 
@@ -38,6 +37,10 @@ const {values} = parseArgs({
     experiments: {
       type: 'string',
       description: 'The directory containing local experiment files',
+    },
+    scenarios: {
+      type: 'string',
+      description: 'The directory containing scenario directories',
     },
     'docker-image': {
       type: 'string',
@@ -389,7 +392,7 @@ for (const config of experimentConfigs) {
   const scenarios = await Promise.all(
     config.scenarios.map(scenarioConfig => {
       return resolveExperimentScenario(scenarioConfig, {
-        builtInScenarioResolver: getScenario,
+        scenariosDirectory: values.scenarios,
       })
     }),
   )

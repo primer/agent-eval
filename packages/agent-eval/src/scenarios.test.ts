@@ -1,0 +1,60 @@
+import fs from 'node:fs/promises'
+import os from 'node:os'
+import path from 'node:path'
+import {afterEach, describe, expect, test} from 'vitest'
+import {findScenario, listScenarios} from './scenarios'
+
+const temporaryDirectories: Array<string> = []
+
+async function createScenariosDirectory() {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-eval-scenarios-'))
+  temporaryDirectories.push(directory)
+  return directory
+}
+
+async function createScenario(scenariosDirectory: string, id: string, prompt: string) {
+  const directory = path.join(scenariosDirectory, id)
+  await fs.mkdir(directory)
+  await fs.writeFile(path.join(directory, 'scenario.config.ts'), `export default {prompt: ${JSON.stringify(prompt)}}`)
+  await fs.writeFile(path.join(directory, 'scenario.test.ts'), '')
+  return directory
+}
+
+afterEach(async () => {
+  await Promise.all(
+    temporaryDirectories.splice(0).map(directory => {
+      return fs.rm(directory, {recursive: true, force: true})
+    }),
+  )
+})
+
+describe('scenario loading', () => {
+  test('lists scenarios from the provided directory', async () => {
+    const scenariosDirectory = await createScenariosDirectory()
+    await createScenario(scenariosDirectory, 'second', 'Second prompt')
+    await createScenario(scenariosDirectory, 'first', 'First prompt')
+
+    await expect(listScenarios({scenariosDirectory})).resolves.toEqual([
+      expect.objectContaining({id: 'first', config: {prompt: 'First prompt'}}),
+      expect.objectContaining({id: 'second', config: {prompt: 'Second prompt'}}),
+    ])
+  })
+
+  test('finds a scenario by id in the provided directory', async () => {
+    const scenariosDirectory = await createScenariosDirectory()
+    const directory = await createScenario(scenariosDirectory, 'example', 'Example prompt')
+
+    await expect(findScenario('example', {scenariosDirectory})).resolves.toEqual({
+      id: 'example',
+      directory,
+      config: {prompt: 'Example prompt'},
+      testPath: path.join(directory, 'scenario.test.ts'),
+    })
+  })
+
+  test('returns undefined when a scenario is not found', async () => {
+    const scenariosDirectory = await createScenariosDirectory()
+
+    await expect(findScenario('missing-scenario', {scenariosDirectory})).resolves.toBeUndefined()
+  })
+})

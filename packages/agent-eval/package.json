@@ -53,7 +53,6 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@primer/agent-scenarios": "workspace:*",
     "@primer/agent-experiment": "workspace:*",
     "@primer/agent-experiments": "workspace:*",
     "@primer/agent-sandbox": "workspace:*",

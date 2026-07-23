@@ -30,14 +30,21 @@ Results are scored by:
 Run local experiments with the `agent-eval` CLI:
 
 ```sh
-COPILOT_GITHUB_TOKEN=... agent-eval --experiments ./experiments/src --experiment mcp
+COPILOT_GITHUB_TOKEN=... agent-eval \
+  --experiments ./experiments/src \
+  --scenarios ./scenarios \
+  --experiment mcp
 ```
 
 You can also provide a path directly to `--experiment`:
 
 ```sh
-COPILOT_GITHUB_TOKEN=... agent-eval --experiment ./experiments/src/mcp.ts
+COPILOT_GITHUB_TOKEN=... agent-eval \
+  --experiment ./experiments/src/mcp.ts \
+  --scenarios ./scenarios
 ```
+
+The scenarios directory defaults to `./scenarios`.
 
 ## Authoring scenarios
 
@@ -101,9 +108,9 @@ When authoring experiments outside of this repository, import the helper from
 `@primer/agent-eval/config` to keep the experiment config typed:
 
 ```ts
-import {createExperiment} from '@primer/agent-eval/config'
+import {defineConfig} from '@primer/agent-eval/config'
 
-export const experiment = createExperiment({
+export const experiment = defineConfig({
   name: 'Example experiment',
   description: 'Experiment config demonstrating different options',
   models: ['gpt-5.5'],

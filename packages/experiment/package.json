@@ -10,7 +10,6 @@
     "type-check": "tsc --noEmit"
   },
   "devDependencies": {
-    "@primer/agent-scenarios": "workspace:*",
     "@primer/agent-sandbox": "workspace:*",
     "@types/node": "^26.0.1",
     "typescript": "^6.0.3"

@@ -1,5 +1,5 @@
 {
-  "name": "004-agent-enables-theme-switching",
+  "name": "005-agent-enables-theme-switching",
   "type": "module",
   "scripts": {
     "clean": "rimraf .next",

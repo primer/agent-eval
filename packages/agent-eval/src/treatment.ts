@@ -35,6 +35,12 @@ type TreatmentResult = {
     numFailedTests: number
     numPendingTests: number
     numTodoTests: number
+    tests: Array<{
+      title: string
+      fullName: string
+      status: 'passed' | 'failed' | 'skipped' | 'pending' | 'todo' | 'disabled'
+      description?: string
+    }>
   }
 }
 

@@ -20,6 +20,7 @@ type TreatmentResult = {
     workspacePath: string
   }
   assistant: {
+    logs: Array<unknown>
     turns: number
     outputTokens: number
     premiumRequests: number

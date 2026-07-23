@@ -166,12 +166,15 @@ async function runTreatment(
       COPILOT_GITHUB_TOKEN: copilotToken,
     },
   })
+  const logs: Array<unknown> = []
   const messages: Array<Message> = copilotOutput.stdout.split('\n').flatMap(line => {
     const trimmed = line.trim()
     if (trimmed.length === 0) {
       return []
     }
-    const result = parseMessage(JSON.parse(trimmed))
+    const log = JSON.parse(trimmed)
+    logs.push(log)
+    const result = parseMessage(log)
     if (result.success) {
       return result.data
     }
@@ -255,6 +258,7 @@ async function runTreatment(
       workspacePath,
     },
     assistant: {
+      logs,
       turns: assistantTurns.size,
       outputTokens,
       premiumRequests: result.usage.premiumRequests,

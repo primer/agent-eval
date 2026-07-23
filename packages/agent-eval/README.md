@@ -81,8 +81,9 @@ APIs:
 ```ts
 import {findScenario, listScenarios, loadExperimentConfigs, run, type Model} from '@primer/agent-eval'
 
-const scenarios = await listScenarios({scenariosDirectory: './scenarios'})
+const experiments = await loadExperimentConfigs({directory: './experiments'})
+const scenarios = await listScenarios({directory: './scenarios'})
 const scenario = await findScenario('001-agent-uses-button-from-primer', {
-  scenariosDirectory: './scenarios',
+  directory: './scenarios',
 })
 ```

@@ -11,11 +11,11 @@ type ResolvedScenario = {
 }
 
 type ScenarioSourceOptions = {
-  scenariosDirectory?: string
+  directory?: string
 }
 
 function resolveScenariosDirectory(options: ScenarioSourceOptions): string {
-  return path.resolve(options.scenariosDirectory ?? 'scenarios')
+  return path.resolve(options.directory ?? 'scenarios')
 }
 
 async function assertScenariosDirectory(directory: string) {

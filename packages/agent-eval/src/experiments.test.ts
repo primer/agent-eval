@@ -34,7 +34,7 @@ describe('local experiment loading', () => {
   test('lists experiments from a local directory', async () => {
     const directory = await createExperimentsDirectory()
 
-    await expect(listExperiments({experimentsDirectory: directory})).resolves.toEqual([
+    await expect(listExperiments({directory})).resolves.toEqual([
       ['default-export', expect.objectContaining({name: 'Default export'})],
       ['example', expect.objectContaining({name: 'Example'})],
     ])
@@ -43,9 +43,7 @@ describe('local experiment loading', () => {
   test('finds a named experiment from a local directory', async () => {
     const directory = await createExperimentsDirectory()
 
-    await expect(findExperiment('example', {experimentsDirectory: directory})).resolves.toEqual(
-      expect.objectContaining({name: 'Example'}),
-    )
+    await expect(findExperiment('example', {directory})).resolves.toEqual(expect.objectContaining({name: 'Example'}))
   })
 
   test('finds an experiment from a local file path', async () => {
@@ -67,6 +65,6 @@ describe('local experiment loading', () => {
   test('loads all experiments when no experiment is specified', async () => {
     const directory = await createExperimentsDirectory()
 
-    await expect(loadExperimentConfigs({experimentsDirectory: directory})).resolves.toHaveLength(2)
+    await expect(loadExperimentConfigs({directory})).resolves.toHaveLength(2)
   })
 })

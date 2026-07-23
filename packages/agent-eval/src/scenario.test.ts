@@ -30,7 +30,7 @@ describe(resolveExperimentScenario, () => {
 
     await expect(
       resolveExperimentScenario('button-scenario', {
-        scenariosDirectory,
+        directory: scenariosDirectory,
       }),
     ).resolves.toEqual({
       id: 'button-scenario',

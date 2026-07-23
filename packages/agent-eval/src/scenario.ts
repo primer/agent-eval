@@ -12,11 +12,11 @@ async function resolveExperimentScenario(
 ): Promise<ResolvedScenario> {
   if (typeof scenarioConfig === 'string') {
     const scenario = await findScenario(scenarioConfig, {
-      scenariosDirectory: options.scenariosDirectory,
+      directory: options.directory,
     })
     if (!scenario) {
       throw new Error(
-        `Scenario "${scenarioConfig}" was not found in: ${path.resolve(options.scenariosDirectory ?? 'scenarios')}`,
+        `Scenario "${scenarioConfig}" was not found in: ${path.resolve(options.directory ?? 'scenarios')}`,
       )
     }
     return scenario

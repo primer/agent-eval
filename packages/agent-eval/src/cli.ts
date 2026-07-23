@@ -66,14 +66,14 @@ if (!existsSync(ARTIFACTS_DIR)) {
 if (values.experiment) {
   experimentConfigs = await loadExperimentConfigs({
     experiment: values.experiment,
-    experimentsDirectory: values.experiments,
+    directory: values.experiments,
   })
   if (experimentConfigs.length === 0) {
     console.log('Experiments:')
     console.log(
       (
         await listExperiments({
-          experimentsDirectory: values.experiments,
+          directory: values.experiments,
         })
       )
         .map(([name]) => name)
@@ -82,7 +82,7 @@ if (values.experiment) {
   }
 } else {
   experimentConfigs = await loadExperimentConfigs({
-    experimentsDirectory: values.experiments,
+    directory: values.experiments,
   })
 }
 
@@ -392,7 +392,7 @@ for (const config of experimentConfigs) {
   const scenarios = await Promise.all(
     config.scenarios.map(scenarioConfig => {
       return resolveExperimentScenario(scenarioConfig, {
-        scenariosDirectory: values.scenarios,
+        directory: values.scenarios,
       })
     }),
   )

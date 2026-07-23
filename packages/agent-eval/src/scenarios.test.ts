@@ -34,7 +34,7 @@ describe('scenario loading', () => {
     await createScenario(scenariosDirectory, 'second', 'Second prompt')
     await createScenario(scenariosDirectory, 'first', 'First prompt')
 
-    await expect(listScenarios({scenariosDirectory})).resolves.toEqual([
+    await expect(listScenarios({directory: scenariosDirectory})).resolves.toEqual([
       expect.objectContaining({id: 'first', config: {prompt: 'First prompt'}}),
       expect.objectContaining({id: 'second', config: {prompt: 'Second prompt'}}),
     ])
@@ -44,7 +44,7 @@ describe('scenario loading', () => {
     const scenariosDirectory = await createScenariosDirectory()
     const directory = await createScenario(scenariosDirectory, 'example', 'Example prompt')
 
-    await expect(findScenario('example', {scenariosDirectory})).resolves.toEqual({
+    await expect(findScenario('example', {directory: scenariosDirectory})).resolves.toEqual({
       id: 'example',
       directory,
       config: {prompt: 'Example prompt'},
@@ -55,6 +55,6 @@ describe('scenario loading', () => {
   test('returns undefined when a scenario is not found', async () => {
     const scenariosDirectory = await createScenariosDirectory()
 
-    await expect(findScenario('missing-scenario', {scenariosDirectory})).resolves.toBeUndefined()
+    await expect(findScenario('missing-scenario', {directory: scenariosDirectory})).resolves.toBeUndefined()
   })
 })

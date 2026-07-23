@@ -11,7 +11,7 @@ type ExperimentModule = {
 }
 
 type ExperimentSourceOptions = {
-  experimentsDirectory?: string
+  directory?: string
 }
 
 type LoadExperimentOptions = ExperimentSourceOptions & {
@@ -64,8 +64,8 @@ async function getLocalExperimentEntries(experimentsDirectory: string): Promise<
 }
 
 async function listExperiments(options: ExperimentSourceOptions = {}): Promise<Array<[string, ExperimentConfig]>> {
-  if (options.experimentsDirectory) {
-    return getLocalExperimentEntries(options.experimentsDirectory)
+  if (options.directory) {
+    return getLocalExperimentEntries(options.directory)
   }
 
   return listPackagedExperiments()
@@ -75,8 +75,8 @@ async function findExperiment(
   id: string,
   options: ExperimentSourceOptions = {},
 ): Promise<ExperimentConfig | undefined> {
-  if (options.experimentsDirectory) {
-    const experiments = await getLocalExperimentEntries(options.experimentsDirectory)
+  if (options.directory) {
+    const experiments = await getLocalExperimentEntries(options.directory)
     return experiments.find(([name]) => name === id)?.[1]
   }
 

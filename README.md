@@ -183,7 +183,9 @@ export const experiment: ExperimentConfig = {
 
 Treatments can configure custom Copilot sub-agents under `~/.copilot/agents`.
 Use `files` when the sub-agent should reference additional local files, folders,
-or inline content:
+or inline content. Use `directories` to copy all contents of a local directory
+without its root directory. By default, the contents are placed in a directory
+named after the source directory; `destinationPath` can override that name:
 
 ```ts
 export const experiment: ExperimentConfig = {
@@ -207,6 +209,11 @@ export const experiment: ExperimentConfig = {
               content: 'Prefer short, actionable implementation plans.',
             },
           ],
+          directories: [
+            {
+              sourcePath: './docs/implementation-planner',
+            },
+          ],
         })
       },
     },
@@ -218,7 +225,9 @@ export const experiment: ExperimentConfig = {
 
 Treatments can also configure Copilot skills under `~/.agents/skills`. Use
 `files` when the skill should include additional local files, folders, or inline
-content next to `SKILL.md`:
+content next to `SKILL.md`. Use `directories` to copy all contents of a local
+directory without its root directory. The contents are placed next to
+`SKILL.md` by default; `destinationPath` can place them in a subdirectory:
 
 ```ts
 export const experiment: ExperimentConfig = {
@@ -241,6 +250,7 @@ export const experiment: ExperimentConfig = {
               content: 'Prefer short, actionable implementation plans.',
             },
           ],
+          directories: [{sourcePath: './docs/planning'}],
         })
       },
     },

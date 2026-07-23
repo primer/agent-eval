@@ -46,6 +46,8 @@ export const experiment = createExperiment({
 ```
 
 Treatment setup can add custom Copilot sub-agents to `~/.copilot/agents`:
+Use `directories` to copy all contents of a local directory without its root
+directory. The destination defaults to the source directory's name.
 
 ```ts
 await sandbox.addCustomAgent('test-specialist', 'Focuses on test coverage', 'Write focused tests.', {
@@ -54,11 +56,13 @@ await sandbox.addCustomAgent('test-specialist', 'Focuses on test coverage', 'Wri
     {sourcePath: './docs/testing.md', destinationPath: 'test-specialist/testing.md'},
     {path: 'test-specialist/context.md', content: 'Prioritize deterministic tests.'},
   ],
+  directories: [{sourcePath: './docs/test-specialist'}],
 })
 ```
 
 Treatment setup can also add Copilot skills to `~/.agents/skills` with
-additional files next to `SKILL.md`:
+additional files next to `SKILL.md`. Skill `directories` copy their contents
+next to `SKILL.md` by default.
 
 ```ts
 await sandbox.addAgentSkill('test-planning', 'Plans test coverage', 'Create focused test plans.', {
@@ -66,6 +70,7 @@ await sandbox.addAgentSkill('test-planning', 'Plans test coverage', 'Create focu
     {sourcePath: './docs/testing.md', destinationPath: 'testing.md'},
     {path: 'context.md', content: 'Prioritize deterministic tests.'},
   ],
+  directories: [{sourcePath: './docs/test-planning'}],
 })
 ```
 

@@ -74,12 +74,19 @@ type CustomAgentCopiedFile = {
   destinationPath?: string
 }
 
+type CustomAgentCopiedDirectory = {
+  sourcePath: string
+  destinationPath?: string
+}
+
 type CustomAgentWrittenFile = {
   path: string
   content: string
 }
 
 type CustomAgentFile = CustomAgentCopiedFile | CustomAgentWrittenFile
+
+type AgentSkillCopiedDirectory = CustomAgentCopiedDirectory
 
 type AgentSkillCopiedFile = CustomAgentCopiedFile
 
@@ -88,10 +95,12 @@ type AgentSkillWrittenFile = CustomAgentWrittenFile
 type AgentSkillFile = AgentSkillCopiedFile | AgentSkillWrittenFile
 
 type AgentSkillOptions = {
+  directories?: Array<AgentSkillCopiedDirectory>
   files?: Array<AgentSkillFile>
 }
 
 type CustomAgentOptions = {
+  directories?: Array<CustomAgentCopiedDirectory>
   files?: Array<CustomAgentFile>
   tools?: Array<string>
 }
@@ -163,6 +172,37 @@ class Sandbox {
 
     await this.#container.putArchive(archive, {
       path: containerDirectory,
+    })
+  }
+
+  async copyDirectoryContents(sourcePath: string, destinationPath: string): Promise<void> {
+    const source = path.resolve(sourcePath)
+    const sourceStats = await fs.stat(source)
+    if (!sourceStats.isDirectory()) {
+      throw new Error(`Cannot copy contents of "${sourcePath}" because it is not a directory`)
+    }
+
+    const containerPath = resolveContainerPath(destinationPath)
+    await this.runCommand('mkdir', ['-p', containerPath])
+
+    const entries = await fs.readdir(source)
+    if (entries.length === 0) {
+      return
+    }
+
+    const archive = tarFs.pack(source, {
+      entries,
+      map(header) {
+        return {
+          ...header,
+          uid: SANDBOX_UID,
+          gid: SANDBOX_GID,
+        }
+      },
+    })
+
+    await this.#container.putArchive(archive, {
+      path: containerPath,
     })
   }
 
@@ -282,6 +322,14 @@ class Sandbox {
         await this.copy(file.sourcePath, destinationPath)
       }
     }
+
+    for (const directory of options.directories ?? []) {
+      const destinationPath = path.posix.join(
+        skillDirectory,
+        getAdditionalDirectoryDestination(directory, 'agent skill', '.'),
+      )
+      await this.copyDirectoryContents(directory.sourcePath, destinationPath)
+    }
   }
 
   async addCustomAgent(
@@ -309,6 +357,14 @@ class Sandbox {
       } else {
         await this.copy(file.sourcePath, destinationPath)
       }
+    }
+
+    for (const directory of options.directories ?? []) {
+      const destinationPath = path.posix.join(
+        CUSTOM_AGENTS_DIR,
+        getAdditionalDirectoryDestination(directory, 'custom agent', path.basename(directory.sourcePath)),
+      )
+      await this.copyDirectoryContents(directory.sourcePath, destinationPath)
     }
   }
 
@@ -556,6 +612,21 @@ function getAdditionalFileDestination(file: CustomAgentFile | AgentSkillFile, fi
   return normalized
 }
 
+function getAdditionalDirectoryDestination(
+  directory: CustomAgentCopiedDirectory | AgentSkillCopiedDirectory,
+  directoryKind: string,
+  defaultDestinationPath: string,
+): string {
+  const destinationPath = directory.destinationPath ?? defaultDestinationPath
+  const normalized = normalizeCopyPath(destinationPath)
+
+  if (path.posix.isAbsolute(normalized) || normalized === '..' || normalized.startsWith('../')) {
+    throw new Error(`Invalid ${directoryKind} directory destination "${destinationPath}"`)
+  }
+
+  return normalized
+}
+
 function isWrittenFile(file: CustomAgentFile | AgentSkillFile): file is CustomAgentWrittenFile | AgentSkillWrittenFile {
   return 'content' in file
 }
@@ -708,10 +779,12 @@ function captureStream(destination: NodeJS.WritableStream): {stream: Writable; r
 
 export {CONTAINER_WORKDIR, COPILOT_DIR, CUSTOM_AGENTS_DIR, SKILLS_DIR, AGENTS_DIR, NODE_USER, Sandbox}
 export type {
+  AgentSkillCopiedDirectory,
   AgentSkillCopiedFile,
   AgentSkillFile,
   AgentSkillOptions,
   AgentSkillWrittenFile,
+  CustomAgentCopiedDirectory,
   CustomAgentCopiedFile,
   CustomAgentFile,
   CustomAgentOptions,

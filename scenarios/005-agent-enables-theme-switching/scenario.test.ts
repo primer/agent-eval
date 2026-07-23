@@ -17,6 +17,23 @@ test('src/app/layout.tsx imports Primer dark theme primitives', () => {
   expect(layout).toMatch(/import\s+['"]@primer\/primitives\/dist\/css\/functional\/themes\/dark\.css['"]/)
 })
 
+test.each([
+  'light-tritanopia',
+  'light-tritanopia-high-contrast',
+  'light-high-contrast',
+  'light-colorblind',
+  'light-colorblind-high-contrast',
+  'dark-colorblind',
+  'dark-colorblind-high-contrast',
+  'dark-dimmed',
+  'dark-dimmed-high-contrast',
+  'dark-high-contrast',
+  'dark-tritanopia',
+  'dark-tritanopia-high-contrast',
+])('src/app/layout.tsx imports Primer %s theme primitives', theme => {
+  expect(layout).toMatch(new RegExp(`import\\s+['"]@primer/primitives/dist/css/functional/themes/${theme}\\.css['"]`))
+})
+
 test('src/app/layout.tsx sets data-color-mode', () => {
   expect(layout).toMatch(/<html[^>]*\bdata-color-mode=/)
 })

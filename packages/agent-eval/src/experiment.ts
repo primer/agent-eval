@@ -11,7 +11,7 @@ type Model = ProjectModel
 type Sandbox = ProjectSandbox
 type TreatmentConfig = ProjectTreatmentConfig
 
-function defineConfig(config: ExperimentConfig) {
+function defineConfig(config: ExperimentConfig): ExperimentConfig {
   return config
 }
 

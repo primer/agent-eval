@@ -54,6 +54,12 @@ describe('local experiment loading', () => {
     )
   })
 
+  test('returns undefined when an experiment is not found', async () => {
+    const directory = await createExperimentsDirectory()
+
+    await expect(findExperiment('missing', {directory})).resolves.toBeUndefined()
+  })
+
   test('loads an experiment from a local file path', async () => {
     const directory = await createExperimentsDirectory()
 

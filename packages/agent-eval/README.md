@@ -16,8 +16,9 @@ COPILOT_GITHUB_TOKEN=... agent-eval \
 Use `--experiments` to load experiment files from a local directory. Experiment
 files may export an `experiment` named export or a default export. `--experiment`
 may also be a path to a local experiment file when you only want to run one
-experiment. Use `--scenarios` to set the directory containing scenario
-directories; it defaults to `./scenarios`.
+experiment. The experiments directory defaults to `./experiments`. Use
+`--scenarios` to set the directory containing scenario directories; it defaults
+to `./scenarios`.
 
 ## Scenario config authoring
 

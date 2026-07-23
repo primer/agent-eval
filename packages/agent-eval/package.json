@@ -17,11 +17,11 @@
     },
     "./experiment": {
       "types": "./dist/experiment.d.ts",
-      "default": "./src/experiment.ts"
+      "default": "./dist/experiment.js"
     },
     "./scenario": {
       "types": "./dist/scenario.d.ts",
-      "default": "./src/scenario-config.ts"
+      "default": "./dist/scenario-config.ts"
     }
   },
   "engines": {
@@ -54,7 +54,6 @@
   },
   "devDependencies": {
     "@primer/agent-experiment": "workspace:*",
-    "@primer/agent-experiments": "workspace:*",
     "@primer/agent-sandbox": "workspace:*",
     "@types/node": "^26.0.1",
     "rimraf": "^6.1.3",

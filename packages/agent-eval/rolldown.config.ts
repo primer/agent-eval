@@ -2,7 +2,7 @@ import {defineConfig} from 'rolldown/config'
 import {dts} from 'rolldown-plugin-dts'
 import packageJson from './package.json' with {type: 'json'}
 
-const bundledDependencies = new Set(['@primer/agent-experiment', '@primer/agent-experiments', '@primer/agent-sandbox'])
+const bundledDependencies = new Set(['@primer/agent-experiment', '@primer/agent-sandbox'])
 const dependencies = [...Object.keys(packageJson.dependencies), ...Object.keys(packageJson.devDependencies)].filter(
   name => {
     return !bundledDependencies.has(name)
@@ -24,7 +24,6 @@ const config = defineConfig({
   plugins: [dts({eager: true, sourcemap: true})],
   output: {
     dir: 'dist',
-    entryFileNames: '[name].js',
   },
 })
 

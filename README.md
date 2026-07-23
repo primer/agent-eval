@@ -119,6 +119,19 @@ export const experiment: ExperimentConfig = {
 }
 ```
 
+### Describe eval tests
+
+Individual test titles and statuses are included in each run's `testResults`.
+Add a JSDoc, block, or consecutive line comment immediately before a test to
+include a description with that test's metadata:
+
+```ts
+/** Verifies that the agent used the required component. */
+test('uses the required component', () => {
+  // ...
+})
+```
+
 ## Treatment options
 
 Treatments can progressively add setup behavior for the agent environment.

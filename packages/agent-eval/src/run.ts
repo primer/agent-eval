@@ -4,7 +4,7 @@ import fs from 'node:fs/promises'
 import {AGENTS_DIR, CONTAINER_WORKDIR, COPILOT_DIR, NODE_USER, Sandbox} from '@primer/agent-sandbox'
 import type {Treatment, TreatmentResult} from './treatment'
 import {parseMessage, type Message} from './copilot-cli'
-import {parseTestResults} from './vitest'
+import {getTestMetadata, parseTestResults} from './vitest'
 
 type RunOptions = {
   artifactsDirectory: string
@@ -195,6 +195,7 @@ async function runTreatment(
   if (!testResults.success) {
     throw new Error(`Failed to parse test results: ${testResults.error}`)
   }
+  const testSource = await fs.readFile(treatment.eval.testPath, 'utf8')
 
   // Turns
   const assistantTurns = new Set()
@@ -269,6 +270,7 @@ async function runTreatment(
       numPendingTests: testResults.data.numPendingTests,
       numTodoTests: testResults.data.numTodoTests,
       numTotalTests: testResults.data.numTotalTests,
+      tests: getTestMetadata(testResults.data, testSource),
     },
   }
 }

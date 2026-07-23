@@ -1,5 +1,5 @@
 import {describe, expect, test} from 'vitest'
-import {extractTestDescriptions, getTestMetadata, parseTestResults} from './vitest'
+import {extractTestDescription, getTestMetadata, parseTestResults} from './vitest'
 
 const testResults = {
   numTotalTests: 4,
@@ -11,15 +11,22 @@ const testResults = {
   testResults: [
     {
       assertionResults: [
-        {fullName: 'math adds numbers', title: 'adds numbers', status: 'passed', meta: {}},
-        {fullName: 'math subtracts numbers', title: 'subtracts numbers', status: 'failed', meta: {}},
+        {fullName: 'math adds numbers', title: 'adds numbers', status: 'passed', location: {line: 2}, meta: {}},
+        {
+          fullName: 'math subtracts numbers',
+          title: 'subtracts numbers',
+          status: 'failed',
+          location: {line: 5},
+          meta: {},
+        },
         {
           fullName: 'math multiplies numbers',
           title: 'multiplies numbers',
           status: 'skipped',
+          location: {line: 7},
           meta: {description: 'Description from Vitest metadata.'},
         },
-        {fullName: 'math divides numbers', title: 'divides numbers', status: 'todo', meta: {}},
+        {fullName: 'math divides numbers', title: 'divides numbers', status: 'todo', location: {line: 8}, meta: {}},
       ],
     },
   ],
@@ -45,38 +52,30 @@ describe(parseTestResults, () => {
   })
 })
 
-describe(extractTestDescriptions, () => {
+describe(extractTestDescription, () => {
   test('extracts JSDoc, block, and consecutive line comments', () => {
-    const source = `
-      /** Adds two values together. */
-      test('adds numbers', () => {})
+    const source = `  /** Adds two values together. */
+  test('adds numbers', () => {})
+  /* Subtracts the second value
+   * from the first value.
+   */
+  it('subtracts numbers', () => {})
+  // Multiplies the values.
+  // Keeps the sign.
+  test.skip('multiplies numbers', () => {})`
 
-      /* Subtracts the second value
-       * from the first value.
-       */
-      it('subtracts numbers', () => {})
-
-      // Multiplies the values.
-      // Keeps the sign.
-      test.skip('multiplies numbers', () => {})
-    `
-
-    expect(Object.fromEntries(extractTestDescriptions(source))).toEqual({
-      'adds numbers': ['Adds two values together.'],
-      'subtracts numbers': ['Subtracts the second value\nfrom the first value.'],
-      'multiplies numbers': ['Multiplies the values.\nKeeps the sign.'],
-    })
+    expect(extractTestDescription(source, 2)).toBe('Adds two values together.')
+    expect(extractTestDescription(source, 6)).toBe('Subtracts the second value\nfrom the first value.')
+    expect(extractTestDescription(source, 9)).toBe('Multiplies the values.\nKeeps the sign.')
   })
 
   test('ignores comments that are not adjacent to a test', () => {
-    const source = `
-      /** Describes a helper, not the test. */
-      const value = 2
+    const source = `/** Describes a helper, not the test. */
+const value = 2
 
-      test('uses the value', () => value)
-    `
+test('uses the value', () => value)`
 
-    expect(extractTestDescriptions(source)).toEqual(new Map())
+    expect(extractTestDescription(source, 4)).toBeUndefined()
   })
 })
 
@@ -88,13 +87,14 @@ describe(getTestMetadata, () => {
       return
     }
 
-    const source = `
-      /** Adds two values together. */
-      test('adds numbers', () => {})
+    const source = `/** Adds two values together. */
+test('adds numbers', () => {})
 
-      // Subtracts the second value.
-      test('subtracts numbers', () => {})
-    `
+// Subtracts the second value.
+test('subtracts numbers', () => {})
+
+test.skip('multiplies numbers', () => {})
+test.todo('divides numbers')`
 
     expect(getTestMetadata(parsed.data, source)).toEqual([
       {

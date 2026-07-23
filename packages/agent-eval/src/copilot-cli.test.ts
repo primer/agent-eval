@@ -1,5 +1,17 @@
 import {describe, expect, test} from 'vitest'
-import {parseMessage} from './copilot-cli.ts'
+import {CopilotLogSchema, parseMessage} from './copilot-cli.ts'
+
+describe('CopilotLogSchema', () => {
+  test('preserves unrecognized messages and fields', () => {
+    const log = {
+      type: 'assistant.unknown',
+      data: {value: true},
+      extra: 'preserved',
+    }
+
+    expect(CopilotLogSchema.parse(log)).toEqual(log)
+  })
+})
 
 describe(parseMessage, () => {
   test.each([

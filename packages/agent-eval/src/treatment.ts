@@ -1,4 +1,5 @@
 import type {ExperimentConfig, Model, TreatmentConfig} from '@primer/agent-experiment'
+import type {CopilotLog} from './copilot-cli'
 import type {ResolvedScenario} from './scenario'
 
 type Treatment = {
@@ -20,7 +21,7 @@ type TreatmentResult = {
     workspacePath: string
   }
   assistant: {
-    logs: Array<unknown>
+    logs: Array<CopilotLog>
     turns: number
     outputTokens: number
     premiumRequests: number

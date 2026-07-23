@@ -1,0 +1,25 @@
+{
+  "name": "004-agent-enables-theme-switching",
+  "type": "module",
+  "scripts": {
+    "clean": "rimraf .next",
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "next": "^16",
+    "react": "19.2.7",
+    "react-dom": "19.2.7"
+  },
+  "devDependencies": {
+    "@primer/agent-eval": "workspace:*",
+    "@types/node": "^26.0.1",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "rimraf": "^6.1.3",
+    "typescript": "^6",
+    "vitest": "^4.1.8"
+  }
+}

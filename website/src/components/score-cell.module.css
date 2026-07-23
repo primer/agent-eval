@@ -1,0 +1,9 @@
+.score {
+  display: grid;
+  gap: var(--base-size-4);
+  min-width: calc(var(--base-size-8) * 12);
+}
+
+.progress {
+  width: 100%;
+}

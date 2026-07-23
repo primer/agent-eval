@@ -105,10 +105,10 @@ Start with the basic experiment shape above, then add options as needed.
 ### Use the typed config helper
 
 When authoring experiments outside of this repository, import the helper from
-`@primer/agent-eval/config` to keep the experiment config typed:
+`@primer/agent-eval/experiment` to keep the experiment config typed:
 
 ```ts
-import {defineConfig} from '@primer/agent-eval/config'
+import {defineConfig} from '@primer/agent-eval/experiment'
 
 export const experiment = defineConfig({
   name: 'Example experiment',

@@ -34,11 +34,11 @@ export default defineScenario({
 
 ## Experiment config authoring
 
-Use `defineConfig` from `@primer/agent-eval/config` to keep local experiment
+Use `defineConfig` from `@primer/agent-eval/experiment` to keep local experiment
 files typed:
 
 ```ts
-import {defineConfig} from '@primer/agent-eval/config'
+import {defineConfig} from '@primer/agent-eval/experiment'
 
 export const experiment = defineConfig({
   name: 'Example experiment',

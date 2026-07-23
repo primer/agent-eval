@@ -15,9 +15,9 @@
       "types": "./dist/cli.d.ts",
       "default": "./dist/cli.js"
     },
-    "./config": {
-      "types": "./dist/config.d.ts",
-      "default": "./src/config.ts"
+    "./experiment": {
+      "types": "./dist/experiment.d.ts",
+      "default": "./src/experiment.ts"
     },
     "./scenario": {
       "types": "./dist/scenario.d.ts",
@@ -29,7 +29,7 @@
   },
   "files": [
     "dist",
-    "src/config.ts",
+    "src/experiment.ts",
     "src/scenario-config.ts"
   ],
   "scripts": {

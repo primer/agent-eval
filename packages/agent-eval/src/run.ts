@@ -103,9 +103,9 @@ async function runTreatment(
   console.log('Running treatment: %s (%s)', treatment.config.name, treatment.id)
   await using sandbox = await Sandbox.create({dockerImage})
 
-  console.log('Copying files from: %s...', treatment.eval.directory)
-  await sandbox.copy(treatment.eval.directory, CONTAINER_WORKDIR, {
-    exclude: ['eval.config.ts', 'eval.test.ts', 'node_modules', '.next'],
+  console.log('Copying files from: %s...', treatment.scenario.directory)
+  await sandbox.copy(treatment.scenario.directory, CONTAINER_WORKDIR, {
+    exclude: ['scenario.config.ts', 'scenario.test.ts', 'node_modules', '.next'],
   })
   await sandbox.runCommand('chown', ['-R', NODE_USER, '.'], {
     user: 'root',
@@ -146,7 +146,7 @@ async function runTreatment(
   })
 
   console.log('Running copilot...')
-  const {prompt} = treatment.eval.config
+  const {prompt} = treatment.scenario.config
   const args = [
     '-p',
     prompt,
@@ -179,9 +179,9 @@ async function runTreatment(
     return []
   })
 
-  const TEST_PATH = 'eval.test.ts'
+  const TEST_PATH = 'scenario.test.ts'
   const VITEST_CONFIG_PATH = 'vitest.agent-eval.config.ts'
-  await sandbox.copy(treatment.eval.testPath, TEST_PATH)
+  await sandbox.copy(treatment.scenario.testPath, TEST_PATH)
   await sandbox.writeFile(
     VITEST_CONFIG_PATH,
     `
@@ -208,7 +208,7 @@ export default defineConfig({
   if (!testResults.success) {
     throw new Error(`Failed to parse test results: ${testResults.error}`)
   }
-  const testSource = await fs.readFile(treatment.eval.testPath, 'utf8')
+  const testSource = await fs.readFile(treatment.scenario.testPath, 'utf8')
 
   // Turns
   const assistantTurns = new Set()

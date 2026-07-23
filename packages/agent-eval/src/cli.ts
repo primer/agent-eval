@@ -4,11 +4,11 @@ import {existsSync} from 'node:fs'
 import path from 'node:path'
 import fs from 'node:fs/promises'
 import {parseArgs} from 'node:util'
-import {get as getEval} from '@primer/agent-evals'
+import {get as getScenario} from '@primer/agent-scenarios'
 import {ControlTreatment, type ExperimentConfig, type Model} from '@primer/agent-experiment'
 import type {Treatment, TreatmentResult} from './treatment'
 import {listExperiments, loadExperimentConfigs} from './experiments.ts'
-import {resolveExperimentEval} from './eval'
+import {resolveExperimentScenario} from './scenario'
 import {run} from './run'
 
 const COPILOT_GITHUB_TOKEN = process.env.COPILOT_GITHUB_TOKEN
@@ -54,7 +54,7 @@ const MAX_CONCURRENCY =
   Number.isFinite(parsedConcurrency) && Number.isInteger(parsedConcurrency) && parsedConcurrency >= 1
     ? parsedConcurrency
     : 1
-let experimentConfigs: Array<ExperimentConfig> = []
+let experimentConfigs: Array<ExperimentConfig>
 
 if (!existsSync(ARTIFACTS_DIR)) {
   await fs.mkdir(ARTIFACTS_DIR, {recursive: true})
@@ -112,14 +112,14 @@ function compareResults(a: TreatmentResult, b: TreatmentResult): number {
     a.treatment.experiment.name.localeCompare(b.treatment.experiment.name) ||
     a.treatment.config.name.localeCompare(b.treatment.config.name) ||
     a.treatment.model.localeCompare(b.treatment.model) ||
-    a.treatment.eval.id.localeCompare(b.treatment.eval.id)
+    a.treatment.scenario.id.localeCompare(b.treatment.scenario.id)
   )
 }
 
 type ResultSummary = {
   experiment: string
   treatment?: string
-  eval?: string
+  scenario?: string
   model?: Model
   runs: number
   numPassedTests: number
@@ -132,7 +132,7 @@ type ResultSummary = {
 
 type ResultSummaryValues = {
   treatment?: string
-  eval?: string
+  scenario?: string
   model?: Model
 }
 
@@ -140,7 +140,7 @@ function createResultSummary(result: TreatmentResult, summaryValues: ResultSumma
   return {
     experiment: result.treatment.experiment.name,
     treatment: summaryValues.treatment,
-    eval: summaryValues.eval,
+    scenario: summaryValues.scenario,
     model: summaryValues.model,
     runs: 0,
     numPassedTests: 0,
@@ -178,7 +178,7 @@ function compareSummaries(a: ResultSummary, b: ResultSummary): number {
     a.premiumRequests - b.premiumRequests ||
     a.experiment.localeCompare(b.experiment) ||
     (a.treatment ?? '').localeCompare(b.treatment ?? '') ||
-    (a.eval ?? '').localeCompare(b.eval ?? '') ||
+    (a.scenario ?? '').localeCompare(b.scenario ?? '') ||
     (a.model ?? '').localeCompare(b.model ?? '')
   )
 }
@@ -235,7 +235,7 @@ function getSummaryKey(result: TreatmentResult, summaryValues: ResultSummaryValu
   return [
     result.treatment.experiment.name,
     summaryValues.treatment ?? '',
-    summaryValues.eval ?? '',
+    summaryValues.scenario ?? '',
     summaryValues.model ?? '',
   ].join('\0')
 }
@@ -244,7 +244,7 @@ type ResultHierarchy = Array<{
   experiment: string
   treatments: Array<{
     summary: ResultSummary
-    evals: Array<{
+    scenarios: Array<{
       summary: ResultSummary
       models: Array<ResultSummary>
     }>
@@ -254,7 +254,7 @@ type ResultHierarchy = Array<{
 function getResultSummaries(results: Array<TreatmentResult>): ResultHierarchy {
   const experiments = new Set<string>()
   const treatmentSummaries = new Map<string, ResultSummary>()
-  const evalSummaries = new Map<string, ResultSummary>()
+  const scenarioSummaries = new Map<string, ResultSummary>()
   const modelSummaries = new Map<string, ResultSummary>()
 
   for (const result of results) {
@@ -268,18 +268,18 @@ function getResultSummaries(results: Array<TreatmentResult>): ResultHierarchy {
     addResultToSummary(treatmentSummary, result)
     treatmentSummaries.set(treatmentKey, treatmentSummary)
 
-    const evalValues = {
+    const scenarioValues = {
       treatment: result.treatment.config.name,
-      eval: result.treatment.eval.id,
+      scenario: result.treatment.scenario.id,
     }
-    const evalKey = getSummaryKey(result, evalValues)
-    const evalSummary = evalSummaries.get(evalKey) ?? createResultSummary(result, evalValues)
-    addResultToSummary(evalSummary, result)
-    evalSummaries.set(evalKey, evalSummary)
+    const scenarioKey = getSummaryKey(result, scenarioValues)
+    const scenarioSummary = scenarioSummaries.get(scenarioKey) ?? createResultSummary(result, scenarioValues)
+    addResultToSummary(scenarioSummary, result)
+    scenarioSummaries.set(scenarioKey, scenarioSummary)
 
     const modelValues = {
       treatment: result.treatment.config.name,
-      eval: result.treatment.eval.id,
+      scenario: result.treatment.scenario.id,
       model: result.treatment.model,
     }
     const modelKey = getSummaryKey(result, modelValues)
@@ -299,20 +299,20 @@ function getResultSummaries(results: Array<TreatmentResult>): ResultHierarchy {
         .map(summary => {
           return {
             summary,
-            evals: [...evalSummaries.values()]
-              .filter(evalSummary => {
-                return evalSummary.experiment === experiment && evalSummary.treatment === summary.treatment
+            scenarios: [...scenarioSummaries.values()]
+              .filter(scenarioSummary => {
+                return scenarioSummary.experiment === experiment && scenarioSummary.treatment === summary.treatment
               })
               .toSorted(compareSummaries)
-              .map(evalSummary => {
+              .map(scenarioSummary => {
                 return {
-                  summary: evalSummary,
+                  summary: scenarioSummary,
                   models: [...modelSummaries.values()]
                     .filter(modelSummary => {
                       return (
                         modelSummary.experiment === experiment &&
                         modelSummary.treatment === summary.treatment &&
-                        modelSummary.eval === evalSummary.eval
+                        modelSummary.scenario === scenarioSummary.scenario
                       )
                     })
                     .toSorted(compareSummaries),
@@ -328,7 +328,7 @@ function formatResultSummaries(results: Array<TreatmentResult>): string {
   const columns = [
     'Experiment',
     'Treatment',
-    'Eval',
+    'Scenario',
     'Model',
     'Success Rate',
     'Tests',
@@ -341,11 +341,11 @@ function formatResultSummaries(results: Array<TreatmentResult>): string {
   const rows: Array<TableRow> = []
 
   for (const {treatments} of getResultSummaries(results)) {
-    for (const {summary, evals} of treatments) {
+    for (const {summary, scenarios} of treatments) {
       rows.push(formatSummaryRow(summary, 'treatment'))
 
-      for (const {summary: evalSummary, models} of evals) {
-        rows.push(formatSummaryRow(evalSummary, 'eval'))
+      for (const {summary: scenarioSummary, models} of scenarios) {
+        rows.push(formatSummaryRow(scenarioSummary, 'scenario'))
 
         for (const model of models) {
           rows.push(formatSummaryRow(model, 'model'))
@@ -365,11 +365,11 @@ async function appendResultsToJobSummary(resultSummaries: string) {
   await fs.appendFile(GITHUB_STEP_SUMMARY, `## Experiment results\n\n\`\`\`\n${resultSummaries}\n\`\`\`\n`)
 }
 
-function formatSummaryRow(summary: ResultSummary, level: 'treatment' | 'eval' | 'model'): TableRow {
+function formatSummaryRow(summary: ResultSummary, level: 'treatment' | 'scenario' | 'model'): TableRow {
   return {
     Experiment: level === 'treatment' ? summary.experiment : '',
     Treatment: level === 'treatment' ? (summary.treatment ?? '') : '',
-    Eval: level === 'treatment' ? 'All evals' : level === 'eval' ? `  ${summary.eval ?? ''}` : '',
+    Scenario: level === 'treatment' ? 'All scenarios' : level === 'scenario' ? `  ${summary.scenario ?? ''}` : '',
     Model: level === 'model' ? `    ${summary.model ?? ''}` : 'All models',
     'Success Rate': formatPercent(getSummarySuccessRate(summary)),
     Tests: `${summary.numPassedTests}/${summary.numTotalTests}`,
@@ -386,20 +386,20 @@ const results: Array<TreatmentResult> = []
 for (const config of experimentConfigs) {
   console.log('Running experiment:', config.name)
 
-  const evals = await Promise.all(
-    config.evals.map(evalConfig => {
-      return resolveExperimentEval(evalConfig, {
-        builtInEvalResolver: getEval,
+  const scenarios = await Promise.all(
+    config.scenarios.map(scenarioConfig => {
+      return resolveExperimentScenario(scenarioConfig, {
+        builtInScenarioResolver: getScenario,
       })
     }),
   )
 
   const treatments: Array<Treatment> = config.models.flatMap(model => {
-    return evals.flatMap(evalConfig => {
+    return scenarios.flatMap(scenarioConfig => {
       return [
         {
           config: ControlTreatment,
-          eval: evalConfig,
+          scenario: scenarioConfig,
           experiment: config,
           id: randomUUID(),
           model,
@@ -407,7 +407,7 @@ for (const config of experimentConfigs) {
         ...config.treatments.map(treatment => {
           return {
             config: treatment,
-            eval: evalConfig,
+            scenario: scenarioConfig,
             experiment: config,
             id: randomUUID(),
             model,
@@ -418,9 +418,9 @@ for (const config of experimentConfigs) {
   })
 
   // Randomize treatments to mitigate any ordering effects. We want to make sure
-  // that if there are any external factors that could impact the evals (e.g.
+  // that if there are any external factors that could impact the scenarios (e.g.
   // rate limits, resource constraints), they are more likely to impact all
-  // evals rather than just the ones at the end.
+  // scenarios rather than just the ones at the end.
   const runResults = await run(randomize(treatments), {
     artifactsDirectory: ARTIFACTS_DIR,
     copilotToken: COPILOT_GITHUB_TOKEN,

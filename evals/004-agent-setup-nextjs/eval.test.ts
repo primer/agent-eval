@@ -37,15 +37,11 @@ test('src/app/layout.tsx configures automatic light and dark color modes', () =>
 })
 
 test('src/app/layout.tsx imports the light color mode primitives', () => {
-  expect(layout).toMatch(
-    /import\s+['"]@primer\/primitives\/dist\/css\/functional\/themes\/light\.css['"]/,
-  )
+  expect(layout).toMatch(/import\s+['"]@primer\/primitives\/dist\/css\/functional\/themes\/light\.css['"]/)
 })
 
 test('src/app/layout.tsx imports the dark color mode primitives', () => {
-  expect(layout).toMatch(
-    /import\s+['"]@primer\/primitives\/dist\/css\/functional\/themes\/dark\.css['"]/,
-  )
+  expect(layout).toMatch(/import\s+['"]@primer\/primitives\/dist\/css\/functional\/themes\/dark\.css['"]/)
 })
 
 test('src/app/layout.tsx does not import ThemeProvider', () => {

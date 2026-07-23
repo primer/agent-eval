@@ -3,7 +3,7 @@ import path from 'node:path'
 import fs from 'node:fs/promises'
 import {AGENTS_DIR, CONTAINER_WORKDIR, COPILOT_DIR, NODE_USER, Sandbox} from '@primer/agent-sandbox'
 import type {Treatment, TreatmentResult} from './treatment'
-import {CopilotLogSchema, parseMessage, type CopilotLog, type Message} from './copilot-cli'
+import {parseMessage, type Message} from './copilot-cli'
 import {parseTestResults} from './vitest'
 
 type RunOptions = {
@@ -166,20 +166,12 @@ async function runTreatment(
       COPILOT_GITHUB_TOKEN: copilotToken,
     },
   })
-  const logs: Array<CopilotLog> = []
   const messages: Array<Message> = copilotOutput.stdout.split('\n').flatMap(line => {
     const trimmed = line.trim()
     if (trimmed.length === 0) {
       return []
     }
-    const log = CopilotLogSchema.parse(JSON.parse(trimmed))
-    logs.push(log)
-    const result = parseMessage(log)
-    if (result.success) {
-      return result.data
-    }
-    console.log('Failed to parse copilot message: %s', line)
-    return []
+    return parseMessage(JSON.parse(trimmed))
   })
 
   const TEST_PATH = 'scenario.test.ts'
@@ -258,7 +250,7 @@ async function runTreatment(
       workspacePath,
     },
     assistant: {
-      logs,
+      logs: messages,
       turns: assistantTurns.size,
       outputTokens,
       premiumRequests: result.usage.premiumRequests,

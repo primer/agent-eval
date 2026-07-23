@@ -1,9 +1,5 @@
 import * as z from 'zod/mini'
 
-const CopilotLogSchema = z.looseObject({
-  type: z.string(),
-})
-
 const ToolArgumentsSchema = z.union([z.string(), z.record(z.string(), z.unknown())])
 
 const ToolRequestSchema = z.object({
@@ -257,14 +253,12 @@ const MessageSchema = z.discriminatedUnion('type', [
 ])
 
 type Message = z.infer<typeof MessageSchema>
-type CopilotLog = z.infer<typeof CopilotLogSchema>
 
 function parseMessage(message: unknown) {
-  return MessageSchema.safeParse(message)
+  return MessageSchema.parse(message)
 }
 
 export {
-  CopilotLogSchema,
   MessageSchema,
   ResultMessageSchema,
   SessionTaskCompleteMessageSchema,
@@ -273,4 +267,4 @@ export {
   ToolExecutionStartMessageSchema,
   parseMessage,
 }
-export type {CopilotLog, Message}
+export type {Message}

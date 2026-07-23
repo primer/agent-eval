@@ -50,6 +50,9 @@ importers:
       '@primer/agent-experiment':
         specifier: workspace:*
         version: link:../packages/experiment
+      '@primer/agent-scenarios':
+        specifier: workspace:*
+        version: link:../packages/scenarios
     devDependencies:
       '@types/node':
         specifier: ^26.0.1

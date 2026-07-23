@@ -717,4 +717,4 @@ export type {
   CustomAgentOptions,
   CustomAgentWrittenFile,
 }
-export type {McpServerConfig} from './mcp-config.ts'
+export type {McpServerConfig} from './mcp-config'

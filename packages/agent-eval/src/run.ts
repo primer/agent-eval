@@ -1,7 +1,7 @@
 import {randomUUID} from 'node:crypto'
 import path from 'node:path'
 import fs from 'node:fs/promises'
-import {AGENTS_DIR, CONTAINER_WORKDIR, COPILOT_DIR, NODE_USER, Sandbox} from '@primer/agent-sandbox'
+import {AGENTS_DIR, CONTAINER_WORKDIR, COPILOT_DIR, NODE_USER, Sandbox} from './sandbox'
 import type {Treatment, TreatmentResult} from './treatment'
 import {parseMessage, type Message} from './copilot-cli'
 import {getTestMetadata, parseTestResults} from './vitest'

@@ -2,7 +2,7 @@ import {existsSync} from 'node:fs'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import {pathToFileURL} from 'node:url'
-import type {ExperimentConfig} from '@primer/agent-experiment'
+import type {ExperimentConfig} from './experiment-config'
 
 type ExperimentModule = {
   default?: ExperimentConfig

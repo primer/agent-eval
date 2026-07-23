@@ -1,5 +1,5 @@
-import type {Sandbox} from '@primer/agent-sandbox'
 import type {Model} from './model'
+import type {Sandbox} from './sandbox'
 
 type ScenarioConfig = {
   prompt: string
@@ -28,4 +28,9 @@ type TreatmentConfig = {
 
 type Setup = ({sandbox}: {sandbox: Sandbox}) => Promise<void>
 
+const ControlTreatment: TreatmentConfig = {
+  name: 'Control',
+}
+
+export {ControlTreatment}
 export type {ExperimentConfig, ExperimentScenarioConfig, InlineScenarioConfig, ScenarioConfig, TreatmentConfig}

@@ -1,15 +1,6 @@
-import type {
-  ExperimentConfig as ProjectExperimentConfig,
-  Model as ProjectModel,
-  TreatmentConfig as ProjectTreatmentConfig,
-} from '@primer/agent-experiment'
-import type {McpServerConfig as ProjectMcpServerConfig, Sandbox as ProjectSandbox} from '@primer/agent-sandbox'
-
-type ExperimentConfig = ProjectExperimentConfig
-type McpServerConfig = ProjectMcpServerConfig
-type Model = ProjectModel
-type Sandbox = ProjectSandbox
-type TreatmentConfig = ProjectTreatmentConfig
+import type {ExperimentConfig, TreatmentConfig} from './experiment-config'
+import type {McpServerConfig, Sandbox} from './sandbox'
+import type {Model} from './model'
 
 function defineConfig(config: ExperimentConfig): ExperimentConfig {
   return config

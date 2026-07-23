@@ -1,4 +1,5 @@
-import type {ExperimentConfig, Model, TreatmentConfig} from '@primer/agent-experiment'
+import type {ExperimentConfig, TreatmentConfig} from './experiment-config'
+import type {Model} from './model'
 import type {Message} from './copilot-cli'
 import type {ResolvedScenario} from './scenario'
 

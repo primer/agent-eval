@@ -1,6 +1,4 @@
-import type {ScenarioConfig as ProjectScenarioConfig} from '@primer/agent-experiment'
-
-type ScenarioConfig = ProjectScenarioConfig
+import type {ScenarioConfig} from './experiment-config'
 
 function defineScenario(config: ScenarioConfig) {
   return config

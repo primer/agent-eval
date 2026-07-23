@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import {pathToFileURL} from 'node:url'
-import type {ScenarioConfig} from '@primer/agent-experiment'
+import type {ScenarioConfig} from './experiment-config'
 
 type ResolvedScenario = {
   readonly id: string

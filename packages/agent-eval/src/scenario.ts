@@ -1,5 +1,5 @@
 import path from 'node:path'
-import type {ExperimentScenarioConfig} from '@primer/agent-experiment'
+import type {ExperimentScenarioConfig} from './experiment-config'
 import {findScenario, loadScenarioDirectory, type ResolvedScenario, type ScenarioSourceOptions} from './scenarios'
 
 type ResolveScenarioOptions = ScenarioSourceOptions & {

@@ -12,7 +12,7 @@ async function createExperimentsDirectory() {
       name: 'Example',
       description: 'Example experiment',
       models: ['gpt-5.5'],
-      evals: ['001-agent-uses-button-from-primer'],
+      scenarios: ['001-agent-uses-button-from-primer'],
       treatments: []
     }`,
   )
@@ -22,7 +22,7 @@ async function createExperimentsDirectory() {
       name: 'Default export',
       description: 'Default export experiment',
       models: ['gpt-5.5'],
-      evals: ['001-agent-uses-button-from-primer'],
+      scenarios: ['001-agent-uses-button-from-primer'],
       treatments: []
     }`,
   )

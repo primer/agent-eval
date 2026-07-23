@@ -27,5 +27,5 @@ next-env.d.ts
 **/__screenshots__/**
 
 # Generated files
-src/evals/generated.ts
+packages/scenarios/src/generated
 artifacts/

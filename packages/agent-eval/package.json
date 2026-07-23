@@ -18,6 +18,10 @@
     "./config": {
       "types": "./dist/config.d.ts",
       "default": "./src/config.ts"
+    },
+    "./scenario": {
+      "types": "./dist/scenario.d.ts",
+      "default": "./src/scenario-config.ts"
     }
   },
   "engines": {
@@ -25,7 +29,8 @@
   },
   "files": [
     "dist",
-    "src/config.ts"
+    "src/config.ts",
+    "src/scenario-config.ts"
   ],
   "scripts": {
     "build": "rimraf dist && rolldown -c",
@@ -48,7 +53,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@primer/agent-evals": "workspace:*",
+    "@primer/agent-scenarios": "workspace:*",
     "@primer/agent-experiment": "workspace:*",
     "@primer/agent-experiments": "workspace:*",
     "@primer/agent-sandbox": "workspace:*",

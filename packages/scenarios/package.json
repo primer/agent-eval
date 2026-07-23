@@ -1,11 +1,11 @@
 {
-  "name": "@primer/agent-evals",
+  "name": "@primer/agent-scenarios",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "exports": "./src/index.ts",
   "scripts": {
-    "build": "node script/build-evals.ts",
+    "build": "node script/build-scenarios.ts",
     "clean": "rimraf src/generated",
     "type-check": "tsc --noEmit"
   },

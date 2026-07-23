@@ -171,12 +171,7 @@ async function runTreatment(
     if (trimmed.length === 0) {
       return []
     }
-    const result = parseMessage(JSON.parse(trimmed))
-    if (result.success) {
-      return result.data
-    }
-    console.log('Failed to parse copilot message: %s', line)
-    return []
+    return parseMessage(JSON.parse(trimmed))
   })
 
   const TEST_PATH = 'scenario.test.ts'
@@ -255,6 +250,7 @@ async function runTreatment(
       workspacePath,
     },
     assistant: {
+      logs: messages,
       turns: assistantTurns.size,
       outputTokens,
       premiumRequests: result.usage.premiumRequests,

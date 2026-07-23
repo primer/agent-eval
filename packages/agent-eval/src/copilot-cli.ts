@@ -255,7 +255,7 @@ const MessageSchema = z.discriminatedUnion('type', [
 type Message = z.infer<typeof MessageSchema>
 
 function parseMessage(message: unknown) {
-  return MessageSchema.safeParse(message)
+  return MessageSchema.parse(message)
 }
 
 export {

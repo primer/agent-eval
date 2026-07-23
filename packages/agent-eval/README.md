@@ -15,6 +15,19 @@ files may export an `experiment` named export or a default export. `--experiment
 may also be a path to a local experiment file when you only want to run one
 experiment.
 
+## Scenario config authoring
+
+Use `defineScenario` from `@primer/agent-eval/scenario` in each
+`scenario.config.ts` file:
+
+```ts
+import {defineScenario} from '@primer/agent-eval/scenario'
+
+export default defineScenario({
+  prompt: 'Update the index page to use a primary button',
+})
+```
+
 ## Experiment config authoring
 
 Use `createExperiment` from `@primer/agent-eval/config` to keep local experiment
@@ -27,7 +40,7 @@ export const experiment = createExperiment({
   name: 'Example experiment',
   description: 'Compare treatment behavior',
   models: ['gpt-5.5'],
-  evals: ['001-agent-uses-button-from-primer'],
+  scenarios: ['001-agent-uses-button-from-primer'],
   treatments: [],
 })
 ```

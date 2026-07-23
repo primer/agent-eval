@@ -1,4 +1,3 @@
 .next
-packages/evals/src/generated
+packages/scenarios/src/generated
 dist
-

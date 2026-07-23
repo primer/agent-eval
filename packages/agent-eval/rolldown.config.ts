@@ -3,7 +3,7 @@ import {dts} from 'rolldown-plugin-dts'
 import packageJson from './package.json' with {type: 'json'}
 
 const bundledDependencies = new Set([
-  '@primer/agent-evals',
+  '@primer/agent-scenarios',
   '@primer/agent-experiment',
   '@primer/agent-experiments',
   '@primer/agent-sandbox',
@@ -22,6 +22,7 @@ const config = defineConfig({
     cli: 'src/cli.ts',
     config: 'src/config.ts',
     index: 'src/index.ts',
+    scenario: 'src/scenario-config.ts',
   },
   platform: 'node',
   external,

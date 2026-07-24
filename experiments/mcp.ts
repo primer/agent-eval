@@ -3,7 +3,11 @@ import {defineConfig} from '@primer/agent-eval/experiment'
 export const experiment = defineConfig({
   name: 'MCP',
   description: 'Compare MCP versus local instructions performance for Primer usage.',
-  models: ['gpt-5.5', 'claude-opus-4.7', 'claude-sonnet-4.6'],
+  models: [
+    {name: 'gpt-5.5', reasoningEfforts: ['high']},
+    {name: 'claude-opus-4.7', reasoningEfforts: ['high']},
+    {name: 'claude-sonnet-4.6', reasoningEfforts: ['high']},
+  ],
   scenarios: ['001-agent-uses-button-from-primer', '002-agent-uses-octicon-from-primer'],
   treatments: [
     {

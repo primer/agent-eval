@@ -282,7 +282,7 @@ const ResultMessageSchema = z.object({
   }),
 })
 
-const MessageSchema = z.discriminatedUnion('type', [
+const KnownMessageSchema = z.discriminatedUnion('type', [
   SessionMcpServerStatusChangedMessageSchema,
   SessionMcpServersLoadedMessageSchema,
   SessionSkillsLoadedMessageSchema,
@@ -308,7 +308,54 @@ const MessageSchema = z.discriminatedUnion('type', [
   ResultMessageSchema,
 ])
 
+const KnownMessageTypes = new Set([
+  'session.mcp_server_status_changed',
+  'session.mcp_servers_loaded',
+  'session.skills_loaded',
+  'session.tools_updated',
+  'model.call_start',
+  'user.message',
+  'assistant.turn_start',
+  'assistant.message_start',
+  'assistant.message_delta',
+  'assistant.message',
+  'assistant.reasoning',
+  'assistant.reasoning_delta',
+  'assistant.tool_call_delta',
+  'tool.execution_start',
+  'tool.execution_complete',
+  'assistant.turn_end',
+  'assistant.idle',
+  'session.usage_checkpoint',
+  'session.info',
+  'session.background_tasks_changed',
+  'tool.execution_partial_result',
+  'session.task_complete',
+  'result',
+])
+
+declare const unknownMessageType: unique symbol
+type UnknownMessageType = string & {readonly [unknownMessageType]: true}
+
+const UnknownMessageSchema = z.looseObject({
+  type: z.custom<UnknownMessageType, string>(
+    type => typeof type === 'string' && !KnownMessageTypes.has(type),
+    'Expected an unknown message type',
+  ),
+})
+
+const MessageSchema = z.union([KnownMessageSchema, UnknownMessageSchema])
+
+type KnownMessage = z.infer<typeof KnownMessageSchema>
+type UnknownMessage = z.infer<typeof UnknownMessageSchema>
 type Message = z.infer<typeof MessageSchema>
+
+function isMessageType<T extends KnownMessage['type']>(
+  message: Message,
+  type: T,
+): message is Extract<KnownMessage, {type: T}> {
+  return message.type === type
+}
 
 function parseMessage(message: unknown) {
   return MessageSchema.parse(message, {reportInput: true})
@@ -321,6 +368,8 @@ export {
   ToolExecutionCompleteMessageSchema,
   ToolExecutionPartialResultMessageSchema,
   ToolExecutionStartMessageSchema,
+  UnknownMessageSchema,
+  isMessageType,
   parseMessage,
 }
-export type {Message}
+export type {KnownMessage, Message, UnknownMessage, UnknownMessageType}

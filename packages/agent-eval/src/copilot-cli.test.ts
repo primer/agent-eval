@@ -172,7 +172,22 @@ describe(parseMessage, () => {
     expect(parseMessage(message)).toMatchObject(message)
   })
 
-  test('throws for unrecognized messages', () => {
-    expect(() => parseMessage({type: 'unknown.event', data: {}})).toThrow(/unknown\.event/)
+  test('preserves unrecognized messages', () => {
+    const message = {
+      type: 'unknown.event',
+      data: {
+        nested: {
+          value: 42,
+        },
+      },
+      ephemeral: true,
+      metadata: ['one', 'two'],
+    }
+
+    expect(parseMessage(message)).toEqual(message)
+  })
+
+  test('does not treat malformed known messages as unrecognized', () => {
+    expect(() => parseMessage({type: 'assistant.turn_start', data: {}})).toThrow()
   })
 })

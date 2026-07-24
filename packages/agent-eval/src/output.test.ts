@@ -70,6 +70,32 @@ describe(parseAgentEvalOutput, () => {
     expect(parseAgentEvalOutput(output)).toEqual(output)
   })
 
+  test('preserves unknown Copilot messages', () => {
+    const unknownMessage = {
+      type: 'unknown.event',
+      data: {
+        nested: {
+          value: 42,
+        },
+      },
+      metadata: ['one', 'two'],
+    }
+    const outputWithUnknownMessage = {
+      ...output,
+      results: [
+        {
+          ...output.results[0],
+          assistant: {
+            ...output.results[0].assistant,
+            logs: [unknownMessage],
+          },
+        },
+      ],
+    }
+
+    expect(parseAgentEvalOutput(outputWithUnknownMessage)).toEqual(outputWithUnknownMessage)
+  })
+
   test('throws for invalid agent eval output', () => {
     expect(() =>
       parseAgentEvalOutput({

@@ -3,7 +3,7 @@ import path from 'node:path'
 import fs from 'node:fs/promises'
 import {AGENTS_DIR, CONTAINER_WORKDIR, COPILOT_DIR, NODE_USER, Sandbox} from './sandbox'
 import type {Treatment, TreatmentResult} from './treatment'
-import {parseMessage, type Message} from './copilot-cli'
+import {isMessageType, parseMessage, type Message} from './copilot-cli'
 import {getTestMetadata, parseTestResults} from './vitest'
 
 type RunOptions = {
@@ -212,23 +212,21 @@ export default defineConfig({
   let outputTokens = 0
 
   for (const message of messages) {
-    if (message.type === 'assistant.turn_start') {
+    if (isMessageType(message, 'assistant.turn_start')) {
       assistantTurns.add(message.data.turnId)
     }
 
-    if (message.type === 'assistant.message') {
+    if (isMessageType(message, 'assistant.message')) {
       outputTokens += message.data.outputTokens
     }
 
-    if (message.type === 'tool.execution_start') {
+    if (isMessageType(message, 'tool.execution_start')) {
       const toolName = message.data.toolName
       toolCalls.set(toolName, (toolCalls.get(toolName) ?? 0) + 1)
     }
   }
 
-  const result = messages.find((message): message is Extract<Message, {type: 'result'}> => {
-    return message.type === 'result'
-  })
+  const result = messages.find(message => isMessageType(message, 'result'))
   if (!result) {
     throw new Error('No result message found in copilot output')
   }

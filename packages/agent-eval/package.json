@@ -21,7 +21,7 @@
     },
     "./scenario": {
       "types": "./dist/scenario.d.ts",
-      "default": "./dist/scenario-config.ts"
+      "default": "./dist/scenario.js"
     }
   },
   "engines": {

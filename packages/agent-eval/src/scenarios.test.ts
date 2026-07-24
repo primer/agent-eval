@@ -33,6 +33,7 @@ describe('scenario loading', () => {
     const scenariosDirectory = await createScenariosDirectory()
     await createScenario(scenariosDirectory, 'second', 'Second prompt')
     await createScenario(scenariosDirectory, 'first', 'First prompt')
+    await fs.writeFile(path.join(scenariosDirectory, 'README.md'), '')
 
     await expect(listScenarios({directory: scenariosDirectory})).resolves.toEqual([
       expect.objectContaining({id: 'first', config: {prompt: 'First prompt'}}),
@@ -56,5 +57,26 @@ describe('scenario loading', () => {
     const scenariosDirectory = await createScenariosDirectory()
 
     await expect(findScenario('missing-scenario', {directory: scenariosDirectory})).resolves.toBeUndefined()
+  })
+
+  test('returns undefined when a scenario id is not a direct child directory', async () => {
+    const scenariosDirectory = await createScenariosDirectory()
+    const siblingDirectory = await createScenariosDirectory()
+    await createScenario(siblingDirectory, 'example', 'Example prompt')
+
+    await expect(
+      findScenario(path.relative(scenariosDirectory, path.join(siblingDirectory, 'example')), {
+        directory: scenariosDirectory,
+      }),
+    ).resolves.toBeUndefined()
+  })
+
+  test('throws when the scenarios directory does not exist', async () => {
+    const scenariosDirectory = await createScenariosDirectory()
+    const missingDirectory = path.join(scenariosDirectory, 'missing')
+
+    await expect(findScenario('example', {directory: missingDirectory})).rejects.toThrow(
+      `Scenarios directory does not exist: ${missingDirectory}`,
+    )
   })
 })

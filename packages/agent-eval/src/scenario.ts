@@ -29,4 +29,4 @@ async function resolveExperimentScenario(
 }
 
 export {resolveExperimentScenario}
-export type {ResolvedScenario} from './scenarios.ts'
+export type {ResolvedScenario} from './scenarios'

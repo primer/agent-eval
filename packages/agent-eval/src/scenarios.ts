@@ -79,14 +79,11 @@ async function getScenarioDirectoryNames(options: ScenarioSourceOptions): Promis
   const scenariosDirectory = resolveScenariosDirectory(options)
   await assertScenariosDirectory(scenariosDirectory)
 
-  const names = (await fs.readdir(scenariosDirectory)).toSorted()
-  const entries = await Promise.all(
-    names.map(async name => {
-      const stats = await fs.stat(path.join(scenariosDirectory, name))
-      return {name, isDirectory: stats.isDirectory()}
-    }),
-  )
-  return entries.filter(entry => entry.isDirectory).map(entry => entry.name)
+  const entries = await fs.readdir(scenariosDirectory, {withFileTypes: true})
+  return entries
+    .filter(entry => entry.isDirectory())
+    .map(entry => entry.name)
+    .toSorted()
 }
 
 async function listScenarios(options: ScenarioSourceOptions = {}): Promise<ReadonlyArray<ResolvedScenario>> {
@@ -96,12 +93,20 @@ async function listScenarios(options: ScenarioSourceOptions = {}): Promise<Reado
 }
 
 async function findScenario(id: string, options: ScenarioSourceOptions = {}): Promise<ResolvedScenario | undefined> {
-  const names = await getScenarioDirectoryNames(options)
-  if (!names.includes(id)) {
+  const scenariosDirectory = resolveScenariosDirectory(options)
+  await assertScenariosDirectory(scenariosDirectory)
+
+  const directory = path.resolve(scenariosDirectory, id)
+  if (path.dirname(directory) !== scenariosDirectory) {
     return undefined
   }
 
-  return loadScenarioDirectory(path.join(resolveScenariosDirectory(options), id), id)
+  const stats = await fs.stat(directory).catch(() => undefined)
+  if (!stats?.isDirectory()) {
+    return undefined
+  }
+
+  return loadScenarioDirectory(directory, id)
 }
 
 export {findScenario, listScenarios, loadScenarioDirectory}

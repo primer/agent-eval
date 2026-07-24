@@ -403,7 +403,7 @@ async function createContainer(docker: Docker, dockerImage: string): Promise<Ini
   await execCommand(docker, container, 'chown', ['-R', NODE_USER, COPILOT_DIR], {
     user: 'root',
   })
-  await execCommand(docker, container, 'npm', ['install', '-g', '@github/copilot'], {
+  await execCommand(docker, container, 'npm', ['install', '-g', '@github/copilot@1.0.74'], {
     user: NODE_USER,
   })
   await execCommand(docker, container, 'touch', [path.join(COPILOT_DIR, 'mcp-config.json')], {

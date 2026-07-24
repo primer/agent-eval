@@ -9,7 +9,10 @@ const scenarios = await listScenarios({
 export const experiment = defineConfig({
   name: 'Baseline',
   description: 'Baseline experiment to evaluate the performance of the agent with our recommended setup.',
-  models: ['gpt-5.5', 'claude-opus-4.7'],
+  models: [
+    {name: 'gpt-5.5', reasoningEfforts: ['high']},
+    {name: 'claude-opus-4.7', reasoningEfforts: ['high']},
+  ],
   scenarios: scenarios.filter(scenario => !scenario.id.startsWith('000')).map(scenario => scenario.id),
   treatments: [
     {

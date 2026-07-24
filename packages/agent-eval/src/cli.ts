@@ -5,8 +5,8 @@ import path from 'node:path'
 import fs from 'node:fs/promises'
 import {parseArgs} from 'node:util'
 import {ControlTreatment, type ExperimentConfig} from './experiment-config'
-import type {Model} from './model'
-import type {AgentEvalOutput} from './output'
+import {resolveModelConfigs, type Model, type ReasoningEffort} from './model'
+import {createAgentEvalOutput} from './output'
 import type {Treatment, TreatmentResult} from './treatment'
 import {findExperiment, listExperiments} from './experiments'
 import {resolveExperimentScenario} from './scenario'
@@ -139,6 +139,7 @@ function compareResults(a: TreatmentResult, b: TreatmentResult): number {
     a.treatment.experiment.name.localeCompare(b.treatment.experiment.name) ||
     a.treatment.config.name.localeCompare(b.treatment.config.name) ||
     a.treatment.model.localeCompare(b.treatment.model) ||
+    (a.treatment.reasoningEffort ?? '').localeCompare(b.treatment.reasoningEffort ?? '') ||
     a.treatment.scenario.id.localeCompare(b.treatment.scenario.id)
   )
 }
@@ -148,6 +149,7 @@ type ResultSummary = {
   treatment?: string
   scenario?: string
   model?: Model
+  reasoningEffort?: ReasoningEffort
   runs: number
   numPassedTests: number
   numTotalTests: number
@@ -161,6 +163,7 @@ type ResultSummaryValues = {
   treatment?: string
   scenario?: string
   model?: Model
+  reasoningEffort?: ReasoningEffort
 }
 
 function createResultSummary(result: TreatmentResult, summaryValues: ResultSummaryValues = {}): ResultSummary {
@@ -169,6 +172,7 @@ function createResultSummary(result: TreatmentResult, summaryValues: ResultSumma
     treatment: summaryValues.treatment,
     scenario: summaryValues.scenario,
     model: summaryValues.model,
+    reasoningEffort: summaryValues.reasoningEffort,
     runs: 0,
     numPassedTests: 0,
     numTotalTests: 0,
@@ -206,7 +210,8 @@ function compareSummaries(a: ResultSummary, b: ResultSummary): number {
     a.experiment.localeCompare(b.experiment) ||
     (a.treatment ?? '').localeCompare(b.treatment ?? '') ||
     (a.scenario ?? '').localeCompare(b.scenario ?? '') ||
-    (a.model ?? '').localeCompare(b.model ?? '')
+    (a.model ?? '').localeCompare(b.model ?? '') ||
+    (a.reasoningEffort ?? '').localeCompare(b.reasoningEffort ?? '')
   )
 }
 
@@ -264,6 +269,7 @@ function getSummaryKey(result: TreatmentResult, summaryValues: ResultSummaryValu
     summaryValues.treatment ?? '',
     summaryValues.scenario ?? '',
     summaryValues.model ?? '',
+    summaryValues.reasoningEffort ?? '',
   ].join('\0')
 }
 
@@ -308,6 +314,7 @@ function getResultSummaries(results: Array<TreatmentResult>): ResultHierarchy {
       treatment: result.treatment.config.name,
       scenario: result.treatment.scenario.id,
       model: result.treatment.model,
+      reasoningEffort: result.treatment.reasoningEffort,
     }
     const modelKey = getSummaryKey(result, modelValues)
     const modelSummary = modelSummaries.get(modelKey) ?? createResultSummary(result, modelValues)
@@ -357,6 +364,7 @@ function formatResultSummaries(results: Array<TreatmentResult>): string {
     'Treatment',
     'Scenario',
     'Model',
+    'Reasoning Effort',
     'Success Rate',
     'Tests',
     'Runs',
@@ -398,6 +406,7 @@ function formatSummaryRow(summary: ResultSummary, level: 'treatment' | 'scenario
     Treatment: level === 'treatment' ? (summary.treatment ?? '') : '',
     Scenario: level === 'treatment' ? 'All scenarios' : level === 'scenario' ? `  ${summary.scenario ?? ''}` : '',
     Model: level === 'model' ? `    ${summary.model ?? ''}` : 'All models',
+    'Reasoning Effort': level === 'model' ? (summary.reasoningEffort ?? '') : '',
     'Success Rate': formatPercent(getSummarySuccessRate(summary)),
     Tests: `${summary.numPassedTests}/${summary.numTotalTests}`,
     Runs: summary.runs,
@@ -420,26 +429,30 @@ const scenarios = await Promise.all(
   }),
 )
 
-const treatments: Array<Treatment> = config.models.flatMap(model => {
-  return scenarios.flatMap(scenarioConfig => {
-    return [
-      {
-        config: ControlTreatment,
-        scenario: scenarioConfig,
-        experiment: config,
-        id: randomUUID(),
-        model,
-      },
-      ...config.treatments.map(treatment => {
-        return {
-          config: treatment,
+const treatments: Array<Treatment> = config.models.flatMap(modelConfig => {
+  return resolveModelConfigs(modelConfig).flatMap(({name: model, reasoningEffort}) => {
+    return scenarios.flatMap(scenarioConfig => {
+      return [
+        {
+          config: ControlTreatment,
           scenario: scenarioConfig,
           experiment: config,
           id: randomUUID(),
           model,
-        }
-      }),
-    ]
+          reasoningEffort,
+        },
+        ...config.treatments.map(treatment => {
+          return {
+            config: treatment,
+            scenario: scenarioConfig,
+            experiment: config,
+            id: randomUUID(),
+            model,
+            reasoningEffort,
+          }
+        }),
+      ]
+    })
   })
 })
 
@@ -465,10 +478,12 @@ if (!existsSync(path.dirname(outputFilePath))) {
   await fs.mkdir(path.dirname(outputFilePath), {recursive: true})
 }
 
-const output: AgentEvalOutput = {
+const output = createAgentEvalOutput({
   id: randomUUID(),
   experimentId: selectedExperiment.id,
+  experiment: config,
+  scenarios,
   results: sortedResults,
-}
+})
 
 await fs.writeFile(outputFilePath, JSON.stringify(output, null, 2))

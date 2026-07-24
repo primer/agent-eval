@@ -5,8 +5,15 @@ export type {ResolvedScenario, ScenarioSourceOptions} from './scenarios'
 export {run} from './run'
 export type {Treatment, TreatmentResult} from './treatment'
 export {defineConfig} from './experiment'
-export type {ExperimentConfig, TreatmentConfig} from './experiment'
 export {models} from './model'
-export type {Model} from './model'
-export {parseAgentEvalOutput} from './output'
+export type {
+  ExperimentConfig,
+  ExperimentModelConfig,
+  Model,
+  ModelConfig,
+  ModelInfo,
+  ReasoningEffort,
+  TreatmentConfig,
+} from './experiment'
+export {createAgentEvalOutput, parseAgentEvalOutput} from './output'
 export type {AgentEvalOutput, AgentEvalOutputResult} from './output'

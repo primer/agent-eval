@@ -1,8 +1,10 @@
 import * as z from 'zod/mini'
 import {MessageSchema, type Message} from './copilot-cli'
-import type {ExperimentScenarioConfig} from './experiment-config'
+import type {ExperimentConfig, ExperimentScenarioConfig} from './experiment-config'
 import {models} from './model'
-import type {Model} from './model'
+import type {Model, ReasoningEffort} from './model'
+import type {ResolvedScenario} from './scenario'
+import type {TreatmentResult} from './treatment'
 
 type AgentEvalOutputResult = {
   id: string
@@ -10,25 +12,10 @@ type AgentEvalOutputResult = {
     config: {
       name: string
     }
-    scenario: {
-      id: string
-      directory: string
-      config: {
-        prompt: string
-      }
-      testPath: string
-    }
-    experiment: {
-      name: string
-      description: string
-      models: Array<Model>
-      scenarios: Array<ExperimentScenarioConfig>
-      treatments: Array<{
-        name: string
-      }>
-    }
     id: string
     model: Model
+    reasoningEffort?: ReasoningEffort
+    scenarioId: string
   }
   artifacts: {
     copilotConfigPath: string
@@ -63,11 +50,33 @@ type AgentEvalOutputResult = {
 
 type AgentEvalOutput = {
   id: string
-  experimentId: string
+  experiment: {
+    id: string
+    name: string
+    description: string
+    models: Array<{
+      name: Model
+      reasoningEfforts: Array<ReasoningEffort>
+    }>
+    scenarios: Array<ExperimentScenarioConfig>
+    treatments: Array<{
+      name: string
+    }>
+  }
+  scenarios: Array<ResolvedScenario>
   results: Array<AgentEvalOutputResult>
 }
 
-const ModelSchema = z.enum(models)
+const modelNames = new Set<string>(models.map(model => model.name))
+const reasoningEfforts = new Set<string>(models.flatMap(model => model.reasoningEfforts))
+const ModelSchema = z.custom<Model, string>(
+  value => typeof value === 'string' && modelNames.has(value),
+  'Expected a supported model',
+)
+const ReasoningEffortSchema = z.custom<ReasoningEffort, string>(
+  value => typeof value === 'string' && reasoningEfforts.has(value),
+  'Expected a supported reasoning effort',
+)
 
 const ExperimentScenarioSchema = z.union([
   z.string(),
@@ -81,10 +90,16 @@ const TreatmentConfigSchema = z.object({
   name: z.string(),
 })
 
-const ExperimentConfigSchema = z.object({
+const ExperimentModelConfigSchema = z.object({
+  name: ModelSchema,
+  reasoningEfforts: z.array(ReasoningEffortSchema),
+})
+
+const AgentEvalOutputExperimentSchema = z.object({
+  id: z.string(),
   name: z.string(),
   description: z.string(),
-  models: z.array(ModelSchema),
+  models: z.array(ExperimentModelConfigSchema),
   scenarios: z.array(ExperimentScenarioSchema),
   treatments: z.array(TreatmentConfigSchema),
 })
@@ -102,10 +117,10 @@ const AgentEvalOutputResultSchema = z.object({
   id: z.string(),
   treatment: z.object({
     config: TreatmentConfigSchema,
-    scenario: ResolvedScenarioSchema,
-    experiment: ExperimentConfigSchema,
     id: z.string(),
     model: ModelSchema,
+    reasoningEffort: z.optional(ReasoningEffortSchema),
+    scenarioId: z.string(),
   }),
   artifacts: z.object({
     copilotConfigPath: z.string(),
@@ -142,13 +157,65 @@ const AgentEvalOutputResultSchema = z.object({
 
 const AgentEvalOutputSchema = z.object({
   id: z.string(),
-  experimentId: z.string(),
+  experiment: AgentEvalOutputExperimentSchema,
+  scenarios: z.array(ResolvedScenarioSchema),
   results: z.array(AgentEvalOutputResultSchema),
 })
 
-function parseAgentEvalOutput(value: unknown): AgentEvalOutput {
-  return AgentEvalOutputSchema.parse(value, {reportInput: true})
+type CreateAgentEvalOutputOptions = {
+  id: string
+  experimentId: string
+  experiment: ExperimentConfig
+  scenarios: Array<ResolvedScenario>
+  results: Array<TreatmentResult>
 }
 
-export {parseAgentEvalOutput}
+function createAgentEvalOutput({
+  id,
+  experimentId,
+  experiment,
+  scenarios,
+  results,
+}: CreateAgentEvalOutputOptions): AgentEvalOutput {
+  return {
+    id,
+    experiment: {
+      id: experimentId,
+      name: experiment.name,
+      description: experiment.description,
+      models: experiment.models,
+      scenarios: experiment.scenarios,
+      treatments: experiment.treatments.map(treatment => {
+        return {
+          name: treatment.name,
+        }
+      }),
+    },
+    scenarios,
+    results: results.map(result => {
+      return {
+        id: result.id,
+        treatment: {
+          config: {
+            name: result.treatment.config.name,
+          },
+          id: result.treatment.id,
+          model: result.treatment.model,
+          reasoningEffort: result.treatment.reasoningEffort,
+          scenarioId: result.treatment.scenario.id,
+        },
+        artifacts: result.artifacts,
+        assistant: result.assistant,
+        testResults: result.testResults,
+      }
+    }),
+  }
+}
+
+function parseAgentEvalOutput(value: unknown): AgentEvalOutput {
+  const input = typeof value === 'string' ? JSON.parse(value) : value
+  return AgentEvalOutputSchema.parse(input, {reportInput: true})
+}
+
+export {createAgentEvalOutput, parseAgentEvalOutput}
 export type {AgentEvalOutput, AgentEvalOutputResult}

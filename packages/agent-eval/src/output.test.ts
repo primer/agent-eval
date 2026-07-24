@@ -1,9 +1,33 @@
 import {describe, expect, test} from 'vitest'
-import {parseAgentEvalOutput, type AgentEvalOutput} from './index'
+import {
+  createAgentEvalOutput,
+  parseAgentEvalOutput,
+  type AgentEvalOutput,
+  type ExperimentConfig,
+  type ResolvedScenario,
+  type TreatmentResult,
+} from './index'
 
 const output: AgentEvalOutput = {
   id: 'run-id',
-  experimentId: 'example',
+  experiment: {
+    id: 'example',
+    name: 'Example',
+    description: 'An example experiment',
+    models: [{name: 'gpt-5.5', reasoningEfforts: ['high']}],
+    scenarios: ['example'],
+    treatments: [],
+  },
+  scenarios: [
+    {
+      id: 'example',
+      directory: '/scenarios/example',
+      config: {
+        prompt: 'Build an example',
+      },
+      testPath: '/scenarios/example/scenario.test.ts',
+    },
+  ],
   results: [
     {
       id: 'result-id',
@@ -11,23 +35,10 @@ const output: AgentEvalOutput = {
         config: {
           name: 'Control',
         },
-        scenario: {
-          id: 'example',
-          directory: '/scenarios/example',
-          config: {
-            prompt: 'Build an example',
-          },
-          testPath: '/scenarios/example/scenario.test.ts',
-        },
-        experiment: {
-          name: 'Example',
-          description: 'An example experiment',
-          models: ['gpt-5.5'],
-          scenarios: ['example'],
-          treatments: [],
-        },
         id: 'treatment-id',
         model: 'gpt-5.5',
+        reasoningEffort: 'high',
+        scenarioId: 'example',
       },
       artifacts: {
         copilotConfigPath: '/artifacts/.copilot',
@@ -65,9 +76,49 @@ const output: AgentEvalOutput = {
   ],
 }
 
+describe(createAgentEvalOutput, () => {
+  test('deduplicates experiment and scenario metadata', () => {
+    const experiment: ExperimentConfig = {
+      name: 'Example',
+      description: 'An example experiment',
+      models: [{name: 'gpt-5.5', reasoningEfforts: ['high']}],
+      scenarios: ['example'],
+      treatments: [],
+    }
+    const scenario: ResolvedScenario = output.scenarios[0]
+    const result: TreatmentResult = {
+      ...output.results[0],
+      treatment: {
+        config: {
+          name: 'Control',
+        },
+        scenario,
+        experiment,
+        id: 'treatment-id',
+        model: 'gpt-5.5',
+        reasoningEffort: 'high',
+      },
+    }
+
+    expect(
+      createAgentEvalOutput({
+        id: 'run-id',
+        experimentId: 'example',
+        experiment,
+        scenarios: [scenario],
+        results: [result],
+      }),
+    ).toEqual(output)
+  })
+})
+
 describe(parseAgentEvalOutput, () => {
   test('parses agent eval output', () => {
     expect(parseAgentEvalOutput(output)).toEqual(output)
+  })
+
+  test('parses serialized agent eval output', () => {
+    expect(parseAgentEvalOutput(JSON.stringify(output))).toEqual(output)
   })
 
   test('preserves unknown Copilot messages', () => {
@@ -106,6 +157,23 @@ describe(parseAgentEvalOutput, () => {
             testResults: {
               ...output.results[0].testResults,
               tests: [{title: 'invalid', fullName: 'invalid', status: 'unknown'}],
+            },
+          },
+        ],
+      }),
+    ).toThrow()
+  })
+
+  test('throws for an invalid reasoning effort', () => {
+    expect(() =>
+      parseAgentEvalOutput({
+        ...output,
+        results: [
+          {
+            ...output.results[0],
+            treatment: {
+              ...output.results[0].treatment,
+              reasoningEffort: 'invalid',
             },
           },
         ],

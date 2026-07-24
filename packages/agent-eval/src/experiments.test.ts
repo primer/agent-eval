@@ -11,7 +11,7 @@ async function createExperimentsDirectory() {
     `export const experiment = {
       name: 'Example',
       description: 'Example experiment',
-      models: ['gpt-5.5'],
+      models: [{name: 'gpt-5.5', reasoningEfforts: ['high']}],
       scenarios: ['001-agent-uses-button-from-primer'],
       treatments: []
     }`,
@@ -21,7 +21,7 @@ async function createExperimentsDirectory() {
     `export default {
       name: 'Default export',
       description: 'Default export experiment',
-      models: ['gpt-5.5'],
+      models: [{name: 'gpt-5.5', reasoningEfforts: ['high']}],
       scenarios: ['001-agent-uses-button-from-primer'],
       treatments: []
     }`,

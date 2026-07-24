@@ -3,6 +3,7 @@ import path from 'node:path'
 import fs from 'node:fs/promises'
 import {AGENTS_DIR, CONTAINER_WORKDIR, COPILOT_DIR, NODE_USER, Sandbox} from './sandbox'
 import type {Treatment, TreatmentResult} from './treatment'
+import type {Model, ReasoningEffort} from './model'
 import {isMessageType, parseMessage, type Message} from './copilot-cli'
 import {getTestMetadata, parseTestResults} from './vitest'
 
@@ -96,6 +97,24 @@ type RunTreatmentOptions = {
   dockerImage?: string
 }
 
+function getCopilotArgs({
+  prompt,
+  model,
+  reasoningEffort,
+}: {
+  prompt: string
+  model: Model
+  reasoningEffort?: ReasoningEffort
+}): Array<string> {
+  const args = ['-p', prompt, '--model', model, '--allow-all']
+
+  if (reasoningEffort) {
+    args.push('--reasoning-effort', reasoningEffort)
+  }
+
+  return [...args, '--mode', 'autopilot', '--output-format', 'json']
+}
+
 async function runTreatment(
   treatment: Treatment,
   {artifactsDirectory, copilotToken, dockerImage}: RunTreatmentOptions,
@@ -147,19 +166,11 @@ async function runTreatment(
 
   console.log('Running copilot...')
   const {prompt} = treatment.scenario.config
-  const args = [
-    '-p',
+  const args = getCopilotArgs({
     prompt,
-    '--model',
-    treatment.model,
-    '--allow-all',
-    '--reasoning-effort',
-    'high',
-    '--mode',
-    'autopilot',
-    '--output-format',
-    'json',
-  ]
+    model: treatment.model,
+    reasoningEffort: treatment.reasoningEffort,
+  })
   const copilotOutput = await sandbox.runCommand('copilot', args, {
     user: NODE_USER,
     env: {
@@ -282,4 +293,4 @@ export default defineConfig({
   }
 }
 
-export {run}
+export {getCopilotArgs, run}

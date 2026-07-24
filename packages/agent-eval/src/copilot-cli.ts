@@ -184,6 +184,7 @@ const ToolExecutionStartMessageSchema = z.object({
     toolName: z.string(),
     arguments: ToolArgumentsSchema,
     turnId: z.string(),
+    model: z.string(),
   }),
 })
 

@@ -28,6 +28,17 @@ describe(parseMessage, () => {
       ephemeral: true,
     },
     {
+      type: 'assistant.reasoning',
+      data: {
+        reasoningId: 'wUvLvUcp7ARCRrpRmqD0RkO5qQxZgdQIC5N',
+        content: '',
+      },
+      ephemeral: true,
+      id: 'efac0654-a748-4ea7-a5ed-5af27b33ee4c69',
+      timestamp: '2026-07-24T15:24:00.746Z',
+      parentId: '04675368-58ad-4238-8827-f340f0160a30',
+    },
+    {
       type: 'assistant.message_start',
       data: {
         messageId: 'fbdb0ec9-32c3-4a1a-846b-2beb84bb8ae2',
@@ -49,6 +60,25 @@ describe(parseMessage, () => {
       parentId: '080d2918-29d2-4da6-b115-3fe37825b5d2',
     },
     {
+      type: 'assistant.turn_start',
+      data: {
+        turnId: '10',
+        interactionId: '490125b8-4fb4-40b5-9247-961b9c0f8c58',
+      },
+      id: '03549a21-d806-488e-9d7d-37729b18401c',
+      timestamp: '2026-07-24T15:24:00.835Z',
+      parentId: '6ce974b1-13f4-4080-868c-2fecf5c9e3b6',
+    },
+    {
+      type: 'assistant.turn_end',
+      data: {
+        turnId: '9',
+      },
+      id: '6ce974b1-13f4-4080-868c-2fecf5c9e3b6',
+      timestamp: '2026-07-24T15:24:00.830Z',
+      parentId: '025f9abb-10e7-4474-ac71-43659df9cb27',
+    },
+    {
       type: 'assistant.tool_call_delta',
       data: {
         toolCallId: 'toolu_vrtx_01CunyjdMsfGLWe7ZUbrifGM',
@@ -59,6 +89,48 @@ describe(parseMessage, () => {
       id: '28829de0-90c9-4e64-bcc2-d5ac496ac416',
       timestamp: '2026-07-24T02:19:57.143Z',
       parentId: '686727b9-b910-44ba-81ce-f81fd59fafef',
+    },
+    {
+      type: 'tool.execution_start',
+      data: {
+        toolCallId: 'call_U5d005rFIEgTMayq1nlHFkX8',
+        toolName: 'view',
+        arguments: {
+          path: '/tmp/1784906593588-copilot-tool-output-b93535.txt',
+          view_range: [537, 596],
+        },
+        turnId: '9',
+        model: 'gpt-5.5',
+      },
+      id: '993d621a-a2cb-4f35-a27d-dfded5c4874c',
+      timestamp: '2026-07-24T15:24:00.749Z',
+      parentId: '04675368-58ad-4238-8827-f340f0160a30',
+    },
+    {
+      type: 'tool.execution_complete',
+      data: {
+        toolCallId: 'call_U5d005rFIEgTMayq1nlHFkX8',
+        model: 'gpt-5.5',
+        interactionId: '490125b8-4fb4-40b5-9247-961b9c0f8c58',
+        turnId: '9',
+        success: true,
+        result: {
+          content: 'tool output',
+          detailedContent: 'detailed tool output',
+        },
+        toolTelemetry: {
+          properties: {
+            command: 'view',
+          },
+          metrics: {
+            resultLength: 11,
+          },
+          restrictedProperties: {},
+        },
+      },
+      id: '025f9abb-10e7-4474-ac71-43659df9cb27',
+      timestamp: '2026-07-24T15:24:00.761Z',
+      parentId: '993d621a-a2cb-4f35-a27d-dfded5c4874c',
     },
     {
       type: 'assistant.idle',

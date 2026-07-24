@@ -72,7 +72,11 @@ import {defineConfig} from '@primer/agent-eval/experiment'
 export const experiment = defineConfig({
   name: 'Example experiment',
   description: 'Experiment config demonstrating different options',
-  models: ['gpt-5.5', {name: 'claude-opus-4.7', reasoningEffort: 'medium'}, 'claude-sonnet-4.6'],
+  models: [
+    {name: 'gpt-5.5', reasoningEfforts: ['low', 'medium', 'high']},
+    {name: 'claude-opus-4.7', reasoningEfforts: ['medium']},
+    {name: 'claude-sonnet-4.6', reasoningEfforts: ['high']},
+  ],
   scenarios: ['001-agent-uses-button-from-primer', '002-agent-uses-octicon-from-primer'],
   treatments: [
     {
@@ -91,10 +95,10 @@ export const experiment = defineConfig({
 })
 ```
 
-Models with configurable reasoning use `high` effort by default. To configure
-the effort for a model, use a model config with `name` and `reasoningEffort`.
-Model information, including each model's supported reasoning efforts, is
-exported as `models` from `@primer/agent-eval`.
+Each model config has a `name` and a `reasoningEfforts` array. The experiment
+runs once for each configured effort. Model information, including each model's
+supported reasoning efforts, is exported as `models` from
+`@primer/agent-eval`.
 
 The experiment config specifies:
 
@@ -119,7 +123,7 @@ import {defineConfig} from '@primer/agent-eval/experiment'
 export const experiment = defineConfig({
   name: 'Example experiment',
   description: 'Experiment config demonstrating different options',
-  models: ['gpt-5.5'],
+  models: [{name: 'gpt-5.5', reasoningEfforts: ['high']}],
   scenarios: ['001-agent-uses-button-from-primer'],
   treatments: [],
 })
@@ -135,7 +139,7 @@ resolve from the directory where the CLI is run, and use the same
 export const experiment = defineConfig({
   name: 'Local project experiment',
   description: 'Run a scenario from the current project',
-  models: ['gpt-5.5'],
+  models: [{name: 'gpt-5.5', reasoningEfforts: ['high']}],
   scenarios: [
     {
       path: './scenarios/local-button-scenario',
@@ -172,7 +176,7 @@ and register it with `addMcpServer`:
 export const experiment = defineConfig({
   name: 'MCP experiment',
   description: 'Compare behavior with a Primer MCP server',
-  models: ['gpt-5.5'],
+  models: [{name: 'gpt-5.5', reasoningEfforts: ['high']}],
   scenarios: ['001-agent-uses-button-from-primer'],
   treatments: [
     {
@@ -202,7 +206,7 @@ or inline content:
 export const experiment = defineConfig({
   name: 'Custom agent experiment',
   description: 'Compare behavior with a custom implementation planner',
-  models: ['gpt-5.5'],
+  models: [{name: 'gpt-5.5', reasoningEfforts: ['high']}],
   scenarios: ['001-agent-uses-button-from-primer'],
   treatments: [
     {
@@ -237,7 +241,7 @@ content next to `SKILL.md`:
 export const experiment = defineConfig({
   name: 'Skill experiment',
   description: 'Compare behavior with a planning skill',
-  models: ['gpt-5.5'],
+  models: [{name: 'gpt-5.5', reasoningEfforts: ['high']}],
   scenarios: ['001-agent-uses-button-from-primer'],
   treatments: [
     {

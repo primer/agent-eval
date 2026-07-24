@@ -39,23 +39,21 @@ type ReasoningEffort = ModelInfo['reasoningEfforts'][number]
 type ModelConfig = {
   [Info in ModelInfo as Info['name']]: {
     name: Info['name']
-    reasoningEffort: Info['reasoningEfforts'][number]
+    reasoningEfforts: Array<Info['reasoningEfforts'][number]>
   }
 }[Model]
-type ExperimentModelConfig = Model | ModelConfig
+type ExperimentModelConfig = ModelConfig
 
-function resolveModelConfig(config: ExperimentModelConfig): {name: Model; reasoningEffort?: ReasoningEffort} {
-  if (typeof config === 'string') {
-    const model = models.find(({name}) => name === config)
-
-    return {
-      name: config,
-      reasoningEffort: model?.reasoningEfforts.length === 0 ? undefined : 'high',
-    }
+function resolveModelConfigs(config: ExperimentModelConfig): Array<{name: Model; reasoningEffort?: ReasoningEffort}> {
+  if (config.reasoningEfforts.length === 0) {
+    return [{name: config.name}]
   }
 
-  return config
+  return config.reasoningEfforts.map(reasoningEffort => ({
+    name: config.name,
+    reasoningEffort,
+  }))
 }
 
-export {models, resolveModelConfig}
+export {models, resolveModelConfigs}
 export type {ExperimentModelConfig, Model, ModelConfig, ModelInfo, ReasoningEffort}

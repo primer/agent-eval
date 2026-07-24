@@ -1,6 +1,6 @@
 import {describe, expect, test} from 'vitest'
 import {models} from './index'
-import {resolveModelConfig} from './model'
+import {resolveModelConfigs} from './model'
 
 test('provides model information', () => {
   expect(models).toEqual([
@@ -15,30 +15,25 @@ test('provides model information', () => {
   ])
 })
 
-describe('resolveModelConfig', () => {
-  test('uses high reasoning effort for a model name', () => {
-    expect(resolveModelConfig('gpt-5.5')).toEqual({
-      name: 'gpt-5.5',
-      reasoningEffort: 'high',
-    })
+describe('resolveModelConfigs', () => {
+  test('resolves each reasoning effort for a model', () => {
+    expect(resolveModelConfigs({name: 'gpt-5.5', reasoningEfforts: ['low', 'high']})).toEqual([
+      {
+        name: 'gpt-5.5',
+        reasoningEffort: 'low',
+      },
+      {
+        name: 'gpt-5.5',
+        reasoningEffort: 'high',
+      },
+    ])
   })
 
-  test('omits reasoning effort for a model that does not support it', () => {
-    expect(resolveModelConfig('claude-haiku-4.5')).toEqual({
-      name: 'claude-haiku-4.5',
-      reasoningEffort: undefined,
-    })
-  })
-
-  test('preserves a model config', () => {
-    expect(
-      resolveModelConfig({
-        name: 'claude-opus-4.6',
-        reasoningEffort: 'max',
-      }),
-    ).toEqual({
-      name: 'claude-opus-4.6',
-      reasoningEffort: 'max',
-    })
+  test('omits reasoning effort for a model without supported efforts', () => {
+    expect(resolveModelConfigs({name: 'claude-haiku-4.5', reasoningEfforts: []})).toEqual([
+      {
+        name: 'claude-haiku-4.5',
+      },
+    ])
   })
 })

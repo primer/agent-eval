@@ -11,10 +11,12 @@ type RunOptions = {
   artifactsDirectory: string
   copilotToken: string
   dockerImage?: string
+  maxAttempts?: number
   maxConcurrency?: number
 }
 
 function run(treatments: Array<Treatment>, options: RunOptions): Promise<Array<TreatmentResult>> {
+  const maxAttempts = options.maxAttempts ?? 4
   const maxConcurrency = options.maxConcurrency ?? 1
   const queue = treatments.slice()
   const results: Array<TreatmentResult> = []
@@ -56,7 +58,7 @@ function run(treatments: Array<Treatment>, options: RunOptions): Promise<Array<T
           copilotToken: options.copilotToken,
           dockerImage: options.dockerImage,
         }),
-      3,
+      maxAttempts,
     ).then(
       result => {
         results.push(result)
@@ -79,13 +81,17 @@ function run(treatments: Array<Treatment>, options: RunOptions): Promise<Array<T
   return deferred
 }
 
-async function retry<T>(fn: () => Promise<T>, retries: number): Promise<T> {
+async function retry<T>(fn: () => Promise<T>, attemptsRemaining: number): Promise<T> {
+  if (attemptsRemaining < 1) {
+    throw new RangeError('maxAttempts must be at least 1')
+  }
+
   try {
     return await fn()
   } catch (error) {
-    if (retries > 0) {
+    if (attemptsRemaining > 1) {
       console.log('Retrying after error: %s', error)
-      return retry(fn, retries - 1)
+      return retry(fn, attemptsRemaining - 1)
     }
     throw error
   }
@@ -295,4 +301,4 @@ export default defineConfig({
   }
 }
 
-export {getCopilotArgs, run}
+export {getCopilotArgs, retry, run}

@@ -39,6 +39,10 @@ const {values} = parseArgs({
       type: 'string',
       description: 'The directory containing local experiment files',
     },
+    'max-attempts': {
+      type: 'string',
+      description: 'The maximum number of attempts for each treatment',
+    },
     scenarios: {
       type: 'string',
       description: 'The directory containing scenario directories',
@@ -58,6 +62,11 @@ const MAX_CONCURRENCY =
   Number.isFinite(parsedConcurrency) && Number.isInteger(parsedConcurrency) && parsedConcurrency >= 1
     ? parsedConcurrency
     : 1
+const parsedMaxAttempts = values['max-attempts'] ? parseInt(values['max-attempts'], 10) : 4
+const MAX_ATTEMPTS =
+  Number.isFinite(parsedMaxAttempts) && Number.isInteger(parsedMaxAttempts) && parsedMaxAttempts >= 1
+    ? parsedMaxAttempts
+    : 4
 let experimentConfigs: Array<ExperimentConfig>
 
 if (!existsSync(ARTIFACTS_DIR)) {
@@ -442,6 +451,7 @@ for (const config of experimentConfigs) {
     artifactsDirectory: ARTIFACTS_DIR,
     copilotToken: COPILOT_GITHUB_TOKEN,
     dockerImage: DOCKER_IMAGE,
+    maxAttempts: MAX_ATTEMPTS,
     maxConcurrency: MAX_CONCURRENCY,
   })
   results.push(...runResults)

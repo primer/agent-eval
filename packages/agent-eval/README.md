@@ -18,7 +18,8 @@ files may export an `experiment` named export or a default export. `--experiment
 may also be a path to a local experiment file when you only want to run one
 experiment. The experiments directory defaults to `./experiments`. Use
 `--scenarios` to set the directory containing scenario directories; it defaults
-to `./scenarios`.
+to `./scenarios`. Use `--max-attempts` to set the maximum number of times each
+failed treatment is attempted; it defaults to `4`.
 
 ## Scenario config authoring
 

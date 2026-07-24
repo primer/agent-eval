@@ -1,5 +1,5 @@
 import {describe, expect, test} from 'vitest'
-import {getCopilotArgs} from './run'
+import {getCopilotArgs, retry} from './run'
 
 describe('getCopilotArgs', () => {
   test('omits reasoning effort when not configured', () => {
@@ -31,5 +31,39 @@ describe('getCopilotArgs', () => {
       '--output-format',
       'json',
     ])
+  })
+})
+
+describe('retry', () => {
+  test('returns when an attempt succeeds', async () => {
+    let attempts = 0
+
+    const result = await retry(async () => {
+      attempts += 1
+      if (attempts < 3) {
+        throw new Error('failed')
+      }
+      return 'success'
+    }, 3)
+
+    expect(result).toBe('success')
+    expect(attempts).toBe(3)
+  })
+
+  test('does not exceed the maximum number of attempts', async () => {
+    let attempts = 0
+
+    await expect(
+      retry(async () => {
+        attempts += 1
+        throw new Error('failed')
+      }, 2),
+    ).rejects.toThrow('failed')
+
+    expect(attempts).toBe(2)
+  })
+
+  test('rejects an invalid maximum number of attempts', async () => {
+    await expect(retry(async () => 'success', 0)).rejects.toThrow('maxAttempts must be at least 1')
   })
 })

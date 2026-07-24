@@ -45,7 +45,8 @@ COPILOT_GITHUB_TOKEN=... agent-eval \
 ```
 
 The experiment and scenario directories default to `./experiments` and
-`./scenarios`, respectively.
+`./scenarios`, respectively. Use `--max-attempts` to set the maximum number of
+times each failed treatment is attempted; it defaults to `4`.
 
 ## Authoring scenarios
 

@@ -45,7 +45,9 @@ COPILOT_GITHUB_TOKEN=... agent-eval \
 ```
 
 The experiment and scenario directories default to `./experiments` and
-`./scenarios`, respectively.
+`./scenarios`, respectively. Results are written to `./output.json` by default.
+The output includes a run ID, the selected experiment ID, and an array of
+treatment results.
 
 ## Authoring scenarios
 

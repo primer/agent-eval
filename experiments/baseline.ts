@@ -8,9 +8,22 @@ const scenarios = await listScenarios({
 
 export const experiment = defineConfig({
   name: 'Baseline',
-  description:
-    'Baseline experiment to evaluate the performance of the agent without any additional treatments or modifications.',
+  description: 'Baseline experiment to evaluate the performance of the agent with our recommended setup.',
   models: ['gpt-5.5', 'claude-opus-4.7'],
   scenarios: scenarios.map(scenario => scenario.id),
-  treatments: [],
+  treatments: [
+    {
+      name: 'Recommended',
+      async setup({sandbox}) {
+        // Setup the Primer MCP server locally
+        await sandbox.runCommand('npm', ['install', '-g', '@primer/mcp@latest'])
+        await sandbox.addMcpServer('primer', {
+          type: 'local',
+          command: 'npx',
+          args: ['--no-install', '@primer/mcp'],
+          tools: ['*'],
+        })
+      },
+    },
+  ],
 })

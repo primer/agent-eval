@@ -6,8 +6,9 @@ import fs from 'node:fs/promises'
 import {parseArgs} from 'node:util'
 import {ControlTreatment, type ExperimentConfig} from './experiment-config'
 import type {Model} from './model'
+import type {AgentEvalOutput} from './output'
 import type {Treatment, TreatmentResult} from './treatment'
-import {listExperiments, loadExperimentConfigs} from './experiments'
+import {findExperiment, listExperiments} from './experiments'
 import {resolveExperimentScenario} from './scenario'
 import {run} from './run'
 
@@ -47,7 +48,7 @@ const {values} = parseArgs({
     output: {
       type: 'string',
       description: 'The target file in which results are written',
-      default: 'results.json',
+      default: 'output.json',
     },
     scenarios: {
       type: 'string',
@@ -63,33 +64,50 @@ const MAX_CONCURRENCY =
   Number.isFinite(parsedConcurrency) && Number.isInteger(parsedConcurrency) && parsedConcurrency >= 1
     ? parsedConcurrency
     : 1
-let experimentConfigs: Array<ExperimentConfig>
+let selectedExperiment: {
+  id: string
+  config: ExperimentConfig
+}
 
 if (!existsSync(ARTIFACTS_DIR)) {
   await fs.mkdir(ARTIFACTS_DIR, {recursive: true})
 }
 
 if (values.experiment) {
-  experimentConfigs = await loadExperimentConfigs({
-    experiment: values.experiment,
+  const config = await findExperiment(values.experiment, {
     directory: values.experiments,
   })
-  if (experimentConfigs.length === 0) {
-    console.log('Experiments:')
-    console.log(
-      (
-        await listExperiments({
-          directory: values.experiments,
-        })
-      )
-        .map(([name]) => name)
-        .join('\n'),
+  if (!config) {
+    const experiments = await listExperiments({
+      directory: values.experiments,
+    })
+    throw new Error(
+      `Experiment "${values.experiment}" was not found. Available experiments:\n${experiments
+        .map(([id]) => id)
+        .join('\n')}`,
     )
   }
+
+  selectedExperiment = {
+    id: existsSync(values.experiment)
+      ? path.basename(values.experiment, path.extname(values.experiment))
+      : values.experiment,
+    config,
+  }
 } else {
-  experimentConfigs = await loadExperimentConfigs({
+  const experiments = await listExperiments({
     directory: values.experiments,
   })
+  if (experiments.length !== 1) {
+    throw new Error(
+      `Select an experiment with --experiment. Available experiments:\n${experiments.map(([id]) => id).join('\n')}`,
+    )
+  }
+
+  selectedExperiment = {
+    id: experiments[0][0],
+    config: experiments[0][1],
+  }
 }
 
 function randomize<T>(input: Array<T>): Array<T> {
@@ -390,54 +408,51 @@ function formatSummaryRow(summary: ResultSummary, level: 'treatment' | 'scenario
   }
 }
 
-const results: Array<TreatmentResult> = []
+const config = selectedExperiment.config
 
-for (const config of experimentConfigs) {
-  console.log('Running experiment:', config.name)
+console.log('Running experiment:', config.name)
 
-  const scenarios = await Promise.all(
-    config.scenarios.map(scenarioConfig => {
-      return resolveExperimentScenario(scenarioConfig, {
-        directory: values.scenarios,
-      })
-    }),
-  )
+const scenarios = await Promise.all(
+  config.scenarios.map(scenarioConfig => {
+    return resolveExperimentScenario(scenarioConfig, {
+      directory: values.scenarios,
+    })
+  }),
+)
 
-  const treatments: Array<Treatment> = config.models.flatMap(model => {
-    return scenarios.flatMap(scenarioConfig => {
-      return [
-        {
-          config: ControlTreatment,
+const treatments: Array<Treatment> = config.models.flatMap(model => {
+  return scenarios.flatMap(scenarioConfig => {
+    return [
+      {
+        config: ControlTreatment,
+        scenario: scenarioConfig,
+        experiment: config,
+        id: randomUUID(),
+        model,
+      },
+      ...config.treatments.map(treatment => {
+        return {
+          config: treatment,
           scenario: scenarioConfig,
           experiment: config,
           id: randomUUID(),
           model,
-        },
-        ...config.treatments.map(treatment => {
-          return {
-            config: treatment,
-            scenario: scenarioConfig,
-            experiment: config,
-            id: randomUUID(),
-            model,
-          }
-        }),
-      ]
-    })
+        }
+      }),
+    ]
   })
+})
 
-  // Randomize treatments to mitigate any ordering effects. We want to make sure
-  // that if there are any external factors that could impact the scenarios (e.g.
-  // rate limits, resource constraints), they are more likely to impact all
-  // scenarios rather than just the ones at the end.
-  const runResults = await run(randomize(treatments), {
-    artifactsDirectory: ARTIFACTS_DIR,
-    copilotToken: COPILOT_GITHUB_TOKEN,
-    dockerImage: DOCKER_IMAGE,
-    maxConcurrency: MAX_CONCURRENCY,
-  })
-  results.push(...runResults)
-}
+// Randomize treatments to mitigate any ordering effects. We want to make sure
+// that if there are any external factors that could impact the scenarios (e.g.
+// rate limits, resource constraints), they are more likely to impact all
+// scenarios rather than just the ones at the end.
+const results: Array<TreatmentResult> = await run(randomize(treatments), {
+  artifactsDirectory: ARTIFACTS_DIR,
+  copilotToken: COPILOT_GITHUB_TOKEN,
+  dockerImage: DOCKER_IMAGE,
+  maxConcurrency: MAX_CONCURRENCY,
+})
 
 const sortedResults = results.toSorted(compareResults)
 const resultSummaries = formatResultSummaries(sortedResults)
@@ -450,4 +465,10 @@ if (!existsSync(path.dirname(outputFilePath))) {
   await fs.mkdir(path.dirname(outputFilePath), {recursive: true})
 }
 
-await fs.writeFile(outputFilePath, JSON.stringify(sortedResults, null, 2))
+const output: AgentEvalOutput = {
+  id: randomUUID(),
+  experimentId: selectedExperiment.id,
+  results: sortedResults,
+}
+
+await fs.writeFile(outputFilePath, JSON.stringify(output, null, 2))

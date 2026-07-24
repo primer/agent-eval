@@ -5,9 +5,14 @@ import type {Experiment} from '../../experiments'
 import {Link} from '../../components/Link'
 
 export function Index({experiments}: {experiments: Array<Experiment>}) {
-  console.log(experiments)
   return (
     <div className="p-4">
+      <section>
+        <h1>Baseline</h1>
+      </section>
+      <section>
+        <h2>Scenarios</h2>
+      </section>
       <section>
         <Table.Container>
           <Table.Title as="h2" id="experiments-heading">

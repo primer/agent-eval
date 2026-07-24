@@ -1,5 +1,5 @@
 import {describe, expect, test} from 'vitest'
-import {getCopilotArgs, retry} from './run'
+import {getCopilotArgs, resolveMaxAttempts, retry} from './run'
 
 describe('getCopilotArgs', () => {
   test('omits reasoning effort when not configured', () => {
@@ -65,5 +65,19 @@ describe('retry', () => {
 
   test('rejects an invalid maximum number of attempts', async () => {
     await expect(retry(async () => 'success', 0)).rejects.toThrow('maxAttempts must be at least 1')
+  })
+})
+
+describe('resolveMaxAttempts', () => {
+  test('returns default value for invalid maxAttempts values', () => {
+    expect(resolveMaxAttempts(undefined)).toBe(4)
+    expect(resolveMaxAttempts(0)).toBe(4)
+    expect(resolveMaxAttempts(NaN)).toBe(4)
+    expect(resolveMaxAttempts(2.5)).toBe(4)
+  })
+
+  test('returns maxAttempts when valid', () => {
+    expect(resolveMaxAttempts(1)).toBe(1)
+    expect(resolveMaxAttempts(3)).toBe(3)
   })
 })

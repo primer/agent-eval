@@ -62,11 +62,8 @@ const MAX_CONCURRENCY =
   Number.isFinite(parsedConcurrency) && Number.isInteger(parsedConcurrency) && parsedConcurrency >= 1
     ? parsedConcurrency
     : 1
-const parsedMaxAttempts = values['max-attempts'] ? parseInt(values['max-attempts'], 10) : 4
-const MAX_ATTEMPTS =
-  Number.isFinite(parsedMaxAttempts) && Number.isInteger(parsedMaxAttempts) && parsedMaxAttempts >= 1
-    ? parsedMaxAttempts
-    : 4
+const parsedMaxAttempts = values['max-attempts'] ? Number(values['max-attempts']) : 4
+const MAX_ATTEMPTS = Number.isSafeInteger(parsedMaxAttempts) && parsedMaxAttempts >= 1 ? parsedMaxAttempts : 4
 let experimentConfigs: Array<ExperimentConfig>
 
 if (!existsSync(ARTIFACTS_DIR)) {

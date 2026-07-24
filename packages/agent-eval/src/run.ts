@@ -15,8 +15,20 @@ type RunOptions = {
   maxConcurrency?: number
 }
 
+const DEFAULT_MAX_ATTEMPTS = 4
+
+function resolveMaxAttempts(maxAttempts: number | undefined): number {
+  const parsedMaxAttempts = Number(maxAttempts)
+
+  if (!Number.isSafeInteger(parsedMaxAttempts) || parsedMaxAttempts < 1) {
+    return DEFAULT_MAX_ATTEMPTS
+  }
+
+  return parsedMaxAttempts
+}
+
 function run(treatments: Array<Treatment>, options: RunOptions): Promise<Array<TreatmentResult>> {
-  const maxAttempts = options.maxAttempts ?? 4
+  const maxAttempts = resolveMaxAttempts(options.maxAttempts)
   const maxConcurrency = options.maxConcurrency ?? 1
   const queue = treatments.slice()
   const results: Array<TreatmentResult> = []
@@ -301,4 +313,4 @@ export default defineConfig({
   }
 }
 
-export {getCopilotArgs, retry, run}
+export {getCopilotArgs, resolveMaxAttempts, retry, run}

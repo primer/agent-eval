@@ -16,6 +16,11 @@ const ToolResultSchema = z.object({
   detailedContent: z.string(),
 })
 
+const ToolErrorSchema = z.object({
+  message: z.string(),
+  code: z.string(),
+})
+
 const ToolTelemetrySchema = z.object({
   properties: z.optional(z.record(z.string(), z.string())),
   metrics: z.optional(z.record(z.string(), z.number())),
@@ -191,15 +196,26 @@ const ToolExecutionStartMessageSchema = z.object({
 const ToolExecutionCompleteMessageSchema = z.object({
   type: z.literal('tool.execution_complete'),
   ...EventFieldsSchema,
-  data: z.object({
-    toolCallId: z.string(),
-    model: z.string(),
-    interactionId: z.string(),
-    turnId: z.string(),
-    success: z.boolean(),
-    result: ToolResultSchema,
-    toolTelemetry: ToolTelemetrySchema,
-  }),
+  data: z.discriminatedUnion('success', [
+    z.object({
+      toolCallId: z.string(),
+      model: z.string(),
+      interactionId: z.string(),
+      turnId: z.string(),
+      success: z.literal(true),
+      result: ToolResultSchema,
+      toolTelemetry: ToolTelemetrySchema,
+    }),
+    z.object({
+      toolCallId: z.string(),
+      model: z.string(),
+      interactionId: z.string(),
+      turnId: z.string(),
+      success: z.literal(false),
+      error: ToolErrorSchema,
+      toolTelemetry: ToolTelemetrySchema,
+    }),
+  ]),
 })
 
 const AssistantTurnEndMessageSchema = z.object({

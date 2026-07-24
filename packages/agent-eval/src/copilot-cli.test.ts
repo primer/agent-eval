@@ -133,6 +133,28 @@ describe(parseMessage, () => {
       parentId: '993d621a-a2cb-4f35-a27d-dfded5c4874c',
     },
     {
+      type: 'tool.execution_complete',
+      data: {
+        toolCallId: 'toolu_vrtx_01KXX9FPEXPGxLgPkiSwZcMr',
+        model: 'claude-opus-4.7',
+        interactionId: '9baa31f1-da29-4890-8344-b2d2ff059132',
+        turnId: '6',
+        success: false,
+        error: {
+          message: "MCP server 'primer': Tool execution failed",
+          code: 'failure',
+        },
+        toolTelemetry: {
+          metrics: {
+            mcp_result_content_bytes: 0,
+          },
+        },
+      },
+      id: 'a74c5c8c-1dfe-493d-a779-b1598bd22ffc',
+      timestamp: '2026-07-24T16:28:43.024Z',
+      parentId: '2fa47aa3-4f30-4959-a0cc-68295236ea73',
+    },
+    {
       type: 'assistant.idle',
       data: {},
       ephemeral: true,

@@ -5,7 +5,7 @@ import path from 'node:path'
 import fs from 'node:fs/promises'
 import {parseArgs} from 'node:util'
 import {ControlTreatment, type ExperimentConfig} from './experiment-config'
-import type {Model} from './model'
+import {resolveModelConfig, type Model} from './model'
 import type {Treatment, TreatmentResult} from './treatment'
 import {listExperiments, loadExperimentConfigs} from './experiments'
 import {resolveExperimentScenario} from './scenario'
@@ -398,7 +398,9 @@ for (const config of experimentConfigs) {
     }),
   )
 
-  const treatments: Array<Treatment> = config.models.flatMap(model => {
+  const treatments: Array<Treatment> = config.models.flatMap(modelConfig => {
+    const {name: model, reasoningEffort} = resolveModelConfig(modelConfig)
+
     return scenarios.flatMap(scenarioConfig => {
       return [
         {
@@ -407,6 +409,7 @@ for (const config of experimentConfigs) {
           experiment: config,
           id: randomUUID(),
           model,
+          reasoningEffort,
         },
         ...config.treatments.map(treatment => {
           return {
@@ -415,6 +418,7 @@ for (const config of experimentConfigs) {
             experiment: config,
             id: randomUUID(),
             model,
+            reasoningEffort,
           }
         }),
       ]

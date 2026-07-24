@@ -1,4 +1,4 @@
-import type {Model} from './model'
+import type {ExperimentModelConfig} from './model'
 import type {Sandbox} from './sandbox'
 
 type ScenarioConfig = {
@@ -15,7 +15,7 @@ type ExperimentScenarioConfig = string | InlineScenarioConfig
 type ExperimentConfig = {
   name: string
   description: string
-  models: Array<Model>
+  models: Array<ExperimentModelConfig>
   scenarios: Array<ExperimentScenarioConfig>
   setup?: Setup
   treatments: Array<TreatmentConfig>

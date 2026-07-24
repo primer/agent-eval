@@ -44,11 +44,14 @@ import {defineConfig} from '@primer/agent-eval/experiment'
 export const experiment = defineConfig({
   name: 'Example experiment',
   description: 'Compare treatment behavior',
-  models: ['gpt-5.5'],
+  models: ['gpt-5.5', {name: 'gpt-5.5', reasoningEffort: 'medium'}],
   scenarios: ['001-agent-uses-button-from-primer'],
   treatments: [],
 })
 ```
+
+Model names use `high` reasoning effort by default. To configure the effort for
+a model, use a model config with `name` and `reasoningEffort`.
 
 Treatment setup can add custom Copilot sub-agents to `~/.copilot/agents`:
 

@@ -9,7 +9,26 @@ const models = [
   'gpt-5.5',
 ] as const
 
-type Model = (typeof models)[number]
+const reasoningEfforts = ['low', 'medium', 'high', 'xhigh'] as const
 
-export {models}
-export type {Model}
+type Model = (typeof models)[number]
+type ReasoningEffort = (typeof reasoningEfforts)[number]
+type ModelConfig = {
+  name: Model
+  reasoningEffort: ReasoningEffort
+}
+type ExperimentModelConfig = Model | ModelConfig
+
+function resolveModelConfig(config: ExperimentModelConfig): ModelConfig {
+  if (typeof config === 'string') {
+    return {
+      name: config,
+      reasoningEffort: 'high',
+    }
+  }
+
+  return config
+}
+
+export {models, reasoningEfforts, resolveModelConfig}
+export type {ExperimentModelConfig, Model, ModelConfig, ReasoningEffort}

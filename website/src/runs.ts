@@ -34,17 +34,43 @@ async function list(): Promise<Array<Run>> {
   })
 }
 
-async function latest(): Promise<Run> {
+async function latest(): Promise<Run | null> {
   const runs = await fs.readdir(RESULTS_DIR, {withFileTypes: true}).then(entries => {
     return entries.filter(entry => entry.isDirectory()).map(entry => [new Date(entry.name), entry.name] as const)
   })
   if (runs.length === 0) {
-    throw new Error(`No runs found in results directory: ${RESULTS_DIR}`)
+    return null
   }
 
   const sorted = runs.toSorted((a, b) => b[0].getTime() - a[0].getTime())
-  const run = await get(sorted[0][1])
+  const run = await find(sorted[0][1])
   return run
+}
+
+async function find(name: string): Promise<Run | null> {
+  const directory = path.join(RESULTS_DIR, name)
+  if (!existsSync(directory)) {
+    return null
+  }
+
+  if (!existsSync(path.join(directory, 'output.json'))) {
+    return null
+  }
+
+  const stats = await fs.stat(directory)
+  if (!stats.isDirectory()) {
+    return null
+  }
+
+  const outputFile = path.join(directory, 'output.json')
+  const contents = await fs.readFile(outputFile, 'utf-8')
+  const output = parseAgentEvalOutput(contents)
+  return {
+    id: output.id,
+    directory,
+    date: new Date(name),
+    output,
+  }
 }
 
 async function get(name: string): Promise<Run> {
@@ -74,3 +100,4 @@ async function get(name: string): Promise<Run> {
 }
 
 export {list, latest, get}
+export type {Run}

@@ -30,13 +30,13 @@ export async function list(): Promise<Array<Experiment>> {
   })
 }
 
-export async function find(id: string): Promise<Experiment | undefined> {
+export async function get(id: string): Promise<Experiment> {
   const experiment = await findExperiment(id, {
     directory: EXPERIMENTS_DIR,
   })
 
   if (!experiment) {
-    return undefined
+    throw new Error(`Experiment "${id}" was not found in: ${EXPERIMENTS_DIR}`)
   }
 
   return {

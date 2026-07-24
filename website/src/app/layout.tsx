@@ -3,10 +3,10 @@ import {PageHeader} from './components/PageHeader'
 
 export const metadata = {
   title: {
-    default: 'Primer Agent Eval',
-    template: '%s · Primer Agent Eval',
+    default: 'primer / agent-eval',
+    template: '%s · primer / agent-eval',
   },
-  description: 'Manage agent evaluation experiments, scenarios, baselines, and runs.',
+  description: 'View results of experiments with agents across different scenarios with Primer',
 }
 
 export default function Layout({children}: {children: React.ReactNode}) {

@@ -45,9 +45,9 @@ When adding an experiment, follow these rules:
 
 - Check to see if an experiment might already exist for this use-case and share
   it, when appropriate
-- New experiments are added at `./experiments/src` as a new `*.ts` file
+- New experiments are added at `./experiments` as a new `*.ts` file
 - Provide an appropriate name for the experiment as its file name
-- Export a `experiment` named export that matches `ExperimentConfig`
+- Export an `experiment` named export created with `defineConfig`
 - Provide an appropriate name and description for what we are testing
 - Select appropriate models and scenarios based on the experiment
 - For treatments, make sure to include the fewest number possible to meet the

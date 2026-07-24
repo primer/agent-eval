@@ -2,8 +2,7 @@ import {existsSync} from 'node:fs'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import {pathToFileURL} from 'node:url'
-import {find as findPackagedExperiment, list as listPackagedExperiments} from '@primer/agent-experiments'
-import type {ExperimentConfig} from '@primer/agent-experiment'
+import type {ExperimentConfig} from './experiment-config'
 
 type ExperimentModule = {
   default?: ExperimentConfig
@@ -11,7 +10,7 @@ type ExperimentModule = {
 }
 
 type ExperimentSourceOptions = {
-  experimentsDirectory?: string
+  directory?: string
 }
 
 type LoadExperimentOptions = ExperimentSourceOptions & {
@@ -43,8 +42,8 @@ async function loadExperimentFile(filepath: string): Promise<ExperimentConfig> {
   return experiment
 }
 
-async function getLocalExperimentEntries(experimentsDirectory: string): Promise<Array<[string, ExperimentConfig]>> {
-  const directory = path.resolve(experimentsDirectory)
+async function getExperimentEntries(sourceDirectory: string): Promise<Array<[string, ExperimentConfig]>> {
+  const directory = path.resolve(sourceDirectory)
   if (!existsSync(directory)) {
     throw new Error(`Experiments directory does not exist: ${directory}`)
   }
@@ -64,27 +63,19 @@ async function getLocalExperimentEntries(experimentsDirectory: string): Promise<
 }
 
 async function listExperiments(options: ExperimentSourceOptions = {}): Promise<Array<[string, ExperimentConfig]>> {
-  if (options.experimentsDirectory) {
-    return getLocalExperimentEntries(options.experimentsDirectory)
-  }
-
-  return listPackagedExperiments()
+  return getExperimentEntries(options.directory ?? 'experiments')
 }
 
 async function findExperiment(
   id: string,
   options: ExperimentSourceOptions = {},
 ): Promise<ExperimentConfig | undefined> {
-  if (options.experimentsDirectory) {
-    const experiments = await getLocalExperimentEntries(options.experimentsDirectory)
-    return experiments.find(([name]) => name === id)?.[1]
-  }
-
   if (existsSync(id)) {
     return loadExperimentFile(id)
   }
 
-  return findPackagedExperiment(id)
+  const experiments = await getExperimentEntries(options.directory ?? 'experiments')
+  return experiments.find(([name]) => name === id)?.[1]
 }
 
 async function loadExperimentConfigs(options: LoadExperimentOptions = {}): Promise<Array<ExperimentConfig>> {

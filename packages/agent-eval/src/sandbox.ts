@@ -10,6 +10,7 @@ import {McpConfigFileSchema} from './mcp-config'
 import type {McpConfigFile, McpServerConfig} from './mcp-config'
 
 const COPILOT_CLI_VERSION = '1.0.74'
+const NPM_VERSION = '11.17.0'
 
 /**
  * Working directory inside the container.
@@ -347,7 +348,7 @@ class Sandbox {
 
 const INITIALIZED_CONTAINER: unique symbol = Symbol('InitializedContainer')
 
-const DEFAULT_DOCKER_IMAGE = 'node:26-slim'
+const DEFAULT_DOCKER_IMAGE = 'node:26.5.0-slim'
 
 type InitializedContainer = Docker.Container & {
   readonly [INITIALIZED_CONTAINER]?: true
@@ -386,6 +387,17 @@ async function createContainer(docker: Docker, dockerImage: string): Promise<Ini
   await execCommand(docker, container, 'test', ['-d', '/etc/ssl/certs'], {
     user: 'root',
   })
+
+  console.log('Installing npm...')
+  await execCommand(docker, container, 'npm', ['install', '--global', `npm@${NPM_VERSION}`], {
+    user: 'root',
+  })
+  const npmVersion = await execCommand(docker, container, 'npm', ['--version'], {
+    user: 'root',
+  })
+  if (npmVersion.stdout.trim() !== NPM_VERSION) {
+    throw new Error(`Expected npm ${NPM_VERSION}, received ${npmVersion.stdout.trim()}`)
+  }
 
   console.log('Setting up npm for non-root global installs')
   await execCommand(docker, container, 'mkdir', ['-p', NPM_GLOBAL_DIR], {

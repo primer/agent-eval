@@ -7,13 +7,18 @@ Run Primer agent evaluation experiments from the command line or from Node.js.
 Install the package and run the `agent-eval` binary with a GitHub token:
 
 ```sh
-COPILOT_GITHUB_TOKEN=... agent-eval --experiments ./experiments --experiment example
+COPILOT_GITHUB_TOKEN=... agent-eval \
+  --experiments ./experiments \
+  --scenarios ./scenarios \
+  --experiment example
 ```
 
 Use `--experiments` to load experiment files from a local directory. Experiment
 files may export an `experiment` named export or a default export. `--experiment`
 may also be a path to a local experiment file when you only want to run one
-experiment.
+experiment. The experiments directory defaults to `./experiments`. Use
+`--scenarios` to set the directory containing scenario directories; it defaults
+to `./scenarios`.
 
 ## Scenario config authoring
 
@@ -30,13 +35,13 @@ export default defineScenario({
 
 ## Experiment config authoring
 
-Use `createExperiment` from `@primer/agent-eval/config` to keep local experiment
+Use `defineConfig` from `@primer/agent-eval/experiment` to keep local experiment
 files typed:
 
 ```ts
-import {createExperiment} from '@primer/agent-eval/config'
+import {defineConfig} from '@primer/agent-eval/experiment'
 
-export const experiment = createExperiment({
+export const experiment = defineConfig({
   name: 'Example experiment',
   description: 'Compare treatment behavior',
   models: ['gpt-5.5'],
@@ -71,8 +76,15 @@ await sandbox.addAgentSkill('test-planning', 'Plans test coverage', 'Create focu
 
 ## Programmatic usage
 
-The package index exports the experiment loading and runner APIs:
+The package index exports the experiment loading, scenario discovery, and runner
+APIs:
 
 ```ts
-import {loadExperimentConfigs, run} from '@primer/agent-eval'
+import {findScenario, listScenarios, loadExperimentConfigs, run, type Model} from '@primer/agent-eval'
+
+const experiments = await loadExperimentConfigs({directory: './experiments'})
+const scenarios = await listScenarios({directory: './scenarios'})
+const scenario = await findScenario('001-agent-uses-button-from-primer', {
+  directory: './scenarios',
+})
 ```

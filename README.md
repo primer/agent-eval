@@ -30,14 +30,22 @@ Results are scored by:
 Run local experiments with the `agent-eval` CLI:
 
 ```sh
-COPILOT_GITHUB_TOKEN=... agent-eval --experiments ./experiments/src --experiment mcp
+COPILOT_GITHUB_TOKEN=... agent-eval \
+  --experiments ./experiments \
+  --scenarios ./scenarios \
+  --experiment mcp
 ```
 
 You can also provide a path directly to `--experiment`:
 
 ```sh
-COPILOT_GITHUB_TOKEN=... agent-eval --experiment ./experiments/src/mcp.ts
+COPILOT_GITHUB_TOKEN=... agent-eval \
+  --experiment ./experiments/mcp.ts \
+  --scenarios ./scenarios
 ```
+
+The experiment and scenario directories default to `./experiments` and
+`./scenarios`, respectively.
 
 ## Authoring scenarios
 
@@ -55,13 +63,13 @@ export default defineScenario({
 
 ## Authoring experiments
 
-Experiments live in [`./experiments/src`](./experiments/src/). Each experiment
-is a TypeScript file that exports an experiment config:
+Experiments live in [`./experiments`](./experiments/). Each experiment is a
+TypeScript file that exports an experiment config:
 
 ```ts
-import type {ExperimentConfig} from '@primer/agent-experiment'
+import {defineConfig} from '@primer/agent-eval/experiment'
 
-export const experiment: ExperimentConfig = {
+export const experiment = defineConfig({
   name: 'Example experiment',
   description: 'Experiment config demonstrating different options',
   models: ['gpt-5.5', 'claude-opus-4.7', 'claude-sonnet-4.6'],
@@ -80,7 +88,7 @@ export const experiment: ExperimentConfig = {
       },
     },
   ],
-}
+})
 ```
 
 The experiment config specifies:
@@ -98,12 +106,12 @@ Start with the basic experiment shape above, then add options as needed.
 ### Use the typed config helper
 
 When authoring experiments outside of this repository, import the helper from
-`@primer/agent-eval/config` to keep the experiment config typed:
+`@primer/agent-eval/experiment` to keep the experiment config typed:
 
 ```ts
-import {createExperiment} from '@primer/agent-eval/config'
+import {defineConfig} from '@primer/agent-eval/experiment'
 
-export const experiment = createExperiment({
+export const experiment = defineConfig({
   name: 'Example experiment',
   description: 'Experiment config demonstrating different options',
   models: ['gpt-5.5'],
@@ -119,7 +127,7 @@ resolve from the directory where the CLI is run, and use the same
 `scenario.config.ts` and `scenario.test.ts` files as repository scenarios:
 
 ```ts
-export const experiment: ExperimentConfig = {
+export const experiment = defineConfig({
   name: 'Local project experiment',
   description: 'Run a scenario from the current project',
   models: ['gpt-5.5'],
@@ -129,7 +137,20 @@ export const experiment: ExperimentConfig = {
     },
   ],
   treatments: [],
-}
+})
+```
+
+### Describe eval tests
+
+Individual test titles and statuses are included in each run's `testResults`.
+Add a JSDoc, block, or consecutive line comment immediately before a test to
+include a description with that test's metadata:
+
+```ts
+/** Verifies that the agent used the required component. */
+test('uses the required component', () => {
+  // ...
+})
 ```
 
 ## Treatment options
@@ -143,7 +164,7 @@ example, install a server in the sandbox, add instructions for when to use it,
 and register it with `addMcpServer`:
 
 ```ts
-export const experiment: ExperimentConfig = {
+export const experiment = defineConfig({
   name: 'MCP experiment',
   description: 'Compare behavior with a Primer MCP server',
   models: ['gpt-5.5'],
@@ -163,7 +184,7 @@ export const experiment: ExperimentConfig = {
       },
     },
   ],
-}
+})
 ```
 
 ### Configure custom Copilot sub-agents
@@ -173,7 +194,7 @@ Use `files` when the sub-agent should reference additional local files, folders,
 or inline content:
 
 ```ts
-export const experiment: ExperimentConfig = {
+export const experiment = defineConfig({
   name: 'Custom agent experiment',
   description: 'Compare behavior with a custom implementation planner',
   models: ['gpt-5.5'],
@@ -198,7 +219,7 @@ export const experiment: ExperimentConfig = {
       },
     },
   ],
-}
+})
 ```
 
 ### Configure Copilot skills
@@ -208,7 +229,7 @@ Treatments can also configure Copilot skills under `~/.agents/skills`. Use
 content next to `SKILL.md`:
 
 ```ts
-export const experiment: ExperimentConfig = {
+export const experiment = defineConfig({
   name: 'Skill experiment',
   description: 'Compare behavior with a planning skill',
   models: ['gpt-5.5'],
@@ -232,5 +253,5 @@ export const experiment: ExperimentConfig = {
       },
     },
   ],
-}
+})
 ```

@@ -2,8 +2,7 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import {afterEach, describe, expect, test} from 'vitest'
-import type {ExperimentScenarioConfig} from '@primer/agent-experiment'
-import {resolveExperimentScenario, type ResolvedScenario} from './scenario'
+import {resolveExperimentScenario} from './scenario'
 
 const temporaryDirectories: Array<string> = []
 
@@ -22,24 +21,25 @@ afterEach(async () => {
 })
 
 describe(resolveExperimentScenario, () => {
-  test('resolves built-in scenarios through the provided resolver', async () => {
-    const builtinScenario: ResolvedScenario = {
-      id: '001-agent-uses-button-from-primer',
-      directory: '/path/to/scenario',
-      config: {
-        prompt: 'Use a Primer button',
-      },
-      testPath: '/path/to/scenario/scenario.test.ts',
-    }
+  test('resolves named scenarios from the provided directory', async () => {
+    const scenariosDirectory = await createTemporaryDirectory()
+    const directory = path.join(scenariosDirectory, 'button-scenario')
+    await fs.mkdir(directory)
+    await fs.writeFile(path.join(directory, 'scenario.config.ts'), `export default {prompt: 'Use a button'}`)
+    await fs.writeFile(path.join(directory, 'scenario.test.ts'), '')
 
     await expect(
-      resolveExperimentScenario('001-agent-uses-button-from-primer' as ExperimentScenarioConfig, {
-        builtInScenarioResolver(id) {
-          expect(id).toBe('001-agent-uses-button-from-primer')
-          return builtinScenario
-        },
+      resolveExperimentScenario('button-scenario', {
+        directory: scenariosDirectory,
       }),
-    ).resolves.toBe(builtinScenario)
+    ).resolves.toEqual({
+      id: 'button-scenario',
+      directory,
+      config: {
+        prompt: 'Use a button',
+      },
+      testPath: path.join(directory, 'scenario.test.ts'),
+    })
   })
 
   test('resolves inline scenario directories relative to the provided cwd', async () => {
@@ -60,9 +60,6 @@ describe(resolveExperimentScenario, () => {
           path: 'scenarios/local-scenario',
         },
         {
-          builtInScenarioResolver() {
-            throw new Error('Unexpected built-in scenario lookup')
-          },
           cwd,
         },
       ),
@@ -92,9 +89,6 @@ describe(resolveExperimentScenario, () => {
           path: './scenarios/local-button-scenario',
         },
         {
-          builtInScenarioResolver() {
-            throw new Error('Unexpected built-in scenario lookup')
-          },
           cwd,
         },
       ),
@@ -118,9 +112,6 @@ describe(resolveExperimentScenario, () => {
           path: 'fixtures/local-scenario',
         },
         {
-          builtInScenarioResolver() {
-            throw new Error('Unexpected built-in scenario lookup')
-          },
           cwd,
         },
       ),

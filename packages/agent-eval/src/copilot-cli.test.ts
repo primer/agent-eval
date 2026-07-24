@@ -1,5 +1,5 @@
 import {describe, expect, test} from 'vitest'
-import {parseMessage} from './copilot-cli.ts'
+import {parseMessage} from './copilot-cli'
 
 describe(parseMessage, () => {
   test.each([
@@ -38,6 +38,10 @@ describe(parseMessage, () => {
       ephemeral: true,
     },
   ])('parses $type messages', message => {
-    expect(parseMessage(message).success).toBe(true)
+    expect(parseMessage(message)).toMatchObject(message)
+  })
+
+  test('throws for unrecognized messages', () => {
+    expect(() => parseMessage({type: 'assistant.unknown', data: {}})).toThrow()
   })
 })

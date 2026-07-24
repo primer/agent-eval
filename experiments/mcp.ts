@@ -1,6 +1,6 @@
-import type {ExperimentConfig} from '@primer/agent-experiment'
+import {defineConfig} from '@primer/agent-eval/experiment'
 
-export const experiment: ExperimentConfig = {
+export const experiment = defineConfig({
   name: 'MCP',
   description: 'Compare MCP versus local instructions performance for Primer usage.',
   models: ['gpt-5.5', 'claude-opus-4.7', 'claude-sonnet-4.6'],
@@ -30,4 +30,4 @@ export const experiment: ExperimentConfig = {
       },
     },
   ],
-}
+})

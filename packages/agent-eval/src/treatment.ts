@@ -1,4 +1,6 @@
-import type {ExperimentConfig, Model, TreatmentConfig} from '@primer/agent-experiment'
+import type {ExperimentConfig, TreatmentConfig} from './experiment-config'
+import type {Model} from './model'
+import type {Message} from './copilot-cli'
 import type {ResolvedScenario} from './scenario'
 
 type Treatment = {
@@ -20,6 +22,7 @@ type TreatmentResult = {
     workspacePath: string
   }
   assistant: {
+    logs: Array<Message>
     turns: number
     outputTokens: number
     premiumRequests: number
@@ -33,6 +36,12 @@ type TreatmentResult = {
     numFailedTests: number
     numPendingTests: number
     numTodoTests: number
+    tests: Array<{
+      title: string
+      fullName: string
+      status: 'passed' | 'failed' | 'skipped' | 'pending' | 'todo' | 'disabled'
+      description?: string
+    }>
   }
 }
 

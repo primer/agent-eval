@@ -50,8 +50,10 @@ export const experiment = defineConfig({
 })
 ```
 
-Model names use `high` reasoning effort by default. To configure the effort for
-a model, use a model config with `name` and `reasoningEffort`.
+Models with configurable reasoning use `high` effort by default. To configure
+the effort for a model, use a model config with `name` and `reasoningEffort`.
+Model information, including each model's supported reasoning efforts, is
+exported as `models` from `@primer/agent-eval`.
 
 Treatment setup can add custom Copilot sub-agents to `~/.copilot/agents`:
 

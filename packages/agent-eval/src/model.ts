@@ -1,34 +1,61 @@
 const models = [
-  'claude-haiku-4.5',
-  'claude-opus-4.6',
-  'claude-opus-4.7',
-  'claude-sonnet-4.5',
-  'claude-sonnet-4.6',
-  'gpt-5.4',
-  'gpt-5.4-mini',
-  'gpt-5.5',
+  {
+    name: 'claude-haiku-4.5',
+    supportedReasoningEfforts: [],
+  },
+  {
+    name: 'claude-opus-4.6',
+    supportedReasoningEfforts: ['low', 'medium', 'high', 'max'],
+  },
+  {
+    name: 'claude-opus-4.7',
+    supportedReasoningEfforts: ['low', 'medium', 'high', 'xhigh', 'max'],
+  },
+  {
+    name: 'claude-sonnet-4.5',
+    supportedReasoningEfforts: [],
+  },
+  {
+    name: 'claude-sonnet-4.6',
+    supportedReasoningEfforts: ['low', 'medium', 'high', 'max'],
+  },
+  {
+    name: 'gpt-5.4',
+    supportedReasoningEfforts: ['low', 'medium', 'high', 'xhigh'],
+  },
+  {
+    name: 'gpt-5.4-mini',
+    supportedReasoningEfforts: ['low', 'medium', 'high', 'xhigh'],
+  },
+  {
+    name: 'gpt-5.5',
+    supportedReasoningEfforts: ['low', 'medium', 'high', 'xhigh'],
+  },
 ] as const
 
-const reasoningEfforts = ['low', 'medium', 'high', 'xhigh'] as const
-
-type Model = (typeof models)[number]
-type ReasoningEffort = (typeof reasoningEfforts)[number]
+type ModelInfo = (typeof models)[number]
+type Model = ModelInfo['name']
+type ReasoningEffort = ModelInfo['supportedReasoningEfforts'][number]
 type ModelConfig = {
-  name: Model
-  reasoningEffort: ReasoningEffort
-}
+  [Info in ModelInfo as Info['name']]: {
+    name: Info['name']
+    reasoningEffort: Info['supportedReasoningEfforts'][number]
+  }
+}[Model]
 type ExperimentModelConfig = Model | ModelConfig
 
-function resolveModelConfig(config: ExperimentModelConfig): ModelConfig {
+function resolveModelConfig(config: ExperimentModelConfig): {name: Model; reasoningEffort?: ReasoningEffort} {
   if (typeof config === 'string') {
+    const model = models.find(({name}) => name === config)
+
     return {
       name: config,
-      reasoningEffort: 'high',
+      reasoningEffort: model?.supportedReasoningEfforts.length === 0 ? undefined : 'high',
     }
   }
 
   return config
 }
 
-export {models, reasoningEfforts, resolveModelConfig}
-export type {ExperimentModelConfig, Model, ModelConfig, ReasoningEffort}
+export {models, resolveModelConfig}
+export type {ExperimentModelConfig, Model, ModelConfig, ModelInfo, ReasoningEffort}

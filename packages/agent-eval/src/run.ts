@@ -106,19 +106,13 @@ function getCopilotArgs({
   model: Model
   reasoningEffort?: ReasoningEffort
 }): Array<string> {
-  return [
-    '-p',
-    prompt,
-    '--model',
-    model,
-    '--allow-all',
-    '--reasoning-effort',
-    reasoningEffort ?? 'high',
-    '--mode',
-    'autopilot',
-    '--output-format',
-    'json',
-  ]
+  const args = ['-p', prompt, '--model', model, '--allow-all']
+
+  if (reasoningEffort) {
+    args.push('--reasoning-effort', reasoningEffort)
+  }
+
+  return [...args, '--mode', 'autopilot', '--output-format', 'json']
 }
 
 async function runTreatment(

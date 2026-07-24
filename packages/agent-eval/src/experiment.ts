@@ -1,6 +1,6 @@
 import type {ExperimentConfig, TreatmentConfig} from './experiment-config'
 import type {McpServerConfig, Sandbox} from './sandbox'
-import type {ExperimentModelConfig, Model, ModelConfig, ReasoningEffort} from './model'
+import type {ExperimentModelConfig, Model, ModelConfig, ModelInfo, ReasoningEffort} from './model'
 
 function defineConfig(config: ExperimentConfig): ExperimentConfig {
   return config
@@ -12,6 +12,7 @@ export type {
   McpServerConfig,
   Model,
   ModelConfig,
+  ModelInfo,
   ReasoningEffort,
   Sandbox,
   TreatmentConfig,

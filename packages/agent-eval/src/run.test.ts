@@ -2,13 +2,13 @@ import {describe, expect, test} from 'vitest'
 import {getCopilotArgs} from './run'
 
 describe('getCopilotArgs', () => {
-  test('uses high reasoning effort by default', () => {
+  test('omits reasoning effort when not configured', () => {
     expect(
       getCopilotArgs({
         prompt: 'Update the page',
-        model: 'gpt-5.5',
+        model: 'claude-haiku-4.5',
       }),
-    ).toContain('high')
+    ).not.toContain('--reasoning-effort')
   })
 
   test('forwards the model and reasoning effort', () => {

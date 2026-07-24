@@ -30,6 +30,11 @@ const {values} = parseArgs({
       short: 'c',
       description: 'The number of treatments to run in parallel',
     },
+    'docker-image': {
+      type: 'string',
+      description:
+        'The Docker container image to use for running treatments (must be a Debian-based Node image with apt-get and a node user, e.g. node:26-slim)',
+    },
     experiment: {
       type: 'string',
       short: 'e',
@@ -39,14 +44,14 @@ const {values} = parseArgs({
       type: 'string',
       description: 'The directory containing local experiment files',
     },
+    output: {
+      type: 'string',
+      description: 'The target file in which results are written',
+      default: 'results.json',
+    },
     scenarios: {
       type: 'string',
       description: 'The directory containing scenario directories',
-    },
-    'docker-image': {
-      type: 'string',
-      description:
-        'The Docker container image to use for running treatments (must be a Debian-based Node image with apt-get and a node user, e.g. node:26-slim)',
     },
   },
 })
@@ -439,4 +444,10 @@ const resultSummaries = formatResultSummaries(sortedResults)
 console.log(resultSummaries)
 await appendResultsToJobSummary(resultSummaries)
 
-await fs.writeFile('results.json', JSON.stringify(sortedResults, null, 2))
+const outputFilePath = path.isAbsolute(values.output) ? values.output : path.resolve(process.cwd(), values.output)
+
+if (!existsSync(path.dirname(outputFilePath))) {
+  await fs.mkdir(path.dirname(outputFilePath), {recursive: true})
+}
+
+await fs.writeFile(outputFilePath, JSON.stringify(sortedResults, null, 2))

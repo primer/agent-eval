@@ -6,7 +6,6 @@ import {
   Field,
   formatDate,
   formatDuration,
-  inputClassName,
   Notice,
   PageHeader,
   passRate,
@@ -45,7 +44,7 @@ export default async function ScenarioPage({
       <Section title="Baseline results" description="The most recent control run recorded for this scenario.">
         {baseline ? (
           <>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div>
               <Stat label="Status" value={baseline.status} detail={`Recorded ${formatDate(baseline.recordedAt)}`} />
               <Stat
                 label="Test pass rate"
@@ -64,57 +63,57 @@ export default async function ScenarioPage({
               />
             </div>
             <Card>
-              <dl className="grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
+              <dl>
                 <div>
-                  <dt className="text-slate-500">Baseline ID</dt>
-                  <dd className="mt-1 font-mono text-xs">{baseline.id}</dd>
+                  <dt>Baseline ID</dt>
+                  <dd>{baseline.id}</dd>
                 </div>
                 <div>
-                  <dt className="text-slate-500">Passed</dt>
-                  <dd className="mt-1 font-semibold">{baseline.tests.passed}</dd>
+                  <dt>Passed</dt>
+                  <dd>{baseline.tests.passed}</dd>
                 </div>
                 <div>
-                  <dt className="text-slate-500">Failed</dt>
-                  <dd className="mt-1 font-semibold">{baseline.tests.failed}</dd>
+                  <dt>Failed</dt>
+                  <dd>{baseline.tests.failed}</dd>
                 </div>
                 <div>
-                  <dt className="text-slate-500">Premium requests</dt>
-                  <dd className="mt-1 font-semibold">{baseline.metrics.premiumRequests}</dd>
+                  <dt>Premium requests</dt>
+                  <dd>{baseline.metrics.premiumRequests}</dd>
                 </div>
               </dl>
             </Card>
           </>
         ) : (
           <Card>
-            <p className="text-sm text-slate-600">No baseline has been recorded for this scenario.</p>
+            <p>No baseline has been recorded for this scenario.</p>
           </Card>
         )}
       </Section>
 
       <Section title="Scenario definition">
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div>
           <Card>
-            <h3 className="text-sm font-semibold text-slate-800">Prompt</h3>
-            <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-700">{scenario.prompt}</p>
+            <h3>Prompt</h3>
+            <p>{scenario.prompt}</p>
           </Card>
           <Card>
-            <h3 className="text-sm font-semibold text-slate-800">Test and metadata</h3>
-            <dl className="mt-3 space-y-3 text-sm">
+            <h3>Test and metadata</h3>
+            <dl>
               <div>
-                <dt className="text-slate-500">Test path</dt>
-                <dd className="mt-1 font-mono text-xs">{scenario.testPath}</dd>
+                <dt>Test path</dt>
+                <dd>{scenario.testPath}</dd>
               </div>
               <div>
-                <dt className="text-slate-500">Tags</dt>
-                <dd className="mt-2 flex flex-wrap gap-1">
+                <dt>Tags</dt>
+                <dd>
                   {scenario.tags.map(tag => (
                     <Badge key={tag}>{tag}</Badge>
                   ))}
                 </dd>
               </div>
               <div>
-                <dt className="text-slate-500">Updated</dt>
-                <dd className="mt-1">{formatDate(scenario.updatedAt)}</dd>
+                <dt>Updated</dt>
+                <dd>{formatDate(scenario.updatedAt)}</dd>
               </div>
             </dl>
           </Card>
@@ -123,25 +122,18 @@ export default async function ScenarioPage({
 
       <Section title="Edit scenario" description="Update the scenario metadata and prompt used by the route scaffold.">
         <Card>
-          <form action={updateAction} className="grid gap-5">
-            <div className="grid gap-5 md:grid-cols-2">
+          <form action={updateAction}>
+            <div>
               <Field label="Name" name="name">
-                <input className={inputClassName} defaultValue={scenario.name} id="name" name="name" required />
+                <input defaultValue={scenario.name} id="name" name="name" required />
               </Field>
               <Field label="Description" name="description">
-                <input
-                  className={inputClassName}
-                  defaultValue={scenario.description}
-                  id="description"
-                  name="description"
-                  required
-                />
+                <input defaultValue={scenario.description} id="description" name="description" required />
               </Field>
             </div>
             <Field label="Prompt" name="prompt" description="The task sent to the agent.">
               <textarea
                 aria-describedby="prompt-description"
-                className={inputClassName}
                 defaultValue={scenario.prompt}
                 id="prompt"
                 name="prompt"
@@ -152,7 +144,6 @@ export default async function ScenarioPage({
             <Field label="Tags" name="tags" description="Enter one tag per line.">
               <textarea
                 aria-describedby="tags-description"
-                className={inputClassName}
                 defaultValue={scenario.tags.join('\n')}
                 id="tags"
                 name="tags"

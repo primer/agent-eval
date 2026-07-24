@@ -19,6 +19,8 @@ const config = defineConfig({
   plugins: [dts({eager: true, sourcemap: true})],
   output: {
     dir: 'dist',
+    preserveModules: true,
+    preserveModulesRoot: 'src',
   },
 })
 

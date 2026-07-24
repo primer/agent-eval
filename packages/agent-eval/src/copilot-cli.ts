@@ -81,6 +81,15 @@ const SessionToolsUpdatedMessageSchema = z.object({
   }),
 })
 
+const ModelCallStartMessageSchema = z.object({
+  type: z.literal('model.call_start'),
+  ...EphemeralEventFieldsSchema,
+  data: z.object({
+    turnId: z.string(),
+    model: z.string(),
+  }),
+})
+
 const UserMessageSchema = z.object({
   type: z.literal('user.message'),
   ...EventFieldsSchema,
@@ -157,6 +166,16 @@ const AssistantReasoningDeltaMessageSchema = z.object({
   }),
 })
 
+const AssistantToolCallDeltaMessageSchema = z.object({
+  type: z.literal('assistant.tool_call_delta'),
+  ...EphemeralEventFieldsSchema,
+  data: z.object({
+    toolCallId: z.string(),
+    toolName: z.string(),
+    inputDelta: z.string(),
+  }),
+})
+
 const ToolExecutionStartMessageSchema = z.object({
   type: z.literal('tool.execution_start'),
   ...EventFieldsSchema,
@@ -187,6 +206,37 @@ const AssistantTurnEndMessageSchema = z.object({
   ...EventFieldsSchema,
   data: z.object({
     turnId: z.string(),
+  }),
+})
+
+const AssistantIdleMessageSchema = z.object({
+  type: z.literal('assistant.idle'),
+  ...EphemeralEventFieldsSchema,
+  data: z.object({}),
+})
+
+const SessionUsageCheckpointMessageSchema = z.object({
+  type: z.literal('session.usage_checkpoint'),
+  ...EventFieldsSchema,
+  data: z.object({
+    totalNanoAiu: z.number(),
+    totalPremiumRequests: z.number(),
+    modelCacheState: z.array(
+      z.object({
+        modelId: z.string(),
+        cacheExpiresAt: z.string(),
+        cacheTtlSeconds: z.number(),
+      }),
+    ),
+  }),
+})
+
+const SessionInfoMessageSchema = z.object({
+  type: z.literal('session.info'),
+  ...EphemeralEventFieldsSchema,
+  data: z.object({
+    infoType: z.string(),
+    message: z.string(),
   }),
 })
 
@@ -236,6 +286,7 @@ const MessageSchema = z.discriminatedUnion('type', [
   SessionMcpServersLoadedMessageSchema,
   SessionSkillsLoadedMessageSchema,
   SessionToolsUpdatedMessageSchema,
+  ModelCallStartMessageSchema,
   UserMessageSchema,
   AssistantTurnStartMessageSchema,
   AssistantMessageStartMessageSchema,
@@ -243,9 +294,13 @@ const MessageSchema = z.discriminatedUnion('type', [
   AssistantMessageSchema,
   AssistantReasoningMessageSchema,
   AssistantReasoningDeltaMessageSchema,
+  AssistantToolCallDeltaMessageSchema,
   ToolExecutionStartMessageSchema,
   ToolExecutionCompleteMessageSchema,
   AssistantTurnEndMessageSchema,
+  AssistantIdleMessageSchema,
+  SessionUsageCheckpointMessageSchema,
+  SessionInfoMessageSchema,
   SessionBackgroundTasksChangedMessageSchema,
   ToolExecutionPartialResultMessageSchema,
   SessionTaskCompleteMessageSchema,
@@ -255,7 +310,7 @@ const MessageSchema = z.discriminatedUnion('type', [
 type Message = z.infer<typeof MessageSchema>
 
 function parseMessage(message: unknown) {
-  return MessageSchema.parse(message)
+  return MessageSchema.parse(message, {reportInput: true})
 }
 
 export {

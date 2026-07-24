@@ -6,7 +6,6 @@ import {
   Card,
   Field,
   formatDate,
-  inputClassName,
   Notice,
   PageHeader,
   passRate,
@@ -65,7 +64,7 @@ export default async function ExperimentPage({
       {query.saved ? <Notice>Experiment changes saved.</Notice> : null}
       {query.run ? <Notice>Run {query.run} was added to the queue.</Notice> : null}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div>
         <Stat label="Models" value={String(experiment.models.length)} />
         <Stat label="Scenarios" value={String(experiment.scenarioIds.length)} />
         <Stat label="Treatments" value={String(experiment.treatments.length)} />
@@ -77,17 +76,17 @@ export default async function ExperimentPage({
       </div>
 
       <Section title="Run history" description="Queued and completed executions for this experiment.">
-        <div className="grid gap-3">
+        <div>
           {runs.length === 0 ? (
             <Card>
-              <p className="text-sm text-slate-600">No runs have been queued yet.</p>
+              <p>No runs have been queued yet.</p>
             </Card>
           ) : (
             runs.map(run => (
-              <Card className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between" key={run.id}>
+              <Card key={run.id}>
                 <div>
-                  <p className="font-mono text-sm text-slate-800">{run.id}</p>
-                  <p className="mt-1 text-xs text-slate-500">
+                  <p>{run.id}</p>
+                  <p>
                     Queued {formatDate(run.queuedAt)} · {run.results.length} results
                   </p>
                 </div>
@@ -99,32 +98,27 @@ export default async function ExperimentPage({
       </Section>
 
       <Section title="Run matrix" description="Every selected model runs each scenario under every treatment.">
-        <div className="grid gap-4 md:grid-cols-2">
+        <div>
           <Card>
-            <h3 className="font-semibold text-slate-900">Scenarios</h3>
-            <ul className="mt-3 space-y-3">
+            <h3>Scenarios</h3>
+            <ul>
               {experiment.scenarioIds.map(scenarioId => {
                 const scenario = getScenario(scenarioId)
                 return (
                   <li key={scenarioId}>
-                    <Link
-                      className="text-sm font-medium text-blue-700 hover:underline"
-                      href={`/scenarios/${scenarioId}`}
-                    >
-                      {scenario?.name ?? scenarioId}
-                    </Link>
+                    <Link href={`/scenarios/${scenarioId}`}>{scenario?.name ?? scenarioId}</Link>
                   </li>
                 )
               })}
             </ul>
           </Card>
           <Card>
-            <h3 className="font-semibold text-slate-900">Treatments</h3>
-            <ul className="mt-3 space-y-3">
+            <h3>Treatments</h3>
+            <ul>
               {experiment.treatments.map(treatment => (
-                <li className="text-sm" key={treatment.id}>
-                  <p className="font-medium text-slate-800">{treatment.name}</p>
-                  {treatment.description ? <p className="mt-1 text-slate-500">{treatment.description}</p> : null}
+                <li key={treatment.id}>
+                  <p>{treatment.name}</p>
+                  {treatment.description ? <p>{treatment.description}</p> : null}
                 </li>
               ))}
             </ul>
@@ -134,31 +128,21 @@ export default async function ExperimentPage({
 
       <Section title="Edit experiment" description="Changes update the in-memory scaffold repository.">
         <Card>
-          <form action={updateAction} className="grid gap-6">
-            <div className="grid gap-5 md:grid-cols-2">
+          <form action={updateAction}>
+            <div>
               <Field label="Name" name="name">
-                <input className={inputClassName} defaultValue={experiment.name} id="name" name="name" required />
+                <input defaultValue={experiment.name} id="name" name="name" required />
               </Field>
               <Field label="Description" name="description">
-                <input
-                  className={inputClassName}
-                  defaultValue={experiment.description}
-                  id="description"
-                  name="description"
-                  required
-                />
+                <input defaultValue={experiment.description} id="description" name="description" required />
               </Field>
             </div>
             <fieldset>
-              <legend className="text-sm font-semibold text-slate-800">Models</legend>
-              <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              <legend>Models</legend>
+              <div>
                 {modelIds.map(model => (
-                  <label
-                    className="flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm"
-                    key={model}
-                  >
+                  <label key={model}>
                     <input
-                      className="size-4 accent-blue-700"
                       defaultChecked={experiment.models.includes(model)}
                       name="models"
                       type="checkbox"
@@ -170,15 +154,11 @@ export default async function ExperimentPage({
               </div>
             </fieldset>
             <fieldset>
-              <legend className="text-sm font-semibold text-slate-800">Scenarios</legend>
-              <div className="mt-3 grid gap-2 md:grid-cols-2">
+              <legend>Scenarios</legend>
+              <div>
                 {scenarios.map(scenario => (
-                  <label
-                    className="flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm"
-                    key={scenario.id}
-                  >
+                  <label key={scenario.id}>
                     <input
-                      className="size-4 accent-blue-700"
                       defaultChecked={experiment.scenarioIds.includes(scenario.id)}
                       name="scenarioIds"
                       type="checkbox"
@@ -192,7 +172,6 @@ export default async function ExperimentPage({
             <Field label="Treatments" name="treatments" description="Enter one treatment name per line.">
               <textarea
                 aria-describedby="treatments-description"
-                className={inputClassName}
                 defaultValue={experiment.treatments.map(treatment => treatment.name).join('\n')}
                 id="treatments"
                 name="treatments"
@@ -200,7 +179,7 @@ export default async function ExperimentPage({
                 rows={4}
               />
             </Field>
-            <div className="flex items-center gap-3">
+            <div>
               <SubmitButton>Save changes</SubmitButton>
               <Badge>Updated {formatDate(experiment.updatedAt)}</Badge>
             </div>

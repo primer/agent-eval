@@ -88,3 +88,4 @@ async function loadExperimentConfigs(options: LoadExperimentOptions = {}): Promi
 }
 
 export {findExperiment, listExperiments, loadExperimentConfigs}
+export type {ExperimentSourceOptions, LoadExperimentOptions}

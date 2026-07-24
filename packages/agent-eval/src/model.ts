@@ -1,45 +1,45 @@
 const models = [
   {
     name: 'claude-haiku-4.5',
-    supportedReasoningEfforts: [],
+    reasoningEfforts: [],
   },
   {
     name: 'claude-opus-4.6',
-    supportedReasoningEfforts: ['low', 'medium', 'high', 'max'],
+    reasoningEfforts: ['low', 'medium', 'high', 'max'],
   },
   {
     name: 'claude-opus-4.7',
-    supportedReasoningEfforts: ['low', 'medium', 'high', 'xhigh', 'max'],
+    reasoningEfforts: ['low', 'medium', 'high', 'xhigh', 'max'],
   },
   {
     name: 'claude-sonnet-4.5',
-    supportedReasoningEfforts: [],
+    reasoningEfforts: [],
   },
   {
     name: 'claude-sonnet-4.6',
-    supportedReasoningEfforts: ['low', 'medium', 'high', 'max'],
+    reasoningEfforts: ['low', 'medium', 'high', 'max'],
   },
   {
     name: 'gpt-5.4',
-    supportedReasoningEfforts: ['low', 'medium', 'high', 'xhigh'],
+    reasoningEfforts: ['low', 'medium', 'high', 'xhigh'],
   },
   {
     name: 'gpt-5.4-mini',
-    supportedReasoningEfforts: ['low', 'medium', 'high', 'xhigh'],
+    reasoningEfforts: ['low', 'medium', 'high', 'xhigh'],
   },
   {
     name: 'gpt-5.5',
-    supportedReasoningEfforts: ['low', 'medium', 'high', 'xhigh'],
+    reasoningEfforts: ['low', 'medium', 'high', 'xhigh'],
   },
 ] as const
 
 type ModelInfo = (typeof models)[number]
 type Model = ModelInfo['name']
-type ReasoningEffort = ModelInfo['supportedReasoningEfforts'][number]
+type ReasoningEffort = ModelInfo['reasoningEfforts'][number]
 type ModelConfig = {
   [Info in ModelInfo as Info['name']]: {
     name: Info['name']
-    reasoningEffort: Info['supportedReasoningEfforts'][number]
+    reasoningEffort: Info['reasoningEfforts'][number]
   }
 }[Model]
 type ExperimentModelConfig = Model | ModelConfig
@@ -50,7 +50,7 @@ function resolveModelConfig(config: ExperimentModelConfig): {name: Model; reason
 
     return {
       name: config,
-      reasoningEffort: model?.supportedReasoningEfforts.length === 0 ? undefined : 'high',
+      reasoningEffort: model?.reasoningEfforts.length === 0 ? undefined : 'high',
     }
   }
 

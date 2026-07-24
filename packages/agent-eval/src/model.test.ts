@@ -4,14 +4,14 @@ import {resolveModelConfig} from './model'
 
 test('provides model information', () => {
   expect(models).toEqual([
-    {name: 'claude-haiku-4.5', supportedReasoningEfforts: []},
-    {name: 'claude-opus-4.6', supportedReasoningEfforts: ['low', 'medium', 'high', 'max']},
-    {name: 'claude-opus-4.7', supportedReasoningEfforts: ['low', 'medium', 'high', 'xhigh', 'max']},
-    {name: 'claude-sonnet-4.5', supportedReasoningEfforts: []},
-    {name: 'claude-sonnet-4.6', supportedReasoningEfforts: ['low', 'medium', 'high', 'max']},
-    {name: 'gpt-5.4', supportedReasoningEfforts: ['low', 'medium', 'high', 'xhigh']},
-    {name: 'gpt-5.4-mini', supportedReasoningEfforts: ['low', 'medium', 'high', 'xhigh']},
-    {name: 'gpt-5.5', supportedReasoningEfforts: ['low', 'medium', 'high', 'xhigh']},
+    {name: 'claude-haiku-4.5', reasoningEfforts: []},
+    {name: 'claude-opus-4.6', reasoningEfforts: ['low', 'medium', 'high', 'max']},
+    {name: 'claude-opus-4.7', reasoningEfforts: ['low', 'medium', 'high', 'xhigh', 'max']},
+    {name: 'claude-sonnet-4.5', reasoningEfforts: []},
+    {name: 'claude-sonnet-4.6', reasoningEfforts: ['low', 'medium', 'high', 'max']},
+    {name: 'gpt-5.4', reasoningEfforts: ['low', 'medium', 'high', 'xhigh']},
+    {name: 'gpt-5.4-mini', reasoningEfforts: ['low', 'medium', 'high', 'xhigh']},
+    {name: 'gpt-5.5', reasoningEfforts: ['low', 'medium', 'high', 'xhigh']},
   ])
 })
 

@@ -10,7 +10,7 @@ export const experiment = defineConfig({
   name: 'Baseline',
   description: 'Baseline experiment to evaluate the performance of the agent with our recommended setup.',
   models: ['gpt-5.5', 'claude-opus-4.7'],
-  scenarios: scenarios.map(scenario => scenario.id),
+  scenarios: scenarios.filter(scenario => !scenario.id.startsWith('000')).map(scenario => scenario.id),
   treatments: [
     {
       name: 'Recommended',

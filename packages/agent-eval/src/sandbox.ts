@@ -347,7 +347,7 @@ class Sandbox {
 
 const INITIALIZED_CONTAINER: unique symbol = Symbol('InitializedContainer')
 
-const DEFAULT_DOCKER_IMAGE = 'node:26-slim'
+const DEFAULT_DOCKER_IMAGE = 'node:26.5.0-slim'
 
 type InitializedContainer = Docker.Container & {
   readonly [INITIALIZED_CONTAINER]?: true

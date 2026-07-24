@@ -1,7 +1,7 @@
 import type {ExperimentConfig, TreatmentConfig} from './experiment-config'
 import type {Model, ReasoningEffort} from './model'
 import type {Message} from './copilot-cli'
-import type {ResolvedScenario} from './scenario'
+import type {ResolvedScenario} from './resolve-experiment-scenario'
 
 type Treatment = {
   config: TreatmentConfig

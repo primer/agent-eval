@@ -3,7 +3,7 @@ import {MessageSchema, type Message} from './copilot-cli'
 import type {ExperimentConfig, ExperimentScenarioConfig} from './experiment-config'
 import {models} from './model'
 import type {Model, ReasoningEffort} from './model'
-import type {ResolvedScenario} from './scenario'
+import type {ResolvedScenario} from './resolve-experiment-scenario'
 import type {TreatmentResult} from './treatment'
 
 type AgentEvalOutputResult = {

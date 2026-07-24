@@ -1,6 +1,6 @@
 'use client'
 
-import {Heading, Stack} from '@primer/react'
+import {Stack} from '@primer/react'
 import {DataTable, Table, Blankslate} from '@primer/react/experimental'
 import type {Experiment} from '../../experiments'
 import {Link} from '../../components/Link'

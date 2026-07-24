@@ -9,6 +9,8 @@ import tarStream from 'tar-stream'
 import {McpConfigFileSchema} from './mcp-config'
 import type {McpConfigFile, McpServerConfig} from './mcp-config'
 
+const COPILOT_CLI_VERSION = '1.0.74'
+
 /**
  * Working directory inside the container.
  */
@@ -403,7 +405,7 @@ async function createContainer(docker: Docker, dockerImage: string): Promise<Ini
   await execCommand(docker, container, 'chown', ['-R', NODE_USER, COPILOT_DIR], {
     user: 'root',
   })
-  await execCommand(docker, container, 'npm', ['install', '-g', '@github/copilot'], {
+  await execCommand(docker, container, 'npm', ['install', '-g', `@github/copilot@${COPILOT_CLI_VERSION}`], {
     user: NODE_USER,
   })
   await execCommand(docker, container, 'touch', [path.join(COPILOT_DIR, 'mcp-config.json')], {

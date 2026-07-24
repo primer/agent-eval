@@ -2,7 +2,7 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import {afterEach, describe, expect, test} from 'vitest'
-import {resolveExperimentScenario} from './scenario'
+import {resolveExperimentScenario} from './resolve-experiment-scenario'
 
 const temporaryDirectories: Array<string> = []
 

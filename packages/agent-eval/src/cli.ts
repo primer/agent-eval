@@ -9,7 +9,7 @@ import {resolveModelConfigs, type Model, type ReasoningEffort} from './model'
 import {createAgentEvalOutput} from './output'
 import type {Treatment, TreatmentResult} from './treatment'
 import {findExperiment, listExperiments} from './experiments'
-import {resolveExperimentScenario} from './scenario'
+import {resolveExperimentScenario} from './resolve-experiment-scenario'
 import {run} from './run'
 
 const COPILOT_GITHUB_TOKEN = process.env.COPILOT_GITHUB_TOKEN

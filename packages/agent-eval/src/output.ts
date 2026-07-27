@@ -8,15 +8,10 @@ import type {TreatmentResult} from './treatment'
 
 type AgentEvalOutputResult = {
   id: string
-  treatment: {
-    config: {
-      name: string
-    }
-    id: string
-    model: Model
-    reasoningEffort?: ReasoningEffort
-    scenarioId: string
-  }
+  treatmentId: string
+  model: Model
+  reasoningEffort?: ReasoningEffort
+  scenarioId: string
   artifacts: {
     copilotConfigPath: string
     directory: string
@@ -59,11 +54,14 @@ type AgentEvalOutput = {
       reasoningEfforts: Array<ReasoningEffort>
     }>
     scenarios: Array<ExperimentScenarioConfig>
-    treatments: Array<{
-      name: string
-    }>
   }
   scenarios: Array<ResolvedScenario>
+  treatments: Array<{
+    id: string
+    config: {
+      name: string
+    }
+  }>
   results: Array<AgentEvalOutputResult>
 }
 
@@ -101,7 +99,6 @@ const AgentEvalOutputExperimentSchema = z.object({
   description: z.string(),
   models: z.array(ExperimentModelConfigSchema),
   scenarios: z.array(ExperimentScenarioSchema),
-  treatments: z.array(TreatmentConfigSchema),
 })
 
 const ResolvedScenarioSchema = z.object({
@@ -115,13 +112,10 @@ const ResolvedScenarioSchema = z.object({
 
 const AgentEvalOutputResultSchema = z.object({
   id: z.string(),
-  treatment: z.object({
-    config: TreatmentConfigSchema,
-    id: z.string(),
-    model: ModelSchema,
-    reasoningEffort: z.optional(ReasoningEffortSchema),
-    scenarioId: z.string(),
-  }),
+  treatmentId: z.string(),
+  model: ModelSchema,
+  reasoningEffort: z.optional(ReasoningEffortSchema),
+  scenarioId: z.string(),
   artifacts: z.object({
     copilotConfigPath: z.string(),
     directory: z.string(),
@@ -159,6 +153,12 @@ const AgentEvalOutputSchema = z.object({
   id: z.string(),
   experiment: AgentEvalOutputExperimentSchema,
   scenarios: z.array(ResolvedScenarioSchema),
+  treatments: z.array(
+    z.object({
+      id: z.string(),
+      config: TreatmentConfigSchema,
+    }),
+  ),
   results: z.array(AgentEvalOutputResultSchema),
 })
 
@@ -177,6 +177,27 @@ function createAgentEvalOutput({
   scenarios,
   results,
 }: CreateAgentEvalOutputOptions): AgentEvalOutput {
+  const treatmentsByName = new Map<
+    string,
+    {
+      id: string
+      config: {
+        name: string
+      }
+    }
+  >()
+
+  for (const result of results) {
+    if (!treatmentsByName.has(result.treatment.config.name)) {
+      treatmentsByName.set(result.treatment.config.name, {
+        id: result.treatment.id,
+        config: {
+          name: result.treatment.config.name,
+        },
+      })
+    }
+  }
+
   return {
     id,
     experiment: {
@@ -185,25 +206,21 @@ function createAgentEvalOutput({
       description: experiment.description,
       models: experiment.models,
       scenarios: experiment.scenarios,
-      treatments: experiment.treatments.map(treatment => {
-        return {
-          name: treatment.name,
-        }
-      }),
     },
     scenarios,
+    treatments: [...treatmentsByName.values()],
     results: results.map(result => {
+      const treatment = treatmentsByName.get(result.treatment.config.name)
+      if (!treatment) {
+        throw new Error(`Treatment "${result.treatment.config.name}" was not normalized`)
+      }
+
       return {
         id: result.id,
-        treatment: {
-          config: {
-            name: result.treatment.config.name,
-          },
-          id: result.treatment.id,
-          model: result.treatment.model,
-          reasoningEffort: result.treatment.reasoningEffort,
-          scenarioId: result.treatment.scenario.id,
-        },
+        treatmentId: treatment.id,
+        model: result.treatment.model,
+        reasoningEffort: result.treatment.reasoningEffort,
+        scenarioId: result.treatment.scenario.id,
         artifacts: result.artifacts,
         assistant: result.assistant,
         testResults: result.testResults,
@@ -214,7 +231,19 @@ function createAgentEvalOutput({
 
 function parseAgentEvalOutput(value: unknown): AgentEvalOutput {
   const input = typeof value === 'string' ? JSON.parse(value) : value
-  return AgentEvalOutputSchema.parse(input, {reportInput: true})
+  const output = AgentEvalOutputSchema.parse(input, {reportInput: true})
+  const treatmentIds = new Set(output.treatments.map(treatment => treatment.id))
+  if (treatmentIds.size !== output.treatments.length) {
+    throw new Error('Treatment IDs must be unique')
+  }
+
+  for (const result of output.results) {
+    if (!treatmentIds.has(result.treatmentId)) {
+      throw new Error(`Result "${result.id}" references unknown treatment "${result.treatmentId}"`)
+    }
+  }
+
+  return output
 }
 
 export {createAgentEvalOutput, parseAgentEvalOutput}

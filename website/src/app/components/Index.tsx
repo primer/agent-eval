@@ -4,87 +4,131 @@ import {Stack} from '@primer/react'
 import {DataTable, Table, Blankslate} from '@primer/react/experimental'
 import type {Experiment} from '../../experiments'
 import {Link} from '../../components/Link'
-import type {Run} from '../../runs'
 import type {Scenario} from '../../scenarios'
+import {ExperimentsTable, ScenariosTable} from './ResourceTables'
+
+export type BaselineComparison = {
+  id: string
+  scenarioId: string
+  model: string
+  reasoningEffort: string
+  tests: string
+  turns: string
+  outputTokens: string
+  premiumRequests: string
+  apiDuration: string
+  sessionDuration: string
+  toolCalls: string
+}
 
 export function Index({
+  baseline,
   experiments,
-  latestRun,
   scenarios,
 }: {
+  baseline: Array<BaselineComparison> | null
   experiments: Array<Experiment>
-  latestRun: Run | null
   scenarios: Array<Scenario>
 }) {
   return (
     <Stack padding="normal" gap="spacious">
       <section>
-        <h1 className="text-title-medium pb-4">Baseline</h1>
-        {latestRun ? null : (
-          <Blankslate border>
-            <Blankslate.Heading>No results</Blankslate.Heading>
-            <Blankslate.Description>
-              No baseline results have been recorded yet. Run the baseline tests to see results here.
-            </Blankslate.Description>
-          </Blankslate>
+        {baseline ? (
+          <Table.Container>
+            <Table.Title as="h1" id="baseline-heading">
+              Baseline
+            </Table.Title>
+            <Table.Subtitle as="p" id="baseline-description">
+              Each value is the baseline delta from Control. A positive value means the baseline performed better for
+              that metric; a negative value means it performed worse. An em dash means the result was not recorded.
+            </Table.Subtitle>
+            <DataTable
+              aria-labelledby="baseline-heading"
+              aria-describedby="baseline-description"
+              cellPadding="condensed"
+              columns={[
+                {
+                  id: 'scenarioId',
+                  header: 'Scenario',
+                  field: 'scenarioId',
+                  rowHeader: true,
+                  maxWidth: '36ch',
+                  renderCell: row => <Link href={`/scenarios/${row.scenarioId}`}>{row.scenarioId}</Link>,
+                },
+                {id: 'model', header: 'Model', field: 'model', width: 'auto'},
+                {
+                  id: 'reasoningEffort',
+                  header: 'Effort',
+                  field: 'reasoningEffort',
+                  width: 'auto',
+                },
+                {
+                  id: 'tests',
+                  header: 'Test pass rate',
+                  field: 'tests',
+                  align: 'end',
+                  width: 'auto',
+                },
+                {
+                  id: 'turns',
+                  header: 'Turns',
+                  field: 'turns',
+                  align: 'end',
+                  width: 'auto',
+                },
+                {
+                  id: 'output-tokens',
+                  header: 'Output tokens',
+                  field: 'outputTokens',
+                  align: 'end',
+                  width: 'auto',
+                },
+                {
+                  id: 'premium-requests',
+                  header: 'Premium requests',
+                  field: 'premiumRequests',
+                  align: 'end',
+                  width: 'auto',
+                },
+                {
+                  id: 'api-time',
+                  header: 'API time',
+                  field: 'apiDuration',
+                  align: 'end',
+                  width: 'auto',
+                },
+                {
+                  id: 'session-time',
+                  header: 'Session time',
+                  field: 'sessionDuration',
+                  align: 'end',
+                  width: 'auto',
+                },
+                {
+                  id: 'tool-calls',
+                  header: 'Tool calls',
+                  field: 'toolCalls',
+                  align: 'end',
+                  width: 'auto',
+                },
+              ]}
+              data={baseline}
+            />
+          </Table.Container>
+        ) : (
+          <>
+            <h1 className="text-title-medium pb-4">Baseline</h1>
+            <Blankslate border>
+              <Blankslate.Heading as="h2">No results</Blankslate.Heading>
+              <Blankslate.Description>
+                No baseline results have been recorded yet. Run the baseline tests to see results here.
+              </Blankslate.Description>
+            </Blankslate>
+          </>
         )}
       </section>
-      <section>
-        <Table.Container>
-          <Table.Title as="h2" id="scenarios-heading">
-            Scenarios
-          </Table.Title>
-          <Table.Actions>
-            <Link href="/scenarios">View all</Link>
-          </Table.Actions>
-          <DataTable
-            aria-labelledby="scenarios-heading"
-            columns={[
-              {
-                id: 'id',
-                header: 'ID',
-                field: 'id',
-                maxWidth: '40ch',
-                renderCell: cell => <Link href={`/scenarios/${cell.id}`}>{cell.id}</Link>,
-              },
-              {id: 'prompt', header: 'Prompt', field: 'prompt', maxWidth: '1fr'},
-            ]}
-            data={scenarios}
-          />
-        </Table.Container>
-      </section>
-      <section>
-        <Table.Container>
-          <Table.Title as="h2" id="experiments-heading">
-            Experiments
-          </Table.Title>
-          <Table.Actions>
-            <Link href="/experiments">View all</Link>
-          </Table.Actions>
-          <DataTable
-            aria-labelledby="experiments-heading"
-            columns={[
-              {
-                id: 'name',
-                header: 'Name',
-                field: 'name',
-                maxWidth: '40ch',
-                renderCell: cell => <Link href={`/experiments/${cell.id}`}>{cell.name}</Link>,
-              },
-              {id: 'description', header: 'Description', field: 'description', maxWidth: '60ch'},
-              {id: 'models', header: 'Models', field: 'models', align: 'end'},
-              {id: 'scenarios', header: 'Scenarios', field: 'scenarios', align: 'end'},
-            ]}
-            data={experiments.map(experiment => ({
-              id: experiment.id,
-              name: experiment.name,
-              description: experiment.description,
-              models: experiment.models.length,
-              scenarios: experiment.scenarios.length,
-            }))}
-          />
-        </Table.Container>
-      </section>
+      <ScenariosTable scenarios={scenarios} showViewAll />
+      <ExperimentsTable experiments={experiments} showViewAll />
     </Stack>
   )
 }

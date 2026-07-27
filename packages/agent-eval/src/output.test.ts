@@ -16,7 +16,6 @@ const output: AgentEvalOutput = {
     description: 'An example experiment',
     models: [{name: 'gpt-5.5', reasoningEfforts: ['high']}],
     scenarios: ['example'],
-    treatments: [],
   },
   scenarios: [
     {
@@ -28,18 +27,21 @@ const output: AgentEvalOutput = {
       testPath: '/scenarios/example/scenario.test.ts',
     },
   ],
+  treatments: [
+    {
+      id: 'treatment-id',
+      config: {
+        name: 'Control',
+      },
+    },
+  ],
   results: [
     {
       id: 'result-id',
-      treatment: {
-        config: {
-          name: 'Control',
-        },
-        id: 'treatment-id',
-        model: 'gpt-5.5',
-        reasoningEffort: 'high',
-        scenarioId: 'example',
-      },
+      treatmentId: 'treatment-id',
+      model: 'gpt-5.5',
+      reasoningEffort: 'high',
+      scenarioId: 'example',
       artifacts: {
         copilotConfigPath: '/artifacts/.copilot',
         directory: '/artifacts',
@@ -77,7 +79,7 @@ const output: AgentEvalOutput = {
 }
 
 describe(createAgentEvalOutput, () => {
-  test('deduplicates experiment and scenario metadata', () => {
+  test('deduplicates experiment, scenario, and treatment metadata', () => {
     const experiment: ExperimentConfig = {
       name: 'Example',
       description: 'An example experiment',
@@ -99,6 +101,14 @@ describe(createAgentEvalOutput, () => {
         reasoningEffort: 'high',
       },
     }
+    const duplicateTreatmentResult: TreatmentResult = {
+      ...result,
+      id: 'second-result-id',
+      treatment: {
+        ...result.treatment,
+        id: 'second-treatment-id',
+      },
+    }
 
     expect(
       createAgentEvalOutput({
@@ -106,9 +116,18 @@ describe(createAgentEvalOutput, () => {
         experimentId: 'example',
         experiment,
         scenarios: [scenario],
-        results: [result],
+        results: [result, duplicateTreatmentResult],
       }),
-    ).toEqual(output)
+    ).toEqual({
+      ...output,
+      results: [
+        output.results[0],
+        {
+          ...output.results[0],
+          id: 'second-result-id',
+        },
+      ],
+    })
   })
 })
 
@@ -171,13 +190,33 @@ describe(parseAgentEvalOutput, () => {
         results: [
           {
             ...output.results[0],
-            treatment: {
-              ...output.results[0].treatment,
-              reasoningEffort: 'invalid',
-            },
+            reasoningEffort: 'invalid',
           },
         ],
       }),
     ).toThrow()
+  })
+
+  test('throws for an unknown treatment reference', () => {
+    expect(() =>
+      parseAgentEvalOutput({
+        ...output,
+        results: [
+          {
+            ...output.results[0],
+            treatmentId: 'unknown',
+          },
+        ],
+      }),
+    ).toThrow('references unknown treatment')
+  })
+
+  test('throws for duplicate treatment IDs', () => {
+    expect(() =>
+      parseAgentEvalOutput({
+        ...output,
+        treatments: [...output.treatments, output.treatments[0]],
+      }),
+    ).toThrow('Treatment IDs must be unique')
   })
 })

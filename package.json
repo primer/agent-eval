@@ -4,13 +4,16 @@
   "type": "module",
   "scripts": {
     "build": "pnpm --recursive run build",
+    "changeset": "changeset",
     "format": "prettier --cache --write '**/*.{js,css,md,mdx,ts,tsx,yml}'",
     "format:diff": "prettier --cache --list-different '**/*.{js,css,md,mdx,ts,tsx,yml}'",
     "lint": "eslint '**/*.{js,ts,tsx}' --max-warnings=0 --cache",
+    "release": "pnpm --filter @primer/agent-eval run build && changeset publish",
     "test": "vitest",
     "type-check": "tsc --noEmit && pnpm --recursive run type-check"
   },
   "devDependencies": {
+    "@changesets/cli": "^2.31.1",
     "@eslint/js": "10.0.1",
     "@github/prettier-config": "^0.0.6",
     "@primer/agent-eval": "workspace:*",

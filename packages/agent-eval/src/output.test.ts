@@ -25,6 +25,7 @@ const output: AgentEvalOutput = {
         prompt: 'Build an example',
       },
       testPath: '/scenarios/example/scenario.test.ts',
+      browserTestPath: '/scenarios/example/scenario.browser.test.ts',
     },
   ],
   treatments: [

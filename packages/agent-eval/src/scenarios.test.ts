@@ -53,6 +53,21 @@ describe('scenario loading', () => {
     })
   })
 
+  test('includes an optional browser test', async () => {
+    const scenariosDirectory = await createScenariosDirectory()
+    const directory = await createScenario(scenariosDirectory, 'example', 'Example prompt')
+    const browserTestPath = path.join(directory, 'scenario.browser.test.ts')
+    await fs.writeFile(browserTestPath, '')
+
+    await expect(findScenario('example', {directory: scenariosDirectory})).resolves.toEqual({
+      id: 'example',
+      directory,
+      config: {prompt: 'Example prompt'},
+      testPath: path.join(directory, 'scenario.test.ts'),
+      browserTestPath,
+    })
+  })
+
   test('returns undefined when a scenario is not found', async () => {
     const scenariosDirectory = await createScenariosDirectory()
 

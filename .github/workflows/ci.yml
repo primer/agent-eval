@@ -54,13 +54,6 @@ jobs:
         with:
           node-version-file: '.nvmrc'
           cache: 'pnpm'
-      - name: restore turbo cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: .turbo
-          key: turbo-${{ runner.os }}-${{ github.job }}-${{ github.sha }}
-          restore-keys: |
-            turbo-${{ runner.os }}-${{ github.job }}-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Check for unformatted files
@@ -88,9 +81,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Lint JavaScript
-        run: pnpm run lint
-      - name: lint markdown
-        run: pnpm run lint:md
+        run: pnpm exec turbo run lint
+      - name: Lint npm packages
+        run: pnpm exec turbo run lint:npm
 
   test:
     runs-on: ubuntu-latest
@@ -133,4 +126,4 @@ jobs:
       - name: Build generated files
         run: pnpm run build
       - name: Type check
-        run: pnpm run type-check
+        run: pnpm exec turbo run type-check

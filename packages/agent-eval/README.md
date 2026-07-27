@@ -1,6 +1,104 @@
 # @primer/agent-eval
 
-Run Primer agent evaluation experiments from the command line or from Node.js.
+A library and cli tool for creating and running experiments in order to evaluate
+agent behavior across different scenarios.
+
+## Getting started
+
+To install `@primer/agent-eval` in your project, you will need to run the following
+command using [npm](https://www.npmjs.com/):
+
+```bash
+npm install -S @primer/agent-eval
+```
+
+This will provide both the cli and library for creating and running experiments.
+Typically, you'll first create an experiment:
+
+```tsx
+// experiments/example.ts
+
+import {defineConfig} from '@primer/agent-eval/experiment'
+
+export const experiment = defineConfig({
+  name: 'Experiment name',
+  description: 'A description for the experiment',
+
+  // An array of models and their reasoning efforts that you would like to evaluate against
+  models: [
+    'gpt-5.5',
+    {
+      name: 'claude-opus-4.8',
+      reasoningEfforts: ['medium', 'high'],
+    },
+  ],
+
+  // An array of scenarios that setup tasks for your agent to perform and
+  // for you to evaluate their performance
+  scenarios: ['uses-button-from-primer'],
+
+  // An array of treatments. Each treatment is tested and compared against
+  // each other and to the control for the experiment. A treatment represents a
+  // series of steps to setup the environment that an agent runs within. For
+  // example, it may add agent instructions, MCP servers, skill, etc.
+  //
+  // Multiple treatments may be used if you want to compare two approaches
+  // against each other, for example an MCP server vs a skill, for the scenarios
+  // you are testing against
+  treatments: [
+    {
+      name: 'With MCP Server',
+      async setup({sandbox}) {
+        await sandbox.addAgentInstruction(
+          `For any UI-related change, React component change, styling change, accessibility change, icon change, or design-system question, use the Primer MCP server before editing.`,
+        )
+        await sandbox.runCommand('npm', ['install', '-g', '@primer/mcp@latest'])
+        await sandbox.addMcpServer('primer', {
+          type: 'local',
+          command: 'npx',
+          args: ['--no-install', '@primer/mcp'],
+          tools: ['*'],
+        })
+      },
+    },
+  ],
+})
+```
+
+Then, you will create your scenarios that you are testing the agent behavior
+against:
+
+```tsx
+// scenarios/uses-button-from-primer/scenario.config.ts
+
+import {defineScenario} from '@primer/agent-eval/scenario'
+
+export default defineScenario({
+  prompt: `Example scenario prompt that will instruct the agent to perform a task`,
+})
+
+// scenarios/uses-button-from-primer/scenario.test.ts
+import fs from 'node:fs/promises'
+import path from 'node:path'
+import {expect, test} from 'vitest'
+
+test('example test to see if agent performed the task accurately', () => {
+  //
+})
+```
+
+Scenarios are packages with a `package.json` file. They can be standalone
+projects, projects that use Next.js, or anything else. By default, the
+dependencies of scenarios are installed and the `build` task is run before the
+agent sees the prompt for the scenario.
+
+With everything in place, you can now use the `@primer/agent-eval` cli to run
+the experiment:
+
+```bash
+export COPILOT_GITHUB_TOKEN=... # A GitHub token with access to the Copilot API
+npx @primer/agent-eval --experiments ./experiments --experiment example --scenarios ./scenarios
+```
 
 ## CLI
 
@@ -76,20 +174,5 @@ await sandbox.addAgentSkill('test-planning', 'Plans test coverage', 'Create focu
     {sourcePath: './docs/testing.md', destinationPath: 'testing.md'},
     {path: 'context.md', content: 'Prioritize deterministic tests.'},
   ],
-})
-```
-
-## Programmatic usage
-
-The package index exports the experiment loading, scenario discovery, and runner
-APIs:
-
-```ts
-import {findScenario, listScenarios, loadExperimentConfigs, run, type Model} from '@primer/agent-eval'
-
-const experiments = await loadExperimentConfigs({directory: './experiments'})
-const scenarios = await listScenarios({directory: './scenarios'})
-const scenario = await findScenario('001-agent-uses-button-from-primer', {
-  directory: './scenarios',
 })
 ```

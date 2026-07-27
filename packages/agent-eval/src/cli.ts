@@ -12,13 +12,6 @@ import {findExperiment, listExperiments} from './experiments'
 import {resolveExperimentScenario} from './resolve-experiment-scenario'
 import {run} from './run'
 
-const COPILOT_GITHUB_TOKEN = process.env.COPILOT_GITHUB_TOKEN
-const GITHUB_STEP_SUMMARY = process.env.GITHUB_STEP_SUMMARY
-
-if (!COPILOT_GITHUB_TOKEN) {
-  throw new Error('COPILOT_GITHUB_TOKEN environment variable is required to run the experiments')
-}
-
 const {values} = parseArgs({
   options: {
     artifacts: {
@@ -45,6 +38,11 @@ const {values} = parseArgs({
       type: 'string',
       description: 'The directory containing local experiment files',
     },
+    help: {
+      type: 'boolean',
+      short: 'h',
+      description: 'Learn more about the command and its options',
+    },
     output: {
       type: 'string',
       description: 'The target file in which results are written',
@@ -56,6 +54,30 @@ const {values} = parseArgs({
     },
   },
 })
+
+if (values.help) {
+  console.log(`
+Usage: agent-eval [options]
+
+Options:
+  -a, --artifacts <dir>      The directory to save artifacts to
+  -c, --concurrency <num>    The number of treatments to run in parallel
+      --docker-image <image> The Docker container image to use for running treatments (must be a Debian-based Node image with apt-get and a node user, e.g. node:26.5.0-slim)
+  -e, --experiment <file>    The file name of the experiment to run
+      --experiments <dir>    The directory containing local experiment files
+  -h, --help                 Learn more about the command and its options
+      --output <file>        The target file in which results are written (default: output.json)
+      --scenarios <dir>      The directory containing scenario directories
+`)
+  process.exit(0)
+}
+
+const COPILOT_GITHUB_TOKEN = process.env.COPILOT_GITHUB_TOKEN
+const GITHUB_STEP_SUMMARY = process.env.GITHUB_STEP_SUMMARY
+
+if (!COPILOT_GITHUB_TOKEN) {
+  throw new Error('COPILOT_GITHUB_TOKEN environment variable is required to run the experiments')
+}
 
 const ARTIFACTS_DIR = path.resolve(values.artifacts ?? 'artifacts')
 const DOCKER_IMAGE = values['docker-image']?.trim() || undefined

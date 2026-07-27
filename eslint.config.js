@@ -16,6 +16,7 @@ const config = defineConfig([
     '**/next-env.d.ts',
     '**/generated/**',
     '**/artifacts/**',
+    '**/.agents/**',
   ]),
   js.configs.recommended,
   github.recommended,

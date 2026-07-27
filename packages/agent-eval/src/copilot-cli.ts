@@ -16,6 +16,11 @@ const ToolResultSchema = z.object({
   detailedContent: z.string(),
 })
 
+const ToolErrorSchema = z.object({
+  message: z.string(),
+  code: z.string(),
+})
+
 const ToolTelemetrySchema = z.object({
   properties: z.optional(z.record(z.string(), z.string())),
   metrics: z.optional(z.record(z.string(), z.number())),
@@ -77,6 +82,15 @@ const SessionToolsUpdatedMessageSchema = z.object({
   type: z.literal('session.tools_updated'),
   ...EphemeralEventFieldsSchema,
   data: z.object({
+    model: z.string(),
+  }),
+})
+
+const ModelCallStartMessageSchema = z.object({
+  type: z.literal('model.call_start'),
+  ...EphemeralEventFieldsSchema,
+  data: z.object({
+    turnId: z.string(),
     model: z.string(),
   }),
 })
@@ -157,6 +171,16 @@ const AssistantReasoningDeltaMessageSchema = z.object({
   }),
 })
 
+const AssistantToolCallDeltaMessageSchema = z.object({
+  type: z.literal('assistant.tool_call_delta'),
+  ...EphemeralEventFieldsSchema,
+  data: z.object({
+    toolCallId: z.string(),
+    toolName: z.string(),
+    inputDelta: z.string(),
+  }),
+})
+
 const ToolExecutionStartMessageSchema = z.object({
   type: z.literal('tool.execution_start'),
   ...EventFieldsSchema,
@@ -165,21 +189,33 @@ const ToolExecutionStartMessageSchema = z.object({
     toolName: z.string(),
     arguments: ToolArgumentsSchema,
     turnId: z.string(),
+    model: z.string(),
   }),
 })
 
 const ToolExecutionCompleteMessageSchema = z.object({
   type: z.literal('tool.execution_complete'),
   ...EventFieldsSchema,
-  data: z.object({
-    toolCallId: z.string(),
-    model: z.string(),
-    interactionId: z.string(),
-    turnId: z.string(),
-    success: z.boolean(),
-    result: ToolResultSchema,
-    toolTelemetry: ToolTelemetrySchema,
-  }),
+  data: z.discriminatedUnion('success', [
+    z.object({
+      toolCallId: z.string(),
+      model: z.string(),
+      interactionId: z.string(),
+      turnId: z.string(),
+      success: z.literal(true),
+      result: ToolResultSchema,
+      toolTelemetry: ToolTelemetrySchema,
+    }),
+    z.object({
+      toolCallId: z.string(),
+      model: z.string(),
+      interactionId: z.string(),
+      turnId: z.string(),
+      success: z.literal(false),
+      error: ToolErrorSchema,
+      toolTelemetry: ToolTelemetrySchema,
+    }),
+  ]),
 })
 
 const AssistantTurnEndMessageSchema = z.object({
@@ -187,6 +223,37 @@ const AssistantTurnEndMessageSchema = z.object({
   ...EventFieldsSchema,
   data: z.object({
     turnId: z.string(),
+  }),
+})
+
+const AssistantIdleMessageSchema = z.object({
+  type: z.literal('assistant.idle'),
+  ...EphemeralEventFieldsSchema,
+  data: z.object({}),
+})
+
+const SessionUsageCheckpointMessageSchema = z.object({
+  type: z.literal('session.usage_checkpoint'),
+  ...EventFieldsSchema,
+  data: z.object({
+    totalNanoAiu: z.number(),
+    totalPremiumRequests: z.number(),
+    modelCacheState: z.array(
+      z.object({
+        modelId: z.string(),
+        cacheExpiresAt: z.string(),
+        cacheTtlSeconds: z.number(),
+      }),
+    ),
+  }),
+})
+
+const SessionInfoMessageSchema = z.object({
+  type: z.literal('session.info'),
+  ...EphemeralEventFieldsSchema,
+  data: z.object({
+    infoType: z.string(),
+    message: z.string(),
   }),
 })
 
@@ -231,11 +298,12 @@ const ResultMessageSchema = z.object({
   }),
 })
 
-const MessageSchema = z.discriminatedUnion('type', [
+const KnownMessageSchema = z.discriminatedUnion('type', [
   SessionMcpServerStatusChangedMessageSchema,
   SessionMcpServersLoadedMessageSchema,
   SessionSkillsLoadedMessageSchema,
   SessionToolsUpdatedMessageSchema,
+  ModelCallStartMessageSchema,
   UserMessageSchema,
   AssistantTurnStartMessageSchema,
   AssistantMessageStartMessageSchema,
@@ -243,28 +311,83 @@ const MessageSchema = z.discriminatedUnion('type', [
   AssistantMessageSchema,
   AssistantReasoningMessageSchema,
   AssistantReasoningDeltaMessageSchema,
+  AssistantToolCallDeltaMessageSchema,
   ToolExecutionStartMessageSchema,
   ToolExecutionCompleteMessageSchema,
   AssistantTurnEndMessageSchema,
+  AssistantIdleMessageSchema,
+  SessionUsageCheckpointMessageSchema,
+  SessionInfoMessageSchema,
   SessionBackgroundTasksChangedMessageSchema,
   ToolExecutionPartialResultMessageSchema,
   SessionTaskCompleteMessageSchema,
   ResultMessageSchema,
 ])
 
+const KNOWN_MESSAGE_TYPES = new Set([
+  'session.mcp_server_status_changed',
+  'session.mcp_servers_loaded',
+  'session.skills_loaded',
+  'session.tools_updated',
+  'model.call_start',
+  'user.message',
+  'assistant.turn_start',
+  'assistant.message_start',
+  'assistant.message_delta',
+  'assistant.message',
+  'assistant.reasoning',
+  'assistant.reasoning_delta',
+  'assistant.tool_call_delta',
+  'tool.execution_start',
+  'tool.execution_complete',
+  'assistant.turn_end',
+  'assistant.idle',
+  'session.usage_checkpoint',
+  'session.info',
+  'session.background_tasks_changed',
+  'tool.execution_partial_result',
+  'session.task_complete',
+  'result',
+])
+
+declare const unknownMessageType: unique symbol
+type UnknownMessageType = string & {readonly [unknownMessageType]: true}
+
+const UnknownMessageSchema = z.looseObject({
+  type: z.custom<UnknownMessageType, string>(
+    type => typeof type === 'string' && !KNOWN_MESSAGE_TYPES.has(type),
+    'Expected an unknown message type',
+  ),
+})
+
+const MessageSchema = z.union([KnownMessageSchema, UnknownMessageSchema])
+
+type KnownMessage = z.infer<typeof KnownMessageSchema>
+type UnknownMessage = z.infer<typeof UnknownMessageSchema>
 type Message = z.infer<typeof MessageSchema>
 
+function isMessageType<T extends KnownMessage['type']>(
+  message: Message,
+  type: T,
+): message is Extract<KnownMessage, {type: T}> {
+  return message.type === type
+}
+
 function parseMessage(message: unknown) {
-  return MessageSchema.parse(message)
+  return MessageSchema.parse(message, {reportInput: true})
 }
 
 export {
   MessageSchema,
+  KnownMessageSchema,
+  KNOWN_MESSAGE_TYPES,
   ResultMessageSchema,
   SessionTaskCompleteMessageSchema,
   ToolExecutionCompleteMessageSchema,
   ToolExecutionPartialResultMessageSchema,
   ToolExecutionStartMessageSchema,
+  UnknownMessageSchema,
+  isMessageType,
   parseMessage,
 }
-export type {Message}
+export type {KnownMessage, Message, UnknownMessage, UnknownMessageType}

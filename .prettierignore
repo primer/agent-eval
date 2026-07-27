@@ -1,3 +1,4 @@
 .next
 packages/scenarios/src/generated
 dist
+**/.agents/**

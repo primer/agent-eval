@@ -54,3 +54,11 @@ When adding an experiment, follow these rules:
   experiment goals
 - If you are not sure about experiment goals, prompt the user for more
   information before creating the experiment
+
+## Next.js: ALWAYS read docs before coding.js
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+Before any Next.js work, find and read the relevant doc in `node_modules/next/dist/docs/`. Your training data is outdated — the docs are the source of truth.
+
+<!-- END:nextjs-agent-rules -->

@@ -64,6 +64,6 @@ jobs:
         with:
           name: experiment
           path: |
-            results.json
+            output.json
             artifacts
           if-no-files-found: ignore

@@ -28,9 +28,7 @@
     "node": ">=24"
   },
   "files": [
-    "dist",
-    "src/experiment.ts",
-    "src/scenario-config.ts"
+    "dist"
   ],
   "scripts": {
     "build": "rimraf dist && rolldown -c",

@@ -69,7 +69,9 @@ jobs:
       - name: Lint JavaScript
         run: pnpm run lint
       - name: Lint npm packages
-        run: pnpm run --if-present -r lint:npm
+        run: |
+          pnpm --filter @primer/agent-eval run build
+          pnpm --filter @primer/agent-eval run lint:npm
 
   test:
     runs-on: ubuntu-latest

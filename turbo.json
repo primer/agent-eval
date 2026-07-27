@@ -6,6 +6,11 @@
       "dependsOn": ["^build"],
       "outputs": ["dist/**", ".next/**", "!.next/cache/**", "!.next/dev/**", "next-env.d.ts"]
     },
+    "@primer/agent-eval-website#build": {
+      "dependsOn": ["^build"],
+      "env": ["PAGES_BASE_PATH"],
+      "outputs": [".next/**", "!.next/cache/**", "!.next/dev/**", "out/**", "next-env.d.ts"]
+    },
     "//#lint": {
       "outputs": []
     },

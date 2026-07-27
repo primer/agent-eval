@@ -1,11 +1,10 @@
 {
   "name": "@primer/agent-eval",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "type": "module",
   "bin": {
-    "agent-eval": "./dist/cli.js"
+    "agent-eval": "bin/agent-eval"
   },
-  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -25,14 +24,16 @@
     }
   },
   "engines": {
-    "node": ">=24"
+    "node": ">=26"
   },
   "files": [
+    "bin",
     "dist"
   ],
   "scripts": {
-    "build": "rimraf dist && rolldown -c",
+    "build": "rolldown -c",
     "clean": "rimraf dist",
+    "lint:npm": "publint --types",
     "type-check": "tsc --noEmit",
     "watch": "rolldown -c -w"
   },
@@ -55,6 +56,7 @@
     "@types/node": "^26.0.1",
     "@types/tar-fs": "^2.0.4",
     "@types/tar-stream": "^3.1.4",
+    "publint": "^0.3.21",
     "rimraf": "^6.1.3",
     "rolldown": "^1.1.5",
     "rolldown-plugin-dts": "^0.27.4",

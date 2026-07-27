@@ -69,7 +69,7 @@ jobs:
       - name: Lint JavaScript
         run: pnpm run lint
       - name: Lint npm packages
-        run: pnpm run lint:npm
+        run: pnpm run --if-present -r lint:npm
 
   test:
     runs-on: ubuntu-latest

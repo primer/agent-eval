@@ -31,7 +31,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "rimraf dist && rolldown -c",
+    "build": "rolldown -c",
     "clean": "rimraf dist",
     "lint:npm": "publint --types",
     "type-check": "tsc --noEmit",

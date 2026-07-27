@@ -1,4 +1,4 @@
-import type {AgentEvalOutput, AgentEvalOutputResult} from '@primer/agent-eval'
+import type {AgentEvalOutput, AgentEvalOutputResult} from '@primer/agent-eval/output'
 import {Index, type BaselineComparison} from './components/Index'
 import {list as listExperiments} from '../experiments'
 import {latest as getLatestRun} from '../runs'

@@ -1,9 +1,9 @@
 import path from 'node:path'
-import type {ExperimentConfig} from '@primer/agent-eval'
+import type {ExperimentConfig} from '@primer/agent-eval/experiment'
 
 const {listExperiments, findExperiment} = await import(
   /* turbopackIgnore: true */
-  '@primer/agent-eval'
+  '@primer/agent-eval/experiments'
 )
 
 const EXPERIMENTS_DIR = path.resolve(process.cwd(), '..', 'experiments')

@@ -1,9 +1,9 @@
 import path from 'node:path'
-import type {ResolvedScenario} from '@primer/agent-eval'
+import type {ResolvedScenario} from '@primer/agent-eval/scenarios'
 
 const {listScenarios, findScenario} = await import(
   /* turbopackIgnore: true */
-  '@primer/agent-eval'
+  '@primer/agent-eval/scenarios'
 )
 
 const SCENARIOS_DIR = path.resolve(process.cwd(), '..', 'scenarios')

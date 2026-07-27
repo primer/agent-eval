@@ -92,6 +92,20 @@ projects, projects that use Next.js, or anything else. By default, the
 dependencies of scenarios are installed and the `build` task is run before the
 agent sees the prompt for the scenario.
 
+### Browser tests
+
+Add an optional `scenario.browser.test.ts` file when a scenario needs tests in a
+real browser. The scenario must include Vitest, Playwright, and Vitest's
+Playwright browser provider:
+
+```sh
+npm install --save-dev vitest playwright @vitest/browser-playwright
+```
+
+Agent eval installs Chromium and its system dependencies, then runs the browser
+test in Vitest browser mode after the required `scenario.test.ts` file. Results
+from both files are combined in the scenario score and test-results artifact.
+
 With everything in place, you can now use the `@primer/agent-eval` cli to run
 the experiment:
 

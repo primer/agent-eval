@@ -7,11 +7,36 @@ import type {Model, ReasoningEffort} from './model'
 import {isMessageType, parseMessage, type Message} from './copilot-cli'
 import {getTestMetadata, parseTestResults} from './vitest'
 
+const PLAYWRIGHT_BROWSERS_PATH = '/ms-playwright'
+
 type RunOptions = {
   artifactsDirectory: string
   copilotToken: string
   dockerImage?: string
   maxConcurrency?: number
+}
+
+function getVitestConfig(outputFile: string, browser = false): string {
+  const browserImport = browser ? `import {playwright} from '@vitest/browser-playwright'\n` : ''
+  const browserConfig = browser
+    ? `    browser: {
+      enabled: true,
+      headless: true,
+      provider: playwright(),
+      instances: [{browser: 'chromium'}],
+    },
+`
+    : ''
+
+  return `
+import {defineConfig} from 'vitest/config'
+${browserImport}
+export default defineConfig({
+  test: {
+${browserConfig}    reporters: [['json', {outputFile: ${JSON.stringify(outputFile)}, includeTaskLocation: true}]],
+  },
+})
+`
 }
 
 function run(treatments: Array<Treatment>, options: RunOptions): Promise<Array<TreatmentResult>> {
@@ -124,7 +149,7 @@ async function runTreatment(
 
   console.log('Copying files from: %s...', treatment.scenario.directory)
   await sandbox.copy(treatment.scenario.directory, CONTAINER_WORKDIR, {
-    exclude: ['scenario.config.ts', 'scenario.test.ts', 'node_modules', '.next'],
+    exclude: ['scenario.config.ts', 'scenario.test.ts', 'scenario.browser.test.ts', 'node_modules', '.next'],
   })
   await sandbox.runCommand('chown', ['-R', NODE_USER, '.'], {
     user: 'root',
@@ -164,6 +189,19 @@ async function runTreatment(
     user: NODE_USER,
   })
 
+  if (treatment.scenario.browserTestPath) {
+    console.log('Installing Playwright browser...')
+    await sandbox.runCommand('node', ['--input-type=module', '--eval', `await import('@vitest/browser-playwright')`], {
+      user: NODE_USER,
+    })
+    await sandbox.runCommand('./node_modules/.bin/playwright', ['install', '--with-deps', 'chromium'], {
+      user: 'root',
+      env: {
+        PLAYWRIGHT_BROWSERS_PATH,
+      },
+    })
+  }
+
   console.log('Running copilot...')
   const {prompt} = treatment.scenario.config
   const args = getCopilotArgs({
@@ -186,35 +224,83 @@ async function runTreatment(
   })
 
   const TEST_PATH = 'scenario.test.ts'
+  const BROWSER_TEST_PATH = 'scenario.browser.test.ts'
   const VITEST_CONFIG_PATH = 'vitest.agent-eval.config.ts'
-  await sandbox.copy(treatment.scenario.testPath, TEST_PATH)
-  await sandbox.writeFile(
-    VITEST_CONFIG_PATH,
-    `
-import {defineConfig} from 'vitest/config'
-
-export default defineConfig({
-  test: {
-    reporters: [['json', {outputFile: 'test-results.json', includeTaskLocation: true}]],
-  },
-})
-`,
-  )
-  // Always pass vitest calls even if test suite fails
-  await sandbox.runCommand(
-    'sh',
-    ['-c', 'npx vitest run --config "$1" "$2" || true', 'vitest-run', VITEST_CONFIG_PATH, TEST_PATH],
+  const TEST_RESULTS_PATH = 'test-results.json'
+  const BROWSER_TEST_RESULTS_PATH = 'browser-test-results.json'
+  const scenarioTests = [
     {
-      user: NODE_USER,
+      sourcePath: treatment.scenario.testPath,
+      testPath: TEST_PATH,
+      resultsPath: TEST_RESULTS_PATH,
+      browser: false,
     },
-  )
+  ]
 
-  const testResultsContent = await sandbox.readFile('test-results.json')
-  const testResults = parseTestResults(JSON.parse(testResultsContent))
-  if (!testResults.success) {
-    throw new Error(`Failed to parse test results: ${testResults.error}`)
+  if (treatment.scenario.browserTestPath) {
+    scenarioTests.push({
+      sourcePath: treatment.scenario.browserTestPath,
+      testPath: BROWSER_TEST_PATH,
+      resultsPath: BROWSER_TEST_RESULTS_PATH,
+      browser: true,
+    })
   }
-  const testSource = await fs.readFile(treatment.scenario.testPath, 'utf8')
+
+  let numFailedTests = 0
+  let numPassedTests = 0
+  let numPendingTests = 0
+  let numTodoTests = 0
+  let numTotalTests = 0
+  let testRunSuccess = true
+  const tests: TreatmentResult['testResults']['tests'] = []
+  const rawTestResults: Array<Record<string, unknown> & {testResults: Array<unknown>}> = []
+
+  for (const scenarioTest of scenarioTests) {
+    await sandbox.copy(scenarioTest.sourcePath, scenarioTest.testPath)
+    await sandbox.writeFile(VITEST_CONFIG_PATH, getVitestConfig(scenarioTest.resultsPath, scenarioTest.browser))
+    // Always pass vitest calls even if test suite fails
+    await sandbox.runCommand(
+      'sh',
+      ['-c', 'npx vitest run --config "$1" "$2" || true', 'vitest-run', VITEST_CONFIG_PATH, scenarioTest.testPath],
+      {
+        user: NODE_USER,
+        env: scenarioTest.browser ? {PLAYWRIGHT_BROWSERS_PATH} : undefined,
+      },
+    )
+
+    const testResultsContent = await sandbox.readFile(scenarioTest.resultsPath)
+    const rawTestResult: unknown = JSON.parse(testResultsContent)
+    const testResults = parseTestResults(rawTestResult)
+    if (!testResults.success) {
+      throw new Error(`Failed to parse test results: ${testResults.error}`)
+    }
+
+    const testSource = await fs.readFile(scenarioTest.sourcePath, 'utf8')
+    numFailedTests += testResults.data.numFailedTests
+    numPassedTests += testResults.data.numPassedTests
+    numPendingTests += testResults.data.numPendingTests
+    numTodoTests += testResults.data.numTodoTests
+    numTotalTests += testResults.data.numTotalTests
+    testRunSuccess &&= testResults.data.success
+    tests.push(...getTestMetadata(testResults.data, testSource))
+    rawTestResults.push(rawTestResult as Record<string, unknown> & {testResults: Array<unknown>})
+  }
+
+  if (rawTestResults.length > 1) {
+    await sandbox.writeFile(
+      TEST_RESULTS_PATH,
+      JSON.stringify({
+        ...rawTestResults[0],
+        numFailedTests,
+        numPassedTests,
+        numPendingTests,
+        numTodoTests,
+        numTotalTests,
+        success: testRunSuccess,
+        testResults: rawTestResults.flatMap(testResult => testResult.testResults),
+      }),
+    )
+  }
 
   // Turns
   const assistantTurns = new Set()
@@ -283,14 +369,14 @@ export default defineConfig({
       tools: Object.fromEntries(toolCalls),
     },
     testResults: {
-      numFailedTests: testResults.data.numFailedTests,
-      numPassedTests: testResults.data.numPassedTests,
-      numPendingTests: testResults.data.numPendingTests,
-      numTodoTests: testResults.data.numTodoTests,
-      numTotalTests: testResults.data.numTotalTests,
-      tests: getTestMetadata(testResults.data, testSource),
+      numFailedTests,
+      numPassedTests,
+      numPendingTests,
+      numTodoTests,
+      numTotalTests,
+      tests,
     },
   }
 }
 
-export {getCopilotArgs, run}
+export {getCopilotArgs, getVitestConfig, run}

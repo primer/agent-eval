@@ -324,7 +324,7 @@ const KnownMessageSchema = z.discriminatedUnion('type', [
   ResultMessageSchema,
 ])
 
-const KnownMessageTypes = new Set([
+const KNOWN_MESSAGE_TYPES = new Set([
   'session.mcp_server_status_changed',
   'session.mcp_servers_loaded',
   'session.skills_loaded',
@@ -355,7 +355,7 @@ type UnknownMessageType = string & {readonly [unknownMessageType]: true}
 
 const UnknownMessageSchema = z.looseObject({
   type: z.custom<UnknownMessageType, string>(
-    type => typeof type === 'string' && !KnownMessageTypes.has(type),
+    type => typeof type === 'string' && !KNOWN_MESSAGE_TYPES.has(type),
     'Expected an unknown message type',
   ),
 })
@@ -379,6 +379,8 @@ function parseMessage(message: unknown) {
 
 export {
   MessageSchema,
+  KnownMessageSchema,
+  KNOWN_MESSAGE_TYPES,
   ResultMessageSchema,
   SessionTaskCompleteMessageSchema,
   ToolExecutionCompleteMessageSchema,

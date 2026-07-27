@@ -1,5 +1,5 @@
 import fs from 'node:fs/promises'
-import {existsSync} from 'node:fs'
+import {existsSync, type Dirent} from 'node:fs'
 import path from 'node:path'
 
 import {parseAgentEvalOutput, type AgentEvalOutput} from '@primer/agent-eval'
@@ -13,18 +13,29 @@ type Run = {
   output: AgentEvalOutput
 }
 
+async function listResultDirectories(): Promise<Array<Dirent>> {
+  try {
+    const entries = await fs.readdir(RESULTS_DIR, {withFileTypes: true})
+    return entries.filter(entry => entry.isDirectory())
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return []
+    }
+
+    throw error
+  }
+}
+
 async function list(): Promise<Array<Run>> {
-  const results = await fs.readdir(RESULTS_DIR, {withFileTypes: true}).then(entries => {
+  const results = await listResultDirectories().then(entries => {
     return Promise.all(
-      entries
-        .filter(entry => entry.isDirectory())
-        .map(async entry => {
-          const directory = path.join(RESULTS_DIR, entry.name)
-          const outputFile = path.join(directory, 'output.json')
-          const contents = await fs.readFile(outputFile, 'utf-8')
-          const output = parseAgentEvalOutput(contents)
-          return [directory, entry.name, output] as const
-        }),
+      entries.map(async entry => {
+        const directory = path.join(RESULTS_DIR, entry.name)
+        const outputFile = path.join(directory, 'output.json')
+        const contents = await fs.readFile(outputFile, 'utf-8')
+        const output = parseAgentEvalOutput(contents)
+        return [directory, entry.name, output] as const
+      }),
     )
   })
 
@@ -35,8 +46,8 @@ async function list(): Promise<Array<Run>> {
 }
 
 async function latest(): Promise<Run | null> {
-  const runs = await fs.readdir(RESULTS_DIR, {withFileTypes: true}).then(entries => {
-    return entries.filter(entry => entry.isDirectory()).map(entry => [new Date(entry.name), entry.name] as const)
+  const runs = await listResultDirectories().then(entries => {
+    return entries.map(entry => [new Date(entry.name), entry.name] as const)
   })
   if (runs.length === 0) {
     return null

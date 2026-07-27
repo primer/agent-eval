@@ -1,5 +1,5 @@
 import {describe, expect, test} from 'vitest'
-import {parseMessage} from './copilot-cli'
+import {KNOWN_MESSAGE_TYPES, KnownMessageSchema, parseMessage} from './copilot-cli'
 
 describe(parseMessage, () => {
   test.each([
@@ -211,5 +211,12 @@ describe(parseMessage, () => {
 
   test('does not treat malformed known messages as unrecognized', () => {
     expect(() => parseMessage({type: 'assistant.turn_start', data: {}})).toThrow()
+  })
+
+  test('keeps known type set in sync with schema', () => {
+    const schemaTypes = new Set(
+      KnownMessageSchema.def.options.map(schema => schema.def.shape.type.def.values[0] as string),
+    )
+    expect(schemaTypes).toEqual(KNOWN_MESSAGE_TYPES)
   })
 })

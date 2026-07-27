@@ -3,14 +3,19 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "pnpm --recursive run build",
+    "build": "turbo run build",
     "changeset": "changeset",
     "format": "prettier --cache --write '**/*.{js,css,md,mdx,ts,tsx,yml}'",
-    "format:diff": "prettier --cache --list-different '**/*.{js,css,md,mdx,ts,tsx,yml}'",
-    "lint": "eslint '**/*.{js,ts,tsx}' --max-warnings=0 --cache",
+    "format:diff": "turbo run format:diff:root",
+    "format:diff:root": "prettier --cache --list-different '**/*.{js,css,md,mdx,ts,tsx,yml}'",
+    "lint": "turbo run lint:js lint:npm",
+    "lint:js": "eslint '**/*.{js,ts,tsx}' --max-warnings=0 --cache",
+    "lint:md": "turbo run lint:md:root",
+    "lint:md:root": "prettier --check '**/*.{md,mdx}'",
     "release": "pnpm --filter @primer/agent-eval run build && changeset publish",
     "test": "vitest",
-    "type-check": "tsc --noEmit && pnpm --recursive run type-check"
+    "type-check": "turbo run type-check type-check:root",
+    "type-check:root": "tsc --noEmit"
   },
   "devDependencies": {
     "@changesets/cli": "^2.31.1",

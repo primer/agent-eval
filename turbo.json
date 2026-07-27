@@ -1,0 +1,30 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "globalDependencies": ["tsconfig.base.json"],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", ".next/**", "!.next/cache/**", "!.next/dev/**", "next-env.d.ts"]
+    },
+    "//#format:diff:root": {
+      "outputs": []
+    },
+    "//#lint:js": {
+      "outputs": []
+    },
+    "//#lint:md:root": {
+      "outputs": []
+    },
+    "@primer/agent-eval#lint:npm": {
+      "dependsOn": ["build"],
+      "outputs": []
+    },
+    "type-check": {
+      "dependsOn": ["^build"],
+      "outputs": []
+    },
+    "//#type-check:root": {
+      "outputs": []
+    }
+  }
+}

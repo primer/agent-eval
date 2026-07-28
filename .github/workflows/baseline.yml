@@ -1,7 +1,5 @@
-name: weekly baseline
+name: baseline
 on:
-  schedule:
-    - cron: '0 9 * * 1'
   workflow_dispatch:
 
 concurrency:

@@ -120,22 +120,6 @@ treatment should be the only meaningful difference.
 
 Grade evidence, not one imagined implementation.
 
-### Prefer observable behavior
-
-For UI components, assert:
-
-- Rendered semantics and accessible relationships.
-- Keyboard, pointer, focus, and state behavior.
-- Consumer event handlers, props, and refs remain usable.
-- Public exports work through the package entry point.
-
-Use Vitest Browser Mode with Playwright for browser-facing behavior. Use a DOM
-emulator only when the scenario is intentionally limited to non-browser logic.
-
-When a browser-mode grader must inspect source files, use Vite raw imports such
-as `import.meta.glob(..., {query: '?raw', import: 'default', eager: true})`
-instead of Node filesystem APIs.
-
 ### Use source assertions narrowly
 
 Source assertions are appropriate when the treatment explicitly prescribes a
@@ -186,20 +170,6 @@ Before accepting a grader:
 The `agent-eval` CLI automatically includes its control treatment. Do not add a
 duplicate control unless the experiment needs a distinct comparison condition.
 
-## Repository workflow
-
-When working in this repository:
-
-1. Follow `AGENTS.md` for scenario numbering and template selection.
-2. Use the smallest template suitable for the runtime.
-3. Keep `scenario.config.ts` limited to the treatment-blind prompt.
-4. Put hidden grading logic in `scenario.test.ts`.
-5. Ensure build artifacts such as `.next` and `dist` are not copied as fixture
-   source.
-6. For browser scenarios, confirm the evaluator preserves the scenario's
-   browser configuration while adding its result reporter.
-7. Run the repository CI tasks before considering the scenario complete.
-
 ## Review checklist
 
 - [ ] The scenario has a written causal hypothesis.
@@ -210,7 +180,6 @@ When working in this repository:
 - [ ] The grader prioritizes observable behavior.
 - [ ] Source assertions correspond to explicit treatment conventions.
 - [ ] Optional or open design decisions are not graded as mandatory outcomes.
-- [ ] UI behavior runs in a real browser when browser behavior matters.
 - [ ] Control and treatment differ only by the intended treatment.
 - [ ] Baseline failures are granular and intentional.
 - [ ] A representative correct solution passes.

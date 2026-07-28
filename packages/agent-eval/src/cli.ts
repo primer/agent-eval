@@ -11,6 +11,7 @@ import type {Treatment, TreatmentResult} from './treatment'
 import {findExperiment, listExperiments} from './experiments'
 import {resolveExperimentScenario} from './resolve-experiment-scenario'
 import {run} from './run'
+import {parseShard, selectShard} from './shard'
 
 const {values} = parseArgs({
   options: {
@@ -52,6 +53,10 @@ const {values} = parseArgs({
       type: 'string',
       description: 'The directory containing scenario directories',
     },
+    shard: {
+      type: 'string',
+      description: 'The shard to run in <order>/<total> format',
+    },
   },
 })
 
@@ -68,6 +73,7 @@ Options:
   -h, --help                 Learn more about the command and its options
       --output <file>        The target file in which results are written (default: output.json)
       --scenarios <dir>      The directory containing scenario directories
+      --shard <order/total>  The shard to run
 `)
   process.exit(0)
 }
@@ -86,6 +92,7 @@ const MAX_CONCURRENCY =
   Number.isFinite(parsedConcurrency) && Number.isInteger(parsedConcurrency) && parsedConcurrency >= 1
     ? parsedConcurrency
     : 1
+const SHARD = values.shard ? parseShard(values.shard) : undefined
 let selectedExperiment: {
   id: string
   config: ExperimentConfig
@@ -482,7 +489,8 @@ const treatments: Array<Treatment> = config.models.flatMap(modelConfig => {
 // that if there are any external factors that could impact the scenarios (e.g.
 // rate limits, resource constraints), they are more likely to impact all
 // scenarios rather than just the ones at the end.
-const results: Array<TreatmentResult> = await run(randomize(treatments), {
+const selectedTreatments = SHARD ? selectShard(treatments, SHARD) : treatments
+const results: Array<TreatmentResult> = await run(randomize(selectedTreatments), {
   artifactsDirectory: ARTIFACTS_DIR,
   copilotToken: COPILOT_GITHUB_TOKEN,
   dockerImage: DOCKER_IMAGE,

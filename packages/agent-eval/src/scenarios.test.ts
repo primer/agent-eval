@@ -12,10 +12,13 @@ async function createScenariosDirectory() {
   return directory
 }
 
-async function createScenario(scenariosDirectory: string, id: string, prompt: string) {
+async function createScenario(scenariosDirectory: string, id: string, prompt: string, tags?: Array<string>) {
   const directory = path.join(scenariosDirectory, id)
   await fs.mkdir(directory)
-  await fs.writeFile(path.join(directory, 'scenario.config.ts'), `export default {prompt: ${JSON.stringify(prompt)}}`)
+  await fs.writeFile(
+    path.join(directory, 'scenario.config.ts'),
+    `export default ${JSON.stringify({prompt, ...(tags ? {tags} : {})})}`,
+  )
   await fs.writeFile(path.join(directory, 'scenario.test.ts'), '')
   return directory
 }
@@ -38,6 +41,28 @@ describe('scenario loading', () => {
     await expect(listScenarios({directory: scenariosDirectory})).resolves.toEqual([
       expect.objectContaining({id: 'first', config: {prompt: 'First prompt'}}),
       expect.objectContaining({id: 'second', config: {prompt: 'Second prompt'}}),
+    ])
+  })
+
+  test('lists scenarios that match all provided tags', async () => {
+    const scenariosDirectory = await createScenariosDirectory()
+    await createScenario(scenariosDirectory, 'both', 'Both tags', ['baseline', 'primer'])
+    await createScenario(scenariosDirectory, 'baseline', 'Baseline only', ['baseline'])
+    await createScenario(scenariosDirectory, 'untagged', 'No tags')
+
+    await expect(listScenarios({directory: scenariosDirectory, tags: ['baseline', 'primer']})).resolves.toEqual([
+      expect.objectContaining({id: 'both'}),
+    ])
+  })
+
+  test('lists all scenarios when no tags are provided', async () => {
+    const scenariosDirectory = await createScenariosDirectory()
+    await createScenario(scenariosDirectory, 'tagged', 'Tagged', ['baseline'])
+    await createScenario(scenariosDirectory, 'untagged', 'Untagged')
+
+    await expect(listScenarios({directory: scenariosDirectory, tags: []})).resolves.toEqual([
+      expect.objectContaining({id: 'tagged'}),
+      expect.objectContaining({id: 'untagged'}),
     ])
   })
 

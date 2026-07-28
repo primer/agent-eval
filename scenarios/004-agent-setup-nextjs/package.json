@@ -1,5 +1,6 @@
 {
   "name": "004-agent-setup-nextjs",
+  "private": true,
   "type": "module",
   "scripts": {
     "clean": "rimraf .next",

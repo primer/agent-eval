@@ -1,5 +1,6 @@
 {
   "name": "000-nextjs-template",
+  "private": true,
   "type": "module",
   "scripts": {
     "clean": "rimraf .next",

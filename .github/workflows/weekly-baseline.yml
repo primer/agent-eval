@@ -10,16 +10,24 @@ concurrency:
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
   run:
     runs-on: ubuntu-latest
     steps:
+      - name: create github app token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ vars.PRIMER_APP_ID_SHARED }}
+          private-key: ${{ secrets.PRIMER_APP_PRIVATE_KEY_SHARED }}
       - name: checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           ref: ${{ github.event.repository.default_branch }}
+          token: ${{ steps.app-token.outputs.token }}
       - name: set up pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
       - name: set up Node.js
@@ -48,9 +56,10 @@ jobs:
             results
             artifacts
           if-no-files-found: ignore
-      - name: commit baseline results
+      - name: open baseline results pull request
         env:
-          BRANCH: ${{ github.event.repository.default_branch }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
           RUN_DATE: ${{ steps.run.outputs.date }}
         run: |
           git config user.name "github-actions[bot]"
@@ -59,6 +68,12 @@ jobs:
           if git diff --cached --quiet; then
             exit 0
           fi
+          branch="chore/baseline-$RUN_DATE"
+          git checkout -b "$branch"
           git commit -m "chore: record baseline results for $RUN_DATE"
-          git pull --rebase origin "$BRANCH"
-          git push origin "HEAD:$BRANCH"
+          git push origin "$branch"
+          gh pr create \
+            --base "$DEFAULT_BRANCH" \
+            --head "$branch" \
+            --title "chore: record baseline results for $RUN_DATE" \
+            --body "Automated weekly baseline results for $RUN_DATE."

@@ -3,6 +3,7 @@ import type {Sandbox} from './sandbox'
 
 type ScenarioConfig = {
   prompt: string
+  tags?: Array<string>
 }
 
 type InlineScenarioConfig = {

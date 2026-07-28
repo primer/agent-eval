@@ -12,6 +12,7 @@ type ResolvedScenario = {
 
 type ScenarioSourceOptions = {
   directory?: string
+  tags?: ReadonlyArray<string>
 }
 
 function resolveScenariosDirectory(options: ScenarioSourceOptions): string {
@@ -43,11 +44,15 @@ async function assertScenarioFile(filepath: string, name: string, kind: 'config'
 }
 
 function isScenarioConfig(value: unknown): value is ScenarioConfig {
+  if (value === null || typeof value !== 'object') {
+    return false
+  }
+
+  const config = value as Record<string, unknown>
   return (
-    value !== null &&
-    typeof value === 'object' &&
-    'prompt' in value &&
-    typeof (value as Record<string, unknown>).prompt === 'string'
+    typeof config.prompt === 'string' &&
+    (config.tags === undefined ||
+      (Array.isArray(config.tags) && config.tags.every((tag: unknown) => typeof tag === 'string')))
   )
 }
 
@@ -89,7 +94,10 @@ async function getScenarioDirectoryNames(options: ScenarioSourceOptions): Promis
 async function listScenarios(options: ScenarioSourceOptions = {}): Promise<ReadonlyArray<ResolvedScenario>> {
   const scenariosDirectory = resolveScenariosDirectory(options)
   const names = await getScenarioDirectoryNames(options)
-  return Promise.all(names.map(name => loadScenarioDirectory(path.join(scenariosDirectory, name), name)))
+  const scenarios = await Promise.all(
+    names.map(name => loadScenarioDirectory(path.join(scenariosDirectory, name), name)),
+  )
+  return scenarios.filter(scenario => options.tags?.every(tag => scenario.config.tags?.includes(tag)) ?? true)
 }
 
 async function findScenario(id: string, options: ScenarioSourceOptions = {}): Promise<ResolvedScenario | undefined> {

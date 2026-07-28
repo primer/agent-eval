@@ -75,6 +75,7 @@ import {defineScenario} from '@primer/agent-eval/scenario'
 
 export default defineScenario({
   prompt: `Example scenario prompt that will instruct the agent to perform a task`,
+  tags: ['baseline', 'button', 'primer'],
 })
 
 // scenarios/uses-button-from-primer/scenario.test.ts
@@ -128,8 +129,12 @@ import {defineScenario} from '@primer/agent-eval/scenario'
 
 export default defineScenario({
   prompt: 'Update the index page to use a primary button',
+  tags: ['baseline', 'button', 'primer'],
 })
 ```
+
+Scenario tags are optional. Pass `tags` to `listScenarios` to return only
+scenarios that include every requested tag.
 
 ## Experiment config authoring
 

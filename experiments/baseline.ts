@@ -4,6 +4,7 @@ import {listScenarios} from '@primer/agent-eval'
 
 const scenarios = await listScenarios({
   directory: path.resolve(import.meta.dirname, '..', 'scenarios'),
+  tags: ['baseline'],
 })
 
 export const experiment = defineConfig({

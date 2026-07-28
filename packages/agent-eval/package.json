@@ -18,9 +18,21 @@
       "types": "./dist/experiment.d.ts",
       "default": "./dist/experiment.js"
     },
+    "./experiments": {
+      "types": "./dist/experiments.d.ts",
+      "default": "./dist/experiments.js"
+    },
+    "./output": {
+      "types": "./dist/output.d.ts",
+      "default": "./dist/output.js"
+    },
     "./scenario": {
       "types": "./dist/scenario.d.ts",
       "default": "./dist/scenario.js"
+    },
+    "./scenarios": {
+      "types": "./dist/scenarios.d.ts",
+      "default": "./dist/scenarios.js"
     }
   },
   "engines": {

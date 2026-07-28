@@ -1,5 +1,6 @@
 {
   "name": "001-agent-uses-button-from-primer",
+  "private": true,
   "type": "module",
   "scripts": {
     "clean": "rimraf .next",

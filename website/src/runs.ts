@@ -2,7 +2,7 @@ import fs from 'node:fs/promises'
 import {existsSync, type Dirent} from 'node:fs'
 import path from 'node:path'
 
-import {parseAgentEvalOutput, type AgentEvalOutput} from '@primer/agent-eval'
+import {parseAgentEvalOutput, type AgentEvalOutput} from '@primer/agent-eval/output'
 
 const RESULTS_DIR = path.resolve(process.cwd(), '..', 'results')
 

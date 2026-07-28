@@ -15,9 +15,7 @@ export function Page({scenario}: Props) {
         <Breadcrumbs.Item as={Link} href="/scenarios">
           Scenarios
         </Breadcrumbs.Item>
-        <Breadcrumbs.Item href={`/scenarios/${scenario.id}`} aria-current="page">
-          {scenario.id}
-        </Breadcrumbs.Item>
+        <Breadcrumbs.Item selected>{scenario.id}</Breadcrumbs.Item>
       </Breadcrumbs>
       <h1>{scenario.id}</h1>
       <p>{scenario.prompt}</p>

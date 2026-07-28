@@ -59,7 +59,7 @@ jobs:
           path: |
             results
             artifacts
-          if-no-files-found: ignore
+          if-no-files-found: error
 
   publish:
     needs: [setup, run]

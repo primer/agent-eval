@@ -90,7 +90,9 @@ test('example test to see if agent performed the task accurately', () => {
 Scenarios are packages with a `package.json` file. They can be standalone
 projects, projects that use Next.js, or anything else. By default, the
 dependencies of scenarios are installed and the `build` task is run before the
-agent sees the prompt for the scenario.
+agent sees the prompt for the scenario. Include Vitest in the scenario's
+dependencies or dev dependencies so that agent eval can run `scenario.test.ts`
+after the agent finishes.
 
 With everything in place, you can now use the `@primer/agent-eval` cli to run
 the experiment:

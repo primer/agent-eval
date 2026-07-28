@@ -1,5 +1,24 @@
 import {describe, expect, test} from 'vitest'
-import {getCopilotArgs} from './run'
+import {detectTestRunner, getCopilotArgs, SCENARIO_COPY_EXCLUDES} from './run'
+
+describe('detectTestRunner', () => {
+  test.each([
+    {field: 'dependencies', packageJson: {dependencies: {vitest: '^4.1.8'}}},
+    {field: 'devDependencies', packageJson: {devDependencies: {vitest: '^4.1.8'}}},
+  ])('detects Vitest in $field', ({packageJson}) => {
+    expect(detectTestRunner(packageJson)).toBe('vitest')
+  })
+
+  test('returns undefined without a supported test runner dependency', () => {
+    expect(detectTestRunner({devDependencies: {jest: '^30.0.0'}})).toBeUndefined()
+  })
+})
+
+test('scenario copy excludes grading files', () => {
+  expect(SCENARIO_COPY_EXCLUDES).toEqual(
+    expect.arrayContaining(['scenario.config.ts', 'scenario.test.ts', 'scenario.browser.test.ts']),
+  )
+})
 
 describe('getCopilotArgs', () => {
   test('omits reasoning effort when not configured', () => {

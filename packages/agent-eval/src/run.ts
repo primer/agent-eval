@@ -7,11 +7,50 @@ import type {Model, ReasoningEffort} from './model'
 import {isMessageType, parseMessage, type Message} from './copilot-cli'
 import {getTestMetadata, parseTestResults} from './vitest'
 
+const SCENARIO_COPY_EXCLUDES = [
+  'scenario.config.ts',
+  'scenario.test.ts',
+  'scenario.browser.test.ts',
+  'node_modules',
+  '.next',
+]
+
+type TestRunner = 'vitest'
+
 type RunOptions = {
   artifactsDirectory: string
   copilotToken: string
   dockerImage?: string
   maxConcurrency?: number
+}
+
+function detectTestRunner(packageJson: unknown): TestRunner | undefined {
+  if (!packageJson || typeof packageJson !== 'object') {
+    return undefined
+  }
+
+  const {dependencies, devDependencies} = packageJson as {
+    dependencies?: unknown
+    devDependencies?: unknown
+  }
+
+  for (const dependencyList of [dependencies, devDependencies]) {
+    if (dependencyList && typeof dependencyList === 'object' && Object.hasOwn(dependencyList, 'vitest')) {
+      return 'vitest'
+    }
+  }
+
+  return undefined
+}
+
+async function getTestRunner(scenarioDirectory: string): Promise<TestRunner> {
+  const packageJsonPath = path.join(scenarioDirectory, 'package.json')
+  const packageJson = JSON.parse(await fs.readFile(packageJsonPath, 'utf8')) as unknown
+  const testRunner = detectTestRunner(packageJson)
+  if (!testRunner) {
+    throw new Error(`Scenario "${path.basename(scenarioDirectory)}" must include vitest as a dependency`)
+  }
+  return testRunner
 }
 
 function run(treatments: Array<Treatment>, options: RunOptions): Promise<Array<TreatmentResult>> {
@@ -120,11 +159,12 @@ async function runTreatment(
   {artifactsDirectory, copilotToken, dockerImage}: RunTreatmentOptions,
 ): Promise<TreatmentResult> {
   console.log('Running treatment: %s (%s)', treatment.config.name, treatment.id)
+  const testRunner = await getTestRunner(treatment.scenario.directory)
   await using sandbox = await Sandbox.create({dockerImage})
 
   console.log('Copying files from: %s...', treatment.scenario.directory)
   await sandbox.copy(treatment.scenario.directory, CONTAINER_WORKDIR, {
-    exclude: ['scenario.config.ts', 'scenario.test.ts', 'node_modules', '.next'],
+    exclude: SCENARIO_COPY_EXCLUDES,
   })
   await sandbox.runCommand('chown', ['-R', NODE_USER, '.'], {
     user: 'root',
@@ -203,7 +243,7 @@ export default defineConfig({
   // Always pass vitest calls even if test suite fails
   await sandbox.runCommand(
     'sh',
-    ['-c', 'npx vitest run --config "$1" "$2" || true', 'vitest-run', VITEST_CONFIG_PATH, TEST_PATH],
+    ['-c', 'npx "$1" run --config "$2" "$3" || true', 'test-runner', testRunner, VITEST_CONFIG_PATH, TEST_PATH],
     {
       user: NODE_USER,
     },
@@ -293,4 +333,4 @@ export default defineConfig({
   }
 }
 
-export {getCopilotArgs, run}
+export {detectTestRunner, getCopilotArgs, run, SCENARIO_COPY_EXCLUDES}

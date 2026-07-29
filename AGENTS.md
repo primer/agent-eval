@@ -1,6 +1,7 @@
 # AGENTS.md
 
 - The project uses pnpm for managing dependencies
+- Add repository automation scripts to the `script` directory
 - For tests, use `pnpm test --run`. You can optionally apply a filter to filter
   by test name, path, etc
 - For linting, use `pnpm lint`. You can optionally provide a path to lint specific files or directories

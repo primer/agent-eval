@@ -16,6 +16,10 @@ const models = [
     reasoningEfforts: ['low', 'medium', 'high', 'xhigh', 'max'],
   },
   {
+    name: 'claude-opus-5',
+    reasoningEfforts: ['low', 'medium', 'high', 'xhigh', 'max'],
+  },
+  {
     name: 'claude-sonnet-4.5',
     reasoningEfforts: [],
   },

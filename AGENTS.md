@@ -27,16 +27,16 @@
 - Fill out the pull request template for the repo
 - Always run the tasks in ci.yml before committing so that ci is green
 - When making a change to the website, include before and after screenshots in the Pull Request description.
-    ```md
-    <details>
-      <summary>Before / After</summary>
+  ```md
+  <details>
+    <summary>Before / After</summary>
 
-      | Before | After |
-      | :----- | :---- |
-      | <!-- screenshot before --> | <!-- screenshot after --> |
+  | Before                     | After                     |
+  | :------------------------- | :------------------------ |
+  | <!-- screenshot before --> | <!-- screenshot after --> |
 
-    </details>
-    ```
+  </details>
+  ```
 
 ## Adding scenarios
 

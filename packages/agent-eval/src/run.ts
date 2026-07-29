@@ -190,10 +190,15 @@ async function runTreatment(
   })
 
   if (treatment.scenario.browserTestPath) {
+    console.log('Installing browser test dependencies...')
+    await sandbox.runCommand(
+      'npm',
+      ['install', '--no-save', '--package-lock=false', 'vitest', 'playwright', '@vitest/browser-playwright'],
+      {
+        user: NODE_USER,
+      },
+    )
     console.log('Installing Playwright browser...')
-    await sandbox.runCommand('node', ['--input-type=module', '--eval', `await import('@vitest/browser-playwright')`], {
-      user: NODE_USER,
-    })
     await sandbox.runCommand('./node_modules/.bin/playwright', ['install', '--with-deps', 'chromium'], {
       user: 'root',
       env: {

@@ -8,6 +8,7 @@ test('provides model information', () => {
     {name: 'claude-opus-4.6', reasoningEfforts: ['low', 'medium', 'high', 'max']},
     {name: 'claude-opus-4.7', reasoningEfforts: ['low', 'medium', 'high', 'xhigh', 'max']},
     {name: 'claude-opus-4.8', reasoningEfforts: ['low', 'medium', 'high', 'xhigh', 'max']},
+    {name: 'claude-opus-5', reasoningEfforts: ['low', 'medium', 'high', 'xhigh', 'max']},
     {name: 'claude-sonnet-4.5', reasoningEfforts: []},
     {name: 'claude-sonnet-4.6', reasoningEfforts: ['low', 'medium', 'high', 'max']},
     {name: 'claude-sonnet-5', reasoningEfforts: ['low', 'medium', 'high', 'xhigh', 'max']},

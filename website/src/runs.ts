@@ -8,15 +8,25 @@ const RESULTS_DIR = path.resolve(process.cwd(), '..', 'results')
 
 type Run = {
   id: string
+  name: string
   directory: string
   date: Date
   output: AgentEvalOutput
 }
 
+function isRunName(name: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(name)) {
+    return false
+  }
+
+  const date = new Date(`${name}T00:00:00.000Z`)
+  return !Number.isNaN(date.getTime()) && date.toISOString().startsWith(name)
+}
+
 async function listResultDirectories(): Promise<Array<Dirent>> {
   try {
     const entries = await fs.readdir(RESULTS_DIR, {withFileTypes: true})
-    return entries.filter(entry => entry.isDirectory())
+    return entries.filter(entry => entry.isDirectory() && isRunName(entry.name))
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
       return []
@@ -39,15 +49,22 @@ async function list(): Promise<Array<Run>> {
     )
   })
 
-  return results.map(([directory, name, output]) => {
-    const date = new Date(name)
-    return {id: output.id, directory, date, output}
-  })
+  return results
+    .map(([directory, name, output]) => {
+      const date = new Date(`${name}T00:00:00.000Z`)
+      return {id: output.id, name, directory, date, output}
+    })
+    .toSorted((a, b) => b.date.getTime() - a.date.getTime())
+}
+
+async function listForExperiment(experimentId: string): Promise<Array<Run>> {
+  const runs = await list()
+  return runs.filter(run => run.output.experiment.id === experimentId)
 }
 
 async function latest(): Promise<Run | null> {
   const runs = await listResultDirectories().then(entries => {
-    return entries.map(entry => [new Date(entry.name), entry.name] as const)
+    return entries.map(entry => [new Date(`${entry.name}T00:00:00.000Z`), entry.name] as const)
   })
   if (runs.length === 0) {
     return null
@@ -59,6 +76,10 @@ async function latest(): Promise<Run | null> {
 }
 
 async function find(name: string): Promise<Run | null> {
+  if (!isRunName(name)) {
+    return null
+  }
+
   const directory = path.join(RESULTS_DIR, name)
   if (!existsSync(directory)) {
     return null
@@ -78,37 +99,21 @@ async function find(name: string): Promise<Run | null> {
   const output = parseAgentEvalOutput(contents)
   return {
     id: output.id,
+    name,
     directory,
-    date: new Date(name),
+    date: new Date(`${name}T00:00:00.000Z`),
     output,
   }
 }
 
 async function get(name: string): Promise<Run> {
-  const directory = path.join(RESULTS_DIR, name)
-  if (!existsSync(directory)) {
-    throw new Error(`Run directory does not exist: ${directory}`)
+  const run = await find(name)
+  if (!run) {
+    throw new Error(`Run "${name}" was not found in: ${RESULTS_DIR}`)
   }
 
-  if (!existsSync(path.join(directory, 'output.json'))) {
-    throw new Error(`Run output file does not exist: ${path.join(directory, 'output.json')}`)
-  }
-
-  const stats = await fs.stat(directory)
-  if (!stats.isDirectory()) {
-    throw new Error(`Run path is not a directory: ${directory}`)
-  }
-
-  const outputFile = path.join(directory, 'output.json')
-  const contents = await fs.readFile(outputFile, 'utf-8')
-  const output = parseAgentEvalOutput(contents)
-  return {
-    id: output.id,
-    directory,
-    date: new Date(name),
-    output,
-  }
+  return run
 }
 
-export {list, latest, get}
+export {list, listForExperiment, latest, get}
 export type {Run}

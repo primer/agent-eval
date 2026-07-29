@@ -13,8 +13,8 @@ const percentFormatter = new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 1,
 })
 
-function getResultKey(scenarioId: string, model: string, reasoningEffort: string) {
-  return JSON.stringify([scenarioId, model, reasoningEffort])
+function getResultKey(scenarioId: string, model: string, reasoningEffort: string | undefined) {
+  return JSON.stringify([scenarioId, model, reasoningEffort ?? ''])
 }
 
 function getMetricDelta(
@@ -66,15 +66,15 @@ function getBaselineComparisons(output: AgentEvalOutput): Array<BaselineComparis
   const results = new Map<string, TreatmentResults>()
   for (const scenario of output.scenarios) {
     for (const model of output.experiment.models) {
-      for (const reasoningEffort of model.reasoningEfforts) {
+      const reasoningEfforts = model.reasoningEfforts.length > 0 ? model.reasoningEfforts : [undefined]
+      for (const reasoningEffort of reasoningEfforts) {
         results.set(getResultKey(scenario.id, model.name, reasoningEffort), {})
       }
     }
   }
 
   for (const result of output.results) {
-    const reasoningEffort = result.reasoningEffort ?? 'high'
-    const key = getResultKey(result.scenarioId, result.model, reasoningEffort)
+    const key = getResultKey(result.scenarioId, result.model, result.reasoningEffort)
     const treatmentResults = results.get(key)
     if (!treatmentResults) {
       throw new Error(`Result "${result.id}" does not match a configured scenario, model, and reasoning effort`)
@@ -97,7 +97,7 @@ function getBaselineComparisons(output: AgentEvalOutput): Array<BaselineComparis
       id: key,
       scenarioId,
       model,
-      reasoningEffort,
+      reasoningEffort: reasoningEffort || '—',
       tests: getMetricDelta(getTestPassRate(control), getTestPassRate(baseline), 'higher'),
       turns: getMetricDelta(control?.assistant.turns, baseline?.assistant.turns, 'lower'),
       outputTokens: getMetricDelta(control?.assistant.outputTokens, baseline?.assistant.outputTokens, 'lower'),

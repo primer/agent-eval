@@ -43,9 +43,21 @@ export function Page({scenario, experiments}: Props) {
             <h2 className="text-title-medium mb-3" id="tests-heading">
               Tests
             </h2>
-            <pre className="text-code-block text-default bg-muted border-default rounded-md m-0 overflow-x-auto border p-4">
-              <code>{scenario.test}</code>
-            </pre>
+            {scenario.tests.length > 0 && (
+              <ul className="m-0 mb-4 list-none p-0">
+                {scenario.tests.map((name, index) => (
+                  <li className="text-body-medium text-default py-1" key={index}>
+                    {name}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <details>
+              <summary className="text-body-medium text-muted cursor-pointer select-none">View test source</summary>
+              <pre className="text-code-block text-default bg-muted border-default rounded-md m-0 mt-2 overflow-x-auto border p-4">
+                <code>{scenario.test}</code>
+              </pre>
+            </details>
           </section>
           <section aria-labelledby="experiments-heading">
             <h2 className="text-title-medium mb-3" id="experiments-heading">

@@ -12,12 +12,18 @@ async function createScenariosDirectory() {
   return directory
 }
 
-async function createScenario(scenariosDirectory: string, id: string, prompt: string, tags?: Array<string>) {
+async function createScenario(
+  scenariosDirectory: string,
+  id: string,
+  prompt: string,
+  tags?: Array<string>,
+  description?: string,
+) {
   const directory = path.join(scenariosDirectory, id)
   await fs.mkdir(directory)
   await fs.writeFile(
     path.join(directory, 'scenario.config.ts'),
-    `export default ${JSON.stringify({prompt, ...(tags ? {tags} : {})})}`,
+    `export default ${JSON.stringify({description, prompt, ...(tags ? {tags} : {})})}`,
   )
   await fs.writeFile(path.join(directory, 'scenario.test.ts'), '')
   return directory
@@ -42,6 +48,31 @@ describe('scenario loading', () => {
       expect.objectContaining({id: 'first', config: {prompt: 'First prompt'}}),
       expect.objectContaining({id: 'second', config: {prompt: 'Second prompt'}}),
     ])
+  })
+
+  test('loads scenario descriptions', async () => {
+    const scenariosDirectory = await createScenariosDirectory()
+    await createScenario(scenariosDirectory, 'example', 'Example prompt', undefined, 'Example description')
+
+    await expect(findScenario('example', {directory: scenariosDirectory})).resolves.toMatchObject({
+      config: {
+        description: 'Example description',
+        prompt: 'Example prompt',
+      },
+    })
+  })
+
+  test('rejects non-string scenario descriptions', async () => {
+    const scenariosDirectory = await createScenariosDirectory()
+    const directory = await createScenario(scenariosDirectory, 'example', 'Example prompt')
+    await fs.writeFile(
+      path.join(directory, 'scenario.config.ts'),
+      `export default {description: 42, prompt: 'Example prompt'}`,
+    )
+
+    await expect(findScenario('example', {directory: scenariosDirectory})).rejects.toThrow(
+      'Scenario "example" config must export a default config with a prompt',
+    )
   })
 
   test('lists scenarios that match all provided tags', async () => {

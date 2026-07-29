@@ -2,6 +2,7 @@ import type {ExperimentModelConfig} from './model'
 import type {Sandbox} from './sandbox'
 
 type ScenarioConfig = {
+  description?: string
   prompt: string
   tags?: Array<string>
 }

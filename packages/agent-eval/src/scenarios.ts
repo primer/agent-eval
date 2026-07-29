@@ -51,6 +51,7 @@ function isScenarioConfig(value: unknown): value is ScenarioConfig {
   const config = value as Record<string, unknown>
   return (
     typeof config.prompt === 'string' &&
+    (config.description === undefined || typeof config.description === 'string') &&
     (config.tags === undefined ||
       (Array.isArray(config.tags) && config.tags.every((tag: unknown) => typeof tag === 'string')))
   )

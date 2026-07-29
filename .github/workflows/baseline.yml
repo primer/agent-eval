@@ -26,7 +26,6 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: true
-      max-parallel: 2
       matrix:
         order: [1, 2, 3, 4]
     steps:

@@ -4,7 +4,7 @@ import {Stack} from '@primer/react'
 import {DataTable, Table, Blankslate} from '@primer/react/experimental'
 import type {Experiment} from '../../experiments'
 import {Link} from '../../components/Link'
-import type {Scenario} from '../../scenarios'
+import type {ScenarioSummary} from '../../scenarios'
 import {ExperimentsTable, ScenariosTable} from './ResourceTables'
 
 export type BaselineComparison = {
@@ -28,7 +28,7 @@ export function Index({
 }: {
   baseline: Array<BaselineComparison> | null
   experiments: Array<Experiment>
-  scenarios: Array<Scenario>
+  scenarios: Array<ScenarioSummary>
 }) {
   return (
     <Stack padding="normal" gap="spacious">

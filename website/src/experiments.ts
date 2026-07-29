@@ -48,3 +48,17 @@ export async function get(id: string): Promise<Experiment> {
     treatments: experiment.treatments.map(t => ({name: t.name})),
   }
 }
+
+export async function listForScenario(id: string): Promise<Array<Experiment>> {
+  const experiments = await list()
+
+  return experiments.filter(experiment =>
+    experiment.scenarios.some(scenario => {
+      if (typeof scenario === 'string') {
+        return scenario === id
+      }
+
+      return (scenario.name ?? path.basename(path.resolve(scenario.path))) === id
+    }),
+  )
+}

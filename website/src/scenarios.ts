@@ -1,3 +1,4 @@
+import fs from 'node:fs/promises'
 import path from 'node:path'
 import type {ResolvedScenario} from '@primer/agent-eval/scenarios'
 
@@ -8,11 +9,15 @@ const {listScenarios, findScenario} = await import(
 
 const SCENARIOS_DIR = path.resolve(process.cwd(), '..', 'scenarios')
 
-export type Scenario = Pick<ResolvedScenario['config'], 'prompt'> & {
+export type ScenarioSummary = Pick<ResolvedScenario['config'], 'prompt'> & {
   id: string
 }
 
-export async function list(): Promise<Array<Scenario>> {
+export type Scenario = ScenarioSummary & {
+  test: string
+}
+
+export async function list(): Promise<Array<ScenarioSummary>> {
   const scenarios = await listScenarios({
     directory: SCENARIOS_DIR,
   })
@@ -37,5 +42,6 @@ export async function get(id: string): Promise<Scenario> {
   return {
     id: scenario.id,
     prompt: scenario.config.prompt,
+    test: await fs.readFile(scenario.testPath, 'utf8'),
   }
 }

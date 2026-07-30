@@ -1,4 +1,4 @@
-name: copilot setup steps
+name: Copilot Setup Steps
 
 on:
   workflow_dispatch:

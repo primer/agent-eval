@@ -22,12 +22,14 @@ export async function list(): Promise<Array<ScenarioSummary>> {
     directory: SCENARIOS_DIR,
   })
 
-  return scenarios.map(scenario => {
-    return {
-      id: scenario.id,
-      prompt: scenario.config.prompt,
-    }
-  })
+  return scenarios
+    .filter(scenario => !scenario.id.startsWith('000-'))
+    .map(scenario => {
+      return {
+        id: scenario.id,
+        prompt: scenario.config.prompt,
+      }
+    })
 }
 
 export async function get(id: string): Promise<Scenario> {

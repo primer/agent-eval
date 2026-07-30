@@ -22,6 +22,7 @@ const output: AgentEvalOutput = {
       id: 'example',
       directory: '/scenarios/example',
       config: {
+        description: 'Evaluate whether the agent builds an example',
         prompt: 'Build an example',
       },
       testPath: '/scenarios/example/scenario.test.ts',

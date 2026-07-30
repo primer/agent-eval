@@ -21,6 +21,7 @@
     "eslint": "^10.7.0",
     "eslint-plugin-github": "^6.1.1",
     "globals": "^17.6.0",
+    "playwright": "1.61.1",
     "prettier": "^3.8.3",
     "rolldown": "^1.1.5",
     "turbo": "^2.10.5",

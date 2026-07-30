@@ -60,7 +60,9 @@ function isScenarioConfig(value: unknown): value is ScenarioConfig {
 async function loadScenarioConfig(configPath: string, name: string): Promise<ScenarioConfig> {
   const configModule = (await import(pathToFileURL(configPath).href)) as {default?: unknown}
   if (!isScenarioConfig(configModule.default)) {
-    throw new Error(`Scenario "${name}" config must export a default config with a prompt`)
+    throw new Error(
+      `Scenario "${name}" config must export a default config with a string prompt, optional string description, and optional string[] tags`,
+    )
   }
   return configModule.default
 }

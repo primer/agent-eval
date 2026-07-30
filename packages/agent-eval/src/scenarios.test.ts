@@ -71,7 +71,7 @@ describe('scenario loading', () => {
     )
 
     await expect(findScenario('example', {directory: scenariosDirectory})).rejects.toThrow(
-      'Scenario "example" config must export a default config with a prompt',
+      'Scenario "example" config must export a default config with a string prompt, optional string description, and optional string[] tags',
     )
   })
 

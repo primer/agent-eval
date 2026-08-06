@@ -24,6 +24,13 @@ export function PageHeader() {
           </UnderlineNav.Item>
           <UnderlineNav.Item
             as={Link}
+            href="/baseline"
+            aria-current={pathname.startsWith('/baseline') ? 'page' : undefined}
+          >
+            Baseline
+          </UnderlineNav.Item>
+          <UnderlineNav.Item
+            as={Link}
             href="/experiments"
             aria-current={pathname.startsWith('/experiments') ? 'page' : undefined}
           >

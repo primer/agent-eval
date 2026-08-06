@@ -24,7 +24,7 @@
     "playwright": "1.61.1",
     "prettier": "^3.8.3",
     "rolldown": "^1.1.5",
-    "turbo": "^2.10.5",
+    "turbo": "^2.10.6",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.65.0",
     "vitest": "^4.1.8"

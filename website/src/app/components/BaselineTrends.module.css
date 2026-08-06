@@ -47,6 +47,11 @@
   pointer-events: none;
 }
 
+.controlLine,
+.controlPoint {
+  pointer-events: none;
+}
+
 .lineHitTarget {
   cursor: crosshair;
   pointer-events: stroke;
@@ -86,6 +91,39 @@
   padding: 0;
   margin: 0;
   list-style: none;
+}
+
+.legendGroups {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: start;
+  justify-content: space-between;
+  gap: var(--stack-gap-normal);
+}
+
+.legendButton {
+  gap: var(--stack-gap-condensed);
+}
+
+.treatmentLegend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--stack-gap-normal);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.seriesGroup,
+.treatmentGroup {
+  transition: opacity var(--motion-transition-hover);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .seriesGroup,
+  .treatmentGroup {
+    transition: none;
+  }
 }
 
 .legendItem {

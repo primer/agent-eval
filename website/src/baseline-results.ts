@@ -311,10 +311,17 @@ function getBaselineTrendPoints(date: string, output: AgentEvalOutput): Array<Ba
       const baselinePassRate = getTestPassRate(result)
       const controlToolCalls = countToolCalls(control)
       const baselineToolCalls = countToolCalls(result)
-      const metric = (value: number, controlValue: number | undefined, raw = numberFormatter.format(value)) => ({
+      const metric = (
+        value: number,
+        controlValue: number | undefined,
+        raw = numberFormatter.format(value),
+        controlRaw = controlValue === undefined ? null : numberFormatter.format(controlValue),
+      ) => ({
         value,
         raw,
         change: getPercentChangeValue(controlValue, value),
+        controlValue: controlValue ?? null,
+        controlRaw,
       })
 
       return {
@@ -328,6 +335,8 @@ function getBaselineTrendPoints(date: string, output: AgentEvalOutput): Array<Ba
             value: result.testResults.numPassedTests,
             raw: `${result.testResults.numPassedTests}/${result.testResults.numTotalTests}`,
             change: getPercentChangeValue(controlPassRate, baselinePassRate),
+            controlValue: control?.testResults.numPassedTests ?? null,
+            controlRaw: control ? `${control.testResults.numPassedTests}/${control.testResults.numTotalTests}` : null,
           },
           turns: metric(result.assistant.turns, control?.assistant.turns),
           outputTokens: metric(result.assistant.outputTokens, control?.assistant.outputTokens),
@@ -336,11 +345,13 @@ function getBaselineTrendPoints(date: string, output: AgentEvalOutput): Array<Ba
             result.assistant.totalApiDurationMs / 1000,
             control ? control.assistant.totalApiDurationMs / 1000 : undefined,
             formatDuration(result.assistant.totalApiDurationMs),
+            control ? formatDuration(control.assistant.totalApiDurationMs) : null,
           ),
           sessionDuration: metric(
             result.assistant.sessionDurationMs / 1000,
             control ? control.assistant.sessionDurationMs / 1000 : undefined,
             formatDuration(result.assistant.sessionDurationMs),
+            control ? formatDuration(control.assistant.sessionDurationMs) : null,
           ),
           toolCalls: metric(baselineToolCalls ?? 0, controlToolCalls),
         },
@@ -366,10 +377,13 @@ function getAggregateTrendPoints(date: string, output: AgentEvalOutput): Array<B
         baselineValue: number | undefined,
         controlValue: number | undefined,
         raw = baselineValue === undefined ? '—' : numberFormatter.format(baselineValue),
+        controlRaw = controlValue === undefined ? null : numberFormatter.format(controlValue),
       ) => ({
         value: baselineValue ?? 0,
         raw,
         change: getPercentChangeValue(controlValue, baselineValue),
+        controlValue: controlValue ?? null,
+        controlRaw,
       })
       const baselinePassedTests = average(baselines.map(result => result.testResults.numPassedTests))
       const baselineTotalTests = average(baselines.map(result => result.testResults.numTotalTests))
@@ -390,6 +404,14 @@ function getAggregateTrendPoints(date: string, output: AgentEvalOutput): Array<B
                 ? '—'
                 : `${numberFormatter.format(baselinePassedTests)}/${numberFormatter.format(baselineTotalTests)}`,
             change: getPercentChangeValue(controlPassRate, baselinePassRate),
+            controlValue: average(controls.map(result => result.testResults.numPassedTests)) ?? null,
+            controlRaw: (() => {
+              const passed = average(controls.map(result => result.testResults.numPassedTests))
+              const total = average(controls.map(result => result.testResults.numTotalTests))
+              return passed === undefined || total === undefined
+                ? null
+                : `${numberFormatter.format(passed)}/${numberFormatter.format(total)}`
+            })(),
           },
           turns: metric(
             average(baselines.map(result => result.assistant.turns)),
@@ -410,6 +432,7 @@ function getAggregateTrendPoints(date: string, output: AgentEvalOutput): Array<B
               baselineValue === undefined ? undefined : baselineValue / 1000,
               controlValue === undefined ? undefined : controlValue / 1000,
               baselineValue === undefined ? '—' : formatDuration(baselineValue),
+              controlValue === undefined ? null : formatDuration(controlValue),
             )
           })(),
           sessionDuration: (() => {
@@ -419,6 +442,7 @@ function getAggregateTrendPoints(date: string, output: AgentEvalOutput): Array<B
               baselineValue === undefined ? undefined : baselineValue / 1000,
               controlValue === undefined ? undefined : controlValue / 1000,
               baselineValue === undefined ? '—' : formatDuration(baselineValue),
+              controlValue === undefined ? null : formatDuration(controlValue),
             )
           })(),
           toolCalls: metric(average(baselines.map(countToolCalls)), average(controls.map(countToolCalls))),

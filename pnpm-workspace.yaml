@@ -6,6 +6,9 @@ allowBuilds:
 
 minimumReleaseAge: 10080
 
+overrides:
+  nanoid: '3.3.16'
+
 packages:
   - 'scenarios/*'
   - 'experiments'

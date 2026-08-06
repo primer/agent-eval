@@ -3,14 +3,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "pnpm --recursive run build",
+    "build": "turbo run build",
     "changeset": "changeset",
     "format": "prettier --cache --write '**/*.{js,css,md,mdx,ts,tsx,yml}'",
     "format:diff": "prettier --cache --list-different '**/*.{js,css,md,mdx,ts,tsx,yml}'",
     "lint": "eslint '**/*.{js,ts,tsx}' --max-warnings=0 --cache",
     "release": "pnpm --filter @primer/agent-eval run build && changeset publish",
     "test": "vitest",
-    "type-check": "tsc --noEmit && pnpm --recursive run type-check"
+    "type-check": "tsc --noEmit"
   },
   "devDependencies": {
     "@changesets/cli": "^2.31.1",
@@ -21,6 +21,7 @@
     "eslint": "^10.7.0",
     "eslint-plugin-github": "^6.1.1",
     "globals": "^17.6.0",
+    "playwright": "1.61.1",
     "prettier": "^3.8.3",
     "rolldown": "^1.1.5",
     "turbo": "^2.10.5",
@@ -28,5 +29,5 @@
     "typescript-eslint": "^8.62.0",
     "vitest": "^4.1.8"
   },
-  "packageManager": "pnpm@11.9.0+sha512.bd682d5d03fe525ef7c9fd6780c6884d1e756ac4c9c9fe00c538782824310dcf90e3ddc4f53835f06dfaebd5085e41855e0bcbb3b60de2ac5bbab89e5036f03b"
+  "packageManager": "pnpm@11.17.0+sha512.cca3cea332ad254bb84145f966d19f4879615210346fc92c79a047f23a0d7b3cca3c3792f0076ba1f1831d277efbcf0a9119b31a9a60eca7fb3d6231f331ef72"
 }

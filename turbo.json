@@ -1,0 +1,31 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "globalDependencies": ["tsconfig.base.json"],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", ".next/**", "!.next/cache/**", "!.next/dev/**", "next-env.d.ts"]
+    },
+    "@primer/agent-eval-website#build": {
+      "dependsOn": ["^build"],
+      "env": ["PAGES_BASE_PATH"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/results/**"],
+      "outputs": [".next/**", "!.next/cache/**", "!.next/dev/**", "out/**", "next-env.d.ts"]
+    },
+    "//#lint": {
+      "outputs": []
+    },
+    "@primer/agent-eval#lint:npm": {
+      "dependsOn": ["build"],
+      "outputs": []
+    },
+    "type-check": {
+      "dependsOn": ["^build"],
+      "outputs": []
+    },
+    "//#type-check": {
+      "dependsOn": ["^build"],
+      "outputs": []
+    }
+  }
+}

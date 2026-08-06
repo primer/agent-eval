@@ -105,6 +105,7 @@ const ResolvedScenarioSchema = z.object({
   id: z.string(),
   directory: z.string(),
   config: z.object({
+    description: z.optional(z.string()),
     prompt: z.string(),
   }),
   testPath: z.string(),

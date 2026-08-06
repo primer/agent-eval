@@ -1,28 +1,35 @@
+import fs from 'node:fs/promises'
 import path from 'node:path'
-import type {ResolvedScenario} from '@primer/agent-eval'
+import type {ResolvedScenario} from '@primer/agent-eval/scenarios'
 
 const {listScenarios, findScenario} = await import(
   /* turbopackIgnore: true */
-  '@primer/agent-eval'
+  '@primer/agent-eval/scenarios'
 )
 
 const SCENARIOS_DIR = path.resolve(process.cwd(), '..', 'scenarios')
 
-export type Scenario = Pick<ResolvedScenario['config'], 'prompt'> & {
+export type ScenarioSummary = Pick<ResolvedScenario['config'], 'prompt'> & {
   id: string
 }
 
-export async function list(): Promise<Array<Scenario>> {
+export type Scenario = ScenarioSummary & {
+  test: string
+}
+
+export async function list(): Promise<Array<ScenarioSummary>> {
   const scenarios = await listScenarios({
     directory: SCENARIOS_DIR,
   })
 
-  return scenarios.map(scenario => {
-    return {
-      id: scenario.id,
-      prompt: scenario.config.prompt,
-    }
-  })
+  return scenarios
+    .filter(scenario => !scenario.id.startsWith('000-'))
+    .map(scenario => {
+      return {
+        id: scenario.id,
+        prompt: scenario.config.prompt,
+      }
+    })
 }
 
 export async function get(id: string): Promise<Scenario> {
@@ -37,5 +44,6 @@ export async function get(id: string): Promise<Scenario> {
   return {
     id: scenario.id,
     prompt: scenario.config.prompt,
+    test: await fs.readFile(scenario.testPath, 'utf8'),
   }
 }

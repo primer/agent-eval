@@ -4,7 +4,7 @@ import {Stack} from '@primer/react'
 import {DataTable, Table} from '@primer/react/experimental'
 import type {Experiment} from '../../experiments'
 import {Link} from '../../components/Link'
-import type {Scenario} from '../../scenarios'
+import type {ScenarioSummary} from '../../scenarios'
 
 type ResourceTableProps = {
   headingLevel?: 'h1' | 'h2'
@@ -22,7 +22,7 @@ export function ScenariosTable({
   showViewAll = false,
   standalone = false,
 }: ResourceTableProps & {
-  scenarios: Array<Scenario>
+  scenarios: Array<ScenarioSummary>
 }) {
   return withStandaloneLayout(
     <section>

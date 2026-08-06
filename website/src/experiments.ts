@@ -1,9 +1,9 @@
 import path from 'node:path'
-import type {ExperimentConfig} from '@primer/agent-eval'
+import type {ExperimentConfig} from '@primer/agent-eval/experiment'
 
 const {listExperiments, findExperiment} = await import(
   /* turbopackIgnore: true */
-  '@primer/agent-eval'
+  '@primer/agent-eval/experiments'
 )
 
 const EXPERIMENTS_DIR = path.resolve(process.cwd(), '..', 'experiments')
@@ -47,4 +47,18 @@ export async function get(id: string): Promise<Experiment> {
     scenarios: experiment.scenarios,
     treatments: experiment.treatments.map(t => ({name: t.name})),
   }
+}
+
+export async function listForScenario(id: string): Promise<Array<Experiment>> {
+  const experiments = await list()
+
+  return experiments.filter(experiment =>
+    experiment.scenarios.some(scenario => {
+      if (typeof scenario === 'string') {
+        return scenario === id
+      }
+
+      return (scenario.name ?? path.basename(path.resolve(scenario.path))) === id
+    }),
+  )
 }

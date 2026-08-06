@@ -74,7 +74,9 @@ against:
 import {defineScenario} from '@primer/agent-eval/scenario'
 
 export default defineScenario({
+  description: 'Evaluate whether the agent completes the example task',
   prompt: `Example scenario prompt that will instruct the agent to perform a task`,
+  tags: ['baseline', 'button', 'primer'],
 })
 
 // scenarios/uses-button-from-primer/scenario.test.ts
@@ -135,9 +137,15 @@ Use `defineScenario` from `@primer/agent-eval/scenario` in each
 import {defineScenario} from '@primer/agent-eval/scenario'
 
 export default defineScenario({
+  description: 'Evaluate whether the agent uses a Primer button correctly',
   prompt: 'Update the index page to use a primary button',
+  tags: ['baseline', 'button', 'primer'],
 })
 ```
+
+Scenario descriptions and tags are optional. Use `description` to explain what
+the scenario tests. Pass `tags` to `listScenarios` to return only scenarios that
+include every requested tag.
 
 ## Experiment config authoring
 

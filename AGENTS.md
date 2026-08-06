@@ -1,6 +1,7 @@
 # AGENTS.md
 
 - The project uses pnpm for managing dependencies
+- Add repository automation scripts to the `script` directory
 - For tests, use `pnpm test --run`. You can optionally apply a filter to filter
   by test name, path, etc
 - For linting, use `pnpm lint`. You can optionally provide a path to lint specific files or directories
@@ -20,10 +21,22 @@
   - perf: A code change that improves performance
   - test: Adding missing tests or correcting existing tests
   - chore: Changes to the build process or auxiliary tools and libraries such as documentation generation
+  - ci: A change to our workflows
 - Description: A brief description of the changes made in the pull request. It should be concise and informative, providing enough context for reviewers to understand the purpose of the changes.
-- Example: "feat: Add new authentication method for improved security"
+- Example: "feat: add new authentication method for improved security"
 - Fill out the pull request template for the repo
 - Always run the tasks in ci.yml before committing so that ci is green
+- When making a change to the website, include before and after screenshots in the Pull Request description.
+  ```md
+  <details>
+    <summary>Before / After</summary>
+
+  | Before                     | After                     |
+  | :------------------------- | :------------------------ |
+  | <!-- screenshot before --> | <!-- screenshot after --> |
+
+  </details>
+  ```
 
 ## Adding scenarios
 

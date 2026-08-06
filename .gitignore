@@ -1,5 +1,6 @@
 # Build folders
 dist/
+.turbo/
 
 # Editor
 .DS_Store
@@ -16,6 +17,7 @@ node_modules
 # Next.js
 .next
 next-env.d.ts
+out
 
 # TypeScript
 *.tsbuildinfo

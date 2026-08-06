@@ -12,10 +12,19 @@ async function createScenariosDirectory() {
   return directory
 }
 
-async function createScenario(scenariosDirectory: string, id: string, prompt: string) {
+async function createScenario(
+  scenariosDirectory: string,
+  id: string,
+  prompt: string,
+  tags?: Array<string>,
+  description?: string,
+) {
   const directory = path.join(scenariosDirectory, id)
   await fs.mkdir(directory)
-  await fs.writeFile(path.join(directory, 'scenario.config.ts'), `export default {prompt: ${JSON.stringify(prompt)}}`)
+  await fs.writeFile(
+    path.join(directory, 'scenario.config.ts'),
+    `export default ${JSON.stringify({description, prompt, ...(tags ? {tags} : {})})}`,
+  )
   await fs.writeFile(path.join(directory, 'scenario.test.ts'), '')
   return directory
 }
@@ -38,6 +47,53 @@ describe('scenario loading', () => {
     await expect(listScenarios({directory: scenariosDirectory})).resolves.toEqual([
       expect.objectContaining({id: 'first', config: {prompt: 'First prompt'}}),
       expect.objectContaining({id: 'second', config: {prompt: 'Second prompt'}}),
+    ])
+  })
+
+  test('loads scenario descriptions', async () => {
+    const scenariosDirectory = await createScenariosDirectory()
+    await createScenario(scenariosDirectory, 'example', 'Example prompt', undefined, 'Example description')
+
+    await expect(findScenario('example', {directory: scenariosDirectory})).resolves.toMatchObject({
+      config: {
+        description: 'Example description',
+        prompt: 'Example prompt',
+      },
+    })
+  })
+
+  test('rejects non-string scenario descriptions', async () => {
+    const scenariosDirectory = await createScenariosDirectory()
+    const directory = await createScenario(scenariosDirectory, 'example', 'Example prompt')
+    await fs.writeFile(
+      path.join(directory, 'scenario.config.ts'),
+      `export default {description: 42, prompt: 'Example prompt'}`,
+    )
+
+    await expect(findScenario('example', {directory: scenariosDirectory})).rejects.toThrow(
+      'Scenario "example" config must export a default config with a string prompt, optional string description, and optional string[] tags',
+    )
+  })
+
+  test('lists scenarios that match all provided tags', async () => {
+    const scenariosDirectory = await createScenariosDirectory()
+    await createScenario(scenariosDirectory, 'both', 'Both tags', ['baseline', 'primer'])
+    await createScenario(scenariosDirectory, 'baseline', 'Baseline only', ['baseline'])
+    await createScenario(scenariosDirectory, 'untagged', 'No tags')
+
+    await expect(listScenarios({directory: scenariosDirectory, tags: ['baseline', 'primer']})).resolves.toEqual([
+      expect.objectContaining({id: 'both'}),
+    ])
+  })
+
+  test('lists all scenarios when no tags are provided', async () => {
+    const scenariosDirectory = await createScenariosDirectory()
+    await createScenario(scenariosDirectory, 'tagged', 'Tagged', ['baseline'])
+    await createScenario(scenariosDirectory, 'untagged', 'Untagged')
+
+    await expect(listScenarios({directory: scenariosDirectory, tags: []})).resolves.toEqual([
+      expect.objectContaining({id: 'tagged'}),
+      expect.objectContaining({id: 'untagged'}),
     ])
   })
 

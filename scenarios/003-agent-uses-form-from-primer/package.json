@@ -1,5 +1,6 @@
 {
   "name": "003-agent-uses-form-from-primer",
+  "private": true,
   "type": "module",
   "scripts": {
     "clean": "rimraf .next",

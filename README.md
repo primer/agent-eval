@@ -60,7 +60,9 @@ file that grades the agent's output. Scenarios can also include an optional
 import {defineScenario} from '@primer/agent-eval/scenario'
 
 export default defineScenario({
+  description: 'Evaluate whether the agent uses a Primer button correctly',
   prompt: 'Update the index page to use a primary button',
+  tags: ['baseline', 'button', 'primer'],
 })
 ```
 

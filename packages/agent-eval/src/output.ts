@@ -109,6 +109,7 @@ const ResolvedScenarioSchema = z.object({
     prompt: z.string(),
   }),
   testPath: z.string(),
+  browserTestPath: z.optional(z.string()),
 })
 
 const AgentEvalOutputResultSchema = z.object({

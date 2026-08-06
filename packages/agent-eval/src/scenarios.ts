@@ -8,6 +8,7 @@ type ResolvedScenario = {
   readonly directory: string
   readonly config: ScenarioConfig
   readonly testPath: string
+  readonly browserTestPath?: string
 }
 
 type ScenarioSourceOptions = {
@@ -72,14 +73,17 @@ async function loadScenarioDirectory(directory: string, name = path.basename(dir
 
   const configPath = path.join(directory, 'scenario.config.ts')
   const testPath = path.join(directory, 'scenario.test.ts')
+  const browserTestPath = path.join(directory, 'scenario.browser.test.ts')
   await assertScenarioFile(configPath, name, 'config')
   await assertScenarioFile(testPath, name, 'test')
+  const browserTestStats = await fs.stat(browserTestPath).catch(() => undefined)
 
   return {
     id: name,
     directory,
     config: await loadScenarioConfig(configPath, name),
     testPath,
+    ...(browserTestStats?.isFile() ? {browserTestPath} : {}),
   }
 }
 

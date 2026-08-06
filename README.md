@@ -53,7 +53,8 @@ treatment results.
 
 Scenarios live in [`./scenarios`](./scenarios/). Each scenario has a
 `scenario.config.ts` file that defines the agent prompt and a `scenario.test.ts`
-file that grades the agent's output:
+file that grades the agent's output. Scenarios can also include an optional
+`scenario.browser.test.ts` file for checks that need a browser:
 
 ```ts
 import {defineScenario} from '@primer/agent-eval/scenario'
@@ -137,7 +138,8 @@ export const experiment = defineConfig({
 
 Scenarios can also be defined inline in an experiment. Inline scenario paths
 resolve from the directory where the CLI is run, and use the same
-`scenario.config.ts` and `scenario.test.ts` files as repository scenarios:
+`scenario.config.ts`, `scenario.test.ts`, and optional `scenario.browser.test.ts`
+files as repository scenarios:
 
 ```ts
 export const experiment = defineConfig({

@@ -8,6 +8,12 @@ type TreatmentResults = {
   baseline?: AgentEvalOutputResult
 }
 
+type ModelTreatmentResults = TreatmentResults & {
+  id: string
+  model: string
+  reasoningEffort: string
+}
+
 type MetricValue = {
   raw: string
   change: string | null
@@ -21,6 +27,10 @@ const numberFormatter = new Intl.NumberFormat('en-US')
 
 function getResultKey(scenarioId: string, model: string, reasoningEffort: string | undefined) {
   return JSON.stringify([scenarioId, model, reasoningEffort ?? ''])
+}
+
+function getModelResultKey(model: string, reasoningEffort: string | undefined) {
+  return JSON.stringify([model, reasoningEffort ?? ''])
 }
 
 function getPercentChange(control: number | undefined, baseline: number | undefined): string | null {
@@ -100,19 +110,26 @@ function getBaselineComparisons(output: AgentEvalOutput): Array<BaselineComparis
     throw new Error('The latest baseline run must include Control and Recommended treatments')
   }
 
-  const results = new Map<string, TreatmentResults>()
+  const resultsByScenario = new Map<string, Map<string, ModelTreatmentResults>>()
   for (const scenario of output.scenarios) {
+    const scenarioResults = new Map<string, ModelTreatmentResults>()
     for (const model of output.experiment.models) {
       const reasoningEfforts = model.reasoningEfforts.length > 0 ? model.reasoningEfforts : [undefined]
       for (const reasoningEffort of reasoningEfforts) {
-        results.set(getResultKey(scenario.id, model.name, reasoningEffort), {})
+        scenarioResults.set(getModelResultKey(model.name, reasoningEffort), {
+          id: getResultKey(scenario.id, model.name, reasoningEffort),
+          model: model.name,
+          reasoningEffort: reasoningEffort ?? '—',
+        })
       }
     }
+    resultsByScenario.set(scenario.id, scenarioResults)
   }
 
   for (const result of output.results) {
-    const key = getResultKey(result.scenarioId, result.model, result.reasoningEffort)
-    const treatmentResults = results.get(key)
+    const treatmentResults = resultsByScenario
+      .get(result.scenarioId)
+      ?.get(getModelResultKey(result.model, result.reasoningEffort))
     if (!treatmentResults) {
       throw new Error(`Result "${result.id}" does not match a configured scenario, model, and reasoning effort`)
     }
@@ -125,25 +142,19 @@ function getBaselineComparisons(output: AgentEvalOutput): Array<BaselineComparis
   }
 
   return output.scenarios.map(scenario => {
-    const comparisons = Array.from(results, ([key, treatmentResults]) => {
-      const [scenarioId, model, reasoningEffort] = JSON.parse(key) as [string, string, string]
-      if (scenarioId !== scenario.id) {
-        return null
-      }
-
-      const {control, baseline} = treatmentResults
-      const controlPassRate = getTestPassRate(control)
+    const comparisons = Array.from(resultsByScenario.get(scenario.id)?.values() ?? [], treatmentResults => {
+      const {id, model, reasoningEffort, control, baseline} = treatmentResults
       const baselinePassRate = getTestPassRate(baseline)
 
       return {
-        id: key,
+        id,
         model,
-        reasoningEffort: reasoningEffort || '—',
+        reasoningEffort,
         passRate: baselinePassRate,
         turnsValue: baseline?.assistant.turns,
         tests: {
           raw: baseline ? `${baseline.testResults.numPassedTests}/${baseline.testResults.numTotalTests}` : '—',
-          change: getPercentChange(controlPassRate, baselinePassRate),
+          change: getPercentChange(control?.testResults.numPassedTests, baseline?.testResults.numPassedTests),
         },
         turns: formatMetric(control?.assistant.turns, baseline?.assistant.turns, value =>
           numberFormatter.format(value),
@@ -168,7 +179,7 @@ function getBaselineComparisons(output: AgentEvalOutput): Array<BaselineComparis
           numberFormatter.format(value),
         ),
       }
-    }).filter(comparison => comparison !== null)
+    })
 
     return {
       id: scenario.id,
@@ -216,7 +227,6 @@ function getAggregateBaselineResults(output: AgentEvalOutput): Array<BaselineRes
         result.model === model.name && result.reasoningEffort === reasoningEffort
       const controls = output.results.filter(result => result.treatmentId === controlTreatment.id && matches(result))
       const baselines = output.results.filter(result => result.treatmentId === baselineTreatment.id && matches(result))
-      const controlPassRate = average(controls.map(getTestPassRate))
       const baselinePassRate = average(baselines.map(getTestPassRate))
       const baselinePassedTests = average(baselines.map(result => result.testResults.numPassedTests))
       const baselineTotalTests = average(baselines.map(result => result.testResults.numTotalTests))
@@ -234,7 +244,10 @@ function getAggregateBaselineResults(output: AgentEvalOutput): Array<BaselineRes
             baselinePassedTests === undefined || baselineTotalTests === undefined
               ? '—'
               : `${numberFormatter.format(baselinePassedTests)}/${numberFormatter.format(baselineTotalTests)}`,
-          change: getPercentChange(controlPassRate, baselinePassRate),
+          change: getPercentChange(
+            average(controls.map(result => result.testResults.numPassedTests)),
+            baselinePassedTests,
+          ),
         },
         turns: formatMetric(controlTurns, baselineTurns, value => numberFormatter.format(value)),
         outputTokens: formatMetric(
@@ -307,8 +320,6 @@ function getBaselineTrendPoints(date: string, output: AgentEvalOutput): Array<Ba
     .filter(result => result.treatmentId === baselineTreatment.id)
     .map(result => {
       const control = controls.get(getResultKey(result.scenarioId, result.model, result.reasoningEffort))
-      const controlPassRate = getTestPassRate(control)
-      const baselinePassRate = getTestPassRate(result)
       const controlToolCalls = countToolCalls(control)
       const baselineToolCalls = countToolCalls(result)
       const metric = (
@@ -334,7 +345,7 @@ function getBaselineTrendPoints(date: string, output: AgentEvalOutput): Array<Ba
           tests: {
             value: result.testResults.numPassedTests,
             raw: `${result.testResults.numPassedTests}/${result.testResults.numTotalTests}`,
-            change: getPercentChangeValue(controlPassRate, baselinePassRate),
+            change: getPercentChangeValue(control?.testResults.numPassedTests, result.testResults.numPassedTests),
             controlValue: control?.testResults.numPassedTests ?? null,
             controlRaw: control ? `${control.testResults.numPassedTests}/${control.testResults.numTotalTests}` : null,
           },
@@ -387,8 +398,7 @@ function getAggregateTrendPoints(date: string, output: AgentEvalOutput): Array<B
       })
       const baselinePassedTests = average(baselines.map(result => result.testResults.numPassedTests))
       const baselineTotalTests = average(baselines.map(result => result.testResults.numTotalTests))
-      const controlPassRate = average(controls.map(getTestPassRate))
-      const baselinePassRate = average(baselines.map(getTestPassRate))
+      const controlPassedTests = average(controls.map(result => result.testResults.numPassedTests))
 
       return {
         id: `${date}:aggregate:${model.name}:${reasoningEffort ?? ''}`,
@@ -403,8 +413,8 @@ function getAggregateTrendPoints(date: string, output: AgentEvalOutput): Array<B
               baselinePassedTests === undefined || baselineTotalTests === undefined
                 ? '—'
                 : `${numberFormatter.format(baselinePassedTests)}/${numberFormatter.format(baselineTotalTests)}`,
-            change: getPercentChangeValue(controlPassRate, baselinePassRate),
-            controlValue: average(controls.map(result => result.testResults.numPassedTests)) ?? null,
+            change: getPercentChangeValue(controlPassedTests, baselinePassedTests),
+            controlValue: controlPassedTests ?? null,
             controlRaw: (() => {
               const passed = average(controls.map(result => result.testResults.numPassedTests))
               const total = average(controls.map(result => result.testResults.numTotalTests))

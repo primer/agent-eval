@@ -386,7 +386,7 @@ export function BaselineTrends({points, scenarioId}: {points: Array<BaselineTren
       seriesName: getSeriesName(point),
     }))
 
-  if (points.length === 0) {
+  if (scenarioPoints.length === 0) {
     return null
   }
 

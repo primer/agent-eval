@@ -392,165 +392,179 @@ export function BaselineTrends({points, scenarioId}: {points: Array<BaselineTren
 
   return (
     <section className={styles.section} aria-labelledby="baseline-trends-heading">
-      <Heading as="h2" id="baseline-trends-heading">
-        Trends
-      </Heading>
-      <Text as="p" className={styles.description}>
-        Strong lines show Recommended results and muted lines show Control over time. The comparison table shows each
-        Recommended result relative to Control.
-      </Text>
-      <Stack gap="normal">
-        <div className={styles.legendGroups}>
-          <ul className={styles.legend} aria-label="Model chart legend">
-            {series.map((seriesName, index) => {
-              const style = lineStyles[index % lineStyles.length]
-              return (
-                <li key={seriesName}>
-                  <Button
-                    aria-pressed={selectedSeries === seriesName}
-                    className={styles.legendButton}
-                    onBlur={() => setHoveredSeries(null)}
-                    onClick={() => setSelectedSeries(current => (current === seriesName ? null : seriesName))}
-                    onFocus={() => setHoveredSeries(seriesName)}
-                    onMouseEnter={() => setHoveredSeries(seriesName)}
-                    onMouseLeave={() => setHoveredSeries(null)}
-                    size="small"
-                    variant="invisible"
-                  >
-                    <svg aria-hidden="true" height="8" width="28">
-                      <line
-                        stroke={style.color}
-                        strokeDasharray={style.dash}
-                        strokeWidth="2"
-                        x1="0"
-                        x2="28"
-                        y1="4"
-                        y2="4"
-                      />
-                    </svg>
-                    {seriesName}
-                  </Button>
-                </li>
-              )
-            })}
-          </ul>
-          <ul className={styles.treatmentLegend} aria-label="Treatment chart legend">
-            <li>
-              <Button
-                aria-pressed={selectedTreatment === 'recommended'}
-                className={styles.legendButton}
-                onBlur={() => setHoveredTreatment(null)}
-                onClick={() => setSelectedTreatment(current => (current === 'recommended' ? null : 'recommended'))}
-                onFocus={() => setHoveredTreatment('recommended')}
-                onMouseEnter={() => setHoveredTreatment('recommended')}
-                onMouseLeave={() => setHoveredTreatment(null)}
-                size="small"
-                variant="invisible"
-              >
-                <svg aria-hidden="true" height="8" width="28">
-                  <line stroke="var(--fgColor-default)" strokeWidth="2" x1="0" x2="28" y1="4" y2="4" />
-                </svg>
-                Recommended
-              </Button>
-            </li>
-            <li>
-              <Button
-                aria-pressed={selectedTreatment === 'control'}
-                className={styles.legendButton}
-                onBlur={() => setHoveredTreatment(null)}
-                onClick={() => setSelectedTreatment(current => (current === 'control' ? null : 'control'))}
-                onFocus={() => setHoveredTreatment('control')}
-                onMouseEnter={() => setHoveredTreatment('control')}
-                onMouseLeave={() => setHoveredTreatment(null)}
-                size="small"
-                variant="invisible"
-              >
-                <svg aria-hidden="true" height="8" width="28">
-                  <line opacity="0.4" stroke="var(--fgColor-default)" strokeWidth="1.5" x1="0" x2="28" y1="4" y2="4" />
-                </svg>
-                Control
-              </Button>
-            </li>
-          </ul>
-        </div>
-        <div className={styles.chartGrid}>
-          {metrics.map(metric => (
-            <TrendChart
-              dates={dates}
-              highlightedSeries={highlightedSeries}
-              highlightedTreatment={highlightedTreatment}
-              key={metric.id}
-              metric={metric}
-              points={scenarioPoints}
-              series={series}
-            />
-          ))}
-        </div>
-        <Table.Container>
-          <Table.Title as="h3" id="baseline-heatmap-heading">
-            Change from Control
-          </Table.Title>
-          <Table.Subtitle as="p" id="baseline-heatmap-description">
-            Recommended results are shown first, followed by the percent change from Control in parentheses.
-          </Table.Subtitle>
-          <Table.Actions>
-            <FormControl>
-              <FormControl.Label>Metric</FormControl.Label>
-              <Select
-                onChange={event => setHeatmapMetricId(event.currentTarget.value as BaselineTrendMetricId)}
-                value={heatmapMetricId}
-              >
-                {metrics.map(metric => (
-                  <Select.Option key={metric.id} value={metric.id}>
-                    {metric.label}
-                  </Select.Option>
-                ))}
-              </Select>
-            </FormControl>
-          </Table.Actions>
-          <ControlTable dates={dates} metric={heatmapMetric} points={scenarioPoints} series={series} />
-        </Table.Container>
+      <Stack gap="spacious">
+        <Stack gap="condensed">
+          <Heading as="h2" id="baseline-trends-heading">
+            Trends
+          </Heading>
+          <Text as="p" className={styles.description}>
+            Strong lines show Recommended results and muted lines show Control over time. The comparison table shows
+            each Recommended result relative to Control.
+          </Text>
+        </Stack>
+        <Stack gap="normal">
+          <div className={styles.legendGroups}>
+            <ul className={styles.legend} aria-label="Model chart legend">
+              {series.map((seriesName, index) => {
+                const style = lineStyles[index % lineStyles.length]
+                return (
+                  <li key={seriesName}>
+                    <Button
+                      aria-pressed={selectedSeries === seriesName}
+                      className={styles.legendButton}
+                      onBlur={() => setHoveredSeries(null)}
+                      onClick={() => setSelectedSeries(current => (current === seriesName ? null : seriesName))}
+                      onFocus={() => setHoveredSeries(seriesName)}
+                      onMouseEnter={() => setHoveredSeries(seriesName)}
+                      onMouseLeave={() => setHoveredSeries(null)}
+                      size="small"
+                      variant="invisible"
+                    >
+                      <svg aria-hidden="true" height="8" width="28">
+                        <line
+                          stroke={style.color}
+                          strokeDasharray={style.dash}
+                          strokeWidth="2"
+                          x1="0"
+                          x2="28"
+                          y1="4"
+                          y2="4"
+                        />
+                      </svg>
+                      {seriesName}
+                    </Button>
+                  </li>
+                )
+              })}
+            </ul>
+            <ul className={styles.treatmentLegend} aria-label="Treatment chart legend">
+              <li>
+                <Button
+                  aria-pressed={selectedTreatment === 'recommended'}
+                  className={styles.legendButton}
+                  onBlur={() => setHoveredTreatment(null)}
+                  onClick={() => setSelectedTreatment(current => (current === 'recommended' ? null : 'recommended'))}
+                  onFocus={() => setHoveredTreatment('recommended')}
+                  onMouseEnter={() => setHoveredTreatment('recommended')}
+                  onMouseLeave={() => setHoveredTreatment(null)}
+                  size="small"
+                  variant="invisible"
+                >
+                  <svg aria-hidden="true" height="8" width="28">
+                    <line stroke="var(--fgColor-default)" strokeWidth="2" x1="0" x2="28" y1="4" y2="4" />
+                  </svg>
+                  Recommended
+                </Button>
+              </li>
+              <li>
+                <Button
+                  aria-pressed={selectedTreatment === 'control'}
+                  className={styles.legendButton}
+                  onBlur={() => setHoveredTreatment(null)}
+                  onClick={() => setSelectedTreatment(current => (current === 'control' ? null : 'control'))}
+                  onFocus={() => setHoveredTreatment('control')}
+                  onMouseEnter={() => setHoveredTreatment('control')}
+                  onMouseLeave={() => setHoveredTreatment(null)}
+                  size="small"
+                  variant="invisible"
+                >
+                  <svg aria-hidden="true" height="8" width="28">
+                    <line
+                      opacity="0.4"
+                      stroke="var(--fgColor-default)"
+                      strokeWidth="1.5"
+                      x1="0"
+                      x2="28"
+                      y1="4"
+                      y2="4"
+                    />
+                  </svg>
+                  Control
+                </Button>
+              </li>
+            </ul>
+          </div>
+          <div className={styles.chartGrid}>
+            {metrics.map(metric => (
+              <TrendChart
+                dates={dates}
+                highlightedSeries={highlightedSeries}
+                highlightedTreatment={highlightedTreatment}
+                key={metric.id}
+                metric={metric}
+                points={scenarioPoints}
+                series={series}
+              />
+            ))}
+          </div>
+        </Stack>
+        <Stack gap="normal">
+          <Table.Container>
+            <Table.Title as="h3" id="baseline-heatmap-heading">
+              Change from Control
+            </Table.Title>
+            <Table.Subtitle as="p" id="baseline-heatmap-description">
+              Recommended results are shown first, followed by the percent change from Control in parentheses.
+            </Table.Subtitle>
+            <Table.Actions>
+              <FormControl>
+                <FormControl.Label>Metric</FormControl.Label>
+                <Select
+                  onChange={event => setHeatmapMetricId(event.currentTarget.value as BaselineTrendMetricId)}
+                  value={heatmapMetricId}
+                >
+                  {metrics.map(metric => (
+                    <Select.Option key={metric.id} value={metric.id}>
+                      {metric.label}
+                    </Select.Option>
+                  ))}
+                </Select>
+              </FormControl>
+            </Table.Actions>
+            <ControlTable dates={dates} metric={heatmapMetric} points={scenarioPoints} series={series} />
+          </Table.Container>
+          <details className={styles.details}>
+            <summary className={styles.summary} id="raw-trend-data-heading">
+              View raw trend data
+            </summary>
+            <div className={styles.rawData}>
+              <DataTable
+                aria-labelledby="raw-trend-data-heading"
+                cellPadding="condensed"
+                columns={[
+                  {
+                    id: 'date',
+                    header: 'Date',
+                    field: 'date',
+                    renderCell: row => <time dateTime={row.date}>{row.date}</time>,
+                  },
+                  {
+                    id: 'model',
+                    header: 'Model',
+                    field: 'seriesName',
+                    rowHeader: true,
+                  },
+                  ...metrics.map(metric => ({
+                    id: metric.id,
+                    header: metric.label,
+                    field: 'metrics' as const,
+                    align: 'end' as const,
+                    renderCell: (row: (typeof rawTrendRows)[number]) => {
+                      const value = row.metrics[metric.id]
+                      return (
+                        <span className={styles.metricValue}>
+                          {value.raw} <span className={styles.change}>({formatChange(value.change)})</span>
+                        </span>
+                      )
+                    },
+                  })),
+                ]}
+                data={rawTrendRows}
+              />
+            </div>
+          </details>
+        </Stack>
       </Stack>
-      <details className={styles.details}>
-        <summary className={styles.summary} id="raw-trend-data-heading">
-          View raw trend data
-        </summary>
-        <div className={styles.rawData}>
-          <DataTable
-            aria-labelledby="raw-trend-data-heading"
-            cellPadding="condensed"
-            columns={[
-              {
-                id: 'date',
-                header: 'Date',
-                field: 'date',
-                renderCell: row => <time dateTime={row.date}>{row.date}</time>,
-              },
-              {
-                id: 'model',
-                header: 'Model',
-                field: 'seriesName',
-                rowHeader: true,
-              },
-              ...metrics.map(metric => ({
-                id: metric.id,
-                header: metric.label,
-                field: 'metrics' as const,
-                align: 'end' as const,
-                renderCell: (row: (typeof rawTrendRows)[number]) => {
-                  const value = row.metrics[metric.id]
-                  return (
-                    <span className={styles.metricValue}>
-                      {value.raw} <span className={styles.change}>({formatChange(value.change)})</span>
-                    </span>
-                  )
-                },
-              })),
-            ]}
-            data={rawTrendRows}
-          />
-        </div>
-      </details>
     </section>
   )
 }

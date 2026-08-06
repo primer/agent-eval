@@ -1,7 +1,3 @@
-.section {
-  padding-block-start: var(--stack-padding-spacious);
-}
-
 .description {
   color: var(--fgColor-muted);
 }
@@ -142,7 +138,7 @@
 }
 
 .details {
-  margin-block-start: var(--stack-gap-normal);
+  margin: 0;
 }
 
 .summary {

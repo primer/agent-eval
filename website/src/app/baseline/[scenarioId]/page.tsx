@@ -1,6 +1,9 @@
 import {notFound} from 'next/navigation'
 import {getBaselinePageData} from '../../../baseline-results'
+import {list as listScenarios} from '../../../scenarios'
 import {Index} from '../../components/Index'
+
+export const dynamicParams = false
 
 type BaselineScenarioPageProps = {
   params: Promise<{
@@ -10,9 +13,9 @@ type BaselineScenarioPageProps = {
 
 export default async function BaselineScenarioPage({params}: BaselineScenarioPageProps) {
   const {scenarioId} = await params
-  const {baseline, baselineTrends} = await getBaselinePageData()
+  const [{baseline, baselineTrends}, scenarios] = await Promise.all([getBaselinePageData(), listScenarios()])
 
-  if (!baseline?.some(scenario => scenario.scenarioId === scenarioId)) {
+  if (!scenarios.some(scenario => scenario.id === scenarioId)) {
     notFound()
   }
 
@@ -20,6 +23,6 @@ export default async function BaselineScenarioPage({params}: BaselineScenarioPag
 }
 
 export async function generateStaticParams() {
-  const {baseline} = await getBaselinePageData()
-  return baseline?.map(scenario => ({scenarioId: scenario.scenarioId})) ?? []
+  const scenarios = await listScenarios()
+  return scenarios.map(scenario => ({scenarioId: scenario.id}))
 }

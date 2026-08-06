@@ -1,5 +1,5 @@
 import {describe, expect, test} from 'vitest'
-import {getCopilotArgs} from './run'
+import {getCopilotArgs, getVitestConfig} from './run'
 
 describe('getCopilotArgs', () => {
   test('omits reasoning effort when not configured', () => {
@@ -31,5 +31,25 @@ describe('getCopilotArgs', () => {
       '--output-format',
       'json',
     ])
+  })
+})
+
+describe('getVitestConfig', () => {
+  test('configures node tests by default', () => {
+    const config = getVitestConfig('test-results.json')
+
+    expect(config).toContain(`outputFile: "test-results.json"`)
+    expect(config).not.toContain('@vitest/browser-playwright')
+  })
+
+  test('configures browser tests with Playwright and Chromium', () => {
+    const config = getVitestConfig('browser-test-results.json', true)
+
+    expect(config).toContain(`import {playwright} from '@vitest/browser-playwright'`)
+    expect(config).toContain('enabled: true')
+    expect(config).toContain('headless: true')
+    expect(config).toContain('provider: playwright()')
+    expect(config).toContain(`instances: [{browser: 'chromium'}]`)
+    expect(config).toContain(`outputFile: "browser-test-results.json"`)
   })
 })

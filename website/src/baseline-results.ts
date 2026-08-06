@@ -390,7 +390,7 @@ function getAggregateTrendPoints(date: string, output: AgentEvalOutput): Array<B
         raw = baselineValue === undefined ? '—' : numberFormatter.format(baselineValue),
         controlRaw = controlValue === undefined ? null : numberFormatter.format(controlValue),
       ) => ({
-        value: baselineValue ?? 0,
+        value: baselineValue ?? null,
         raw,
         change: getPercentChangeValue(controlValue, baselineValue),
         controlValue: controlValue ?? null,
@@ -408,7 +408,7 @@ function getAggregateTrendPoints(date: string, output: AgentEvalOutput): Array<B
         reasoningEffort: reasoningEffort ?? '—',
         metrics: {
           tests: {
-            value: baselinePassedTests ?? 0,
+            value: baselinePassedTests ?? null,
             raw:
               baselinePassedTests === undefined || baselineTotalTests === undefined
                 ? '—'

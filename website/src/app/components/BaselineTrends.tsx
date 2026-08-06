@@ -6,7 +6,7 @@ import {type MouseEvent, useState} from 'react'
 import styles from './BaselineTrends.module.css'
 
 type BaselineTrendMetric = {
-  value: number
+  value: number | null
   raw: string
   change: number | null
   controlValue: number | null
@@ -93,10 +93,10 @@ function TrendChart({
   const plotHeight = height - padding.top - padding.bottom
   const values = points.flatMap(point => {
     const value = point.metrics[metric.id]
-    return value.controlValue === null ? [value.value] : [value.value, value.controlValue]
+    return [value.value, value.controlValue].filter(item => item !== null)
   })
-  const rawMin = Math.min(...values)
-  const rawMax = Math.max(...values)
+  const rawMin = values.length > 0 ? Math.min(...values) : 0
+  const rawMax = values.length > 0 ? Math.max(...values) : 0
   const range = rawMax - rawMin
   const min = Math.max(0, rawMin - (range || Math.max(rawMax, 1)) * 0.1)
   const max = rawMax + (range || Math.max(rawMax, 1)) * 0.1
@@ -106,7 +106,9 @@ function TrendChart({
   const activePoint = points.find(point => point.id === activeTrend?.pointId)
   const activeMetric = activePoint?.metrics[metric.id]
   const activeValue =
-    activeTrend?.treatment === 'control' ? (activeMetric?.controlValue ?? undefined) : activeMetric?.value
+    activeTrend?.treatment === 'control'
+      ? (activeMetric?.controlValue ?? undefined)
+      : (activeMetric?.value ?? undefined)
   const activeRaw = activeTrend?.treatment === 'control' ? activeMetric?.controlRaw : activeMetric?.raw
   const tooltipWidth = 248
   const tooltipHeight = 52
@@ -173,10 +175,11 @@ function TrendChart({
             .filter(point => getSeriesName(point) === seriesName)
             .toSorted((a, b) => a.date.localeCompare(b.date))
           const controlPoints = seriesPoints.filter(point => point.metrics[metric.id].controlValue !== null)
+          const recommendedPoints = seriesPoints.filter(point => point.metrics[metric.id].value !== null)
           const style = lineStyles[index % lineStyles.length]
-          const recommendedPath = seriesPoints
+          const recommendedPath = recommendedPoints
             .map((point, pointIndex) => {
-              return `${pointIndex === 0 ? 'M' : 'L'} ${getX(point.date)} ${getY(point.metrics[metric.id].value)}`
+              return `${pointIndex === 0 ? 'M' : 'L'} ${getX(point.date)} ${getY(point.metrics[metric.id].value ?? 0)}`
             })
             .join(' ')
           const controlPath = controlPoints
@@ -229,38 +232,44 @@ function TrendChart({
                   />
                 </>
               ) : null}
-              <path
-                className={`${styles.seriesLine} ${styles.treatmentGroup}`}
-                d={recommendedPath}
-                fill="none"
-                opacity={recommendedOpacity}
-                stroke={style.color}
-                strokeDasharray={style.dash}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-              />
-              <path
-                aria-describedby={
-                  activePoint && getSeriesName(activePoint) === seriesName && activeTrend?.treatment === 'recommended'
-                    ? tooltipId
-                    : undefined
-                }
-                aria-label={`${seriesName}, Recommended ${metric.label} trend`}
-                className={styles.lineHitTarget}
-                d={recommendedPath}
-                fill="none"
-                onBlur={() => setActiveTrend(null)}
-                onFocus={() => {
-                  const pointId = seriesPoints.at(-1)?.id
-                  setActiveTrend(pointId ? {pointId, treatment: 'recommended'} : null)
-                }}
-                onMouseLeave={() => setActiveTrend(null)}
-                onMouseMove={event => activateClosestPoint(event, seriesPoints, 'recommended')}
-                stroke="transparent"
-                strokeWidth="16"
-                tabIndex={0}
-              />
+              {recommendedPoints.length > 0 ? (
+                <>
+                  <path
+                    className={`${styles.seriesLine} ${styles.treatmentGroup}`}
+                    d={recommendedPath}
+                    fill="none"
+                    opacity={recommendedOpacity}
+                    stroke={style.color}
+                    strokeDasharray={style.dash}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                  />
+                  <path
+                    aria-describedby={
+                      activePoint &&
+                      getSeriesName(activePoint) === seriesName &&
+                      activeTrend?.treatment === 'recommended'
+                        ? tooltipId
+                        : undefined
+                    }
+                    aria-label={`${seriesName}, Recommended ${metric.label} trend`}
+                    className={styles.lineHitTarget}
+                    d={recommendedPath}
+                    fill="none"
+                    onBlur={() => setActiveTrend(null)}
+                    onFocus={() => {
+                      const pointId = recommendedPoints.at(-1)?.id
+                      setActiveTrend(pointId ? {pointId, treatment: 'recommended'} : null)
+                    }}
+                    onMouseLeave={() => setActiveTrend(null)}
+                    onMouseMove={event => activateClosestPoint(event, recommendedPoints, 'recommended')}
+                    stroke="transparent"
+                    strokeWidth="16"
+                    tabIndex={0}
+                  />
+                </>
+              ) : null}
               {seriesPoints.map(point => {
                 const value = point.metrics[metric.id]
                 return (
@@ -277,16 +286,18 @@ function TrendChart({
                         strokeWidth="1.5"
                       />
                     ) : null}
-                    <circle
-                      className={styles.treatmentGroup}
-                      cx={getX(point.date)}
-                      cy={getY(value.value)}
-                      fill="var(--bgColor-default)"
-                      opacity={recommendedOpacity}
-                      r={activeTrend?.pointId === point.id && activeTrend.treatment === 'recommended' ? '5' : '3.5'}
-                      stroke={style.color}
-                      strokeWidth="2"
-                    />
+                    {value.value !== null ? (
+                      <circle
+                        className={styles.treatmentGroup}
+                        cx={getX(point.date)}
+                        cy={getY(value.value)}
+                        fill="var(--bgColor-default)"
+                        opacity={recommendedOpacity}
+                        r={activeTrend?.pointId === point.id && activeTrend.treatment === 'recommended' ? '5' : '3.5'}
+                        stroke={style.color}
+                        strokeWidth="2"
+                      />
+                    ) : null}
                   </g>
                 )
               })}

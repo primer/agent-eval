@@ -9,26 +9,35 @@ corepack install
 # Install dependencies
 pnpm install --frozen-lockfile
 
-# Download the latest baseline results
-run_id="$(
-  gh run list \
-    --repo primer/agent-eval \
-    --workflow baseline.yml \
-    --status success \
-    --limit 1 \
-    --json databaseId \
-    --jq '.[0].databaseId // empty'
+# Baseline workspaces are not needed after their merged results are produced.
+rm -rf "$repository_root/artifacts"
+
+# Download results from the 10 most recent retained baseline artifacts
+artifact_ids="$(
+  gh api \
+    --paginate \
+    --slurp \
+    "/repos/primer/agent-eval/actions/artifacts?per_page=100" |
+    jq --raw-output '
+      [.[].artifacts[]
+        | select(.expired == false and (.name | test("^baseline-[0-9]+$")))
+      ]
+      | sort_by(.created_at)
+      | .[-10:][].id
+    '
 )"
 
-if [[ -n "$run_id" ]]; then
+if [[ -n "$artifact_ids" ]]; then
   download_directory="$(mktemp -d)"
   trap 'rm -rf "$download_directory"' EXIT
 
-  gh run download \
-    --repo primer/agent-eval \
-    "$run_id" \
-    --name "baseline-$run_id" \
-    --dir "$download_directory"
+  while IFS= read -r artifact_id; do
+    archive="$download_directory/$artifact_id.zip"
+    gh api \
+      "/repos/primer/agent-eval/actions/artifacts/$artifact_id/zip" \
+      > "$archive"
+    unzip -o -q "$archive" -d "$download_directory"
+  done <<< "$artifact_ids"
 
   mkdir -p "$repository_root/results"
   cp -R "$download_directory/results/." "$repository_root/results/"

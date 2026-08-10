@@ -11,7 +11,7 @@
   "dependencies": {
     "@primer/agent-eval": "workspace:*",
     "@primer/octicons-react": "^19.29.2",
-    "@primer/primitives": "^11.9.0",
+    "@primer/primitives": "^11.10.0",
     "@primer/react": "^38.32.0",
     "@primer/tailwind-config": "^1.0.0",
     "next": "^16.2.10",

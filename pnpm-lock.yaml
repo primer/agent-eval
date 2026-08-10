@@ -359,8 +359,8 @@ importers:
         specifier: ^19.29.2
         version: 19.29.2(react@19.2.8)
       '@primer/primitives':
-        specifier: ^11.9.0
-        version: 11.9.0
+        specifier: ^11.10.0
+        version: 11.10.0
       '@primer/react':
         specifier: ^38.32.0
         version: 38.32.0(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react-is@19.2.8)(react@19.2.8)
@@ -898,6 +898,9 @@ packages:
     engines: {node: '>=8'}
     peerDependencies:
       react: '>=16.3'
+
+  '@primer/primitives@11.10.0':
+    resolution: {integrity: sha512-ihZxIst4Izry284StKFjpbYvX6R/IBFTLu+qiuAmR93PsKF2hdjoabhSYwKI8iCxOUx94jVP55bI3NoY7STjYQ==}
 
   '@primer/primitives@11.9.0':
     resolution: {integrity: sha512-yESOalhd7s7S3unV1V32v3Z0RszXiiz6pzy6hVI9xpdTh1q1Gt8vyDFxRlqIvuwc5ZaO1+gYQTDbjxb4nWBzMw==}
@@ -3958,6 +3961,8 @@ snapshots:
   '@primer/octicons-react@19.29.2(react@19.2.8)':
     dependencies:
       react: 19.2.8
+
+  '@primer/primitives@11.10.0': {}
 
   '@primer/primitives@11.9.0': {}
 

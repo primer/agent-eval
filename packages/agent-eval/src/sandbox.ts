@@ -39,7 +39,7 @@ const AGENTS_DIR = '/home/node/.agents'
 const SKILLS_DIR = '/home/node/.agents/skills'
 
 /**
- * Directory for local plugin sources copied or cloned into the container.
+ * Directory for local plugin sources copied into the container.
  */
 const COPILOT_PLUGIN_SOURCES_DIR = path.posix.join(COPILOT_DIR, 'plugin-sources')
 

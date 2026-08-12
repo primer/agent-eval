@@ -1,3 +1,4 @@
+import {randomUUID} from 'node:crypto'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import {Writable} from 'node:stream'
@@ -36,6 +37,11 @@ const AGENTS_DIR = '/home/node/.agents'
  * Directory for skills.
  */
 const SKILLS_DIR = '/home/node/.agents/skills'
+
+/**
+ * Directory for local plugin sources copied or cloned into the container.
+ */
+const COPILOT_PLUGIN_SOURCES_DIR = path.posix.join(COPILOT_DIR, 'plugin-sources')
 
 /**
  * Path for project agent instructions.
@@ -93,6 +99,30 @@ type AgentSkillFile = AgentSkillCopiedFile | AgentSkillWrittenFile
 type AgentSkillOptions = {
   files?: Array<AgentSkillFile>
 }
+
+type RemoteCopilotPluginSource = {
+  type: 'remote'
+  url: string
+  version?: string
+}
+
+type LocalCopilotPluginSource = {
+  type: 'local'
+  sourcePath: string
+}
+
+type CopilotPluginSource = RemoteCopilotPluginSource | LocalCopilotPluginSource
+
+type CopilotPluginConfig =
+  | CopilotPluginSource
+  | {
+      type: 'marketplace'
+      name: string
+      marketplace: {
+        name: string
+        source: CopilotPluginSource
+      }
+    }
 
 type CustomAgentOptions = {
   files?: Array<CustomAgentFile>
@@ -336,6 +366,42 @@ class Sandbox {
     })
   }
 
+  async installCopilotPlugin(config: CopilotPluginConfig): Promise<void> {
+    if (config.type === 'marketplace') {
+      const marketplaceSource = await this.#prepareCopilotPluginSource(config.marketplace.source)
+      await this.runCommand('copilot', ['plugin', 'marketplace', 'add', marketplaceSource])
+      await this.runCommand('copilot', ['plugin', 'install', `${config.name}@${config.marketplace.name}`])
+      return
+    }
+
+    const source = await this.#prepareCopilotPluginSource(config)
+    await this.runCommand('copilot', ['plugin', 'install', source])
+  }
+
+  async #prepareCopilotPluginSource(source: CopilotPluginSource): Promise<string> {
+    if (source.type === 'remote' && !source.version) {
+      return source.url
+    }
+
+    const destinationPath = path.posix.join(COPILOT_PLUGIN_SOURCES_DIR, randomUUID())
+    if (source.type === 'local') {
+      await this.copy(source.sourcePath, destinationPath)
+    } else {
+      await this.runCommand('git', [
+        'clone',
+        '--depth',
+        '1',
+        '--branch',
+        source.version!,
+        '--',
+        source.url,
+        destinationPath,
+      ])
+    }
+
+    return destinationPath
+  }
+
   async #findOrCreateFile(filepath: string): Promise<string> {
     if (await this.exists(filepath)) {
       return this.readFile(filepath)
@@ -377,13 +443,19 @@ async function createContainer(docker: Docker, dockerImage: string): Promise<Ini
     user: 'root',
   })
 
-  console.log('Installing CA certificates...')
+  console.log('Installing system dependencies...')
   await execCommand(docker, container, 'apt-get', ['update'], {
     user: 'root',
   })
-  await execCommand(docker, container, 'apt-get', ['install', '-y', '--no-install-recommends', 'ca-certificates'], {
-    user: 'root',
-  })
+  await execCommand(
+    docker,
+    container,
+    'apt-get',
+    ['install', '-y', '--no-install-recommends', 'ca-certificates', 'git'],
+    {
+      user: 'root',
+    },
+  )
   await execCommand(docker, container, 'test', ['-d', '/etc/ssl/certs'], {
     user: 'root',
   })
@@ -726,9 +798,13 @@ export type {
   AgentSkillFile,
   AgentSkillOptions,
   AgentSkillWrittenFile,
+  CopilotPluginConfig,
+  CopilotPluginSource,
   CustomAgentCopiedFile,
   CustomAgentFile,
   CustomAgentOptions,
   CustomAgentWrittenFile,
+  LocalCopilotPluginSource,
+  RemoteCopilotPluginSource,
 }
 export type {McpServerConfig} from './mcp-config'

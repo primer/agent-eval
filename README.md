@@ -270,3 +270,56 @@ export const experiment = defineConfig({
   ],
 })
 ```
+
+### Configure Copilot plugins
+
+Treatments can install Copilot plugins from remote Git repositories, local
+directories, or plugin marketplaces. Set `version` to install a specific remote
+branch or tag:
+
+```ts
+await sandbox.installCopilotPlugin({
+  type: 'remote',
+  url: 'https://github.com/example/copilot-plugin.git',
+})
+
+await sandbox.installCopilotPlugin({
+  type: 'remote',
+  url: 'https://github.com/example/copilot-plugin.git',
+  version: 'v1.2.3',
+})
+
+await sandbox.installCopilotPlugin({
+  type: 'local',
+  sourcePath: './plugins/copilot-plugin',
+})
+```
+
+For a marketplace plugin, provide the marketplace name from its
+`marketplace.json` and configure either a remote or local marketplace source:
+
+```ts
+await sandbox.installCopilotPlugin({
+  type: 'marketplace',
+  name: 'example-plugin',
+  marketplace: {
+    name: 'example-marketplace',
+    source: {
+      type: 'remote',
+      url: 'https://github.com/example/copilot-marketplace.git',
+    },
+  },
+})
+
+await sandbox.installCopilotPlugin({
+  type: 'marketplace',
+  name: 'local-plugin',
+  marketplace: {
+    name: 'local-marketplace',
+    source: {
+      type: 'local',
+      sourcePath: './plugins/local-marketplace',
+    },
+  },
+})
+```

@@ -39,7 +39,7 @@ describe('installCopilotPlugin', () => {
     expect(copy).not.toHaveBeenCalled()
     expect(runCommand).toHaveBeenCalledTimes(2)
 
-    const pluginPath = runCommand.mock.calls[0][1].at(-1)
+    const pluginPath = runCommand.mock.calls.at(0)?.[1]?.at(-1)
     expect(pluginPath).toMatch(/^\/home\/node\/\.copilot\/plugin-sources\//)
     expect(runCommand).toHaveBeenNthCalledWith(1, 'git', [
       'clone',

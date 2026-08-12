@@ -27,7 +27,7 @@ describe('addCopilotPlugin', () => {
     expect(runCommand).toHaveBeenCalledWith('copilot', ['plugin', 'install', 'https://github.com/example/plugin.git'])
   })
 
-  test('clones and installs a versioned remote plugin', async () => {
+  test('installs a versioned remote plugin', async () => {
     const {sandbox, copy, runCommand} = createSandbox()
 
     await sandbox.addCopilotPlugin({
@@ -37,21 +37,12 @@ describe('addCopilotPlugin', () => {
     })
 
     expect(copy).not.toHaveBeenCalled()
-    expect(runCommand).toHaveBeenCalledTimes(2)
-
-    const pluginPath = runCommand.mock.calls.at(0)?.[1]?.at(-1)
-    expect(pluginPath).toMatch(/^\/home\/node\/\.copilot\/plugin-sources\//)
-    expect(runCommand).toHaveBeenNthCalledWith(1, 'git', [
-      'clone',
-      '--depth',
-      '1',
-      '--branch',
-      'v1.2.3',
-      '--',
-      'https://github.com/example/plugin.git',
-      pluginPath,
+    expect(runCommand).toHaveBeenCalledOnce()
+    expect(runCommand).toHaveBeenCalledWith('copilot', [
+      'plugin',
+      'install',
+      'https://github.com/example/plugin.git#v1.2.3',
     ])
-    expect(runCommand).toHaveBeenNthCalledWith(2, 'copilot', ['plugin', 'install', pluginPath])
   })
 
   test('copies and installs a local plugin', async () => {
@@ -81,6 +72,7 @@ describe('addCopilotPlugin', () => {
         source: {
           type: 'remote',
           url: 'https://github.com/example/marketplace.git',
+          version: 'v1.2.3',
         },
       },
     })
@@ -90,7 +82,7 @@ describe('addCopilotPlugin', () => {
       'plugin',
       'marketplace',
       'add',
-      'https://github.com/example/marketplace.git',
+      'https://github.com/example/marketplace.git#v1.2.3',
     ])
     expect(runCommand).toHaveBeenNthCalledWith(2, 'copilot', [
       'plugin',

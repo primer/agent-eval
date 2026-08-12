@@ -379,26 +379,12 @@ class Sandbox {
   }
 
   async #prepareCopilotPluginSource(source: CopilotPluginSource): Promise<string> {
-    if (source.type === 'remote' && !source.version) {
-      return source.url
+    if (source.type === 'remote') {
+      return source.version ? `${source.url}#${source.version}` : source.url
     }
 
     const destinationPath = path.posix.join(COPILOT_PLUGIN_SOURCES_DIR, randomUUID())
-    if (source.type === 'local') {
-      await this.copy(source.sourcePath, destinationPath)
-    } else {
-      await this.runCommand('git', [
-        'clone',
-        '--depth',
-        '1',
-        '--branch',
-        source.version!,
-        '--',
-        source.url,
-        destinationPath,
-      ])
-    }
-
+    await this.copy(source.sourcePath, destinationPath)
     return destinationPath
   }
 
@@ -443,19 +429,13 @@ async function createContainer(docker: Docker, dockerImage: string): Promise<Ini
     user: 'root',
   })
 
-  console.log('Installing system dependencies...')
+  console.log('Installing CA certificates...')
   await execCommand(docker, container, 'apt-get', ['update'], {
     user: 'root',
   })
-  await execCommand(
-    docker,
-    container,
-    'apt-get',
-    ['install', '-y', '--no-install-recommends', 'ca-certificates', 'git'],
-    {
-      user: 'root',
-    },
-  )
+  await execCommand(docker, container, 'apt-get', ['install', '-y', '--no-install-recommends', 'ca-certificates'], {
+    user: 'root',
+  })
   await execCommand(docker, container, 'test', ['-d', '/etc/ssl/certs'], {
     user: 'root',
   })

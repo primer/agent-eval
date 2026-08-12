@@ -366,7 +366,7 @@ class Sandbox {
     })
   }
 
-  async installCopilotPlugin(config: CopilotPluginConfig): Promise<void> {
+  async addCopilotPlugin(config: CopilotPluginConfig): Promise<void> {
     if (config.type === 'marketplace') {
       const marketplaceSource = await this.#prepareCopilotPluginSource(config.marketplace.source)
       await this.runCommand('copilot', ['plugin', 'marketplace', 'add', marketplaceSource])

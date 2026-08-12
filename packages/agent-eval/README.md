@@ -198,18 +198,18 @@ directories, or remote and local plugin marketplaces. A remote plugin can
 optionally specify a branch or tag with `version`:
 
 ```ts
-await sandbox.installCopilotPlugin({
+await sandbox.addCopilotPlugin({
   type: 'remote',
   url: 'https://github.com/example/copilot-plugin.git',
   version: 'v1.2.3',
 })
 
-await sandbox.installCopilotPlugin({
+await sandbox.addCopilotPlugin({
   type: 'local',
   sourcePath: './plugins/copilot-plugin',
 })
 
-await sandbox.installCopilotPlugin({
+await sandbox.addCopilotPlugin({
   type: 'marketplace',
   name: 'example-plugin',
   marketplace: {

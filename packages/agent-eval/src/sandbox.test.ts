@@ -13,11 +13,11 @@ function createSandbox() {
   return {sandbox, copy, runCommand}
 }
 
-describe('installCopilotPlugin', () => {
+describe('addCopilotPlugin', () => {
   test('installs a remote plugin', async () => {
     const {sandbox, copy, runCommand} = createSandbox()
 
-    await sandbox.installCopilotPlugin({
+    await sandbox.addCopilotPlugin({
       type: 'remote',
       url: 'https://github.com/example/plugin.git',
     })
@@ -30,7 +30,7 @@ describe('installCopilotPlugin', () => {
   test('clones and installs a versioned remote plugin', async () => {
     const {sandbox, copy, runCommand} = createSandbox()
 
-    await sandbox.installCopilotPlugin({
+    await sandbox.addCopilotPlugin({
       type: 'remote',
       url: 'https://github.com/example/plugin.git',
       version: 'v1.2.3',
@@ -57,7 +57,7 @@ describe('installCopilotPlugin', () => {
   test('copies and installs a local plugin', async () => {
     const {sandbox, copy, runCommand} = createSandbox()
 
-    await sandbox.installCopilotPlugin({
+    await sandbox.addCopilotPlugin({
       type: 'local',
       sourcePath: './plugins/local-plugin',
     })
@@ -73,7 +73,7 @@ describe('installCopilotPlugin', () => {
   test('adds a remote marketplace and installs its plugin', async () => {
     const {sandbox, copy, runCommand} = createSandbox()
 
-    await sandbox.installCopilotPlugin({
+    await sandbox.addCopilotPlugin({
       type: 'marketplace',
       name: 'example-plugin',
       marketplace: {
@@ -102,7 +102,7 @@ describe('installCopilotPlugin', () => {
   test('copies a local marketplace and installs its plugin', async () => {
     const {sandbox, copy, runCommand} = createSandbox()
 
-    await sandbox.installCopilotPlugin({
+    await sandbox.addCopilotPlugin({
       type: 'marketplace',
       name: 'example-plugin',
       marketplace: {

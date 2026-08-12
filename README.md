@@ -278,18 +278,18 @@ directories, or plugin marketplaces. Set `version` to install a specific remote
 branch or tag:
 
 ```ts
-await sandbox.installCopilotPlugin({
+await sandbox.addCopilotPlugin({
   type: 'remote',
   url: 'https://github.com/example/copilot-plugin.git',
 })
 
-await sandbox.installCopilotPlugin({
+await sandbox.addCopilotPlugin({
   type: 'remote',
   url: 'https://github.com/example/copilot-plugin.git',
   version: 'v1.2.3',
 })
 
-await sandbox.installCopilotPlugin({
+await sandbox.addCopilotPlugin({
   type: 'local',
   sourcePath: './plugins/copilot-plugin',
 })
@@ -299,7 +299,7 @@ For a marketplace plugin, provide the marketplace name from its
 `marketplace.json` and configure either a remote or local marketplace source:
 
 ```ts
-await sandbox.installCopilotPlugin({
+await sandbox.addCopilotPlugin({
   type: 'marketplace',
   name: 'example-plugin',
   marketplace: {
@@ -311,7 +311,7 @@ await sandbox.installCopilotPlugin({
   },
 })
 
-await sandbox.installCopilotPlugin({
+await sandbox.addCopilotPlugin({
   type: 'marketplace',
   name: 'local-plugin',
   marketplace: {

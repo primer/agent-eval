@@ -1,5 +1,11 @@
 # @primer/agent-eval
 
+## 0.4.0
+
+### Minor Changes
+
+- bd4eb9a: Add support for installing Copilot plugins in sandbox treatments.
+
 ## 0.3.0
 
 ### Minor Changes

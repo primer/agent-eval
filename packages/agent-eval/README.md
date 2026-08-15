@@ -192,3 +192,35 @@ await sandbox.addAgentSkill('test-planning', 'Plans test coverage', 'Create focu
   ],
 })
 ```
+
+Treatment setup can install Copilot plugins from remote Git repositories, local
+directories, or remote and local plugin marketplaces. A remote plugin can
+optionally specify a branch or tag with `version`:
+
+```ts
+await sandbox.addCopilotPlugin({
+  type: 'remote',
+  url: 'https://github.com/example/copilot-plugin.git',
+  version: 'v1.2.3',
+})
+
+await sandbox.addCopilotPlugin({
+  type: 'local',
+  sourcePath: './plugins/copilot-plugin',
+})
+
+await sandbox.addCopilotPlugin({
+  type: 'marketplace',
+  name: 'example-plugin',
+  marketplace: {
+    name: 'example-marketplace',
+    source: {
+      type: 'remote',
+      url: 'https://github.com/example/copilot-marketplace.git',
+    },
+  },
+})
+```
+
+Use `{type: 'local', sourcePath: './plugins/local-marketplace'}` as the
+marketplace `source` to install from a local marketplace.

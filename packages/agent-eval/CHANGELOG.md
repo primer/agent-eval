@@ -1,5 +1,17 @@
 # @primer/agent-eval
 
+## 0.4.0
+
+### Minor Changes
+
+- bd4eb9a: Add support for installing Copilot plugins in sandbox treatments.
+
+## 0.3.0
+
+### Minor Changes
+
+- fdbb330: Add support for optional scenario browser tests powered by Vitest and Playwright.
+
 ## 0.2.0
 
 ### Minor Changes

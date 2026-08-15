@@ -10,8 +10,8 @@
   },
   "dependencies": {
     "@primer/agent-eval": "workspace:*",
-    "@primer/octicons-react": "^19.29.2",
-    "@primer/primitives": "^11.9.0",
+    "@primer/octicons-react": "^19.33.0",
+    "@primer/primitives": "^11.10.0",
     "@primer/react": "^38.32.0",
     "@primer/tailwind-config": "^1.0.0",
     "next": "^16.2.10",
@@ -25,11 +25,11 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.3",
-    "@types/node": "~26.1.1",
-    "@types/react": "^19.2.17",
-    "@types/react-dom": "^19.2.3",
+    "@types/node": "~26.1.2",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
     "babel-plugin-react-compiler": "^1.0.0",
-    "postcss": "^8.5.19",
+    "postcss": "^8.5.26",
     "rimraf": "^6.1.3",
     "tailwindcss": "^4.3.3",
     "typescript": "^6.0.3"

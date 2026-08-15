@@ -1,3 +1,4 @@
+import {randomUUID} from 'node:crypto'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import {Writable} from 'node:stream'
@@ -36,6 +37,11 @@ const AGENTS_DIR = '/home/node/.agents'
  * Directory for skills.
  */
 const SKILLS_DIR = '/home/node/.agents/skills'
+
+/**
+ * Directory for local plugin sources copied into the container.
+ */
+const COPILOT_PLUGIN_SOURCES_DIR = path.posix.join(COPILOT_DIR, 'plugin-sources')
 
 /**
  * Path for project agent instructions.
@@ -93,6 +99,30 @@ type AgentSkillFile = AgentSkillCopiedFile | AgentSkillWrittenFile
 type AgentSkillOptions = {
   files?: Array<AgentSkillFile>
 }
+
+type RemoteCopilotPluginSource = {
+  type: 'remote'
+  url: string
+  version?: string
+}
+
+type LocalCopilotPluginSource = {
+  type: 'local'
+  sourcePath: string
+}
+
+type CopilotPluginSource = RemoteCopilotPluginSource | LocalCopilotPluginSource
+
+type CopilotPluginConfig =
+  | CopilotPluginSource
+  | {
+      type: 'marketplace'
+      name: string
+      marketplace: {
+        name: string
+        source: CopilotPluginSource
+      }
+    }
 
 type CustomAgentOptions = {
   files?: Array<CustomAgentFile>
@@ -334,6 +364,28 @@ class Sandbox {
     await this.runCommand('chown', ['-R', NODE_USER, MCP_CONFIG_PATH], {
       user: 'root',
     })
+  }
+
+  async addCopilotPlugin(config: CopilotPluginConfig): Promise<void> {
+    if (config.type === 'marketplace') {
+      const marketplaceSource = await this.#prepareCopilotPluginSource(config.marketplace.source)
+      await this.runCommand('copilot', ['plugin', 'marketplace', 'add', marketplaceSource])
+      await this.runCommand('copilot', ['plugin', 'install', `${config.name}@${config.marketplace.name}`])
+      return
+    }
+
+    const source = await this.#prepareCopilotPluginSource(config)
+    await this.runCommand('copilot', ['plugin', 'install', source])
+  }
+
+  async #prepareCopilotPluginSource(source: CopilotPluginSource): Promise<string> {
+    if (source.type === 'remote') {
+      return source.version ? `${source.url}#${source.version}` : source.url
+    }
+
+    const destinationPath = path.posix.join(COPILOT_PLUGIN_SOURCES_DIR, randomUUID())
+    await this.copy(source.sourcePath, destinationPath)
+    return destinationPath
   }
 
   async #findOrCreateFile(filepath: string): Promise<string> {
@@ -726,9 +778,13 @@ export type {
   AgentSkillFile,
   AgentSkillOptions,
   AgentSkillWrittenFile,
+  CopilotPluginConfig,
+  CopilotPluginSource,
   CustomAgentCopiedFile,
   CustomAgentFile,
   CustomAgentOptions,
   CustomAgentWrittenFile,
+  LocalCopilotPluginSource,
+  RemoteCopilotPluginSource,
 }
 export type {McpServerConfig} from './mcp-config'

@@ -208,8 +208,8 @@ importers:
   scenarios/002-agent-uses-octicon-from-primer:
     dependencies:
       '@primer/octicons-react':
-        specifier: ^19.29.2
-        version: 19.29.2(react@19.2.8)
+        specifier: ^19.33.0
+        version: 19.33.0(react@19.2.8)
       next:
         specifier: ^16
         version: 16.2.10(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -356,8 +356,8 @@ importers:
         specifier: workspace:*
         version: link:../packages/agent-eval
       '@primer/octicons-react':
-        specifier: ^19.29.2
-        version: 19.29.2(react@19.2.8)
+        specifier: ^19.33.0
+        version: 19.33.0(react@19.2.8)
       '@primer/primitives':
         specifier: ^11.10.0
         version: 11.10.0
@@ -890,8 +890,8 @@ packages:
   '@primer/live-region-element@0.8.0':
     resolution: {integrity: sha512-DIp04IeZvZ+gwCUcBchIvRwJA2PikP/6hnFhcLKgwttcg5OYjBH9t0cZjLnv10Aq1jN0rAFFG+WPMd3bw4hXcA==}
 
-  '@primer/octicons-react@19.29.2':
-    resolution: {integrity: sha512-5hK0z/FLvxbYX/Sj7JDUUwYMWMfKN1Sb4FL/stp3hCLnU9pBUXvcKaoQ/9epf80Gvsad4hBkvi2/gPQy9EQN/w==}
+  '@primer/octicons-react@19.33.0':
+    resolution: {integrity: sha512-7VL8WuLXXZvUV/DP895ESFXPl/FJq816amCT3KZcmpQgxM1uv6lJGCcsEFpLX3K6SE+3qcmsftPpxn3ctr06+g==}
     engines: {node: '>=8'}
     peerDependencies:
       react: '>=16.3'
@@ -3947,7 +3947,7 @@ snapshots:
     dependencies:
       '@lit-labs/ssr-dom-shim': 1.6.0
 
-  '@primer/octicons-react@19.29.2(react@19.2.8)':
+  '@primer/octicons-react@19.33.0(react@19.2.8)':
     dependencies:
       react: 19.2.8
 
@@ -3964,7 +3964,7 @@ snapshots:
       '@oddbird/popover-polyfill': 0.5.2
       '@primer/behaviors': 1.10.3
       '@primer/live-region-element': 0.8.0
-      '@primer/octicons-react': 19.29.2(react@19.2.8)
+      '@primer/octicons-react': 19.33.0(react@19.2.8)
       '@primer/primitives': 11.9.0
       '@tanstack/react-virtual': 3.14.6(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       clsx: 2.1.1

@@ -22,6 +22,33 @@ This workflow applies to resources such as:
 Do not optimize the prose of a resource without evaluating the behavior it is
 intended to produce.
 
+## Minimal satisfying resource
+
+Optimize for the **smallest resource that reliably satisfies the goal**, not
+the resource with the highest score regardless of size.
+
+Use this ordering:
+
+1. Reject candidates that do not meet the required behavioral threshold or
+   introduce unacceptable regressions.
+2. Among satisfying candidates, prefer the one with the smallest resource
+   footprint.
+3. When candidates are similarly small, prefer lower runtime cost and latency.
+4. Keep additional content only when evidence shows that it improves behavior
+   or protects an important regression.
+
+Measure resource footprint with the most meaningful available unit:
+
+- Tokens for prompts, instructions, skills, and documentation supplied to the
+  model.
+- Words or characters when exact tokenization is unavailable.
+- Loaded files, retrieved context, tool descriptions, or setup overhead for
+  compound resources.
+
+Record both the total size and the incremental size over control. Do not choose
+the shortest candidate when it is less reliable; minimal means **no larger than
+necessary to satisfy the goal**.
+
 ## Choose a mode
 
 Use **Quick mode** by default. Use **Confidence mode** when the user requests a
@@ -54,6 +81,8 @@ Capture:
 - Existing resource content, if any.
 - Constraints such as latency, token usage, tool availability, maintenance
   cost, or supported models.
+- The minimum acceptable behavior and any non-negotiable regression limits.
+- The resource-size unit and budget, when the user has one.
 - What evidence would convince the user that the resource is successful.
 
 Express the primary hypothesis before creating files:
@@ -163,6 +192,7 @@ Create the experiment in `experiments/<descriptive-name>.ts` with a named
 Treatments should test explicit hypotheses about the resource. Examples:
 
 - Concise procedural instructions versus explanatory guidance.
+- A satisfying candidate versus an ablated or compressed version.
 - Bundled reference material versus instructions alone.
 - An always-on repository instruction versus a discoverable skill.
 - An MCP server alone versus the server with activation instructions.
@@ -176,6 +206,15 @@ Use the fewest treatments that can answer the current question:
 Change one treatment variable at a time. Keep the prompt, fixture, model,
 reasoning effort, dependencies, and runtime identical. Pin or vendor candidate
 resource content so each result is reproducible.
+
+Treat added content as a cost that must justify itself. Once a candidate
+satisfies the behavioral threshold, prefer subtraction experiments:
+
+1. Remove one section, example, file, or instruction category.
+2. Rerun the affected comparison.
+3. Keep the removal if behavior remains within the success and regression
+   thresholds.
+4. Repeat until the next removal causes a meaningful loss.
 
 Do not use treatment names that reveal expectations such as "improved" or
 "correct." Use neutral names based on the actual difference.
@@ -220,6 +259,8 @@ Evaluate:
 - Test pass rate overall and per scenario.
 - Which specific capabilities improved or regressed.
 - Whether the treatment caused the intended behavior for the intended reason.
+- Resource size and marginal behavior gained per added token, word, file, or
+  other selected size unit.
 - Output tokens, premium requests, latency, and other user constraints.
 - Variance across models or repeated runs.
 - Whether one scenario dominates the aggregate score.
@@ -249,6 +290,8 @@ Good refinements:
 - Replace vague advice with a decision rule.
 - Add a reference only when failures show missing knowledge.
 - Remove instructions that increase cost without changing behavior.
+- Compress repeated guidance into one general rule.
+- Replace long explanation with a shorter rule when both perform equivalently.
 
 Avoid:
 
@@ -275,6 +318,8 @@ Promote from Quick mode to Confidence mode when a candidate:
 Stop iterating when one of these is true:
 
 - A candidate meets the user's success criteria across the confidence suite.
+- Removing or compressing any remaining resource content causes the candidate
+  to miss the success or regression threshold.
 - Further changes trade one important behavior for another and require a user
   decision.
 - Results are indistinguishable within observed run variance.
@@ -288,9 +333,9 @@ Leave the repository with:
 - A concise written hypothesis in the experiment or scenario description.
 - Representative, treatment-blind scenarios and graders.
 - An experiment containing the smallest useful treatment comparison.
-- The strongest resource candidate produced by the evaluation.
+- The minimal satisfying resource candidate produced by the evaluation.
 - A concise result summary covering wins, regressions, cost or latency
-  tradeoffs, confidence level, and unresolved risks.
+  tradeoffs, resource size, confidence level, and unresolved risks.
 
 Do not claim completion until the scenarios, experiment, and resource treatment
 are runnable and the selected evaluation mode has been executed, unless a

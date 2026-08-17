@@ -148,7 +148,7 @@ const AssistantMessageSchema = z.object({
     reasoningOpaque: z.optional(z.string()),
     encryptedContent: z.optional(z.string()),
     phase: z.optional(z.string()),
-    outputTokens: z.number(),
+    outputTokens: z.optional(z.number()),
     requestId: z.string(),
   }),
 })

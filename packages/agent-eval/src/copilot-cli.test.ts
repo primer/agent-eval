@@ -155,6 +155,20 @@ describe(parseMessage, () => {
       parentId: '2fa47aa3-4f30-4959-a0cc-68295236ea73',
     },
     {
+      type: 'assistant.message',
+      data: {
+        messageId: '19c1246c-a77f-4b60-bb06-7679ebb577e1',
+        content: 'Here is the summary of the changes.',
+        toolRequests: [],
+        interactionId: 'eb5e3f1d-e742-4e69-9d82-cdf199fca42b',
+        turnId: '8',
+        requestId: '00000-1e2d12fa-7daf-434a-b101-f0ad5e654bec',
+      },
+      id: '3afee1ac-f9eb-44ca-b8b8-b50e9c89e015',
+      timestamp: '2026-08-17T00:23:26.072Z',
+      parentId: '2b1722fe-509e-4368-8c8b-2ae8985099b6',
+    },
+    {
       type: 'assistant.idle',
       data: {},
       ephemeral: true,

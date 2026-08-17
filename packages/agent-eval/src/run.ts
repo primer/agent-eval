@@ -319,7 +319,7 @@ async function runTreatment(
     }
 
     if (isMessageType(message, 'assistant.message')) {
-      outputTokens += message.data.outputTokens
+      outputTokens += message.data.outputTokens ?? 0
     }
 
     if (isMessageType(message, 'tool.execution_start')) {

@@ -110,6 +110,45 @@ export COPILOT_GITHUB_TOKEN=... # A GitHub token with access to the Copilot API
 npx @primer/agent-eval --experiments ./experiments --experiment example --scenarios ./scenarios
 ```
 
+## Benchmarks
+
+A benchmark groups a curated set of scenarios into capabilities. Benchmark
+results include an aggregate score for each capability so that changes in model
+performance are easier to diagnose.
+
+```ts
+// benchmarks/ui-interactions.ts
+import {defineBenchmark} from '@primer/agent-eval/benchmark'
+
+export const benchmark = defineBenchmark({
+  name: 'UI interactions',
+  description: 'Evaluate common UI interaction tasks',
+  models: [
+    {name: 'gpt-5.5', reasoningEfforts: ['high']},
+    {name: 'claude-opus-4.8', reasoningEfforts: ['high']},
+  ],
+  capabilities: [
+    {
+      name: 'Edits forms',
+      description: 'Creates and updates accessible forms',
+      scenarios: ['creates-sign-up-form', 'adds-form-validation'],
+    },
+    {
+      name: 'Edits multiple files',
+      description: 'Coordinates changes across related files',
+      scenarios: ['adds-settings-page'],
+    },
+  ],
+})
+```
+
+Run a benchmark with `--benchmark`. The benchmarks directory defaults to
+`./benchmarks`.
+
+```bash
+npx @primer/agent-eval --benchmark ui-interactions --scenarios ./scenarios
+```
+
 ## CLI
 
 Install the package and run the `agent-eval` binary with a GitHub token:

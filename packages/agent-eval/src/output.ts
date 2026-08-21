@@ -49,7 +49,11 @@ type AgentEvalOutput = {
     id: string
     name: string
     description: string
-    capabilities: BenchmarkConfig['capabilities']
+    capabilities: Array<{
+      name: string
+      description: string
+      scenarios: Array<string>
+    }>
   }
   experiment: {
     id: string
@@ -110,7 +114,7 @@ const AgentEvalOutputExperimentSchema = z.object({
 const CapabilitySchema = z.object({
   name: z.string(),
   description: z.string(),
-  scenarios: z.array(ExperimentScenarioSchema),
+  scenarios: z.array(z.string()),
 })
 
 const AgentEvalOutputBenchmarkSchema = z.object({
@@ -204,6 +208,25 @@ function createAgentEvalOutput({
   scenarios,
   results,
 }: CreateAgentEvalOutputOptions): AgentEvalOutput {
+  let scenarioIndex = 0
+  const benchmarkCapabilities = benchmark?.config.capabilities.map(capability => {
+    return {
+      name: capability.name,
+      description: capability.description,
+      scenarios: capability.scenarios.map(() => {
+        const scenario = scenarios[scenarioIndex]
+        scenarioIndex += 1
+        if (!scenario) {
+          throw new Error(`Could not resolve every scenario in benchmark "${benchmark.config.name}"`)
+        }
+        return scenario.id
+      }),
+    }
+  })
+  if (benchmark && scenarioIndex !== scenarios.length) {
+    throw new Error(`Benchmark "${benchmark.config.name}" contains unresolved scenario metadata`)
+  }
+
   const treatmentsByName = new Map<
     string,
     {
@@ -227,14 +250,16 @@ function createAgentEvalOutput({
 
   return {
     id,
-    benchmark: benchmark
+    ...(benchmark
       ? {
-          id: benchmark.id,
-          name: benchmark.config.name,
-          description: benchmark.config.description,
-          capabilities: benchmark.config.capabilities,
+          benchmark: {
+            id: benchmark.id,
+            name: benchmark.config.name,
+            description: benchmark.config.description,
+            capabilities: benchmarkCapabilities ?? [],
+          },
         }
-      : undefined,
+      : {}),
     experiment: {
       id: experimentId,
       name: experiment.name,

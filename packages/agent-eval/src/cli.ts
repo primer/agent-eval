@@ -111,6 +111,7 @@ const MAX_CONCURRENCY =
     : 1
 const SHARD = values.shard ? parseShard(values.shard) : undefined
 let selectedExperiment: {
+  capabilityNames?: Array<string>
   id: string
   config: ExperimentConfig
   benchmark?: BenchmarkConfig
@@ -138,15 +139,17 @@ if (values.benchmark) {
   }
 
   const scenarios: Array<ExperimentScenarioConfig> = []
+  const capabilityNames: Array<string> = []
   const scenarioKeys = new Set<string>()
   for (const capability of benchmark.capabilities) {
     for (const scenario of capability.scenarios) {
       const key = typeof scenario === 'string' ? scenario : `${scenario.name ?? ''}\0${scenario.path}`
       if (scenarioKeys.has(key)) {
-        throw new Error(`Scenario "${typeof scenario === 'string' ? scenario : scenario.path}" belongs to multiple capabilities`)
+        throw new Error(`Scenario "${typeof scenario === 'string' ? scenario : scenario.path}" appears more than once`)
       }
       scenarioKeys.add(key)
       scenarios.push(scenario)
+      capabilityNames.push(capability.name)
     }
   }
 
@@ -160,9 +163,10 @@ if (values.benchmark) {
       models: benchmark.models,
       scenarios,
       setup: benchmark.setup,
-      treatments: benchmark.treatments,
+      treatments: benchmark.treatments ?? [],
     },
     benchmark,
+    capabilityNames,
   }
 } else if (values.experiment) {
   const config = await findExperiment(values.experiment, {
@@ -374,6 +378,7 @@ type ResultHierarchy = Array<{
   treatments: Array<{
     summary: ResultSummary
     capabilities: Array<{
+      models: Array<ResultSummary>
       summary: ResultSummary
       scenarios: Array<{
         summary: ResultSummary
@@ -390,6 +395,7 @@ function getResultSummaries(
   const experiments = new Set<string>()
   const treatmentSummaries = new Map<string, ResultSummary>()
   const capabilitySummaries = new Map<string, ResultSummary>()
+  const capabilityModelSummaries = new Map<string, ResultSummary>()
   const scenarioSummaries = new Map<string, ResultSummary>()
   const modelSummaries = new Map<string, ResultSummary>()
 
@@ -410,10 +416,21 @@ function getResultSummaries(
       capability,
     }
     const capabilityKey = getSummaryKey(result, capabilityValues)
-    const capabilitySummary =
-      capabilitySummaries.get(capabilityKey) ?? createResultSummary(result, capabilityValues)
+    const capabilitySummary = capabilitySummaries.get(capabilityKey) ?? createResultSummary(result, capabilityValues)
     addResultToSummary(capabilitySummary, result)
     capabilitySummaries.set(capabilityKey, capabilitySummary)
+
+    const capabilityModelValues = {
+      treatment: result.treatment.config.name,
+      capability,
+      model: result.treatment.model,
+      reasoningEffort: result.treatment.reasoningEffort,
+    }
+    const capabilityModelKey = getSummaryKey(result, capabilityModelValues)
+    const capabilityModelSummary =
+      capabilityModelSummaries.get(capabilityModelKey) ?? createResultSummary(result, capabilityModelValues)
+    addResultToSummary(capabilityModelSummary, result)
+    capabilityModelSummaries.set(capabilityModelKey, capabilityModelSummary)
 
     const scenarioValues = {
       treatment: result.treatment.config.name,
@@ -451,13 +468,20 @@ function getResultSummaries(
             summary,
             capabilities: [...capabilitySummaries.values()]
               .filter(capabilitySummary => {
-                return (
-                  capabilitySummary.experiment === experiment && capabilitySummary.treatment === summary.treatment
-                )
+                return capabilitySummary.experiment === experiment && capabilitySummary.treatment === summary.treatment
               })
               .toSorted(compareSummaries)
               .map(capabilitySummary => {
                 return {
+                  models: [...capabilityModelSummaries.values()]
+                    .filter(modelSummary => {
+                      return (
+                        modelSummary.experiment === experiment &&
+                        modelSummary.treatment === summary.treatment &&
+                        modelSummary.capability === capabilitySummary.capability
+                      )
+                    })
+                    .toSorted(compareSummaries),
                   summary: capabilitySummary,
                   scenarios: [...scenarioSummaries.values()]
                     .filter(scenarioSummary => {
@@ -516,9 +540,12 @@ function formatResultSummaries(
     for (const {summary, capabilities} of treatments) {
       rows.push(formatSummaryRow(summary, 'treatment'))
 
-      for (const {summary: capabilitySummary, scenarios} of capabilities) {
+      for (const {models: capabilityModels, summary: capabilitySummary, scenarios} of capabilities) {
         if (capabilitySummary.capability) {
           rows.push(formatSummaryRow(capabilitySummary, 'capability'))
+          for (const model of capabilityModels) {
+            rows.push(formatSummaryRow(model, 'capability-model'))
+          }
         }
 
         for (const {summary: scenarioSummary, models} of scenarios) {
@@ -545,7 +572,7 @@ async function appendResultsToJobSummary(resultSummaries: string) {
 
 function formatSummaryRow(
   summary: ResultSummary,
-  level: 'treatment' | 'capability' | 'scenario' | 'model',
+  level: 'treatment' | 'capability' | 'capability-model' | 'scenario' | 'model',
 ): TableRow {
   return {
     Experiment: level === 'treatment' ? summary.experiment : '',
@@ -557,8 +584,13 @@ function formatSummaryRow(
         : level === 'scenario'
           ? `${summary.capability ? '    ' : '  '}${summary.scenario ?? ''}`
           : '',
-    Model: level === 'model' ? `${summary.capability ? '      ' : '    '}${summary.model ?? ''}` : 'All models',
-    'Reasoning Effort': level === 'model' ? (summary.reasoningEffort ?? '') : '',
+    Model:
+      level === 'model'
+        ? `${summary.capability ? '      ' : '    '}${summary.model ?? ''}`
+        : level === 'capability-model'
+          ? `    ${summary.model ?? ''}`
+          : 'All models',
+    'Reasoning Effort': level === 'model' || level === 'capability-model' ? (summary.reasoningEffort ?? '') : '',
     'Success Rate': formatPercent(getSummarySuccessRate(summary)),
     Tests: `${summary.numPassedTests}/${summary.numTotalTests}`,
     Runs: summary.runs,
@@ -579,6 +611,20 @@ const scenarios = await Promise.all(
     })
   }),
 )
+
+const capabilitiesByScenario = new Map<string, string>()
+if (selectedExperiment.capabilityNames) {
+  for (const [index, scenario] of scenarios.entries()) {
+    const capability = selectedExperiment.capabilityNames[index]
+    if (!capability) {
+      throw new Error(`No capability was configured for scenario "${scenario.id}"`)
+    }
+    if (capabilitiesByScenario.has(scenario.id)) {
+      throw new Error(`Scenario "${scenario.id}" appears more than once`)
+    }
+    capabilitiesByScenario.set(scenario.id, capability)
+  }
+}
 
 const treatments: Array<Treatment> = config.models.flatMap(modelConfig => {
   return resolveModelConfigs(modelConfig).flatMap(({name: model, reasoningEffort}) => {
@@ -620,17 +666,6 @@ const results: Array<TreatmentResult> = await run(randomize(selectedTreatments),
 })
 
 const sortedResults = results.toSorted(compareResults)
-const capabilitiesByScenario = new Map<string, string>()
-if (selectedExperiment.benchmark) {
-  for (const capability of selectedExperiment.benchmark.capabilities) {
-    for (const scenario of capability.scenarios) {
-      const resolvedScenario = await resolveExperimentScenario(scenario, {
-        directory: values.scenarios,
-      })
-      capabilitiesByScenario.set(resolvedScenario.id, capability.name)
-    }
-  }
-}
 const resultSummaries = formatResultSummaries(sortedResults, capabilitiesByScenario)
 console.log(resultSummaries)
 await appendResultsToJobSummary(resultSummaries)

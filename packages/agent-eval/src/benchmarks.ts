@@ -66,10 +66,7 @@ async function listBenchmarks(options: BenchmarkSourceOptions = {}): Promise<Arr
   return getBenchmarkEntries(options.directory ?? 'benchmarks')
 }
 
-async function findBenchmark(
-  id: string,
-  options: BenchmarkSourceOptions = {},
-): Promise<BenchmarkConfig | undefined> {
+async function findBenchmark(id: string, options: BenchmarkSourceOptions = {}): Promise<BenchmarkConfig | undefined> {
   if (existsSync(id)) {
     return loadBenchmarkFile(id)
   }

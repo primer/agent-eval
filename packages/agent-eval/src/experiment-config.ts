@@ -26,7 +26,7 @@ type BenchmarkConfig = {
   models: Array<ExperimentModelConfig>
   capabilities: Array<CapabilityConfig>
   setup?: Setup
-  treatments: Array<TreatmentConfig>
+  treatments?: Array<TreatmentConfig>
 }
 
 type ExperimentConfig = {

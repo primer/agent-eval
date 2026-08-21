@@ -3,6 +3,7 @@ import {
   createAgentEvalOutput,
   parseAgentEvalOutput,
   type AgentEvalOutput,
+  type BenchmarkConfig,
   type ExperimentConfig,
   type ResolvedScenario,
   type TreatmentResult,
@@ -131,6 +132,57 @@ describe(createAgentEvalOutput, () => {
       ],
     })
   })
+
+  test('includes benchmark capabilities', () => {
+    const benchmark: BenchmarkConfig = {
+      name: 'UI interactions',
+      description: 'Evaluates UI interaction capabilities',
+      models: [{name: 'gpt-5.5', reasoningEfforts: ['high']}],
+      capabilities: [
+        {
+          name: 'Edits forms',
+          description: 'Evaluates form editing',
+          scenarios: ['example'],
+        },
+      ],
+    }
+    const experiment: ExperimentConfig = {
+      name: benchmark.name,
+      description: benchmark.description,
+      models: benchmark.models,
+      scenarios: ['example'],
+      treatments: [],
+    }
+
+    expect(
+      createAgentEvalOutput({
+        id: 'run-id',
+        benchmark: {
+          id: 'ui-interactions',
+          config: benchmark,
+        },
+        experimentId: 'ui-interactions',
+        experiment,
+        scenarios: output.scenarios,
+        results: [],
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        benchmark: {
+          id: 'ui-interactions',
+          name: benchmark.name,
+          description: benchmark.description,
+          capabilities: [
+            {
+              name: 'Edits forms',
+              description: 'Evaluates form editing',
+              scenarios: ['example'],
+            },
+          ],
+        },
+      }),
+    )
+  })
 })
 
 describe(parseAgentEvalOutput, () => {
@@ -140,6 +192,26 @@ describe(parseAgentEvalOutput, () => {
 
   test('parses serialized agent eval output', () => {
     expect(parseAgentEvalOutput(JSON.stringify(output))).toEqual(output)
+  })
+
+  test('parses benchmark metadata', () => {
+    const benchmarkOutput = {
+      ...output,
+      benchmark: {
+        id: 'ui-interactions',
+        name: 'UI interactions',
+        description: 'Evaluates UI interaction capabilities',
+        capabilities: [
+          {
+            name: 'Edits forms',
+            description: 'Evaluates form editing',
+            scenarios: ['example'],
+          },
+        ],
+      },
+    }
+
+    expect(parseAgentEvalOutput(benchmarkOutput)).toEqual(benchmarkOutput)
   })
 
   test('preserves unknown Copilot messages', () => {

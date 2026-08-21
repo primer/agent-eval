@@ -71,7 +71,48 @@ describe('scenario loading', () => {
     )
 
     await expect(findScenario('example', {directory: scenariosDirectory})).rejects.toThrow(
-      'Scenario "example" config must export a default config with a string prompt, optional string description, and optional string[] tags',
+      'Scenario "example" config must export a default config with a string prompt, optional string description, optional string[] tags, and optional turns',
+    )
+  })
+
+  test('loads follow-up turns and their tests', async () => {
+    const scenariosDirectory = await createScenariosDirectory()
+    const directory = await createScenario(scenariosDirectory, 'example', 'Make the button blue')
+    await fs.writeFile(
+      path.join(directory, 'scenario.config.ts'),
+      `export default {
+        prompt: 'Make the button blue',
+        turns: [{
+          prompt: 'Actually, make it red',
+          test: 'red.test.ts',
+          browserTest: 'red.browser.test.ts'
+        }]
+      }`,
+    )
+    await fs.writeFile(path.join(directory, 'red.test.ts'), '')
+    await fs.writeFile(path.join(directory, 'red.browser.test.ts'), '')
+
+    await expect(findScenario('example', {directory: scenariosDirectory})).resolves.toMatchObject({
+      turns: [
+        {
+          prompt: 'Actually, make it red',
+          testPath: path.join(directory, 'red.test.ts'),
+          browserTestPath: path.join(directory, 'red.browser.test.ts'),
+        },
+      ],
+    })
+  })
+
+  test('rejects turns without a prompt and test', async () => {
+    const scenariosDirectory = await createScenariosDirectory()
+    const directory = await createScenario(scenariosDirectory, 'example', 'Make the button blue')
+    await fs.writeFile(
+      path.join(directory, 'scenario.config.ts'),
+      `export default {prompt: 'Make the button blue', turns: [{prompt: 'Make it red'}]}`,
+    )
+
+    await expect(findScenario('example', {directory: scenariosDirectory})).rejects.toThrow(
+      'Scenario "example" config must export a default config with a string prompt, optional string description, optional string[] tags, and optional turns',
     )
   })
 

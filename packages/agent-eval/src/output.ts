@@ -107,9 +107,27 @@ const ResolvedScenarioSchema = z.object({
   config: z.object({
     description: z.optional(z.string()),
     prompt: z.string(),
+    turns: z.optional(
+      z.array(
+        z.object({
+          prompt: z.string(),
+          test: z.string(),
+          browserTest: z.optional(z.string()),
+        }),
+      ),
+    ),
   }),
   testPath: z.string(),
   browserTestPath: z.optional(z.string()),
+  turns: z.optional(
+    z.array(
+      z.object({
+        prompt: z.string(),
+        testPath: z.string(),
+        browserTestPath: z.optional(z.string()),
+      }),
+    ),
+  ),
 })
 
 const AgentEvalOutputResultSchema = z.object({

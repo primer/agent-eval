@@ -83,7 +83,7 @@ async function loadScenarioConfig(configPath: string, name: string): Promise<Sce
   const configModule = (await import(pathToFileURL(configPath).href)) as {default?: unknown}
   if (!isScenarioConfig(configModule.default)) {
     throw new Error(
-      `Scenario "${name}" config must export a default config with a string prompt, optional string description, and optional string[] tags`,
+      `Scenario "${name}" config must export a default config with a string prompt, optional string description, optional string[] tags, and optional turns`,
     )
   }
 

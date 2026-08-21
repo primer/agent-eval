@@ -4,7 +4,13 @@ import {existsSync} from 'node:fs'
 import path from 'node:path'
 import fs from 'node:fs/promises'
 import {parseArgs} from 'node:util'
-import {ControlTreatment, type ExperimentConfig} from './experiment-config'
+import {findBenchmark, listBenchmarks} from './benchmarks'
+import {
+  ControlTreatment,
+  type BenchmarkConfig,
+  type ExperimentConfig,
+  type ExperimentScenarioConfig,
+} from './experiment-config'
 import {resolveModelConfigs, type Model, type ReasoningEffort} from './model'
 import {createAgentEvalOutput} from './output'
 import type {Treatment, TreatmentResult} from './treatment'
@@ -19,6 +25,15 @@ const {values} = parseArgs({
       type: 'string',
       short: 'a',
       description: 'The directory to save artifacts to',
+    },
+    benchmark: {
+      type: 'string',
+      short: 'b',
+      description: 'The file name of the benchmark to run',
+    },
+    benchmarks: {
+      type: 'string',
+      description: 'The directory containing local benchmark files',
     },
     concurrency: {
       type: 'string',
@@ -66,6 +81,8 @@ Usage: agent-eval [options]
 
 Options:
   -a, --artifacts <dir>      The directory to save artifacts to
+  -b, --benchmark <file>     The file name of the benchmark to run
+      --benchmarks <dir>     The directory containing local benchmark files
   -c, --concurrency <num>    The number of treatments to run in parallel
       --docker-image <image> The Docker container image to use for running treatments (must be a Debian-based Node image with apt-get and a node user, e.g. node:26.5.0-slim)
   -e, --experiment <file>    The file name of the experiment to run
@@ -96,13 +113,58 @@ const SHARD = values.shard ? parseShard(values.shard) : undefined
 let selectedExperiment: {
   id: string
   config: ExperimentConfig
+  benchmark?: BenchmarkConfig
 }
 
 if (!existsSync(ARTIFACTS_DIR)) {
   await fs.mkdir(ARTIFACTS_DIR, {recursive: true})
 }
 
-if (values.experiment) {
+if (values.experiment && values.benchmark) {
+  throw new Error('Select either --experiment or --benchmark, not both')
+}
+
+if (values.benchmark) {
+  const benchmark = await findBenchmark(values.benchmark, {
+    directory: values.benchmarks,
+  })
+  if (!benchmark) {
+    const benchmarks = await listBenchmarks({
+      directory: values.benchmarks,
+    })
+    throw new Error(
+      `Benchmark "${values.benchmark}" was not found. Available benchmarks:\n${benchmarks.map(([id]) => id).join('\n')}`,
+    )
+  }
+
+  const scenarios: Array<ExperimentScenarioConfig> = []
+  const scenarioKeys = new Set<string>()
+  for (const capability of benchmark.capabilities) {
+    for (const scenario of capability.scenarios) {
+      const key = typeof scenario === 'string' ? scenario : `${scenario.name ?? ''}\0${scenario.path}`
+      if (scenarioKeys.has(key)) {
+        throw new Error(`Scenario "${typeof scenario === 'string' ? scenario : scenario.path}" belongs to multiple capabilities`)
+      }
+      scenarioKeys.add(key)
+      scenarios.push(scenario)
+    }
+  }
+
+  selectedExperiment = {
+    id: existsSync(values.benchmark)
+      ? path.basename(values.benchmark, path.extname(values.benchmark))
+      : values.benchmark,
+    config: {
+      name: benchmark.name,
+      description: benchmark.description,
+      models: benchmark.models,
+      scenarios,
+      setup: benchmark.setup,
+      treatments: benchmark.treatments,
+    },
+    benchmark,
+  }
+} else if (values.experiment) {
   const config = await findExperiment(values.experiment, {
     directory: values.experiments,
   })
@@ -174,6 +236,7 @@ function compareResults(a: TreatmentResult, b: TreatmentResult): number {
 }
 
 type ResultSummary = {
+  capability?: string
   experiment: string
   treatment?: string
   scenario?: string
@@ -189,6 +252,7 @@ type ResultSummary = {
 }
 
 type ResultSummaryValues = {
+  capability?: string
   treatment?: string
   scenario?: string
   model?: Model
@@ -198,6 +262,7 @@ type ResultSummaryValues = {
 function createResultSummary(result: TreatmentResult, summaryValues: ResultSummaryValues = {}): ResultSummary {
   return {
     experiment: result.treatment.experiment.name,
+    capability: summaryValues.capability,
     treatment: summaryValues.treatment,
     scenario: summaryValues.scenario,
     model: summaryValues.model,
@@ -238,6 +303,7 @@ function compareSummaries(a: ResultSummary, b: ResultSummary): number {
     a.premiumRequests - b.premiumRequests ||
     a.experiment.localeCompare(b.experiment) ||
     (a.treatment ?? '').localeCompare(b.treatment ?? '') ||
+    (a.capability ?? '').localeCompare(b.capability ?? '') ||
     (a.scenario ?? '').localeCompare(b.scenario ?? '') ||
     (a.model ?? '').localeCompare(b.model ?? '') ||
     (a.reasoningEffort ?? '').localeCompare(b.reasoningEffort ?? '')
@@ -296,6 +362,7 @@ function getSummaryKey(result: TreatmentResult, summaryValues: ResultSummaryValu
   return [
     result.treatment.experiment.name,
     summaryValues.treatment ?? '',
+    summaryValues.capability ?? '',
     summaryValues.scenario ?? '',
     summaryValues.model ?? '',
     summaryValues.reasoningEffort ?? '',
@@ -306,16 +373,23 @@ type ResultHierarchy = Array<{
   experiment: string
   treatments: Array<{
     summary: ResultSummary
-    scenarios: Array<{
+    capabilities: Array<{
       summary: ResultSummary
-      models: Array<ResultSummary>
+      scenarios: Array<{
+        summary: ResultSummary
+        models: Array<ResultSummary>
+      }>
     }>
   }>
 }>
 
-function getResultSummaries(results: Array<TreatmentResult>): ResultHierarchy {
+function getResultSummaries(
+  results: Array<TreatmentResult>,
+  capabilitiesByScenario: ReadonlyMap<string, string>,
+): ResultHierarchy {
   const experiments = new Set<string>()
   const treatmentSummaries = new Map<string, ResultSummary>()
+  const capabilitySummaries = new Map<string, ResultSummary>()
   const scenarioSummaries = new Map<string, ResultSummary>()
   const modelSummaries = new Map<string, ResultSummary>()
 
@@ -330,8 +404,20 @@ function getResultSummaries(results: Array<TreatmentResult>): ResultHierarchy {
     addResultToSummary(treatmentSummary, result)
     treatmentSummaries.set(treatmentKey, treatmentSummary)
 
+    const capability = capabilitiesByScenario.get(result.treatment.scenario.id) ?? ''
+    const capabilityValues = {
+      treatment: result.treatment.config.name,
+      capability,
+    }
+    const capabilityKey = getSummaryKey(result, capabilityValues)
+    const capabilitySummary =
+      capabilitySummaries.get(capabilityKey) ?? createResultSummary(result, capabilityValues)
+    addResultToSummary(capabilitySummary, result)
+    capabilitySummaries.set(capabilityKey, capabilitySummary)
+
     const scenarioValues = {
       treatment: result.treatment.config.name,
+      capability,
       scenario: result.treatment.scenario.id,
     }
     const scenarioKey = getSummaryKey(result, scenarioValues)
@@ -341,6 +427,7 @@ function getResultSummaries(results: Array<TreatmentResult>): ResultHierarchy {
 
     const modelValues = {
       treatment: result.treatment.config.name,
+      capability,
       scenario: result.treatment.scenario.id,
       model: result.treatment.model,
       reasoningEffort: result.treatment.reasoningEffort,
@@ -362,23 +449,40 @@ function getResultSummaries(results: Array<TreatmentResult>): ResultHierarchy {
         .map(summary => {
           return {
             summary,
-            scenarios: [...scenarioSummaries.values()]
-              .filter(scenarioSummary => {
-                return scenarioSummary.experiment === experiment && scenarioSummary.treatment === summary.treatment
+            capabilities: [...capabilitySummaries.values()]
+              .filter(capabilitySummary => {
+                return (
+                  capabilitySummary.experiment === experiment && capabilitySummary.treatment === summary.treatment
+                )
               })
               .toSorted(compareSummaries)
-              .map(scenarioSummary => {
+              .map(capabilitySummary => {
                 return {
-                  summary: scenarioSummary,
-                  models: [...modelSummaries.values()]
-                    .filter(modelSummary => {
+                  summary: capabilitySummary,
+                  scenarios: [...scenarioSummaries.values()]
+                    .filter(scenarioSummary => {
                       return (
-                        modelSummary.experiment === experiment &&
-                        modelSummary.treatment === summary.treatment &&
-                        modelSummary.scenario === scenarioSummary.scenario
+                        scenarioSummary.experiment === experiment &&
+                        scenarioSummary.treatment === summary.treatment &&
+                        scenarioSummary.capability === capabilitySummary.capability
                       )
                     })
-                    .toSorted(compareSummaries),
+                    .toSorted(compareSummaries)
+                    .map(scenarioSummary => {
+                      return {
+                        summary: scenarioSummary,
+                        models: [...modelSummaries.values()]
+                          .filter(modelSummary => {
+                            return (
+                              modelSummary.experiment === experiment &&
+                              modelSummary.treatment === summary.treatment &&
+                              modelSummary.capability === capabilitySummary.capability &&
+                              modelSummary.scenario === scenarioSummary.scenario
+                            )
+                          })
+                          .toSorted(compareSummaries),
+                      }
+                    }),
                 }
               }),
           }
@@ -387,10 +491,14 @@ function getResultSummaries(results: Array<TreatmentResult>): ResultHierarchy {
   })
 }
 
-function formatResultSummaries(results: Array<TreatmentResult>): string {
+function formatResultSummaries(
+  results: Array<TreatmentResult>,
+  capabilitiesByScenario: ReadonlyMap<string, string>,
+): string {
   const columns = [
     'Experiment',
     'Treatment',
+    'Capability',
     'Scenario',
     'Model',
     'Reasoning Effort',
@@ -404,15 +512,21 @@ function formatResultSummaries(results: Array<TreatmentResult>): string {
   ]
   const rows: Array<TableRow> = []
 
-  for (const {treatments} of getResultSummaries(results)) {
-    for (const {summary, scenarios} of treatments) {
+  for (const {treatments} of getResultSummaries(results, capabilitiesByScenario)) {
+    for (const {summary, capabilities} of treatments) {
       rows.push(formatSummaryRow(summary, 'treatment'))
 
-      for (const {summary: scenarioSummary, models} of scenarios) {
-        rows.push(formatSummaryRow(scenarioSummary, 'scenario'))
+      for (const {summary: capabilitySummary, scenarios} of capabilities) {
+        if (capabilitySummary.capability) {
+          rows.push(formatSummaryRow(capabilitySummary, 'capability'))
+        }
 
-        for (const model of models) {
-          rows.push(formatSummaryRow(model, 'model'))
+        for (const {summary: scenarioSummary, models} of scenarios) {
+          rows.push(formatSummaryRow(scenarioSummary, 'scenario'))
+
+          for (const model of models) {
+            rows.push(formatSummaryRow(model, 'model'))
+          }
         }
       }
     }
@@ -429,12 +543,21 @@ async function appendResultsToJobSummary(resultSummaries: string) {
   await fs.appendFile(GITHUB_STEP_SUMMARY, `## Experiment results\n\n\`\`\`\n${resultSummaries}\n\`\`\`\n`)
 }
 
-function formatSummaryRow(summary: ResultSummary, level: 'treatment' | 'scenario' | 'model'): TableRow {
+function formatSummaryRow(
+  summary: ResultSummary,
+  level: 'treatment' | 'capability' | 'scenario' | 'model',
+): TableRow {
   return {
     Experiment: level === 'treatment' ? summary.experiment : '',
     Treatment: level === 'treatment' ? (summary.treatment ?? '') : '',
-    Scenario: level === 'treatment' ? 'All scenarios' : level === 'scenario' ? `  ${summary.scenario ?? ''}` : '',
-    Model: level === 'model' ? `    ${summary.model ?? ''}` : 'All models',
+    Capability: level === 'capability' ? `  ${summary.capability ?? ''}` : '',
+    Scenario:
+      level === 'treatment'
+        ? 'All scenarios'
+        : level === 'scenario'
+          ? `${summary.capability ? '    ' : '  '}${summary.scenario ?? ''}`
+          : '',
+    Model: level === 'model' ? `${summary.capability ? '      ' : '    '}${summary.model ?? ''}` : 'All models',
     'Reasoning Effort': level === 'model' ? (summary.reasoningEffort ?? '') : '',
     'Success Rate': formatPercent(getSummarySuccessRate(summary)),
     Tests: `${summary.numPassedTests}/${summary.numTotalTests}`,
@@ -447,8 +570,7 @@ function formatSummaryRow(summary: ResultSummary, level: 'treatment' | 'scenario
 }
 
 const config = selectedExperiment.config
-
-console.log('Running experiment:', config.name)
+console.log(selectedExperiment.benchmark ? 'Running benchmark:' : 'Running experiment:', config.name)
 
 const scenarios = await Promise.all(
   config.scenarios.map(scenarioConfig => {
@@ -498,7 +620,18 @@ const results: Array<TreatmentResult> = await run(randomize(selectedTreatments),
 })
 
 const sortedResults = results.toSorted(compareResults)
-const resultSummaries = formatResultSummaries(sortedResults)
+const capabilitiesByScenario = new Map<string, string>()
+if (selectedExperiment.benchmark) {
+  for (const capability of selectedExperiment.benchmark.capabilities) {
+    for (const scenario of capability.scenarios) {
+      const resolvedScenario = await resolveExperimentScenario(scenario, {
+        directory: values.scenarios,
+      })
+      capabilitiesByScenario.set(resolvedScenario.id, capability.name)
+    }
+  }
+}
+const resultSummaries = formatResultSummaries(sortedResults, capabilitiesByScenario)
 console.log(resultSummaries)
 await appendResultsToJobSummary(resultSummaries)
 
@@ -509,6 +642,12 @@ if (!existsSync(path.dirname(outputFilePath))) {
 }
 
 const output = createAgentEvalOutput({
+  benchmark: selectedExperiment.benchmark
+    ? {
+        id: selectedExperiment.id,
+        config: selectedExperiment.benchmark,
+      }
+    : undefined,
   id: randomUUID(),
   experimentId: selectedExperiment.id,
   experiment: config,

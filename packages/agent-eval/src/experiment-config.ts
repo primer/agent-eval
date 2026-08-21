@@ -14,6 +14,21 @@ type InlineScenarioConfig = {
 
 type ExperimentScenarioConfig = string | InlineScenarioConfig
 
+type CapabilityConfig = {
+  name: string
+  description: string
+  scenarios: Array<ExperimentScenarioConfig>
+}
+
+type BenchmarkConfig = {
+  name: string
+  description: string
+  models: Array<ExperimentModelConfig>
+  capabilities: Array<CapabilityConfig>
+  setup?: Setup
+  treatments: Array<TreatmentConfig>
+}
+
 type ExperimentConfig = {
   name: string
   description: string
@@ -35,4 +50,12 @@ const ControlTreatment: TreatmentConfig = {
 }
 
 export {ControlTreatment}
-export type {ExperimentConfig, ExperimentScenarioConfig, InlineScenarioConfig, ScenarioConfig, TreatmentConfig}
+export type {
+  BenchmarkConfig,
+  CapabilityConfig,
+  ExperimentConfig,
+  ExperimentScenarioConfig,
+  InlineScenarioConfig,
+  ScenarioConfig,
+  TreatmentConfig,
+}

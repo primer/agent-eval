@@ -1,6 +1,6 @@
 import * as z from 'zod/mini'
 import {MessageSchema, type Message} from './copilot-cli'
-import type {ExperimentConfig, ExperimentScenarioConfig} from './experiment-config'
+import type {BenchmarkConfig, ExperimentConfig, ExperimentScenarioConfig} from './experiment-config'
 import {models} from './model'
 import type {Model, ReasoningEffort} from './model'
 import type {ResolvedScenario} from './resolve-experiment-scenario'
@@ -45,6 +45,12 @@ type AgentEvalOutputResult = {
 
 type AgentEvalOutput = {
   id: string
+  benchmark?: {
+    id: string
+    name: string
+    description: string
+    capabilities: BenchmarkConfig['capabilities']
+  }
   experiment: {
     id: string
     name: string
@@ -101,6 +107,19 @@ const AgentEvalOutputExperimentSchema = z.object({
   scenarios: z.array(ExperimentScenarioSchema),
 })
 
+const CapabilitySchema = z.object({
+  name: z.string(),
+  description: z.string(),
+  scenarios: z.array(ExperimentScenarioSchema),
+})
+
+const AgentEvalOutputBenchmarkSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string(),
+  capabilities: z.array(CapabilitySchema),
+})
+
 const ResolvedScenarioSchema = z.object({
   id: z.string(),
   directory: z.string(),
@@ -153,6 +172,7 @@ const AgentEvalOutputResultSchema = z.object({
 
 const AgentEvalOutputSchema = z.object({
   id: z.string(),
+  benchmark: z.optional(AgentEvalOutputBenchmarkSchema),
   experiment: AgentEvalOutputExperimentSchema,
   scenarios: z.array(ResolvedScenarioSchema),
   treatments: z.array(
@@ -165,6 +185,10 @@ const AgentEvalOutputSchema = z.object({
 })
 
 type CreateAgentEvalOutputOptions = {
+  benchmark?: {
+    id: string
+    config: BenchmarkConfig
+  }
   id: string
   experimentId: string
   experiment: ExperimentConfig
@@ -174,6 +198,7 @@ type CreateAgentEvalOutputOptions = {
 
 function createAgentEvalOutput({
   id,
+  benchmark,
   experimentId,
   experiment,
   scenarios,
@@ -202,6 +227,14 @@ function createAgentEvalOutput({
 
   return {
     id,
+    benchmark: benchmark
+      ? {
+          id: benchmark.id,
+          name: benchmark.config.name,
+          description: benchmark.config.description,
+          capabilities: benchmark.config.capabilities,
+        }
+      : undefined,
     experiment: {
       id: experimentId,
       name: experiment.name,

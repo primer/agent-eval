@@ -15,5 +15,9 @@ export type {
   ReasoningEffort,
   TreatmentConfig,
 } from './experiment'
+export {defineBenchmark} from './benchmark'
+export type {BenchmarkConfig, CapabilityConfig} from './benchmark'
 export {createAgentEvalOutput, parseAgentEvalOutput} from './output'
 export type {AgentEvalOutput, AgentEvalOutputResult} from './output'
+export {findBenchmark, listBenchmarks, loadBenchmarkConfigs} from './benchmarks'
+export type {BenchmarkSourceOptions, LoadBenchmarkOptions} from './benchmarks'

@@ -87,14 +87,16 @@ async function loadScenarioConfig(configPath: string, name: string): Promise<Sce
     )
   }
 
-  function resolveScenarioFile(directory: string, filepath: string, name: string): string {
-    const resolvedPath = path.resolve(directory, filepath)
-    if (path.dirname(resolvedPath) !== directory) {
-      throw new Error(`Scenario "${name}" turn test must be a file in the scenario directory: ${filepath}`)
-    }
-    return resolvedPath
-  }
   return configModule.default
+}
+
+function resolveScenarioFile(directory: string, filepath: string, name: string): string {
+  const scenarioDirectory = path.resolve(directory)
+  const resolvedPath = path.resolve(scenarioDirectory, filepath)
+  if (path.dirname(resolvedPath) !== scenarioDirectory) {
+    throw new Error(`Scenario "${name}" turn test must be a file in the scenario directory: ${filepath}`)
+  }
+  return resolvedPath
 }
 
 async function loadScenarioDirectory(directory: string, name = path.basename(directory)): Promise<ResolvedScenario> {
@@ -112,9 +114,7 @@ async function loadScenarioDirectory(directory: string, name = path.basename(dir
     config.turns?.map(async turn => {
       const turnTestPath = resolveScenarioFile(directory, turn.test, name)
       await assertScenarioFile(turnTestPath, name, 'test')
-      const turnBrowserTestPath = turn.browserTest
-        ? resolveScenarioFile(directory, turn.browserTest, name)
-        : undefined
+      const turnBrowserTestPath = turn.browserTest ? resolveScenarioFile(directory, turn.browserTest, name) : undefined
       if (turnBrowserTestPath) {
         await assertScenarioFile(turnBrowserTestPath, name, 'test')
       }

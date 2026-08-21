@@ -153,9 +153,20 @@ async function runTreatment(
   console.log('Running treatment: %s (%s)', treatment.config.name, treatment.id)
   await using sandbox = await Sandbox.create({dockerImage})
 
+  const scenarioTestPaths = treatment.scenario.turns?.flatMap(turn => [
+    path.relative(treatment.scenario.directory, turn.testPath),
+    ...(turn.browserTestPath ? [path.relative(treatment.scenario.directory, turn.browserTestPath)] : []),
+  ])
   console.log('Copying files from: %s...', treatment.scenario.directory)
   await sandbox.copy(treatment.scenario.directory, CONTAINER_WORKDIR, {
-    exclude: ['scenario.config.ts', 'scenario.test.ts', 'scenario.browser.test.ts', 'node_modules', '.next'],
+    exclude: [
+      'scenario.config.ts',
+      'scenario.test.ts',
+      'scenario.browser.test.ts',
+      ...(scenarioTestPaths ?? []),
+      'node_modules',
+      '.next',
+    ],
   })
   await sandbox.runCommand('chown', ['-R', NODE_USER, '.'], {
     user: 'root',
@@ -311,8 +322,13 @@ async function runTreatment(
       testRunSuccess &&= testResults.data.success
       tests.push(...getTestMetadata(testResults.data, testSource))
       rawTestResults.push(rawTestResult as Record<string, unknown> & {testResults: Array<unknown>})
+
+      await sandbox.runCommand('rm', ['-f', scenarioTest.testPath, scenarioTest.resultsPath], {
+        user: NODE_USER,
+      })
     }
 
+    await sandbox.runCommand('rm', ['-f', VITEST_CONFIG_PATH], {user: NODE_USER})
     if (!testRunSuccess) {
       break
     }

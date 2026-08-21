@@ -40,7 +40,19 @@ describe('getCopilotArgs', () => {
         model: 'gpt-5.5',
         sessionId: 'session-id',
       }),
-    ).toContainSequence(['--resume', 'session-id'])
+    ).toEqual([
+      '-p',
+      'Actually, make it red',
+      '--model',
+      'gpt-5.5',
+      '--allow-all',
+      '--resume',
+      'session-id',
+      '--mode',
+      'autopilot',
+      '--output-format',
+      'json',
+    ])
   })
 })
 

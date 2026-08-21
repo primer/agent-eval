@@ -1,8 +1,8 @@
-import type {ScenarioConfig} from './experiment-config'
+import type {ScenarioConfig, ScenarioTurnConfig} from './experiment-config'
 
 function defineScenario(config: ScenarioConfig) {
   return config
 }
 
 export {defineScenario}
-export type {ScenarioConfig}
+export type {ScenarioConfig, ScenarioTurnConfig}

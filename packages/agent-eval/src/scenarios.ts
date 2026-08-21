@@ -9,6 +9,13 @@ type ResolvedScenario = {
   readonly config: ScenarioConfig
   readonly testPath: string
   readonly browserTestPath?: string
+  readonly turns?: ReadonlyArray<ResolvedScenarioTurn>
+}
+
+type ResolvedScenarioTurn = {
+  readonly prompt: string
+  readonly testPath: string
+  readonly browserTestPath?: string
 }
 
 type ScenarioSourceOptions = {
@@ -54,7 +61,21 @@ function isScenarioConfig(value: unknown): value is ScenarioConfig {
     typeof config.prompt === 'string' &&
     (config.description === undefined || typeof config.description === 'string') &&
     (config.tags === undefined ||
-      (Array.isArray(config.tags) && config.tags.every((tag: unknown) => typeof tag === 'string')))
+      (Array.isArray(config.tags) && config.tags.every((tag: unknown) => typeof tag === 'string'))) &&
+    (config.turns === undefined ||
+      (Array.isArray(config.turns) &&
+        config.turns.length > 0 &&
+        config.turns.every((turn: unknown) => {
+          if (turn === null || typeof turn !== 'object') {
+            return false
+          }
+          const turnConfig = turn as Record<string, unknown>
+          return (
+            typeof turnConfig.prompt === 'string' &&
+            typeof turnConfig.test === 'string' &&
+            (turnConfig.browserTest === undefined || typeof turnConfig.browserTest === 'string')
+          )
+        })))
   )
 }
 
@@ -64,6 +85,14 @@ async function loadScenarioConfig(configPath: string, name: string): Promise<Sce
     throw new Error(
       `Scenario "${name}" config must export a default config with a string prompt, optional string description, and optional string[] tags`,
     )
+  }
+
+  function resolveScenarioFile(directory: string, filepath: string, name: string): string {
+    const resolvedPath = path.resolve(directory, filepath)
+    if (path.dirname(resolvedPath) !== directory) {
+      throw new Error(`Scenario "${name}" turn test must be a file in the scenario directory: ${filepath}`)
+    }
+    return resolvedPath
   }
   return configModule.default
 }
@@ -78,12 +107,32 @@ async function loadScenarioDirectory(directory: string, name = path.basename(dir
   await assertScenarioFile(testPath, name, 'test')
   const browserTestStats = await fs.stat(browserTestPath).catch(() => undefined)
 
+  const config = await loadScenarioConfig(configPath, name)
+  const turns = await Promise.all(
+    config.turns?.map(async turn => {
+      const turnTestPath = resolveScenarioFile(directory, turn.test, name)
+      await assertScenarioFile(turnTestPath, name, 'test')
+      const turnBrowserTestPath = turn.browserTest
+        ? resolveScenarioFile(directory, turn.browserTest, name)
+        : undefined
+      if (turnBrowserTestPath) {
+        await assertScenarioFile(turnBrowserTestPath, name, 'test')
+      }
+      return {
+        prompt: turn.prompt,
+        testPath: turnTestPath,
+        ...(turnBrowserTestPath ? {browserTestPath: turnBrowserTestPath} : {}),
+      }
+    }) ?? [],
+  )
+
   return {
     id: name,
     directory,
-    config: await loadScenarioConfig(configPath, name),
+    config,
     testPath,
     ...(browserTestStats?.isFile() ? {browserTestPath} : {}),
+    ...(turns.length > 0 ? {turns} : {}),
   }
 }
 
@@ -125,4 +174,4 @@ async function findScenario(id: string, options: ScenarioSourceOptions = {}): Pr
 }
 
 export {findScenario, listScenarios, loadScenarioDirectory}
-export type {ResolvedScenario, ScenarioSourceOptions}
+export type {ResolvedScenario, ResolvedScenarioTurn, ScenarioSourceOptions}

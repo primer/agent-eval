@@ -8,6 +8,8 @@ import {Page} from './components/Page'
 import type {RunDetails, TranscriptEntry} from './components/Page'
 
 const EMPTY_RUN_PARAM = '__no-runs__'
+const REPOSITORY_ROOT = path.resolve(process.cwd(), '..')
+const ARTIFACTS_DIRECTORY = path.join(REPOSITORY_ROOT, 'artifacts')
 
 type RunPageProps = {
   params: Promise<{
@@ -150,9 +152,11 @@ async function getScreenshotSource(screenshotPath: string | undefined): Promise<
     return undefined
   }
 
-  const absolutePath = path.isAbsolute(screenshotPath)
-    ? screenshotPath
-    : path.resolve(process.cwd(), '..', screenshotPath)
+  const absolutePath = path.isAbsolute(screenshotPath) ? screenshotPath : path.resolve(REPOSITORY_ROOT, screenshotPath)
+  const relativePath = path.relative(ARTIFACTS_DIRECTORY, absolutePath)
+  if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+    return undefined
+  }
 
   try {
     const screenshot = await fs.readFile(absolutePath)

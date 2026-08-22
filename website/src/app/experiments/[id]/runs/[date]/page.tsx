@@ -2,6 +2,8 @@ import type {AgentEvalOutput} from '@primer/agent-eval/output'
 import {get as getExperiment} from '../../../../../experiments'
 import {get as getRun, list as listRuns} from '../../../../../runs'
 import {notFound} from 'next/navigation'
+import fs from 'node:fs/promises'
+import path from 'node:path'
 import {Page} from './components/Page'
 import type {RunDetails, TranscriptEntry} from './components/Page'
 
@@ -143,30 +145,53 @@ function createTranscript(logs: Array<LogMessage>): Array<TranscriptEntry> {
   return entries.filter(entry => entry.content.length > 0)
 }
 
-function createRunDetails(date: string, output: AgentEvalOutput): RunDetails {
+async function getScreenshotSource(screenshotPath: string | undefined): Promise<string | undefined> {
+  if (!screenshotPath) {
+    return undefined
+  }
+
+  const absolutePath = path.isAbsolute(screenshotPath)
+    ? screenshotPath
+    : path.resolve(process.cwd(), '..', screenshotPath)
+
+  try {
+    const screenshot = await fs.readFile(absolutePath)
+    return `data:image/png;base64,${screenshot.toString('base64')}`
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return undefined
+    }
+    throw error
+  }
+}
+
+async function createRunDetails(date: string, output: AgentEvalOutput): Promise<RunDetails> {
   const treatments = new Map(output.treatments.map(treatment => [treatment.id, treatment.config.name]))
   return {
     date,
-    results: output.results.map(result => ({
-      id: result.id,
-      scenarioId: result.scenarioId,
-      treatment: treatments.get(result.treatmentId) ?? 'Unknown treatment',
-      model: result.model,
-      reasoningEffort: result.reasoningEffort,
-      testsPassed: result.testResults.numPassedTests,
-      totalTests: result.testResults.numTotalTests,
-      turns: result.assistant.turns,
-      outputTokens: result.assistant.outputTokens,
-      premiumRequests: result.assistant.premiumRequests,
-      totalApiDurationMs: result.assistant.totalApiDurationMs,
-      sessionDurationMs: result.assistant.sessionDurationMs,
-      tests: result.testResults.tests.map(test => ({
-        fullName: test.fullName,
-        status: test.status,
-        description: test.description,
+    results: await Promise.all(
+      output.results.map(async result => ({
+        id: result.id,
+        scenarioId: result.scenarioId,
+        treatment: treatments.get(result.treatmentId) ?? 'Unknown treatment',
+        model: result.model,
+        reasoningEffort: result.reasoningEffort,
+        testsPassed: result.testResults.numPassedTests,
+        totalTests: result.testResults.numTotalTests,
+        turns: result.assistant.turns,
+        outputTokens: result.assistant.outputTokens,
+        premiumRequests: result.assistant.premiumRequests,
+        totalApiDurationMs: result.assistant.totalApiDurationMs,
+        sessionDurationMs: result.assistant.sessionDurationMs,
+        tests: result.testResults.tests.map(test => ({
+          fullName: test.fullName,
+          status: test.status,
+          description: test.description,
+        })),
+        screenshotSource: await getScreenshotSource(result.artifacts.screenshotPath),
+        transcript: createTranscript(result.assistant.logs),
       })),
-      transcript: createTranscript(result.assistant.logs),
-    })),
+    ),
   }
 }
 
@@ -183,7 +208,7 @@ export default async function RunPage(props: RunPageProps) {
     notFound()
   }
 
-  return <Page experiment={experiment} run={createRunDetails(date, run.output)} />
+  return <Page experiment={experiment} run={await createRunDetails(date, run.output)} />
 }
 
 export async function generateStaticParams() {

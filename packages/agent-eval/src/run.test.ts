@@ -1,5 +1,5 @@
 import {describe, expect, test} from 'vitest'
-import {getCopilotArgs, getVitestConfig} from './run'
+import {getCopilotArgs, getScreenshotScript, getVitestConfig} from './run'
 
 describe('getCopilotArgs', () => {
   test('omits reasoning effort when not configured', () => {
@@ -9,6 +9,16 @@ describe('getCopilotArgs', () => {
         model: 'claude-haiku-4.5',
       }),
     ).not.toContain('--reasoning-effort')
+  })
+
+  describe('getScreenshotScript', () => {
+    test('captures the viewport at a laptop screen size', () => {
+      const script = getScreenshotScript()
+
+      expect(script).toContain("spawn('npm', ['run', 'dev', '--', '--port', '3000']")
+      expect(script).toContain('viewport: {width: 1440, height: 900}')
+      expect(script).toContain(`page.screenshot({path: "ui-snapshot.png"})`)
+    })
   })
 
   test('forwards the model and reasoning effort', () => {

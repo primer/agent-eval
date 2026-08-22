@@ -19,6 +19,7 @@ type TreatmentResult = {
     copilotConfigPath: string
     directory: string
     skillsConfigPath: string
+    screenshotPath?: string
     testResultsPath: string
     workspacePath: string
   }

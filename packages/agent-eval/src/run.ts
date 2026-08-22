@@ -8,6 +8,63 @@ import {isMessageType, parseMessage, type Message} from './copilot-cli'
 import {getTestMetadata, parseTestResults} from './vitest'
 
 const PLAYWRIGHT_BROWSERS_PATH = '/ms-playwright'
+const SCREENSHOT_PATH = 'ui-snapshot.png'
+const SCREENSHOT_SCRIPT_PATH = '.agent-eval-snapshot.mjs'
+const SCREENSHOT_WIDTH = 1440
+const SCREENSHOT_HEIGHT = 900
+
+function getScreenshotScript(): string {
+  return `
+import {spawn} from 'node:child_process'
+import process from 'node:process'
+import {chromium} from 'playwright'
+
+const server = spawn('npm', ['run', 'dev', '--', '--port', '3000'], {
+  detached: true,
+  stdio: 'inherit',
+})
+let browser
+
+try {
+  browser = await chromium.launch()
+  const page = await browser.newPage({
+    viewport: {width: ${SCREENSHOT_WIDTH}, height: ${SCREENSHOT_HEIGHT}},
+  })
+  let lastError
+
+  for (let attempt = 0; attempt < 60; attempt += 1) {
+    if (server.exitCode !== null) {
+      throw new Error(\`Development server exited with code \${server.exitCode}\`)
+    }
+
+    try {
+      await page.goto('http://127.0.0.1:3000', {
+        timeout: 1000,
+        waitUntil: 'networkidle',
+      })
+      lastError = undefined
+      break
+    } catch (error) {
+      lastError = error
+      await new Promise(resolve => setTimeout(resolve, 1000))
+    }
+  }
+
+  if (lastError) {
+    throw lastError
+  }
+
+  await page.screenshot({path: ${JSON.stringify(SCREENSHOT_PATH)}})
+} finally {
+  await browser?.close()
+  if (server.pid) {
+    try {
+      process.kill(-server.pid, 'SIGTERM')
+    } catch {}
+  }
+}
+`
+}
 
 type RunOptions = {
   artifactsDirectory: string
@@ -228,6 +285,41 @@ async function runTreatment(
     return parseMessage(JSON.parse(trimmed))
   })
 
+  const packageJson = JSON.parse(await sandbox.readFile('package.json')) as {
+    scripts?: Record<string, string>
+  }
+  let hasScreenshot = false
+  if (packageJson.scripts?.dev) {
+    if (!treatment.scenario.browserTestPath) {
+      console.log('Installing UI snapshot dependencies...')
+      await sandbox.runCommand('npm', ['install', '--no-save', '--package-lock=false', 'playwright'], {
+        user: NODE_USER,
+      })
+      console.log('Installing Playwright browser...')
+      await sandbox.runCommand('./node_modules/.bin/playwright', ['install', '--with-deps', 'chromium'], {
+        user: 'root',
+        env: {
+          PLAYWRIGHT_BROWSERS_PATH,
+        },
+      })
+    }
+
+    console.log('Capturing UI snapshot...')
+    await sandbox.writeFile(SCREENSHOT_SCRIPT_PATH, getScreenshotScript())
+    const screenshotResult = await sandbox.runCommand('node', [SCREENSHOT_SCRIPT_PATH], {
+      user: NODE_USER,
+      env: {
+        PLAYWRIGHT_BROWSERS_PATH,
+      },
+      allowNonZeroExitCode: true,
+    })
+    await sandbox.runCommand('rm', ['-f', SCREENSHOT_SCRIPT_PATH], {user: NODE_USER})
+    hasScreenshot = screenshotResult.exitCode === 0 && (await sandbox.exists(SCREENSHOT_PATH))
+    if (!hasScreenshot) {
+      console.warn('Unable to capture UI snapshot: %s', screenshotResult.stderr)
+    }
+  }
+
   const TEST_PATH = 'scenario.test.ts'
   const BROWSER_TEST_PATH = 'scenario.browser.test.ts'
   const VITEST_CONFIG_PATH = 'vitest.agent-eval.config.ts'
@@ -337,6 +429,7 @@ async function runTreatment(
   const workspacePath = path.join(artifactDirectory, 'workspace')
   const copilotConfigPath = path.join(artifactDirectory, '.copilot')
   const skillsConfigPath = path.join(artifactDirectory, '.agents')
+  const screenshotPath = path.join(workspacePath, SCREENSHOT_PATH)
   const testResultsPath = path.join(workspacePath, 'test-results.json')
   await fs.mkdir(workspacePath, {recursive: true})
 
@@ -360,6 +453,7 @@ async function runTreatment(
       directory: artifactDirectory,
       copilotConfigPath,
       skillsConfigPath,
+      ...(hasScreenshot ? {screenshotPath: path.relative(process.cwd(), screenshotPath)} : {}),
       testResultsPath,
       workspacePath,
     },
@@ -384,4 +478,4 @@ async function runTreatment(
   }
 }
 
-export {getCopilotArgs, getVitestConfig, run}
+export {getCopilotArgs, getScreenshotScript, getVitestConfig, run}

@@ -48,6 +48,7 @@ const output: AgentEvalOutput = {
         copilotConfigPath: '/artifacts/.copilot',
         directory: '/artifacts',
         skillsConfigPath: '/artifacts/.agents',
+        screenshotPath: 'artifacts/treatment-id/workspace/ui-snapshot.png',
         testResultsPath: '/artifacts/workspace/test-results.json',
         workspacePath: '/artifacts/workspace',
       },
@@ -140,6 +141,13 @@ describe(parseAgentEvalOutput, () => {
 
   test('parses serialized agent eval output', () => {
     expect(parseAgentEvalOutput(JSON.stringify(output))).toEqual(output)
+  })
+
+  test('parses output without a UI snapshot', () => {
+    const outputWithoutScreenshot = structuredClone(output)
+    delete outputWithoutScreenshot.results[0].artifacts.screenshotPath
+
+    expect(parseAgentEvalOutput(outputWithoutScreenshot)).toEqual(outputWithoutScreenshot)
   })
 
   test('preserves unknown Copilot messages', () => {

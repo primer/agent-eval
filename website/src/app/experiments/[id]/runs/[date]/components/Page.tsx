@@ -4,6 +4,7 @@ import {Breadcrumbs, Stack} from '@primer/react'
 import type {Experiment} from '../../../../../../experiments'
 import type {Route} from 'next'
 import Link from 'next/link'
+import Image from 'next/image'
 
 type TranscriptEntry = {
   id: string
@@ -25,6 +26,7 @@ type RunResult = {
   premiumRequests: number
   totalApiDurationMs: number
   sessionDurationMs: number
+  screenshotSource?: string
   tests: Array<{
     fullName: string
     status: string
@@ -121,6 +123,21 @@ export function Page({experiment, run}: Props) {
                   <dt>Session time</dt>
                   <dd className="m-0">{formatDuration(result.sessionDurationMs)}</dd>
                 </dl>
+                <div>
+                  <h3>UI snapshot</h3>
+                  {result.screenshotSource ? (
+                    <Image
+                      alt={`UI snapshot for ${result.scenarioId}`}
+                      className="border border-default rounded-2 w-full h-auto"
+                      height={900}
+                      src={result.screenshotSource}
+                      unoptimized
+                      width={1440}
+                    />
+                  ) : (
+                    <p>No UI snapshot was recorded.</p>
+                  )}
+                </div>
                 <div>
                   <h3>Tests</h3>
                   <ul>

@@ -10,6 +10,7 @@ import {getTestMetadata, parseTestResults} from './vitest'
 const PLAYWRIGHT_BROWSERS_PATH = '/ms-playwright'
 const SCREENSHOTS_DIRECTORY = '__screenshots__'
 const BROWSER_TEST_DEPENDENCIES = ['vitest@4.1.10', 'playwright@1.61.1', '@vitest/browser-playwright@4.1.10']
+const GENERATED_SCENARIO_EXCLUDES = [SCREENSHOTS_DIRECTORY, 'node_modules', '.next']
 
 type RunOptions = {
   artifactsDirectory: string
@@ -80,20 +81,12 @@ async function updateScenarioScreenshots(
 
   await using sandbox = await Sandbox.create(options)
   await sandbox.copy(scenario.directory, CONTAINER_WORKDIR, {
-    exclude: [
-      'scenario.config.ts',
-      'scenario.test.ts',
-      'scenario.browser.test.ts',
-      SCREENSHOTS_DIRECTORY,
-      'node_modules',
-      '.next',
-    ],
+    exclude: GENERATED_SCENARIO_EXCLUDES,
   })
   await sandbox.runCommand('chown', ['-R', NODE_USER, '.'], {user: 'root'})
   await sandbox.runCommand('npm', ['install'], {user: NODE_USER})
   await sandbox.runCommand('npm', ['run', 'build', '--if-present'], {user: NODE_USER})
   await installBrowserTestDependencies(sandbox)
-  await sandbox.copy(scenario.browserTestPath, 'scenario.browser.test.ts')
   await sandbox.writeFile('vitest.agent-eval.config.ts', getVitestConfig('browser-test-results.json', true))
   await sandbox.runCommand(
     'npx',
@@ -219,14 +212,7 @@ async function runTreatment(
 
   console.log('Copying files from: %s...', treatment.scenario.directory)
   await sandbox.copy(treatment.scenario.directory, CONTAINER_WORKDIR, {
-    exclude: [
-      'scenario.config.ts',
-      'scenario.test.ts',
-      'scenario.browser.test.ts',
-      SCREENSHOTS_DIRECTORY,
-      'node_modules',
-      '.next',
-    ],
+    exclude: ['scenario.config.ts', 'scenario.test.ts', 'scenario.browser.test.ts', ...GENERATED_SCENARIO_EXCLUDES],
   })
   await sandbox.runCommand('chown', ['-R', NODE_USER, '.'], {
     user: 'root',

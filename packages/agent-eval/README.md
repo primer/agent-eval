@@ -121,10 +121,10 @@ scenario with:
 pnpm exec agent-eval --update-screenshots .
 ```
 
-The command uses the same Linux container, Chromium version, and deterministic
-file naming as evaluation. Screenshot baselines remain in the scenario folder,
-are hidden from the agent, and are copied into its workspace only when browser
-evaluation begins.
+The command copies the authored scenario into the same Linux container used by
+evaluation, then uses the same Chromium version and deterministic file naming.
+Screenshot baselines remain in the scenario folder, are hidden from the agent,
+and are copied into its workspace only when browser evaluation begins.
 
 With everything in place, you can now use the `@primer/agent-eval` cli to run
 the experiment:

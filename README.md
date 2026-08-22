@@ -54,7 +54,11 @@ treatment results.
 Scenarios live in [`./scenarios`](./scenarios/). Each scenario has a
 `scenario.config.ts` file that defines the agent prompt and a `scenario.test.ts`
 file that grades the agent's output. Scenarios can also include an optional
-`scenario.browser.test.ts` file for checks that need a browser:
+`scenario.browser.test.ts` file for checks that need a browser. Screenshot
+baselines live in the scenario's `__screenshots__` directory and can be
+regenerated from that scenario with
+`pnpm exec agent-eval --update-screenshots .`. Baselines are hidden from the
+agent and copied into the workspace only for evaluation.
 
 ```ts
 import {defineScenario} from '@primer/agent-eval/scenario'

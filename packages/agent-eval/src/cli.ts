@@ -10,7 +10,8 @@ import {createAgentEvalOutput} from './output'
 import type {Treatment, TreatmentResult} from './treatment'
 import {findExperiment, listExperiments} from './experiments'
 import {resolveExperimentScenario} from './resolve-experiment-scenario'
-import {run} from './run'
+import {run, updateScenarioScreenshots} from './run'
+import {loadScenarioDirectory} from './scenarios'
 import {parseShard, selectShard} from './shard'
 
 const {values} = parseArgs({
@@ -57,6 +58,10 @@ const {values} = parseArgs({
       type: 'string',
       description: 'The shard to run in <order>/<total> format',
     },
+    'update-screenshots': {
+      type: 'string',
+      description: 'Regenerate screenshot baselines for a scenario directory',
+    },
   },
 })
 
@@ -74,7 +79,17 @@ Options:
       --output <file>        The target file in which results are written (default: output.json)
       --scenarios <dir>      The directory containing scenario directories
       --shard <order/total>  The shard to run
+      --update-screenshots <dir>
+                            Regenerate screenshot baselines for a scenario directory
 `)
+  process.exit(0)
+}
+
+const DOCKER_IMAGE = values['docker-image']?.trim() || undefined
+if (values['update-screenshots']) {
+  const scenarioDirectory = path.resolve(values['update-screenshots'])
+  const scenario = await loadScenarioDirectory(scenarioDirectory)
+  await updateScenarioScreenshots(scenario, {dockerImage: DOCKER_IMAGE})
   process.exit(0)
 }
 
@@ -86,7 +101,6 @@ if (!COPILOT_GITHUB_TOKEN) {
 }
 
 const ARTIFACTS_DIR = path.resolve(values.artifacts ?? 'artifacts')
-const DOCKER_IMAGE = values['docker-image']?.trim() || undefined
 const parsedConcurrency = values.concurrency ? parseInt(values.concurrency, 10) : 1
 const MAX_CONCURRENCY =
   Number.isFinite(parsedConcurrency) && Number.isInteger(parsedConcurrency) && parsedConcurrency >= 1

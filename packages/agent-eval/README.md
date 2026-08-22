@@ -102,6 +102,30 @@ provider, Chromium, and its system dependencies, then runs the browser test in
 Vitest browser mode after the required `scenario.test.ts` file. Results from
 both files are combined in the scenario score and test-results artifact.
 
+Browser tests can use `toMatchScreenshot` for visual regression testing:
+
+```ts
+import {expect, test} from 'vitest'
+import {page} from 'vitest/browser'
+
+test('matches the expected page', async () => {
+  await page.goto('/')
+  await expect(page.getByRole('main')).toMatchScreenshot('page')
+})
+```
+
+Generate or update the scenario's `__screenshots__` directory from inside the
+scenario with:
+
+```sh
+pnpm exec agent-eval --update-screenshots .
+```
+
+The command uses the same Linux container, Chromium version, and deterministic
+file naming as evaluation. Screenshot baselines remain in the scenario folder,
+are hidden from the agent, and are copied into its workspace only when browser
+evaluation begins.
+
 With everything in place, you can now use the `@primer/agent-eval` cli to run
 the experiment:
 

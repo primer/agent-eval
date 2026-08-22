@@ -8,6 +8,8 @@ import {isMessageType, parseMessage, type Message} from './copilot-cli'
 import {getTestMetadata, parseTestResults} from './vitest'
 
 const PLAYWRIGHT_BROWSERS_PATH = '/ms-playwright'
+const SCREENSHOTS_DIRECTORY = '__screenshots__'
+const BROWSER_TEST_DEPENDENCIES = ['vitest@4.1.8', 'playwright@1.61.1', '@vitest/browser-playwright@4.1.8']
 
 type RunOptions = {
   artifactsDirectory: string
@@ -24,6 +26,13 @@ function getVitestConfig(outputFile: string, browser = false): string {
       headless: true,
       provider: playwright(),
       instances: [{browser: 'chromium'}],
+      expect: {
+        toMatchScreenshot: {
+          resolveScreenshotPath({root, testFileName, arg, browserName, ext}) {
+            return \`\${root}/${SCREENSHOTS_DIRECTORY}/\${testFileName}/\${arg}-\${browserName}\${ext}\`
+          },
+        },
+      },
     },
 `
     : ''
@@ -37,6 +46,71 @@ ${browserConfig}    reporters: [['json', {outputFile: ${JSON.stringify(outputFil
   },
 })
 `
+}
+
+async function installBrowserTestDependencies(sandbox: Sandbox): Promise<void> {
+  console.log('Installing browser test dependencies...')
+  await sandbox.runCommand(
+    'npm',
+    ['install', '--no-save', '--package-lock=false', ...BROWSER_TEST_DEPENDENCIES],
+    {
+      user: NODE_USER,
+    },
+  )
+  console.log('Installing Playwright browser...')
+  await sandbox.runCommand('./node_modules/.bin/playwright', ['install', '--with-deps', 'chromium'], {
+    user: 'root',
+    env: {
+      PLAYWRIGHT_BROWSERS_PATH,
+    },
+  })
+}
+
+async function copyScreenshotBaselines(sandbox: Sandbox, scenario: Treatment['scenario']): Promise<void> {
+  const screenshotsPath = path.join(scenario.directory, SCREENSHOTS_DIRECTORY)
+  const screenshotsStats = await fs.stat(screenshotsPath).catch(() => undefined)
+  if (screenshotsStats?.isDirectory()) {
+    await sandbox.copy(screenshotsPath, SCREENSHOTS_DIRECTORY)
+  }
+}
+
+async function updateScenarioScreenshots(
+  scenario: Treatment['scenario'],
+  options: {dockerImage?: string} = {},
+): Promise<void> {
+  if (!scenario.browserTestPath) {
+    throw new Error(`Scenario "${scenario.id}" does not have a scenario.browser.test.ts file`)
+  }
+
+  await using sandbox = await Sandbox.create(options)
+  await sandbox.copy(scenario.directory, CONTAINER_WORKDIR, {
+    exclude: [
+      'scenario.config.ts',
+      'scenario.test.ts',
+      'scenario.browser.test.ts',
+      SCREENSHOTS_DIRECTORY,
+      'node_modules',
+      '.next',
+    ],
+  })
+  await sandbox.runCommand('chown', ['-R', NODE_USER, '.'], {user: 'root'})
+  await sandbox.runCommand('npm', ['install'], {user: NODE_USER})
+  await sandbox.runCommand('npm', ['run', 'build', '--if-present'], {user: NODE_USER})
+  await installBrowserTestDependencies(sandbox)
+  await sandbox.copy(scenario.browserTestPath, 'scenario.browser.test.ts')
+  await sandbox.writeFile('vitest.agent-eval.config.ts', getVitestConfig('browser-test-results.json', true))
+  await sandbox.runCommand(
+    'npx',
+    ['vitest', 'run', '--update', '--config', 'vitest.agent-eval.config.ts', 'scenario.browser.test.ts'],
+    {
+      user: NODE_USER,
+      env: {PLAYWRIGHT_BROWSERS_PATH},
+    },
+  )
+
+  const screenshotsPath = path.join(scenario.directory, SCREENSHOTS_DIRECTORY)
+  await fs.rm(screenshotsPath, {recursive: true, force: true})
+  await sandbox.download(SCREENSHOTS_DIRECTORY, screenshotsPath)
 }
 
 function run(treatments: Array<Treatment>, options: RunOptions): Promise<Array<TreatmentResult>> {
@@ -149,7 +223,14 @@ async function runTreatment(
 
   console.log('Copying files from: %s...', treatment.scenario.directory)
   await sandbox.copy(treatment.scenario.directory, CONTAINER_WORKDIR, {
-    exclude: ['scenario.config.ts', 'scenario.test.ts', 'scenario.browser.test.ts', 'node_modules', '.next'],
+    exclude: [
+      'scenario.config.ts',
+      'scenario.test.ts',
+      'scenario.browser.test.ts',
+      SCREENSHOTS_DIRECTORY,
+      'node_modules',
+      '.next',
+    ],
   })
   await sandbox.runCommand('chown', ['-R', NODE_USER, '.'], {
     user: 'root',
@@ -190,21 +271,7 @@ async function runTreatment(
   })
 
   if (treatment.scenario.browserTestPath) {
-    console.log('Installing browser test dependencies...')
-    await sandbox.runCommand(
-      'npm',
-      ['install', '--no-save', '--package-lock=false', 'vitest', 'playwright', '@vitest/browser-playwright'],
-      {
-        user: NODE_USER,
-      },
-    )
-    console.log('Installing Playwright browser...')
-    await sandbox.runCommand('./node_modules/.bin/playwright', ['install', '--with-deps', 'chromium'], {
-      user: 'root',
-      env: {
-        PLAYWRIGHT_BROWSERS_PATH,
-      },
-    })
+    await installBrowserTestDependencies(sandbox)
   }
 
   console.log('Running copilot...')
@@ -243,6 +310,7 @@ async function runTreatment(
   ]
 
   if (treatment.scenario.browserTestPath) {
+    await copyScreenshotBaselines(sandbox, treatment.scenario)
     scenarioTests.push({
       sourcePath: treatment.scenario.browserTestPath,
       testPath: BROWSER_TEST_PATH,
@@ -384,4 +452,4 @@ async function runTreatment(
   }
 }
 
-export {getCopilotArgs, getVitestConfig, run}
+export {copyScreenshotBaselines, getCopilotArgs, getVitestConfig, run, updateScenarioScreenshots}

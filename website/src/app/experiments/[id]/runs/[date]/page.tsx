@@ -25,7 +25,10 @@ function getString(record: Record<string, unknown> | null, key: string): string 
   return typeof value === 'string' ? value : undefined
 }
 
-function createTranscript(logs: Array<LogMessage>): Array<TranscriptEntry> {
+function createTranscript(
+  logs: Array<LogMessage>,
+  options: {includeUserMessages?: boolean} = {},
+): Array<TranscriptEntry> {
   const entries: Array<TranscriptEntry> = []
   const messageEntries = new Map<string, TranscriptEntry>()
   const reasoningEntries = new Map<string, TranscriptEntry>()
@@ -39,6 +42,9 @@ function createTranscript(logs: Array<LogMessage>): Array<TranscriptEntry> {
 
     switch (message.type) {
       case 'user.message': {
+        if (options.includeUserMessages === false) {
+          break
+        }
         const content = getString(data, 'content')
         if (content) {
           entries.push({id, label: 'User', timestamp, content})
@@ -143,30 +149,62 @@ function createTranscript(logs: Array<LogMessage>): Array<TranscriptEntry> {
   return entries.filter(entry => entry.content.length > 0)
 }
 
+function createConversationTurns(prompts: Array<string>, logs: Array<LogMessage>) {
+  const turnLogs: Array<Array<LogMessage>> = []
+  let currentTurn: Array<LogMessage> = []
+
+  for (const message of logs) {
+    currentTurn.push(message)
+    if (message.type === 'result') {
+      turnLogs.push(currentTurn)
+      currentTurn = []
+    }
+  }
+
+  if (currentTurn.length > 0 || turnLogs.length === 0) {
+    turnLogs.push(currentTurn)
+  }
+
+  return turnLogs.slice(0, prompts.length).map((messages, index) => ({
+    prompt: prompts[index],
+    transcript: createTranscript(messages, {includeUserMessages: false}),
+  }))
+}
+
 function createRunDetails(date: string, output: AgentEvalOutput): RunDetails {
   const treatments = new Map(output.treatments.map(treatment => [treatment.id, treatment.config.name]))
+  const scenarioPrompts = new Map(
+    output.scenarios.map(scenario => [
+      scenario.id,
+      [scenario.config.prompt, ...(scenario.config.turns?.map(turn => turn.prompt) ?? [])],
+    ]),
+  )
   return {
     date,
-    results: output.results.map(result => ({
-      id: result.id,
-      scenarioId: result.scenarioId,
-      treatment: treatments.get(result.treatmentId) ?? 'Unknown treatment',
-      model: result.model,
-      reasoningEffort: result.reasoningEffort,
-      testsPassed: result.testResults.numPassedTests,
-      totalTests: result.testResults.numTotalTests,
-      turns: result.assistant.turns,
-      outputTokens: result.assistant.outputTokens,
-      premiumRequests: result.assistant.premiumRequests,
-      totalApiDurationMs: result.assistant.totalApiDurationMs,
-      sessionDurationMs: result.assistant.sessionDurationMs,
-      tests: result.testResults.tests.map(test => ({
-        fullName: test.fullName,
-        status: test.status,
-        description: test.description,
-      })),
-      transcript: createTranscript(result.assistant.logs),
-    })),
+    results: output.results.map(result => {
+      const prompts = scenarioPrompts.get(result.scenarioId) ?? []
+      return {
+        id: result.id,
+        scenarioId: result.scenarioId,
+        treatment: treatments.get(result.treatmentId) ?? 'Unknown treatment',
+        model: result.model,
+        reasoningEffort: result.reasoningEffort,
+        testsPassed: result.testResults.numPassedTests,
+        totalTests: result.testResults.numTotalTests,
+        turns: result.assistant.turns,
+        outputTokens: result.assistant.outputTokens,
+        premiumRequests: result.assistant.premiumRequests,
+        totalApiDurationMs: result.assistant.totalApiDurationMs,
+        sessionDurationMs: result.assistant.sessionDurationMs,
+        tests: result.testResults.tests.map(test => ({
+          fullName: test.fullName,
+          status: test.status,
+          description: test.description,
+        })),
+        transcript: createTranscript(result.assistant.logs),
+        conversationTurns: prompts.length > 1 ? createConversationTurns(prompts, result.assistant.logs) : undefined,
+      }
+    }),
   }
 }
 

@@ -126,15 +126,21 @@ function getCopilotArgs({
   prompt,
   model,
   reasoningEffort,
+  sessionId,
 }: {
   prompt: string
   model: Model
   reasoningEffort?: ReasoningEffort
+  sessionId?: string
 }): Array<string> {
   const args = ['-p', prompt, '--model', model, '--allow-all']
 
   if (reasoningEffort) {
     args.push('--reasoning-effort', reasoningEffort)
+  }
+
+  if (sessionId) {
+    args.push('--resume', sessionId)
   }
 
   return [...args, '--mode', 'autopilot', '--output-format', 'json']
@@ -147,9 +153,20 @@ async function runTreatment(
   console.log('Running treatment: %s (%s)', treatment.config.name, treatment.id)
   await using sandbox = await Sandbox.create({dockerImage})
 
+  const scenarioTestPaths = treatment.scenario.turns?.flatMap(turn => [
+    path.relative(treatment.scenario.directory, turn.testPath),
+    ...(turn.browserTestPath ? [path.relative(treatment.scenario.directory, turn.browserTestPath)] : []),
+  ])
   console.log('Copying files from: %s...', treatment.scenario.directory)
   await sandbox.copy(treatment.scenario.directory, CONTAINER_WORKDIR, {
-    exclude: ['scenario.config.ts', 'scenario.test.ts', 'scenario.browser.test.ts', 'node_modules', '.next'],
+    exclude: [
+      'scenario.config.ts',
+      'scenario.test.ts',
+      'scenario.browser.test.ts',
+      ...(scenarioTestPaths ?? []),
+      'node_modules',
+      '.next',
+    ],
   })
   await sandbox.runCommand('chown', ['-R', NODE_USER, '.'], {
     user: 'root',
@@ -189,7 +206,7 @@ async function runTreatment(
     user: NODE_USER,
   })
 
-  if (treatment.scenario.browserTestPath) {
+  if (treatment.scenario.browserTestPath || treatment.scenario.turns?.some(turn => turn.browserTestPath)) {
     console.log('Installing browser test dependencies...')
     await sandbox.runCommand(
       'npm',
@@ -207,50 +224,17 @@ async function runTreatment(
     })
   }
 
-  console.log('Running copilot...')
-  const {prompt} = treatment.scenario.config
-  const args = getCopilotArgs({
-    prompt,
-    model: treatment.model,
-    reasoningEffort: treatment.reasoningEffort,
-  })
-  const copilotOutput = await sandbox.runCommand('copilot', args, {
-    user: NODE_USER,
-    env: {
-      COPILOT_GITHUB_TOKEN: copilotToken,
+  const scenarioTurns = [
+    {
+      prompt: treatment.scenario.config.prompt,
+      testPath: treatment.scenario.testPath,
+      ...(treatment.scenario.browserTestPath ? {browserTestPath: treatment.scenario.browserTestPath} : {}),
     },
-  })
-  const messages: Array<Message> = copilotOutput.stdout.split('\n').flatMap(line => {
-    const trimmed = line.trim()
-    if (trimmed.length === 0) {
-      return []
-    }
-    return parseMessage(JSON.parse(trimmed))
-  })
-
-  const TEST_PATH = 'scenario.test.ts'
-  const BROWSER_TEST_PATH = 'scenario.browser.test.ts'
+    ...(treatment.scenario.turns ?? []),
+  ]
   const VITEST_CONFIG_PATH = 'vitest.agent-eval.config.ts'
   const TEST_RESULTS_PATH = 'test-results.json'
-  const BROWSER_TEST_RESULTS_PATH = 'browser-test-results.json'
-  const scenarioTests = [
-    {
-      sourcePath: treatment.scenario.testPath,
-      testPath: TEST_PATH,
-      resultsPath: TEST_RESULTS_PATH,
-      browser: false,
-    },
-  ]
-
-  if (treatment.scenario.browserTestPath) {
-    scenarioTests.push({
-      sourcePath: treatment.scenario.browserTestPath,
-      testPath: BROWSER_TEST_PATH,
-      resultsPath: BROWSER_TEST_RESULTS_PATH,
-      browser: true,
-    })
-  }
-
+  const messages: Array<Message> = []
   let numFailedTests = 0
   let numPassedTests = 0
   let numPendingTests = 0
@@ -259,53 +243,110 @@ async function runTreatment(
   let testRunSuccess = true
   const tests: TreatmentResult['testResults']['tests'] = []
   const rawTestResults: Array<Record<string, unknown> & {testResults: Array<unknown>}> = []
+  let sessionId: string | undefined
 
-  for (const scenarioTest of scenarioTests) {
-    await sandbox.copy(scenarioTest.sourcePath, scenarioTest.testPath)
-    await sandbox.writeFile(VITEST_CONFIG_PATH, getVitestConfig(scenarioTest.resultsPath, scenarioTest.browser))
-    // Always pass vitest calls even if test suite fails
-    await sandbox.runCommand(
-      'sh',
-      ['-c', 'npx vitest run --config "$1" "$2" || true', 'vitest-run', VITEST_CONFIG_PATH, scenarioTest.testPath],
-      {
-        user: NODE_USER,
-        env: scenarioTest.browser ? {PLAYWRIGHT_BROWSERS_PATH} : undefined,
+  for (const [turnIndex, turn] of scenarioTurns.entries()) {
+    console.log('Running copilot turn %d of %d...', turnIndex + 1, scenarioTurns.length)
+    const args = getCopilotArgs({
+      prompt: turn.prompt,
+      model: treatment.model,
+      reasoningEffort: treatment.reasoningEffort,
+      sessionId,
+    })
+    const copilotOutput = await sandbox.runCommand('copilot', args, {
+      user: NODE_USER,
+      env: {
+        COPILOT_GITHUB_TOKEN: copilotToken,
       },
-    )
+    })
+    const turnMessages: Array<Message> = copilotOutput.stdout.split('\n').flatMap(line => {
+      const trimmed = line.trim()
+      if (trimmed.length === 0) {
+        return []
+      }
+      return parseMessage(JSON.parse(trimmed))
+    })
+    messages.push(...turnMessages)
 
-    const testResultsContent = await sandbox.readFile(scenarioTest.resultsPath)
-    const rawTestResult: unknown = JSON.parse(testResultsContent)
-    const testResults = parseTestResults(rawTestResult)
-    if (!testResults.success) {
-      throw new Error(`Failed to parse test results: ${testResults.error}`)
+    const result = turnMessages.find(message => isMessageType(message, 'result'))
+    if (!result) {
+      throw new Error(`No result message found in copilot output for turn ${turnIndex + 1}`)
+    }
+    sessionId = result.sessionId
+
+    const scenarioTests = [
+      {
+        sourcePath: turn.testPath,
+        testPath: `scenario.turn-${turnIndex + 1}.test.ts`,
+        resultsPath: `test-results.turn-${turnIndex + 1}.json`,
+        browser: false,
+      },
+      ...(turn.browserTestPath
+        ? [
+            {
+              sourcePath: turn.browserTestPath,
+              testPath: `scenario.turn-${turnIndex + 1}.browser.test.ts`,
+              resultsPath: `browser-test-results.turn-${turnIndex + 1}.json`,
+              browser: true,
+            },
+          ]
+        : []),
+    ]
+
+    for (const scenarioTest of scenarioTests) {
+      await sandbox.copy(scenarioTest.sourcePath, scenarioTest.testPath)
+      await sandbox.writeFile(VITEST_CONFIG_PATH, getVitestConfig(scenarioTest.resultsPath, scenarioTest.browser))
+      // Always pass vitest calls even if test suite fails
+      await sandbox.runCommand(
+        'sh',
+        ['-c', 'npx vitest run --config "$1" "$2" || true', 'vitest-run', VITEST_CONFIG_PATH, scenarioTest.testPath],
+        {
+          user: NODE_USER,
+          env: scenarioTest.browser ? {PLAYWRIGHT_BROWSERS_PATH} : undefined,
+        },
+      )
+
+      const testResultsContent = await sandbox.readFile(scenarioTest.resultsPath)
+      const rawTestResult: unknown = JSON.parse(testResultsContent)
+      const testResults = parseTestResults(rawTestResult)
+      if (!testResults.success) {
+        throw new Error(`Failed to parse test results: ${testResults.error}`)
+      }
+
+      const testSource = await fs.readFile(scenarioTest.sourcePath, 'utf8')
+      numFailedTests += testResults.data.numFailedTests
+      numPassedTests += testResults.data.numPassedTests
+      numPendingTests += testResults.data.numPendingTests
+      numTodoTests += testResults.data.numTodoTests
+      numTotalTests += testResults.data.numTotalTests
+      testRunSuccess &&= testResults.data.success
+      tests.push(...getTestMetadata(testResults.data, testSource))
+      rawTestResults.push(rawTestResult as Record<string, unknown> & {testResults: Array<unknown>})
+
+      await sandbox.runCommand('rm', ['-f', scenarioTest.testPath, scenarioTest.resultsPath], {
+        user: NODE_USER,
+      })
     }
 
-    const testSource = await fs.readFile(scenarioTest.sourcePath, 'utf8')
-    numFailedTests += testResults.data.numFailedTests
-    numPassedTests += testResults.data.numPassedTests
-    numPendingTests += testResults.data.numPendingTests
-    numTodoTests += testResults.data.numTodoTests
-    numTotalTests += testResults.data.numTotalTests
-    testRunSuccess &&= testResults.data.success
-    tests.push(...getTestMetadata(testResults.data, testSource))
-    rawTestResults.push(rawTestResult as Record<string, unknown> & {testResults: Array<unknown>})
+    await sandbox.runCommand('rm', ['-f', VITEST_CONFIG_PATH], {user: NODE_USER})
+    if (!testRunSuccess) {
+      break
+    }
   }
 
-  if (rawTestResults.length > 1) {
-    await sandbox.writeFile(
-      TEST_RESULTS_PATH,
-      JSON.stringify({
-        ...rawTestResults[0],
-        numFailedTests,
-        numPassedTests,
-        numPendingTests,
-        numTodoTests,
-        numTotalTests,
-        success: testRunSuccess,
-        testResults: rawTestResults.flatMap(testResult => testResult.testResults),
-      }),
-    )
-  }
+  await sandbox.writeFile(
+    TEST_RESULTS_PATH,
+    JSON.stringify({
+      ...rawTestResults[0],
+      numFailedTests,
+      numPassedTests,
+      numPendingTests,
+      numTodoTests,
+      numTotalTests,
+      success: testRunSuccess,
+      testResults: rawTestResults.flatMap(testResult => testResult.testResults),
+    }),
+  )
 
   // Turns
   const assistantTurns = new Set()
@@ -328,10 +369,7 @@ async function runTreatment(
     }
   }
 
-  const result = messages.find(message => isMessageType(message, 'result'))
-  if (!result) {
-    throw new Error('No result message found in copilot output')
-  }
+  const results = messages.filter(message => isMessageType(message, 'result'))
 
   const artifactDirectory = path.join(artifactsDirectory, treatment.id)
   const workspacePath = path.join(artifactDirectory, 'workspace')
@@ -367,10 +405,10 @@ async function runTreatment(
       logs: messages,
       turns: assistantTurns.size,
       outputTokens,
-      premiumRequests: result.usage.premiumRequests,
+      premiumRequests: results.reduce((total, result) => total + result.usage.premiumRequests, 0),
       // Time to complete (latency)
-      totalApiDurationMs: result.usage.totalApiDurationMs,
-      sessionDurationMs: result.usage.sessionDurationMs,
+      totalApiDurationMs: results.reduce((total, result) => total + result.usage.totalApiDurationMs, 0),
+      sessionDurationMs: results.reduce((total, result) => total + result.usage.sessionDurationMs, 0),
       tools: Object.fromEntries(toolCalls),
     },
     testResults: {

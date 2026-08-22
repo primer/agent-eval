@@ -32,6 +32,28 @@ describe('getCopilotArgs', () => {
       'json',
     ])
   })
+
+  test('resumes the previous session for a follow-up turn', () => {
+    expect(
+      getCopilotArgs({
+        prompt: 'Actually, make it red',
+        model: 'gpt-5.5',
+        sessionId: 'session-id',
+      }),
+    ).toEqual([
+      '-p',
+      'Actually, make it red',
+      '--model',
+      'gpt-5.5',
+      '--allow-all',
+      '--resume',
+      'session-id',
+      '--mode',
+      'autopilot',
+      '--output-format',
+      'json',
+    ])
+  })
 })
 
 describe('getVitestConfig', () => {

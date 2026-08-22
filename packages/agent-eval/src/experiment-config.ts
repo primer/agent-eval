@@ -5,6 +5,13 @@ type ScenarioConfig = {
   description?: string
   prompt: string
   tags?: Array<string>
+  turns?: Array<ScenarioTurnConfig>
+}
+
+type ScenarioTurnConfig = {
+  prompt: string
+  test: string
+  browserTest?: string
 }
 
 type InlineScenarioConfig = {
@@ -35,4 +42,11 @@ const ControlTreatment: TreatmentConfig = {
 }
 
 export {ControlTreatment}
-export type {ExperimentConfig, ExperimentScenarioConfig, InlineScenarioConfig, ScenarioConfig, TreatmentConfig}
+export type {
+  ExperimentConfig,
+  ExperimentScenarioConfig,
+  InlineScenarioConfig,
+  ScenarioConfig,
+  ScenarioTurnConfig,
+  TreatmentConfig,
+}

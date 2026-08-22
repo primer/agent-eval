@@ -31,6 +31,10 @@ type RunResult = {
     description?: string
   }>
   transcript: Array<TranscriptEntry>
+  conversationTurns?: Array<{
+    prompt: string
+    transcript: Array<TranscriptEntry>
+  }>
 }
 
 type RunDetails = {
@@ -132,10 +136,37 @@ export function Page({experiment, run}: Props) {
                     ))}
                   </ul>
                 </div>
-                <div>
-                  <h3>Agent transcript</h3>
-                  <Transcript entries={result.transcript} />
-                </div>
+                {result.conversationTurns ? (
+                  <div>
+                    <h3>Conversation turns</h3>
+                    <ol className="list-none p-0 m-0 flex flex-col gap-4">
+                      {result.conversationTurns.map((turn, index) => (
+                        <li className="border border-default rounded-2 overflow-hidden" key={index}>
+                          <div className="bg-subtle px-3 py-2">
+                            <strong>Turn {index + 1}</strong>
+                          </div>
+                          <div className="p-3 flex flex-col gap-3">
+                            <div>
+                              <h4 className="mt-0">Prompt</h4>
+                              <pre className="m-0 whitespace-pre-wrap break-words overflow-x-auto text-body-small">
+                                {turn.prompt}
+                              </pre>
+                            </div>
+                            <div>
+                              <h4>Agent transcript</h4>
+                              <Transcript entries={turn.transcript} />
+                            </div>
+                          </div>
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                ) : (
+                  <div>
+                    <h3>Agent transcript</h3>
+                    <Transcript entries={result.transcript} />
+                  </div>
+                )}
               </div>
             </details>
           ))}

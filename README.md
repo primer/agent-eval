@@ -66,6 +66,21 @@ export default defineScenario({
 })
 ```
 
+To test context across a conversation, add follow-up `turns`. Each turn names
+the test that must pass before the next prompt is sent:
+
+```ts
+export default defineScenario({
+  prompt: 'Change the button color to blue',
+  turns: [
+    {
+      prompt: 'Actually, make it red instead',
+      test: 'red.test.ts',
+    },
+  ],
+})
+```
+
 ## Authoring experiments
 
 Experiments live in [`./experiments`](./experiments/). Each experiment is a

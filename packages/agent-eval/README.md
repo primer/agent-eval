@@ -147,6 +147,27 @@ Scenario descriptions and tags are optional. Use `description` to explain what
 the scenario tests. Pass `tags` to `listScenarios` to return only scenarios that
 include every requested tag.
 
+### Multi-turn scenarios
+
+Add `turns` to continue the initial conversation after `scenario.test.ts`
+passes. Each follow-up turn provides a prompt and the test file that verifies
+the agent's changes. An optional browser test can also run for that turn:
+
+```ts
+export default defineScenario({
+  prompt: 'Change the button color to blue',
+  turns: [
+    {
+      prompt: 'Actually, make it red instead',
+      test: 'red.test.ts',
+      browserTest: 'red.browser.test.ts',
+    },
+  ],
+})
+```
+
+The evaluator stops after a failed turn instead of sending later prompts.
+
 ## Experiment config authoring
 
 Use `defineConfig` from `@primer/agent-eval/experiment` to keep local experiment

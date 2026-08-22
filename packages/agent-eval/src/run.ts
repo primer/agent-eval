@@ -9,7 +9,7 @@ import {getTestMetadata, parseTestResults} from './vitest'
 
 const PLAYWRIGHT_BROWSERS_PATH = '/ms-playwright'
 const SCREENSHOTS_DIRECTORY = '__screenshots__'
-const BROWSER_TEST_DEPENDENCIES = ['vitest@4.1.8', 'playwright@1.61.1', '@vitest/browser-playwright@4.1.8']
+const BROWSER_TEST_DEPENDENCIES = ['vitest@4.1.10', 'playwright@1.61.1', '@vitest/browser-playwright@4.1.10']
 
 type RunOptions = {
   artifactsDirectory: string
@@ -50,13 +50,9 @@ ${browserConfig}    reporters: [['json', {outputFile: ${JSON.stringify(outputFil
 
 async function installBrowserTestDependencies(sandbox: Sandbox): Promise<void> {
   console.log('Installing browser test dependencies...')
-  await sandbox.runCommand(
-    'npm',
-    ['install', '--no-save', '--package-lock=false', ...BROWSER_TEST_DEPENDENCIES],
-    {
-      user: NODE_USER,
-    },
-  )
+  await sandbox.runCommand('npm', ['install', '--no-save', '--package-lock=false', ...BROWSER_TEST_DEPENDENCIES], {
+    user: NODE_USER,
+  })
   console.log('Installing Playwright browser...')
   await sandbox.runCommand('./node_modules/.bin/playwright', ['install', '--with-deps', 'chromium'], {
     user: 'root',

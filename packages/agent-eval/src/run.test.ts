@@ -59,9 +59,7 @@ describe('getVitestConfig', () => {
     expect(config).toContain('headless: true')
     expect(config).toContain('provider: playwright()')
     expect(config).toContain(`instances: [{browser: 'chromium'}]`)
-    expect(config).toContain(
-      'return `${root}/__screenshots__/${testFileName}/${arg}-${browserName}${ext}`',
-    )
+    expect(config).toContain('return `${root}/__screenshots__/${testFileName}/${arg}-${browserName}${ext}`')
     expect(config).toContain(`outputFile: "browser-test-results.json"`)
   })
 })

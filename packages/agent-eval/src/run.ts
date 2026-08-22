@@ -9,27 +9,45 @@ import {getTestMetadata, parseTestResults} from './vitest'
 
 const PLAYWRIGHT_BROWSERS_PATH = '/ms-playwright'
 const SCREENSHOT_PATH = 'ui-snapshot.png'
+const VIDEO_PATH = 'ui-snapshot.webm'
 const SCREENSHOT_SCRIPT_PATH = '.agent-eval-snapshot.mjs'
 const SCREENSHOT_WIDTH = 1440
 const SCREENSHOT_HEIGHT = 900
+const AGENT_BROWSER_BIN = './node_modules/.bin/agent-browser'
 
 function getScreenshotScript(): string {
   return `
-import {spawn} from 'node:child_process'
+import {spawn, execFileSync} from 'node:child_process'
 import process from 'node:process'
-import {chromium} from 'playwright'
+import fs from 'node:fs'
+
+const AGENT_BROWSER = ${JSON.stringify(AGENT_BROWSER_BIN)}
+const BASE_URL = 'http://127.0.0.1:3000'
+const SCREENSHOT_PATH = ${JSON.stringify(SCREENSHOT_PATH)}
+const VIDEO_PATH = ${JSON.stringify(VIDEO_PATH)}
+
+function agentBrowser(args) {
+  return execFileSync(AGENT_BROWSER, args, {encoding: 'utf8'})
+}
+
+function getAdditionalRoutes() {
+  try {
+    const manifest = JSON.parse(fs.readFileSync('.next/app-path-routes-manifest.json', 'utf8'))
+    const routes = new Set(Object.values(manifest).filter(route => typeof route === 'string'))
+    routes.delete('/')
+    return [...routes].filter(route => !route.startsWith('/_') && !route.includes('['))
+  } catch {
+    return []
+  }
+}
 
 const server = spawn('npm', ['run', 'dev', '--', '--port', '3000'], {
   detached: true,
   stdio: 'inherit',
 })
-let browser
 
 try {
-  browser = await chromium.launch()
-  const page = await browser.newPage({
-    viewport: {width: ${SCREENSHOT_WIDTH}, height: ${SCREENSHOT_HEIGHT}},
-  })
+  let ready = false
   let lastError
 
   for (let attempt = 0; attempt < 60; attempt += 1) {
@@ -38,10 +56,8 @@ try {
     }
 
     try {
-      await page.goto('http://127.0.0.1:3000', {
-        timeout: 1000,
-        waitUntil: 'networkidle',
-      })
+      agentBrowser(['open', BASE_URL])
+      ready = true
       lastError = undefined
       break
     } catch (error) {
@@ -50,13 +66,29 @@ try {
     }
   }
 
-  if (lastError) {
-    throw lastError
+  if (!ready) {
+    throw lastError ?? new Error('Development server did not become ready')
   }
 
-  await page.screenshot({path: ${JSON.stringify(SCREENSHOT_PATH)}})
+  agentBrowser(['set', 'viewport', String(${SCREENSHOT_WIDTH}), String(${SCREENSHOT_HEIGHT})])
+
+  const additionalRoutes = getAdditionalRoutes()
+  if (additionalRoutes.length > 0) {
+    agentBrowser(['record', 'start', VIDEO_PATH])
+    agentBrowser(['open', BASE_URL])
+    await new Promise(resolve => setTimeout(resolve, 500))
+    for (const route of additionalRoutes) {
+      agentBrowser(['open', \`\${BASE_URL}\${route}\`])
+      await new Promise(resolve => setTimeout(resolve, 500))
+    }
+    agentBrowser(['record', 'stop'])
+  } else {
+    agentBrowser(['screenshot', SCREENSHOT_PATH])
+  }
 } finally {
-  await browser?.close()
+  try {
+    agentBrowser(['close'])
+  } catch {}
   if (server.pid) {
     try {
       process.kill(-server.pid, 'SIGTERM')
@@ -289,33 +321,27 @@ async function runTreatment(
     scripts?: Record<string, string>
   }
   let hasScreenshot = false
+  let hasVideo = false
   if (packageJson.scripts?.dev) {
-    if (!treatment.scenario.browserTestPath) {
-      console.log('Installing UI snapshot dependencies...')
-      await sandbox.runCommand('npm', ['install', '--no-save', '--package-lock=false', 'playwright'], {
-        user: NODE_USER,
-      })
-      console.log('Installing Playwright browser...')
-      await sandbox.runCommand('./node_modules/.bin/playwright', ['install', '--with-deps', 'chromium'], {
-        user: 'root',
-        env: {
-          PLAYWRIGHT_BROWSERS_PATH,
-        },
-      })
-    }
+    console.log('Installing UI snapshot dependencies...')
+    await sandbox.runCommand('npm', ['install', '--no-save', '--package-lock=false', 'agent-browser'], {
+      user: NODE_USER,
+    })
+    console.log('Installing agent-browser browser...')
+    await sandbox.runCommand(AGENT_BROWSER_BIN, ['install', '--with-deps'], {
+      user: 'root',
+    })
 
     console.log('Capturing UI snapshot...')
     await sandbox.writeFile(SCREENSHOT_SCRIPT_PATH, getScreenshotScript())
     const screenshotResult = await sandbox.runCommand('node', [SCREENSHOT_SCRIPT_PATH], {
       user: NODE_USER,
-      env: {
-        PLAYWRIGHT_BROWSERS_PATH,
-      },
       allowNonZeroExitCode: true,
     })
     await sandbox.runCommand('rm', ['-f', SCREENSHOT_SCRIPT_PATH], {user: NODE_USER})
     hasScreenshot = screenshotResult.exitCode === 0 && (await sandbox.exists(SCREENSHOT_PATH))
-    if (!hasScreenshot) {
+    hasVideo = screenshotResult.exitCode === 0 && (await sandbox.exists(VIDEO_PATH))
+    if (!hasScreenshot && !hasVideo) {
       console.warn('Unable to capture UI snapshot: %s', screenshotResult.stderr)
     }
   }
@@ -430,6 +456,7 @@ async function runTreatment(
   const copilotConfigPath = path.join(artifactDirectory, '.copilot')
   const skillsConfigPath = path.join(artifactDirectory, '.agents')
   const screenshotPath = path.join(workspacePath, SCREENSHOT_PATH)
+  const videoPath = path.join(workspacePath, VIDEO_PATH)
   const testResultsPath = path.join(workspacePath, 'test-results.json')
   await fs.mkdir(workspacePath, {recursive: true})
 
@@ -454,6 +481,7 @@ async function runTreatment(
       copilotConfigPath,
       skillsConfigPath,
       ...(hasScreenshot ? {screenshotPath: path.relative(process.cwd(), screenshotPath)} : {}),
+      ...(hasVideo ? {videoPath: path.relative(process.cwd(), videoPath)} : {}),
       testResultsPath,
       workspacePath,
     },

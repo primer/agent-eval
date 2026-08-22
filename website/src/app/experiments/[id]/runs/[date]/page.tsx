@@ -147,20 +147,20 @@ function createTranscript(logs: Array<LogMessage>): Array<TranscriptEntry> {
   return entries.filter(entry => entry.content.length > 0)
 }
 
-async function getScreenshotSource(screenshotPath: string | undefined): Promise<string | undefined> {
-  if (!screenshotPath) {
+async function getArtifactDataUrl(artifactPath: string | undefined, mimeType: string): Promise<string | undefined> {
+  if (!artifactPath) {
     return undefined
   }
 
-  const absolutePath = path.isAbsolute(screenshotPath) ? screenshotPath : path.resolve(REPOSITORY_ROOT, screenshotPath)
+  const absolutePath = path.isAbsolute(artifactPath) ? artifactPath : path.resolve(REPOSITORY_ROOT, artifactPath)
   const relativePath = path.relative(ARTIFACTS_DIRECTORY, absolutePath)
   if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
     return undefined
   }
 
   try {
-    const screenshot = await fs.readFile(absolutePath)
-    return `data:image/png;base64,${screenshot.toString('base64')}`
+    const contents = await fs.readFile(absolutePath)
+    return `data:${mimeType};base64,${contents.toString('base64')}`
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
       return undefined
@@ -192,7 +192,8 @@ async function createRunDetails(date: string, output: AgentEvalOutput): Promise<
           status: test.status,
           description: test.description,
         })),
-        screenshotSource: await getScreenshotSource(result.artifacts.screenshotPath),
+        screenshotSource: await getArtifactDataUrl(result.artifacts.screenshotPath, 'image/png'),
+        videoSource: await getArtifactDataUrl(result.artifacts.videoPath, 'video/webm'),
         transcript: createTranscript(result.assistant.logs),
       })),
     ),

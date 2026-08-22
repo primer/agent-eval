@@ -27,6 +27,7 @@ type RunResult = {
   totalApiDurationMs: number
   sessionDurationMs: number
   screenshotSource?: string
+  videoSource?: string
   tests: Array<{
     fullName: string
     status: string
@@ -125,7 +126,15 @@ export function Page({experiment, run}: Props) {
                 </dl>
                 <div>
                   <h3>UI snapshot</h3>
-                  {result.screenshotSource ? (
+                  {result.videoSource ? (
+                    <video
+                      className="border border-default rounded-2 w-full h-auto"
+                      controls
+                      height={900}
+                      src={result.videoSource}
+                      width={1440}
+                    />
+                  ) : result.screenshotSource ? (
                     <Image
                       alt={`UI snapshot for ${result.scenarioId}`}
                       className="border border-default rounded-2 w-full h-auto"

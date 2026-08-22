@@ -20,6 +20,7 @@ type TreatmentResult = {
     directory: string
     skillsConfigPath: string
     screenshotPath?: string
+    videoPath?: string
     testResultsPath: string
     workspacePath: string
   }

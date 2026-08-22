@@ -16,8 +16,18 @@ describe('getCopilotArgs', () => {
       const script = getScreenshotScript()
 
       expect(script).toContain("spawn('npm', ['run', 'dev', '--', '--port', '3000']")
-      expect(script).toContain('viewport: {width: 1440, height: 900}')
-      expect(script).toContain(`page.screenshot({path: "ui-snapshot.png"})`)
+      expect(script).toContain("agentBrowser(['set', 'viewport', String(1440), String(900)])")
+      expect(script).toContain("agentBrowser(['screenshot', SCREENSHOT_PATH])")
+      expect(script).toContain(`const SCREENSHOT_PATH = "ui-snapshot.png"`)
+      expect(script).toContain(`const VIDEO_PATH = "ui-snapshot.webm"`)
+    })
+
+    test('records a video when the app has multiple pages', () => {
+      const script = getScreenshotScript()
+
+      expect(script).toContain("agentBrowser(['record', 'start', VIDEO_PATH])")
+      expect(script).toContain("agentBrowser(['record', 'stop'])")
+      expect(script).toContain('app-path-routes-manifest.json')
     })
   })
 

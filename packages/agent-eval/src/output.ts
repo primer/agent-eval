@@ -17,6 +17,7 @@ type AgentEvalOutputResult = {
     directory: string
     skillsConfigPath: string
     screenshotPath?: string
+    videoPath?: string
     testResultsPath: string
     workspacePath: string
   }
@@ -124,6 +125,7 @@ const AgentEvalOutputResultSchema = z.object({
     directory: z.string(),
     skillsConfigPath: z.string(),
     screenshotPath: z.optional(z.string()),
+    videoPath: z.optional(z.string()),
     testResultsPath: z.string(),
     workspacePath: z.string(),
   }),

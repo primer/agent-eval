@@ -64,7 +64,6 @@ function isScenarioConfig(value: unknown): value is ScenarioConfig {
       (Array.isArray(config.tags) && config.tags.every((tag: unknown) => typeof tag === 'string'))) &&
     (config.turns === undefined ||
       (Array.isArray(config.turns) &&
-        config.turns.length > 0 &&
         config.turns.every((turn: unknown) => {
           if (turn === null || typeof turn !== 'object') {
             return false
@@ -94,7 +93,7 @@ function resolveScenarioFile(directory: string, filepath: string, name: string):
   const scenarioDirectory = path.resolve(directory)
   const resolvedPath = path.resolve(scenarioDirectory, filepath)
   if (path.dirname(resolvedPath) !== scenarioDirectory) {
-    throw new Error(`Scenario "${name}" turn test must be a file in the scenario directory: ${filepath}`)
+    throw new Error(`Scenario "${name}" turn file must be a file in the scenario directory: ${filepath}`)
   }
   return resolvedPath
 }

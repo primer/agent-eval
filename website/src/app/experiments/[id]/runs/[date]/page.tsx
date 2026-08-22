@@ -25,7 +25,10 @@ function getString(record: Record<string, unknown> | null, key: string): string 
   return typeof value === 'string' ? value : undefined
 }
 
-function createTranscript(logs: Array<LogMessage>): Array<TranscriptEntry> {
+function createTranscript(
+  logs: Array<LogMessage>,
+  options: {includeUserMessages?: boolean} = {},
+): Array<TranscriptEntry> {
   const entries: Array<TranscriptEntry> = []
   const messageEntries = new Map<string, TranscriptEntry>()
   const reasoningEntries = new Map<string, TranscriptEntry>()
@@ -39,6 +42,9 @@ function createTranscript(logs: Array<LogMessage>): Array<TranscriptEntry> {
 
     switch (message.type) {
       case 'user.message': {
+        if (options.includeUserMessages === false) {
+          break
+        }
         const content = getString(data, 'content')
         if (content) {
           entries.push({id, label: 'User', timestamp, content})
@@ -161,7 +167,7 @@ function createConversationTurns(prompts: Array<string>, logs: Array<LogMessage>
 
   return turnLogs.slice(0, prompts.length).map((messages, index) => ({
     prompt: prompts[index],
-    transcript: createTranscript(messages),
+    transcript: createTranscript(messages, {includeUserMessages: false}),
   }))
 }
 

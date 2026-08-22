@@ -103,6 +103,22 @@ describe('scenario loading', () => {
     })
   })
 
+  test('allows empty follow-up turns', async () => {
+    const scenariosDirectory = await createScenariosDirectory()
+    const directory = await createScenario(scenariosDirectory, 'example', 'Make the button blue')
+    await fs.writeFile(
+      path.join(directory, 'scenario.config.ts'),
+      `export default {prompt: 'Make the button blue', turns: []}`,
+    )
+
+    await expect(findScenario('example', {directory: scenariosDirectory})).resolves.toEqual({
+      id: 'example',
+      directory,
+      config: {prompt: 'Make the button blue', turns: []},
+      testPath: path.join(directory, 'scenario.test.ts'),
+    })
+  })
+
   test('rejects turns without a prompt and test', async () => {
     const scenariosDirectory = await createScenariosDirectory()
     const directory = await createScenario(scenariosDirectory, 'example', 'Make the button blue')
@@ -113,6 +129,27 @@ describe('scenario loading', () => {
 
     await expect(findScenario('example', {directory: scenariosDirectory})).rejects.toThrow(
       'Scenario "example" config must export a default config with a string prompt, optional string description, optional string[] tags, and optional turns',
+    )
+  })
+
+  test('rejects turn files outside the scenario directory', async () => {
+    const scenariosDirectory = await createScenariosDirectory()
+    const directory = await createScenario(scenariosDirectory, 'example', 'Make the button blue')
+    await fs.writeFile(
+      path.join(directory, 'scenario.config.ts'),
+      `export default {
+        prompt: 'Make the button blue',
+        turns: [{
+          prompt: 'Actually, make it red',
+          test: 'red.test.ts',
+          browserTest: '../red.browser.test.ts'
+        }]
+      }`,
+    )
+    await fs.writeFile(path.join(directory, 'red.test.ts'), '')
+
+    await expect(findScenario('example', {directory: scenariosDirectory})).rejects.toThrow(
+      'Scenario "example" turn file must be a file in the scenario directory: ../red.browser.test.ts',
     )
   })
 

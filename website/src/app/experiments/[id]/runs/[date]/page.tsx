@@ -169,6 +169,25 @@ async function getArtifactDataUrl(artifactPath: string | undefined, mimeType: st
   }
 }
 
+function getImageMimeType(artifactPath: string): string {
+  const extension = path.extname(artifactPath).toLowerCase()
+  if (extension === '.jpg' || extension === '.jpeg') {
+    return 'image/jpeg'
+  }
+  return 'image/png'
+}
+
+async function getArtifactDataUrls(artifactPaths: Array<string> | undefined): Promise<Array<string>> {
+  if (!artifactPaths || artifactPaths.length === 0) {
+    return []
+  }
+
+  const sources = await Promise.all(
+    artifactPaths.map(artifactPath => getArtifactDataUrl(artifactPath, getImageMimeType(artifactPath))),
+  )
+  return sources.filter((source): source is string => source !== undefined)
+}
+
 async function createRunDetails(date: string, output: AgentEvalOutput): Promise<RunDetails> {
   const treatments = new Map(output.treatments.map(treatment => [treatment.id, treatment.config.name]))
   return {
@@ -192,7 +211,7 @@ async function createRunDetails(date: string, output: AgentEvalOutput): Promise<
           status: test.status,
           description: test.description,
         })),
-        screenshotSource: await getArtifactDataUrl(result.artifacts.screenshotPath, 'image/png'),
+        screenshotSources: await getArtifactDataUrls(result.artifacts.screenshotPaths),
         videoSource: await getArtifactDataUrl(result.artifacts.videoPath, 'video/webm'),
         transcript: createTranscript(result.assistant.logs),
       })),

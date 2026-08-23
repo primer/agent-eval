@@ -8,94 +8,89 @@ import {isMessageType, parseMessage, type Message} from './copilot-cli'
 import {getTestMetadata, parseTestResults} from './vitest'
 
 const PLAYWRIGHT_BROWSERS_PATH = '/ms-playwright'
-const SCREENSHOT_PATH = 'ui-snapshot.png'
-const VIDEO_PATH = 'ui-snapshot.webm'
-const SCREENSHOT_SCRIPT_PATH = '.agent-eval-snapshot.mjs'
-const SCREENSHOT_WIDTH = 1440
-const SCREENSHOT_HEIGHT = 900
-const AGENT_BROWSER_BIN = './node_modules/.bin/agent-browser'
+const WALKTHROUGH_DIR = 'walkthrough'
+const WALKTHROUGH_VIEWPORT_WIDTH = 1440
+const WALKTHROUGH_VIEWPORT_HEIGHT = 900
+const DEV_SERVER_PORT = 3000
+const DEV_SERVER_SCRIPT_PATH = '.agent-eval-dev-server.mjs'
+const DEV_SERVER_PID_PATH = '.agent-eval-dev-server.pid'
 
-function getScreenshotScript(): string {
+function getDevServerScript(): string {
   return `
-import {spawn, execFileSync} from 'node:child_process'
-import process from 'node:process'
+import {spawn} from 'node:child_process'
 import fs from 'node:fs'
 
-const AGENT_BROWSER = ${JSON.stringify(AGENT_BROWSER_BIN)}
-const BASE_URL = 'http://127.0.0.1:3000'
-const SCREENSHOT_PATH = ${JSON.stringify(SCREENSHOT_PATH)}
-const VIDEO_PATH = ${JSON.stringify(VIDEO_PATH)}
+const PORT = ${DEV_SERVER_PORT}
+const PID_PATH = ${JSON.stringify(DEV_SERVER_PID_PATH)}
 
-function agentBrowser(args) {
-  return execFileSync(AGENT_BROWSER, args, {encoding: 'utf8'})
-}
-
-function getAdditionalRoutes() {
-  try {
-    const manifest = JSON.parse(fs.readFileSync('.next/app-path-routes-manifest.json', 'utf8'))
-    const routes = new Set(Object.values(manifest).filter(route => typeof route === 'string'))
-    routes.delete('/')
-    return [...routes].filter(route => !route.startsWith('/_') && !route.includes('['))
-  } catch {
-    return []
-  }
-}
-
-const server = spawn('npm', ['run', 'dev', '--', '--port', '3000'], {
+const server = spawn('npm', ['run', 'dev', '--', '--port', String(PORT)], {
   detached: true,
-  stdio: 'inherit',
+  stdio: 'ignore',
 })
+server.unref()
 
-try {
-  let ready = false
-  let lastError
+if (server.pid) {
+  fs.writeFileSync(PID_PATH, String(server.pid))
+}
 
-  for (let attempt = 0; attempt < 60; attempt += 1) {
-    if (server.exitCode !== null) {
-      throw new Error(\`Development server exited with code \${server.exitCode}\`)
-    }
-
-    try {
-      agentBrowser(['open', BASE_URL])
-      ready = true
-      lastError = undefined
-      break
-    } catch (error) {
-      lastError = error
-      await new Promise(resolve => setTimeout(resolve, 1000))
-    }
+let ready = false
+for (let attempt = 0; attempt < 60; attempt += 1) {
+  if (server.exitCode !== null) {
+    break
   }
 
-  if (!ready) {
-    throw lastError ?? new Error('Development server did not become ready')
-  }
-
-  agentBrowser(['set', 'viewport', String(${SCREENSHOT_WIDTH}), String(${SCREENSHOT_HEIGHT})])
-
-  const additionalRoutes = getAdditionalRoutes()
-  if (additionalRoutes.length > 0) {
-    agentBrowser(['record', 'start', VIDEO_PATH])
-    agentBrowser(['open', BASE_URL])
-    await new Promise(resolve => setTimeout(resolve, 500))
-    for (const route of additionalRoutes) {
-      agentBrowser(['open', \`\${BASE_URL}\${route}\`])
-      await new Promise(resolve => setTimeout(resolve, 500))
-    }
-    agentBrowser(['record', 'stop'])
-  } else {
-    agentBrowser(['screenshot', SCREENSHOT_PATH])
-  }
-} finally {
   try {
-    agentBrowser(['close'])
-  } catch {}
-  if (server.pid) {
-    try {
-      process.kill(-server.pid, 'SIGTERM')
-    } catch {}
+    await fetch(\`http://127.0.0.1:\${PORT}\`)
+    ready = true
+    break
+  } catch {
+    await new Promise(resolve => setTimeout(resolve, 1000))
   }
+}
+
+if (!ready) {
+  process.exit(1)
 }
 `
+}
+
+function getWalkthroughPrompt(): string {
+  return `The application you just built is now running locally at http://localhost:${DEV_SERVER_PORT}. Record a visual walkthrough of what you implemented so a reviewer can see it without running the code themselves, then save the result inside a "${WALKTHROUGH_DIR}" directory (create it if it doesn't exist) at the root of the project:
+
+- If what you built is a single screen, take one screenshot and save it as ${WALKTHROUGH_DIR}/screenshot.png.
+- If there are a few distinct views worth showing (for example separate pages or states), take a screenshot of each, in the order a reviewer should look at them, saved as ${WALKTHROUGH_DIR}/01-*.png, ${WALKTHROUGH_DIR}/02-*.png, etc.
+- If reviewing the change requires seeing an interactive flow across multiple steps or pages, record a short video of yourself clicking through it instead and save it as ${WALKTHROUGH_DIR}/walkthrough.webm.
+
+Set the browser viewport to ${WALKTHROUGH_VIEWPORT_WIDTH}x${WALKTHROUGH_VIEWPORT_HEIGHT} before capturing anything. Only capture the walkthrough, do not make any further code changes.`
+}
+
+const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg'])
+const VIDEO_EXTENSIONS = new Set(['.webm', '.mp4'])
+
+async function getWalkthroughArtifacts(
+  workspacePath: string,
+): Promise<{screenshotPaths: Array<string>; videoPath?: string}> {
+  const walkthroughDirectory = path.join(workspacePath, WALKTHROUGH_DIR)
+  let entries: Array<string>
+  try {
+    entries = (await fs.readdir(walkthroughDirectory)).sort((a, b) => a.localeCompare(b))
+  } catch {
+    return {screenshotPaths: []}
+  }
+
+  const screenshotPaths: Array<string> = []
+  let videoPath: string | undefined
+  for (const entry of entries) {
+    const extension = path.extname(entry).toLowerCase()
+    const relativePath = path.relative(process.cwd(), path.join(walkthroughDirectory, entry))
+    if (IMAGE_EXTENSIONS.has(extension)) {
+      screenshotPaths.push(relativePath)
+    } else if (!videoPath && VIDEO_EXTENSIONS.has(extension)) {
+      videoPath = relativePath
+    }
+  }
+
+  return {screenshotPaths, videoPath}
 }
 
 type RunOptions = {
@@ -320,30 +315,48 @@ async function runTreatment(
   const packageJson = JSON.parse(await sandbox.readFile('package.json')) as {
     scripts?: Record<string, string>
   }
-  let hasScreenshot = false
-  let hasVideo = false
   if (packageJson.scripts?.dev) {
-    console.log('Installing UI snapshot dependencies...')
-    await sandbox.runCommand('npm', ['install', '--no-save', '--package-lock=false', 'agent-browser'], {
-      user: NODE_USER,
-    })
-    console.log('Installing agent-browser browser...')
-    await sandbox.runCommand(AGENT_BROWSER_BIN, ['install', '--with-deps'], {
-      user: 'root',
-    })
-
-    console.log('Capturing UI snapshot...')
-    await sandbox.writeFile(SCREENSHOT_SCRIPT_PATH, getScreenshotScript())
-    const screenshotResult = await sandbox.runCommand('node', [SCREENSHOT_SCRIPT_PATH], {
+    console.log('Starting development server for UI walkthrough...')
+    await sandbox.writeFile(DEV_SERVER_SCRIPT_PATH, getDevServerScript())
+    const devServerResult = await sandbox.runCommand('node', [DEV_SERVER_SCRIPT_PATH], {
       user: NODE_USER,
       allowNonZeroExitCode: true,
     })
-    await sandbox.runCommand('rm', ['-f', SCREENSHOT_SCRIPT_PATH], {user: NODE_USER})
-    hasScreenshot = screenshotResult.exitCode === 0 && (await sandbox.exists(SCREENSHOT_PATH))
-    hasVideo = screenshotResult.exitCode === 0 && (await sandbox.exists(VIDEO_PATH))
-    if (!hasScreenshot && !hasVideo) {
-      console.warn('Unable to capture UI snapshot: %s', screenshotResult.stderr)
+    await sandbox.runCommand('rm', ['-f', DEV_SERVER_SCRIPT_PATH], {user: NODE_USER})
+
+    if (devServerResult.exitCode !== 0) {
+      console.warn('Unable to start development server for UI walkthrough: %s', devServerResult.stderr)
+    } else {
+      console.log('Recording UI walkthrough...')
+      await sandbox.addMcpServer('playwright', {
+        type: 'local',
+        command: 'npx',
+        args: ['-y', '@playwright/mcp@latest', '--output-dir', WALKTHROUGH_DIR],
+        tools: ['*'],
+      })
+
+      const walkthroughArgs = getCopilotArgs({
+        prompt: getWalkthroughPrompt(),
+        model: treatment.model,
+        reasoningEffort: treatment.reasoningEffort,
+      })
+      const walkthroughResult = await sandbox.runCommand('copilot', walkthroughArgs, {
+        user: NODE_USER,
+        env: {
+          COPILOT_GITHUB_TOKEN: copilotToken,
+        },
+        allowNonZeroExitCode: true,
+      })
+      if (walkthroughResult.exitCode !== 0) {
+        console.warn('Unable to record UI walkthrough: %s', walkthroughResult.stderr)
+      }
     }
+
+    await sandbox.runCommand(
+      'sh',
+      ['-c', `kill "$(cat "$1" 2>/dev/null)" 2>/dev/null; rm -f "$1"`, 'kill-dev-server', DEV_SERVER_PID_PATH],
+      {user: NODE_USER, allowNonZeroExitCode: true},
+    )
   }
 
   const TEST_PATH = 'scenario.test.ts'
@@ -455,8 +468,6 @@ async function runTreatment(
   const workspacePath = path.join(artifactDirectory, 'workspace')
   const copilotConfigPath = path.join(artifactDirectory, '.copilot')
   const skillsConfigPath = path.join(artifactDirectory, '.agents')
-  const screenshotPath = path.join(workspacePath, SCREENSHOT_PATH)
-  const videoPath = path.join(workspacePath, VIDEO_PATH)
   const testResultsPath = path.join(workspacePath, 'test-results.json')
   await fs.mkdir(workspacePath, {recursive: true})
 
@@ -473,6 +484,8 @@ async function runTreatment(
   console.log('Downloading skills config to: %s...', skillsConfigPath)
   await sandbox.download(AGENTS_DIR, skillsConfigPath)
 
+  const {screenshotPaths, videoPath} = await getWalkthroughArtifacts(workspacePath)
+
   return {
     id: randomUUID(),
     treatment,
@@ -480,8 +493,8 @@ async function runTreatment(
       directory: artifactDirectory,
       copilotConfigPath,
       skillsConfigPath,
-      ...(hasScreenshot ? {screenshotPath: path.relative(process.cwd(), screenshotPath)} : {}),
-      ...(hasVideo ? {videoPath: path.relative(process.cwd(), videoPath)} : {}),
+      ...(screenshotPaths.length > 0 ? {screenshotPaths} : {}),
+      ...(videoPath ? {videoPath} : {}),
       testResultsPath,
       workspacePath,
     },
@@ -506,4 +519,4 @@ async function runTreatment(
   }
 }
 
-export {getCopilotArgs, getScreenshotScript, getVitestConfig, run}
+export {getCopilotArgs, getDevServerScript, getVitestConfig, getWalkthroughPrompt, run}

@@ -1,5 +1,5 @@
 import {describe, expect, test} from 'vitest'
-import {getCopilotArgs, getScreenshotScript, getVitestConfig} from './run'
+import {getCopilotArgs, getDevServerScript, getVitestConfig, getWalkthroughPrompt} from './run'
 
 describe('getCopilotArgs', () => {
   test('omits reasoning effort when not configured', () => {
@@ -9,26 +9,6 @@ describe('getCopilotArgs', () => {
         model: 'claude-haiku-4.5',
       }),
     ).not.toContain('--reasoning-effort')
-  })
-
-  describe('getScreenshotScript', () => {
-    test('captures the viewport at a laptop screen size', () => {
-      const script = getScreenshotScript()
-
-      expect(script).toContain("spawn('npm', ['run', 'dev', '--', '--port', '3000']")
-      expect(script).toContain("agentBrowser(['set', 'viewport', String(1440), String(900)])")
-      expect(script).toContain("agentBrowser(['screenshot', SCREENSHOT_PATH])")
-      expect(script).toContain(`const SCREENSHOT_PATH = "ui-snapshot.png"`)
-      expect(script).toContain(`const VIDEO_PATH = "ui-snapshot.webm"`)
-    })
-
-    test('records a video when the app has multiple pages', () => {
-      const script = getScreenshotScript()
-
-      expect(script).toContain("agentBrowser(['record', 'start', VIDEO_PATH])")
-      expect(script).toContain("agentBrowser(['record', 'stop'])")
-      expect(script).toContain('app-path-routes-manifest.json')
-    })
   })
 
   test('forwards the model and reasoning effort', () => {
@@ -51,6 +31,28 @@ describe('getCopilotArgs', () => {
       '--output-format',
       'json',
     ])
+  })
+})
+
+describe('getDevServerScript', () => {
+  test('starts the dev server on a fixed port and waits for it to become ready', () => {
+    const script = getDevServerScript()
+
+    expect(script).toContain("spawn('npm', ['run', 'dev', '--', '--port', String(PORT)]")
+    expect(script).toContain('const PORT = 3000')
+    expect(script).toContain(`const PID_PATH = ".agent-eval-dev-server.pid"`)
+  })
+})
+
+describe('getWalkthroughPrompt', () => {
+  test('asks the agent to save a screenshot, screenshots, or a video to the walkthrough directory', () => {
+    const prompt = getWalkthroughPrompt()
+
+    expect(prompt).toContain('http://localhost:3000')
+    expect(prompt).toContain('walkthrough/screenshot.png')
+    expect(prompt).toContain('walkthrough/01-*.png')
+    expect(prompt).toContain('walkthrough/walkthrough.webm')
+    expect(prompt).toContain('1440x900')
   })
 })
 

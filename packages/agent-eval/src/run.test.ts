@@ -1,5 +1,5 @@
 import {describe, expect, test} from 'vitest'
-import {getCopilotArgs, getDevServerScript, getVitestConfig, getWalkthroughPrompt} from './run'
+import {getCopilotArgs, getVitestConfig, getWalkthroughPrompt} from './run'
 
 describe('getCopilotArgs', () => {
   test('omits reasoning effort when not configured', () => {
@@ -34,21 +34,12 @@ describe('getCopilotArgs', () => {
   })
 })
 
-describe('getDevServerScript', () => {
-  test('starts the dev server on a fixed port and waits for it to become ready', () => {
-    const script = getDevServerScript()
-
-    expect(script).toContain("spawn('npm', ['run', 'dev', '--', '--port', String(PORT)]")
-    expect(script).toContain('const PORT = 3000')
-    expect(script).toContain(`const PID_PATH = ".agent-eval-dev-server.pid"`)
-  })
-})
-
 describe('getWalkthroughPrompt', () => {
-  test('asks the agent to save a screenshot, screenshots, or a video to the walkthrough directory', () => {
+  test('asks the agent to figure out how to start the server and use agent-browser', () => {
     const prompt = getWalkthroughPrompt()
 
-    expect(prompt).toContain('http://localhost:3000')
+    expect(prompt).toContain('Figure out how to start')
+    expect(prompt).toContain('agent-browser')
     expect(prompt).toContain('walkthrough/screenshot.png')
     expect(prompt).toContain('walkthrough/01-*.png')
     expect(prompt).toContain('walkthrough/walkthrough.webm')

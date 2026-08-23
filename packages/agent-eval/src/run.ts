@@ -11,57 +11,20 @@ const PLAYWRIGHT_BROWSERS_PATH = '/ms-playwright'
 const WALKTHROUGH_DIR = 'walkthrough'
 const WALKTHROUGH_VIEWPORT_WIDTH = 1440
 const WALKTHROUGH_VIEWPORT_HEIGHT = 900
-const DEV_SERVER_PORT = 3000
-const DEV_SERVER_SCRIPT_PATH = '.agent-eval-dev-server.mjs'
-const DEV_SERVER_PID_PATH = '.agent-eval-dev-server.pid'
-
-function getDevServerScript(): string {
-  return `
-import {spawn} from 'node:child_process'
-import fs from 'node:fs'
-
-const PORT = ${DEV_SERVER_PORT}
-const PID_PATH = ${JSON.stringify(DEV_SERVER_PID_PATH)}
-
-const server = spawn('npm', ['run', 'dev', '--', '--port', String(PORT)], {
-  detached: true,
-  stdio: 'ignore',
-})
-server.unref()
-
-if (server.pid) {
-  fs.writeFileSync(PID_PATH, String(server.pid))
-}
-
-let ready = false
-for (let attempt = 0; attempt < 60; attempt += 1) {
-  if (server.exitCode !== null) {
-    break
-  }
-
-  try {
-    await fetch(\`http://127.0.0.1:\${PORT}\`)
-    ready = true
-    break
-  } catch {
-    await new Promise(resolve => setTimeout(resolve, 1000))
-  }
-}
-
-if (!ready) {
-  process.exit(1)
-}
-`
-}
+const AGENT_BROWSER_BIN = './node_modules/.bin/agent-browser'
 
 function getWalkthroughPrompt(): string {
-  return `The application you just built is now running locally at http://localhost:${DEV_SERVER_PORT}. Record a visual walkthrough of what you implemented so a reviewer can see it without running the code themselves, then save the result inside a "${WALKTHROUGH_DIR}" directory (create it if it doesn't exist) at the root of the project:
+  return `Record a visual walkthrough of what you implemented so a reviewer can see it without running the code themselves.
+
+Figure out how to start this project's server (for example by checking package.json scripts or the README) and run it in the background. Use the \`${AGENT_BROWSER_BIN}\` CLI (already installed) to open the running app and set the browser viewport to ${WALKTHROUGH_VIEWPORT_WIDTH}x${WALKTHROUGH_VIEWPORT_HEIGHT} before capturing anything.
+
+Save the result inside a "${WALKTHROUGH_DIR}" directory (create it if it doesn't exist) at the root of the project:
 
 - If what you built is a single screen, take one screenshot and save it as ${WALKTHROUGH_DIR}/screenshot.png.
 - If there are a few distinct views worth showing (for example separate pages or states), take a screenshot of each, in the order a reviewer should look at them, saved as ${WALKTHROUGH_DIR}/01-*.png, ${WALKTHROUGH_DIR}/02-*.png, etc.
 - If reviewing the change requires seeing an interactive flow across multiple steps or pages, record a short video of yourself clicking through it instead and save it as ${WALKTHROUGH_DIR}/walkthrough.webm.
 
-Set the browser viewport to ${WALKTHROUGH_VIEWPORT_WIDTH}x${WALKTHROUGH_VIEWPORT_HEIGHT} before capturing anything. Only capture the walkthrough, do not make any further code changes.`
+Only capture the walkthrough, do not make any further code changes.`
 }
 
 const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg'])
@@ -316,47 +279,30 @@ async function runTreatment(
     scripts?: Record<string, string>
   }
   if (packageJson.scripts?.dev) {
-    console.log('Starting development server for UI walkthrough...')
-    await sandbox.writeFile(DEV_SERVER_SCRIPT_PATH, getDevServerScript())
-    const devServerResult = await sandbox.runCommand('node', [DEV_SERVER_SCRIPT_PATH], {
+    console.log('Installing agent-browser for UI walkthrough...')
+    await sandbox.runCommand('npm', ['install', '--no-save', '--package-lock=false', 'agent-browser'], {
       user: NODE_USER,
+    })
+    await sandbox.runCommand(AGENT_BROWSER_BIN, ['install', '--with-deps'], {
+      user: 'root',
+    })
+
+    console.log('Recording UI walkthrough...')
+    const walkthroughArgs = getCopilotArgs({
+      prompt: getWalkthroughPrompt(),
+      model: treatment.model,
+      reasoningEffort: treatment.reasoningEffort,
+    })
+    const walkthroughResult = await sandbox.runCommand('copilot', walkthroughArgs, {
+      user: NODE_USER,
+      env: {
+        COPILOT_GITHUB_TOKEN: copilotToken,
+      },
       allowNonZeroExitCode: true,
     })
-    await sandbox.runCommand('rm', ['-f', DEV_SERVER_SCRIPT_PATH], {user: NODE_USER})
-
-    if (devServerResult.exitCode !== 0) {
-      console.warn('Unable to start development server for UI walkthrough: %s', devServerResult.stderr)
-    } else {
-      console.log('Recording UI walkthrough...')
-      await sandbox.addMcpServer('playwright', {
-        type: 'local',
-        command: 'npx',
-        args: ['-y', '@playwright/mcp@latest', '--output-dir', WALKTHROUGH_DIR],
-        tools: ['*'],
-      })
-
-      const walkthroughArgs = getCopilotArgs({
-        prompt: getWalkthroughPrompt(),
-        model: treatment.model,
-        reasoningEffort: treatment.reasoningEffort,
-      })
-      const walkthroughResult = await sandbox.runCommand('copilot', walkthroughArgs, {
-        user: NODE_USER,
-        env: {
-          COPILOT_GITHUB_TOKEN: copilotToken,
-        },
-        allowNonZeroExitCode: true,
-      })
-      if (walkthroughResult.exitCode !== 0) {
-        console.warn('Unable to record UI walkthrough: %s', walkthroughResult.stderr)
-      }
+    if (walkthroughResult.exitCode !== 0) {
+      console.warn('Unable to record UI walkthrough: %s', walkthroughResult.stderr)
     }
-
-    await sandbox.runCommand(
-      'sh',
-      ['-c', `kill "$(cat "$1" 2>/dev/null)" 2>/dev/null; rm -f "$1"`, 'kill-dev-server', DEV_SERVER_PID_PATH],
-      {user: NODE_USER, allowNonZeroExitCode: true},
-    )
   }
 
   const TEST_PATH = 'scenario.test.ts'
@@ -519,4 +465,4 @@ async function runTreatment(
   }
 }
 
-export {getCopilotArgs, getDevServerScript, getVitestConfig, getWalkthroughPrompt, run}
+export {getCopilotArgs, getVitestConfig, getWalkthroughPrompt, run}

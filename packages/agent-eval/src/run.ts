@@ -206,7 +206,10 @@ function normalizeCopilotMessage(message: Record<string, unknown>): Record<strin
             result: {
               content: '',
               detailedContent: '',
-              ...((typeof data.result === 'object' && data.result !== null ? data.result : {}) as Record<string, unknown>),
+              ...((typeof data.result === 'object' && data.result !== null ? data.result : {}) as Record<
+                string,
+                unknown
+              >),
             },
             toolTelemetry: {},
             ...data,

@@ -38,4 +38,11 @@ const ControlTreatment: TreatmentConfig = {
 }
 
 export {ControlTreatment}
-export type {CopilotRunner, ExperimentConfig, ExperimentScenarioConfig, InlineScenarioConfig, ScenarioConfig, TreatmentConfig}
+export type {
+  CopilotRunner,
+  ExperimentConfig,
+  ExperimentScenarioConfig,
+  InlineScenarioConfig,
+  ScenarioConfig,
+  TreatmentConfig,
+}

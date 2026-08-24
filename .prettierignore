@@ -2,3 +2,4 @@
 packages/scenarios/src/generated
 dist
 **/.agents/**
+**/*.lock.yml

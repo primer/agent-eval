@@ -146,7 +146,7 @@ function getCopilotArgs({
 }
 
 function normalizeCopilotMessage(message: Record<string, unknown>): Record<string, unknown> {
-  const normalized = {
+  const normalized: Record<string, unknown> = {
     ...message,
     parentId: message.parentId ?? '',
   }

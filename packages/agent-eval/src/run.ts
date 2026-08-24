@@ -8,6 +8,53 @@ import {isMessageType, parseMessage, type Message} from './copilot-cli'
 import {getTestMetadata, parseTestResults} from './vitest'
 
 const PLAYWRIGHT_BROWSERS_PATH = '/ms-playwright'
+const WALKTHROUGH_DIR = 'walkthrough'
+const WALKTHROUGH_VIEWPORT_WIDTH = 1440
+const WALKTHROUGH_VIEWPORT_HEIGHT = 900
+const AGENT_BROWSER_BIN = './node_modules/.bin/agent-browser'
+
+function getWalkthroughPrompt(): string {
+  return `Record a visual walkthrough of what you implemented so a reviewer can see it without running the code themselves.
+
+Figure out how to start this project's server (for example by checking package.json scripts or the README) and run it in the background. Use the \`${AGENT_BROWSER_BIN}\` CLI (already installed) to open the running app and set the browser viewport to ${WALKTHROUGH_VIEWPORT_WIDTH}x${WALKTHROUGH_VIEWPORT_HEIGHT} before capturing anything.
+
+Save the result inside a "${WALKTHROUGH_DIR}" directory (create it if it doesn't exist) at the root of the project:
+
+- If what you built is a single screen, take one screenshot and save it as ${WALKTHROUGH_DIR}/screenshot.png.
+- If there are a few distinct views worth showing (for example separate pages or states), take a screenshot of each, in the order a reviewer should look at them, saved as ${WALKTHROUGH_DIR}/01-*.png, ${WALKTHROUGH_DIR}/02-*.png, etc.
+- If reviewing the change requires seeing an interactive flow across multiple steps or pages, record a short video of yourself clicking through it instead and save it as ${WALKTHROUGH_DIR}/walkthrough.webm.
+
+Only capture the walkthrough, do not make any further code changes.`
+}
+
+const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg'])
+const VIDEO_EXTENSIONS = new Set(['.webm', '.mp4'])
+
+async function getWalkthroughArtifacts(
+  workspacePath: string,
+): Promise<{screenshotPaths: Array<string>; videoPath?: string}> {
+  const walkthroughDirectory = path.join(workspacePath, WALKTHROUGH_DIR)
+  let entries: Array<string>
+  try {
+    entries = (await fs.readdir(walkthroughDirectory)).sort((a, b) => a.localeCompare(b))
+  } catch {
+    return {screenshotPaths: []}
+  }
+
+  const screenshotPaths: Array<string> = []
+  let videoPath: string | undefined
+  for (const entry of entries) {
+    const extension = path.extname(entry).toLowerCase()
+    const relativePath = path.relative(process.cwd(), path.join(walkthroughDirectory, entry))
+    if (IMAGE_EXTENSIONS.has(extension)) {
+      screenshotPaths.push(relativePath)
+    } else if (!videoPath && VIDEO_EXTENSIONS.has(extension)) {
+      videoPath = relativePath
+    }
+  }
+
+  return {screenshotPaths, videoPath}
+}
 
 type RunOptions = {
   artifactsDirectory: string
@@ -228,6 +275,36 @@ async function runTreatment(
     return parseMessage(JSON.parse(trimmed))
   })
 
+  const packageJson = JSON.parse(await sandbox.readFile('package.json')) as {
+    scripts?: Record<string, string>
+  }
+  if (packageJson.scripts?.dev) {
+    console.log('Installing agent-browser for UI walkthrough...')
+    await sandbox.runCommand('npm', ['install', '--no-save', '--package-lock=false', 'agent-browser'], {
+      user: NODE_USER,
+    })
+    await sandbox.runCommand(AGENT_BROWSER_BIN, ['install', '--with-deps'], {
+      user: 'root',
+    })
+
+    console.log('Recording UI walkthrough...')
+    const walkthroughArgs = getCopilotArgs({
+      prompt: getWalkthroughPrompt(),
+      model: treatment.model,
+      reasoningEffort: treatment.reasoningEffort,
+    })
+    const walkthroughResult = await sandbox.runCommand('copilot', walkthroughArgs, {
+      user: NODE_USER,
+      env: {
+        COPILOT_GITHUB_TOKEN: copilotToken,
+      },
+      allowNonZeroExitCode: true,
+    })
+    if (walkthroughResult.exitCode !== 0) {
+      console.warn('Unable to record UI walkthrough: %s', walkthroughResult.stderr)
+    }
+  }
+
   const TEST_PATH = 'scenario.test.ts'
   const BROWSER_TEST_PATH = 'scenario.browser.test.ts'
   const VITEST_CONFIG_PATH = 'vitest.agent-eval.config.ts'
@@ -353,6 +430,8 @@ async function runTreatment(
   console.log('Downloading skills config to: %s...', skillsConfigPath)
   await sandbox.download(AGENTS_DIR, skillsConfigPath)
 
+  const {screenshotPaths, videoPath} = await getWalkthroughArtifacts(workspacePath)
+
   return {
     id: randomUUID(),
     treatment,
@@ -360,6 +439,8 @@ async function runTreatment(
       directory: artifactDirectory,
       copilotConfigPath,
       skillsConfigPath,
+      ...(screenshotPaths.length > 0 ? {screenshotPaths} : {}),
+      ...(videoPath ? {videoPath} : {}),
       testResultsPath,
       workspacePath,
     },
@@ -384,4 +465,4 @@ async function runTreatment(
   }
 }
 
-export {getCopilotArgs, getVitestConfig, run}
+export {getCopilotArgs, getVitestConfig, getWalkthroughPrompt, run}

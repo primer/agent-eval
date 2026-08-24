@@ -3,3 +3,4 @@ packages/scenarios/src/generated
 dist
 **/.agents/**
 **/*.lock.yml
+.github/workflows/agentics-maintenance.yml

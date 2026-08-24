@@ -18,6 +18,40 @@ permissions:
   contents: read
 
 jobs:
+  agentic-workflows:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: set up gh-aw
+        uses: github/gh-aw-actions/setup-cli@6aab9e5b5c91c615506061f09bedd81a23babe3c # v0.86.2
+        with:
+          version: v0.86.2
+      - name: check agentic workflows
+        run: |
+          gh aw compile --validate
+
+          changes="$(git status --short --untracked-files=all -- \
+            .gitattributes \
+            .github/aw \
+            .github/dependabot.yml \
+            '.github/workflows/*.lock.yml' \
+            .github/workflows/agentics-maintenance.yml)"
+
+          if [ -n "$changes" ]; then
+            printf '%s\n' "$changes"
+            git --no-pager diff -- \
+              .gitattributes \
+              .github/aw \
+              .github/dependabot.yml \
+              '.github/workflows/*.lock.yml' \
+              .github/workflows/agentics-maintenance.yml
+            printf '%s\n' "::error::Agentic workflow files are out of date. Run 'gh aw compile' and commit the changes."
+            exit 1
+          fi
+
   build:
     runs-on: ubuntu-latest
     steps:

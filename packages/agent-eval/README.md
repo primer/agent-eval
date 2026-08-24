@@ -37,6 +37,10 @@ export const experiment = defineConfig({
   // for you to evaluate their performance
   scenarios: ['uses-button-from-primer'],
 
+  // Optional runner dimension. Defaults to ['copilot-cli'] when omitted.
+  // Include 'copilot-sdk' to compare SDK-driven runs against CLI-driven runs.
+  runners: ['copilot-cli', 'copilot-sdk'],
+
   // An array of treatments. Each treatment is tested and compared against
   // each other and to the control for the experiment. A treatment represents a
   // series of steps to setup the environment that an agent runs within. For
@@ -159,6 +163,7 @@ export const experiment = defineConfig({
   name: 'Example experiment',
   description: 'Compare treatment behavior',
   models: [{name: 'gpt-5.5', reasoningEfforts: ['low', 'medium', 'high']}],
+  runners: ['copilot-cli', 'copilot-sdk'],
   scenarios: ['001-agent-uses-button-from-primer'],
   treatments: [],
 })
@@ -168,6 +173,11 @@ Each model config has a `name` and a `reasoningEfforts` array. The experiment
 runs once for each configured effort. Model information, including each model's
 supported reasoning efforts, is exported as `models` from
 `@primer/agent-eval`.
+
+Experiment configs may also specify a `runners` array to run each
+model/scenario/treatment combination through multiple Copilot runtimes. When
+omitted, experiments use `copilot-cli`. Add `copilot-sdk` to run through the
+Copilot SDK instead.
 
 Treatment setup can add custom Copilot sub-agents to `~/.copilot/agents`:
 

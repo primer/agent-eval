@@ -18,10 +18,13 @@ type ExperimentConfig = {
   name: string
   description: string
   models: Array<ExperimentModelConfig>
+  runners?: Array<CopilotRunner>
   scenarios: Array<ExperimentScenarioConfig>
   setup?: Setup
   treatments: Array<TreatmentConfig>
 }
+
+type CopilotRunner = 'copilot-cli' | 'copilot-sdk'
 
 type TreatmentConfig = {
   name: string
@@ -35,4 +38,4 @@ const ControlTreatment: TreatmentConfig = {
 }
 
 export {ControlTreatment}
-export type {ExperimentConfig, ExperimentScenarioConfig, InlineScenarioConfig, ScenarioConfig, TreatmentConfig}
+export type {CopilotRunner, ExperimentConfig, ExperimentScenarioConfig, InlineScenarioConfig, ScenarioConfig, TreatmentConfig}

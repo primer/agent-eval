@@ -9,6 +9,7 @@ export {models} from './model'
 export type {
   ExperimentConfig,
   ExperimentModelConfig,
+  CopilotRunner,
   Model,
   ModelConfig,
   ModelInfo,

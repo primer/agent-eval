@@ -4,7 +4,7 @@ import {existsSync} from 'node:fs'
 import path from 'node:path'
 import fs from 'node:fs/promises'
 import {parseArgs} from 'node:util'
-import {ControlTreatment, type ExperimentConfig} from './experiment-config'
+import {ControlTreatment, type CopilotRunner, type ExperimentConfig} from './experiment-config'
 import {resolveModelConfigs, type Model, type ReasoningEffort} from './model'
 import {createAgentEvalOutput} from './output'
 import type {Treatment, TreatmentResult} from './treatment'
@@ -167,6 +167,7 @@ function compareResults(a: TreatmentResult, b: TreatmentResult): number {
     a.assistant.premiumRequests - b.assistant.premiumRequests ||
     a.treatment.experiment.name.localeCompare(b.treatment.experiment.name) ||
     a.treatment.config.name.localeCompare(b.treatment.config.name) ||
+    a.treatment.runner.localeCompare(b.treatment.runner) ||
     a.treatment.model.localeCompare(b.treatment.model) ||
     (a.treatment.reasoningEffort ?? '').localeCompare(b.treatment.reasoningEffort ?? '') ||
     a.treatment.scenario.id.localeCompare(b.treatment.scenario.id)
@@ -176,6 +177,7 @@ function compareResults(a: TreatmentResult, b: TreatmentResult): number {
 type ResultSummary = {
   experiment: string
   treatment?: string
+  runner?: string
   scenario?: string
   model?: Model
   reasoningEffort?: ReasoningEffort
@@ -190,6 +192,7 @@ type ResultSummary = {
 
 type ResultSummaryValues = {
   treatment?: string
+  runner?: string
   scenario?: string
   model?: Model
   reasoningEffort?: ReasoningEffort
@@ -199,6 +202,7 @@ function createResultSummary(result: TreatmentResult, summaryValues: ResultSumma
   return {
     experiment: result.treatment.experiment.name,
     treatment: summaryValues.treatment,
+    runner: summaryValues.runner,
     scenario: summaryValues.scenario,
     model: summaryValues.model,
     reasoningEffort: summaryValues.reasoningEffort,
@@ -238,6 +242,7 @@ function compareSummaries(a: ResultSummary, b: ResultSummary): number {
     a.premiumRequests - b.premiumRequests ||
     a.experiment.localeCompare(b.experiment) ||
     (a.treatment ?? '').localeCompare(b.treatment ?? '') ||
+    (a.runner ?? '').localeCompare(b.runner ?? '') ||
     (a.scenario ?? '').localeCompare(b.scenario ?? '') ||
     (a.model ?? '').localeCompare(b.model ?? '') ||
     (a.reasoningEffort ?? '').localeCompare(b.reasoningEffort ?? '')
@@ -296,6 +301,7 @@ function getSummaryKey(result: TreatmentResult, summaryValues: ResultSummaryValu
   return [
     result.treatment.experiment.name,
     summaryValues.treatment ?? '',
+    summaryValues.runner ?? '',
     summaryValues.scenario ?? '',
     summaryValues.model ?? '',
     summaryValues.reasoningEffort ?? '',
@@ -324,6 +330,7 @@ function getResultSummaries(results: Array<TreatmentResult>): ResultHierarchy {
 
     const treatmentValues = {
       treatment: result.treatment.config.name,
+      runner: result.treatment.runner,
     }
     const treatmentKey = getSummaryKey(result, treatmentValues)
     const treatmentSummary = treatmentSummaries.get(treatmentKey) ?? createResultSummary(result, treatmentValues)
@@ -332,6 +339,7 @@ function getResultSummaries(results: Array<TreatmentResult>): ResultHierarchy {
 
     const scenarioValues = {
       treatment: result.treatment.config.name,
+      runner: result.treatment.runner,
       scenario: result.treatment.scenario.id,
     }
     const scenarioKey = getSummaryKey(result, scenarioValues)
@@ -341,6 +349,7 @@ function getResultSummaries(results: Array<TreatmentResult>): ResultHierarchy {
 
     const modelValues = {
       treatment: result.treatment.config.name,
+      runner: result.treatment.runner,
       scenario: result.treatment.scenario.id,
       model: result.treatment.model,
       reasoningEffort: result.treatment.reasoningEffort,
@@ -364,7 +373,11 @@ function getResultSummaries(results: Array<TreatmentResult>): ResultHierarchy {
             summary,
             scenarios: [...scenarioSummaries.values()]
               .filter(scenarioSummary => {
-                return scenarioSummary.experiment === experiment && scenarioSummary.treatment === summary.treatment
+                return (
+                  scenarioSummary.experiment === experiment &&
+                  scenarioSummary.treatment === summary.treatment &&
+                  scenarioSummary.runner === summary.runner
+                )
               })
               .toSorted(compareSummaries)
               .map(scenarioSummary => {
@@ -375,6 +388,7 @@ function getResultSummaries(results: Array<TreatmentResult>): ResultHierarchy {
                       return (
                         modelSummary.experiment === experiment &&
                         modelSummary.treatment === summary.treatment &&
+                        modelSummary.runner === summary.runner &&
                         modelSummary.scenario === scenarioSummary.scenario
                       )
                     })
@@ -391,6 +405,7 @@ function formatResultSummaries(results: Array<TreatmentResult>): string {
   const columns = [
     'Experiment',
     'Treatment',
+    'Runner',
     'Scenario',
     'Model',
     'Reasoning Effort',
@@ -433,6 +448,7 @@ function formatSummaryRow(summary: ResultSummary, level: 'treatment' | 'scenario
   return {
     Experiment: level === 'treatment' ? summary.experiment : '',
     Treatment: level === 'treatment' ? (summary.treatment ?? '') : '',
+    Runner: level === 'treatment' ? (summary.runner ?? '') : '',
     Scenario: level === 'treatment' ? 'All scenarios' : level === 'scenario' ? `  ${summary.scenario ?? ''}` : '',
     Model: level === 'model' ? `    ${summary.model ?? ''}` : 'All models',
     'Reasoning Effort': level === 'model' ? (summary.reasoningEffort ?? '') : '',
@@ -458,29 +474,34 @@ const scenarios = await Promise.all(
   }),
 )
 
+const runners: Array<CopilotRunner> = config.runners ?? ['copilot-cli']
 const treatments: Array<Treatment> = config.models.flatMap(modelConfig => {
   return resolveModelConfigs(modelConfig).flatMap(({name: model, reasoningEffort}) => {
-    return scenarios.flatMap(scenarioConfig => {
-      return [
-        {
-          config: ControlTreatment,
-          scenario: scenarioConfig,
-          experiment: config,
-          id: randomUUID(),
-          model,
-          reasoningEffort,
-        },
-        ...config.treatments.map(treatment => {
-          return {
-            config: treatment,
+    return runners.flatMap(runner => {
+      return scenarios.flatMap(scenarioConfig => {
+        return [
+          {
+            config: ControlTreatment,
             scenario: scenarioConfig,
             experiment: config,
             id: randomUUID(),
             model,
             reasoningEffort,
-          }
-        }),
-      ]
+            runner,
+          },
+          ...config.treatments.map(treatment => {
+            return {
+              config: treatment,
+              scenario: scenarioConfig,
+              experiment: config,
+              id: randomUUID(),
+              model,
+              reasoningEffort,
+              runner,
+            }
+          }),
+        ]
+      })
     })
   })
 })

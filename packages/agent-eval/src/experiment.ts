@@ -1,4 +1,4 @@
-import type {ExperimentConfig, TreatmentConfig} from './experiment-config'
+import type {CopilotRunner, ExperimentConfig, TreatmentConfig} from './experiment-config'
 import type {
   CopilotPluginConfig,
   CopilotPluginSource,
@@ -27,5 +27,6 @@ export type {
   RemoteCopilotPluginSource,
   Sandbox,
   TreatmentConfig,
+  CopilotRunner,
 }
 export {defineConfig}

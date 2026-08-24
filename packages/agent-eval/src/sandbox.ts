@@ -772,7 +772,7 @@ function captureStream(destination: NodeJS.WritableStream): {stream: Writable; r
   }
 }
 
-export {CONTAINER_WORKDIR, COPILOT_DIR, CUSTOM_AGENTS_DIR, SKILLS_DIR, AGENTS_DIR, NODE_USER, Sandbox}
+export {CONTAINER_WORKDIR, COPILOT_DIR, CUSTOM_AGENTS_DIR, SKILLS_DIR, AGENTS_DIR, NODE_USER, NPM_GLOBAL_DIR, Sandbox}
 export type {
   AgentSkillCopiedFile,
   AgentSkillFile,

@@ -1,4 +1,4 @@
-import type {ExperimentConfig, TreatmentConfig} from './experiment-config'
+import type {CopilotRunner, ExperimentConfig, TreatmentConfig} from './experiment-config'
 import type {Model, ReasoningEffort} from './model'
 import type {Message} from './copilot-cli'
 import type {ResolvedScenario} from './resolve-experiment-scenario'
@@ -10,6 +10,7 @@ type Treatment = {
   id: string
   model: Model
   reasoningEffort?: ReasoningEffort
+  runner: CopilotRunner
 }
 
 type TreatmentResult = {

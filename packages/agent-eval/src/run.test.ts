@@ -1,5 +1,5 @@
 import {describe, expect, test} from 'vitest'
-import {getCopilotArgs, getVitestConfig} from './run'
+import {getCopilotArgs, getVitestConfig, getWalkthroughPrompt} from './run'
 
 describe('getCopilotArgs', () => {
   test('omits reasoning effort when not configured', () => {
@@ -31,6 +31,19 @@ describe('getCopilotArgs', () => {
       '--output-format',
       'json',
     ])
+  })
+})
+
+describe('getWalkthroughPrompt', () => {
+  test('asks the agent to figure out how to start the server and use agent-browser', () => {
+    const prompt = getWalkthroughPrompt()
+
+    expect(prompt).toContain('Figure out how to start')
+    expect(prompt).toContain('agent-browser')
+    expect(prompt).toContain('walkthrough/screenshot.png')
+    expect(prompt).toContain('walkthrough/01-*.png')
+    expect(prompt).toContain('walkthrough/walkthrough.webm')
+    expect(prompt).toContain('1440x900')
   })
 })
 

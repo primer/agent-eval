@@ -4,7 +4,6 @@ import {Breadcrumbs, Stack} from '@primer/react'
 import type {Experiment} from '../../../../../../experiments'
 import type {Route} from 'next'
 import Link from 'next/link'
-import Image from 'next/image'
 
 type TranscriptEntry = {
   id: string
@@ -26,8 +25,6 @@ type RunResult = {
   premiumRequests: number
   totalApiDurationMs: number
   sessionDurationMs: number
-  screenshotSources: Array<string>
-  videoSource?: string
   tests: Array<{
     fullName: string
     status: string
@@ -67,61 +64,6 @@ function Transcript({entries}: {entries: Array<TranscriptEntry>}) {
       ))}
     </ol>
   )
-}
-
-function UiWalkthrough({
-  scenarioId,
-  screenshotSources,
-  videoSource,
-}: {
-  scenarioId: string
-  screenshotSources: Array<string>
-  videoSource?: string
-}) {
-  if (videoSource) {
-    return (
-      <video
-        className="border border-default rounded-2 w-full h-auto"
-        controls
-        height={900}
-        src={videoSource}
-        width={1440}
-      />
-    )
-  }
-
-  if (screenshotSources.length > 1) {
-    return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {screenshotSources.map((source, index) => (
-          <Image
-            alt={`UI walkthrough step ${index + 1} for ${scenarioId}`}
-            className="border border-default rounded-2 w-full h-auto"
-            height={900}
-            key={source}
-            src={source}
-            unoptimized
-            width={1440}
-          />
-        ))}
-      </div>
-    )
-  }
-
-  if (screenshotSources.length === 1) {
-    return (
-      <Image
-        alt={`UI walkthrough for ${scenarioId}`}
-        className="border border-default rounded-2 w-full h-auto"
-        height={900}
-        src={screenshotSources[0]}
-        unoptimized
-        width={1440}
-      />
-    )
-  }
-
-  return <p>No UI walkthrough was recorded.</p>
 }
 
 type Props = {
@@ -179,14 +121,6 @@ export function Page({experiment, run}: Props) {
                   <dt>Session time</dt>
                   <dd className="m-0">{formatDuration(result.sessionDurationMs)}</dd>
                 </dl>
-                <div>
-                  <h3>UI walkthrough</h3>
-                  <UiWalkthrough
-                    scenarioId={result.scenarioId}
-                    screenshotSources={result.screenshotSources}
-                    videoSource={result.videoSource}
-                  />
-                </div>
                 <div>
                   <h3>Tests</h3>
                   <ul>

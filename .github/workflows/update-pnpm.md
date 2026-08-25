@@ -15,6 +15,7 @@ network:
 tools:
   bash:
     - 'corepack:*'
+    - 'git:diff'
     - 'npm:view:*'
     - 'pnpm:*'
   edit:

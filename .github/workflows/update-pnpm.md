@@ -15,11 +15,14 @@ network:
 tools:
   bash:
     - 'corepack:*'
-    - 'git:diff'
-    - 'git:status'
-    - 'npm:view'
+    - 'npm:view:*'
     - 'pnpm:*'
   edit:
+steps:
+  - name: configure pnpm
+    run: |
+      mkdir -p "$HOME/.npm-global/bin"
+      corepack enable --install-directory "$HOME/.npm-global/bin"
 safe-outputs:
   create-pull-request:
     title-prefix: 'chore: '
@@ -50,13 +53,16 @@ Keep the stable pnpm version used by this project up to date.
 6. Run the repository CI commands:
    - `pnpm run build`
    - `pnpm run format:diff`
-   - `pnpm run lint`
+   - `pnpm exec turbo run lint`
+   - `pnpm exec turbo run lint:npm`
    - `pnpm test --run`
-   - `pnpm run type-check`
+   - `pnpm exec turbo run type-check`
 7. Inspect `git diff` and confirm that only `package.json` and, if required by pnpm, `pnpm-lock.yaml` changed. Do not update package dependencies.
 8. Create one draft pull request as the final action. Use the title `update pnpm to <version>`. In the body, include:
    - The old and new pnpm versions.
    - A note that the version came from the stable `latest` distribution tag.
    - The validation commands and their results.
+
+Run each required command once. Continue through the remaining validation commands if one fails, and report the failure in the pull request. Do not use subagents, retry denied commands, investigate unrelated failures, modify files to establish a baseline, or create temporary files in the repository.
 
 Never edit generated agentic workflow lockfiles or any other files under `.github/workflows`.

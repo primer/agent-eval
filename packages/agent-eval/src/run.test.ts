@@ -1,5 +1,5 @@
 import {describe, expect, test} from 'vitest'
-import {getCopilotArgs, getVitestConfig} from './run'
+import {getCopilotArgs, getCopilotSdkRunnerScript, getVitestConfig, normalizeCopilotMessage} from './run'
 
 describe('getCopilotArgs', () => {
   test('omits reasoning effort when not configured', () => {
@@ -31,6 +31,42 @@ describe('getCopilotArgs', () => {
       '--output-format',
       'json',
     ])
+  })
+})
+
+describe('getCopilotSdkRunnerScript', () => {
+  test('runs prompts in autopilot mode', () => {
+    expect(getCopilotSdkRunnerScript()).toContain(`agentMode: 'autopilot'`)
+  })
+})
+
+describe('normalizeCopilotMessage', () => {
+  test('normalizes SDK messages for existing Copilot log parsing', () => {
+    expect(
+      normalizeCopilotMessage({
+        type: 'assistant.message',
+        id: 'message-id',
+        timestamp: '2026-01-01T00:00:00.000Z',
+        parentId: null,
+        data: {
+          messageId: 'assistant-message-id',
+          content: 'Done',
+        },
+      }),
+    ).toEqual({
+      type: 'assistant.message',
+      id: 'message-id',
+      timestamp: '2026-01-01T00:00:00.000Z',
+      parentId: '',
+      data: {
+        messageId: 'assistant-message-id',
+        content: 'Done',
+        toolRequests: [],
+        interactionId: '',
+        turnId: '',
+        requestId: '',
+      },
+    })
   })
 })
 

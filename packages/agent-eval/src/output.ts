@@ -1,6 +1,6 @@
 import * as z from 'zod/mini'
 import {MessageSchema, type Message} from './copilot-cli'
-import type {ExperimentConfig, ExperimentScenarioConfig} from './experiment-config'
+import type {CopilotRunner, ExperimentConfig, ExperimentScenarioConfig} from './experiment-config'
 import {models} from './model'
 import type {Model, ReasoningEffort} from './model'
 import type {ResolvedScenario} from './resolve-experiment-scenario'
@@ -11,6 +11,7 @@ type AgentEvalOutputResult = {
   treatmentId: string
   model: Model
   reasoningEffort?: ReasoningEffort
+  runner?: CopilotRunner
   scenarioId: string
   artifacts: {
     copilotConfigPath: string
@@ -53,6 +54,7 @@ type AgentEvalOutput = {
       name: Model
       reasoningEfforts: Array<ReasoningEffort>
     }>
+    runners?: Array<CopilotRunner>
     scenarios: Array<ExperimentScenarioConfig>
   }
   scenarios: Array<ResolvedScenario>
@@ -75,6 +77,7 @@ const ReasoningEffortSchema = z.custom<ReasoningEffort, string>(
   value => typeof value === 'string' && reasoningEfforts.has(value),
   'Expected a supported reasoning effort',
 )
+const CopilotRunnerSchema = z.enum(['copilot-cli', 'copilot-sdk'])
 
 const ExperimentScenarioSchema = z.union([
   z.string(),
@@ -98,6 +101,7 @@ const AgentEvalOutputExperimentSchema = z.object({
   name: z.string(),
   description: z.string(),
   models: z.array(ExperimentModelConfigSchema),
+  runners: z.optional(z.array(CopilotRunnerSchema)),
   scenarios: z.array(ExperimentScenarioSchema),
 })
 
@@ -117,6 +121,7 @@ const AgentEvalOutputResultSchema = z.object({
   treatmentId: z.string(),
   model: ModelSchema,
   reasoningEffort: z.optional(ReasoningEffortSchema),
+  runner: z.optional(CopilotRunnerSchema),
   scenarioId: z.string(),
   artifacts: z.object({
     copilotConfigPath: z.string(),
@@ -207,6 +212,7 @@ function createAgentEvalOutput({
       name: experiment.name,
       description: experiment.description,
       models: experiment.models,
+      runners: experiment.runners,
       scenarios: experiment.scenarios,
     },
     scenarios,
@@ -222,6 +228,7 @@ function createAgentEvalOutput({
         treatmentId: treatment.id,
         model: result.treatment.model,
         reasoningEffort: result.treatment.reasoningEffort,
+        runner: result.treatment.runner,
         scenarioId: result.treatment.scenario.id,
         artifacts: result.artifacts,
         assistant: result.assistant,

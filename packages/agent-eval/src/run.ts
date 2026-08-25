@@ -1,13 +1,18 @@
 import {randomUUID} from 'node:crypto'
 import path from 'node:path'
 import fs from 'node:fs/promises'
-import {AGENTS_DIR, CONTAINER_WORKDIR, COPILOT_DIR, NODE_USER, Sandbox} from './sandbox'
+import {AGENTS_DIR, CONTAINER_WORKDIR, COPILOT_DIR, NODE_USER, NPM_GLOBAL_DIR, Sandbox} from './sandbox'
 import type {Treatment, TreatmentResult} from './treatment'
+import type {CopilotRunner} from './experiment-config'
 import type {Model, ReasoningEffort} from './model'
 import {isMessageType, parseMessage, type Message} from './copilot-cli'
 import {getTestMetadata, parseTestResults} from './vitest'
 
 const PLAYWRIGHT_BROWSERS_PATH = '/ms-playwright'
+const COPILOT_SDK_VERSION = '1.0.11'
+const COPILOT_SDK_RUNNER_PATH = '/tmp/agent-eval-copilot-sdk-runner.cjs'
+const COPILOT_SDK_RUNNER_CONFIG_PATH = '/tmp/agent-eval-copilot-sdk-runner-config.json'
+const NPM_GLOBAL_NODE_MODULES = path.posix.join(NPM_GLOBAL_DIR, 'lib/node_modules')
 
 type RunOptions = {
   artifactsDirectory: string
@@ -140,6 +145,289 @@ function getCopilotArgs({
   return [...args, '--mode', 'autopilot', '--output-format', 'json']
 }
 
+function normalizeCopilotMessage(message: Record<string, unknown>): Record<string, unknown> {
+  const normalized: Record<string, unknown> = {
+    ...message,
+    parentId: message.parentId ?? '',
+  }
+  const data = (typeof normalized.data === 'object' && normalized.data !== null ? normalized.data : {}) as Record<
+    string,
+    unknown
+  >
+
+  switch (normalized.type) {
+    case 'user.message':
+      normalized.data = {
+        content: '',
+        transformedContent: '',
+        attachments: [],
+        supportedNativeDocumentMimeTypes: [],
+        agentMode: '',
+        interactionId: '',
+        parentAgentTaskId: '',
+        ...data,
+      }
+      break
+    case 'assistant.message':
+      normalized.data = {
+        toolRequests: [],
+        interactionId: '',
+        turnId: '',
+        requestId: '',
+        ...data,
+      }
+      break
+    case 'assistant.turn_start':
+      normalized.data = {
+        interactionId: '',
+        ...data,
+      }
+      break
+    case 'assistant.tool_call_delta':
+      normalized.data = {
+        toolName: '',
+        ...data,
+      }
+      break
+    case 'tool.execution_start':
+      normalized.data = {
+        arguments: {},
+        turnId: '',
+        model: '',
+        ...data,
+      }
+      break
+    case 'tool.execution_complete':
+      normalized.data = data.success
+        ? {
+            interactionId: '',
+            turnId: '',
+            model: '',
+            result: {
+              content: '',
+              detailedContent: '',
+              ...((typeof data.result === 'object' && data.result !== null ? data.result : {}) as Record<
+                string,
+                unknown
+              >),
+            },
+            toolTelemetry: {},
+            ...data,
+          }
+        : {
+            interactionId: '',
+            turnId: '',
+            model: '',
+            error: {
+              message: '',
+              code: '',
+              ...((typeof data.error === 'object' && data.error !== null ? data.error : {}) as Record<string, unknown>),
+            },
+            toolTelemetry: {},
+            ...data,
+          }
+      break
+    case 'session.task_complete':
+      normalized.data = {
+        summary: '',
+        success: false,
+        ...data,
+      }
+      break
+  }
+
+  return normalized
+}
+
+function parseCopilotOutput(output: string): Array<Message> {
+  return output.split('\n').flatMap(line => {
+    const trimmed = line.trim()
+    if (trimmed.length === 0) {
+      return []
+    }
+    return parseMessage(normalizeCopilotMessage(JSON.parse(trimmed)))
+  })
+}
+
+function getCopilotSdkRunnerScript(): string {
+  return `
+const fs = require('node:fs/promises')
+const {CopilotClient, approveAll} = require('@github/copilot-sdk')
+
+function normalizeEvent(event) {
+  return {
+    ...event,
+    parentId: event.parentId ?? '',
+  }
+}
+
+function emit(event) {
+  console.log(JSON.stringify(normalizeEvent(event)))
+}
+
+async function main() {
+  const config = JSON.parse(await fs.readFile(process.argv[2], 'utf8'))
+  const startedAt = Date.now()
+  let sessionId = ''
+  let totalApiDurationMs = 0
+  let codeChanges = {
+    linesAdded: 0,
+    linesRemoved: 0,
+    filesModified: [],
+  }
+
+  const client = new CopilotClient({
+    workingDirectory: process.cwd(),
+    baseDirectory: config.copilotHome,
+    gitHubToken: process.env.COPILOT_GITHUB_TOKEN,
+    useLoggedInUser: false,
+    logLevel: 'none',
+  })
+
+  await client.start()
+  try {
+    const sessionConfig = {
+      model: config.model,
+      onPermissionRequest: approveAll,
+    }
+
+    if (config.reasoningEffort) {
+      sessionConfig.reasoningEffort = config.reasoningEffort
+    }
+
+    const session = await client.createSession(sessionConfig)
+    sessionId = session.sessionId
+    session.on(event => {
+      if (event.type === 'assistant.usage') {
+        totalApiDurationMs += event.data.duration ?? 0
+      }
+
+      if (event.type === 'session.shutdown') {
+        totalApiDurationMs = event.data.totalApiDurationMs ?? totalApiDurationMs
+        codeChanges = event.data.codeChanges ?? codeChanges
+      }
+
+      emit(event)
+    })
+
+    await session.sendAndWait({
+      prompt: config.prompt,
+      agentMode: 'autopilot',
+    }, config.timeoutMs)
+    await session.disconnect()
+  } finally {
+    const errors = await client.stop()
+    if (errors.length > 0) {
+      throw new Error(errors.map(error => error.message).join('\\n'))
+    }
+  }
+
+  emit({
+    type: 'result',
+    timestamp: new Date().toISOString(),
+    sessionId,
+    exitCode: 0,
+    usage: {
+      premiumRequests: 0,
+      totalApiDurationMs,
+      sessionDurationMs: Date.now() - startedAt,
+      codeChanges,
+    },
+  })
+}
+
+main().catch(error => {
+  console.error(error?.stack ?? String(error))
+  process.exit(1)
+})
+`
+}
+
+async function runCopilotSdk({
+  sandbox,
+  prompt,
+  model,
+  reasoningEffort,
+  copilotToken,
+}: {
+  sandbox: Sandbox
+  prompt: string
+  model: Model
+  reasoningEffort?: ReasoningEffort
+  copilotToken: string
+}): Promise<Array<Message>> {
+  console.log('Installing copilot sdk...')
+  await sandbox.runCommand('npm', ['install', '-g', `@github/copilot-sdk@${COPILOT_SDK_VERSION}`], {
+    user: NODE_USER,
+  })
+  await sandbox.writeFile(COPILOT_SDK_RUNNER_PATH, getCopilotSdkRunnerScript())
+  await sandbox.writeFile(
+    COPILOT_SDK_RUNNER_CONFIG_PATH,
+    JSON.stringify({
+      copilotHome: COPILOT_DIR,
+      model,
+      prompt,
+      reasoningEffort,
+      timeoutMs: 60 * 60 * 1000,
+    }),
+  )
+  const copilotOutput = await sandbox.runCommand('node', [COPILOT_SDK_RUNNER_PATH, COPILOT_SDK_RUNNER_CONFIG_PATH], {
+    user: NODE_USER,
+    env: {
+      COPILOT_GITHUB_TOKEN: copilotToken,
+      NODE_PATH: NPM_GLOBAL_NODE_MODULES,
+    },
+  })
+
+  return parseCopilotOutput(copilotOutput.stdout)
+}
+
+async function runCopilotCli({
+  sandbox,
+  prompt,
+  model,
+  reasoningEffort,
+  copilotToken,
+}: {
+  sandbox: Sandbox
+  prompt: string
+  model: Model
+  reasoningEffort?: ReasoningEffort
+  copilotToken: string
+}): Promise<Array<Message>> {
+  const args = getCopilotArgs({
+    prompt,
+    model,
+    reasoningEffort,
+  })
+  const copilotOutput = await sandbox.runCommand('copilot', args, {
+    user: NODE_USER,
+    env: {
+      COPILOT_GITHUB_TOKEN: copilotToken,
+    },
+  })
+
+  return parseCopilotOutput(copilotOutput.stdout)
+}
+
+async function runCopilot(
+  runner: CopilotRunner,
+  options: {
+    sandbox: Sandbox
+    prompt: string
+    model: Model
+    reasoningEffort?: ReasoningEffort
+    copilotToken: string
+  },
+): Promise<Array<Message>> {
+  switch (runner) {
+    case 'copilot-cli':
+      return runCopilotCli(options)
+    case 'copilot-sdk':
+      return runCopilotSdk(options)
+  }
+}
+
 async function runTreatment(
   treatment: Treatment,
   {artifactsDirectory, copilotToken, dockerImage}: RunTreatmentOptions,
@@ -209,23 +497,12 @@ async function runTreatment(
 
   console.log('Running copilot...')
   const {prompt} = treatment.scenario.config
-  const args = getCopilotArgs({
+  const messages = await runCopilot(treatment.runner, {
+    sandbox,
     prompt,
     model: treatment.model,
     reasoningEffort: treatment.reasoningEffort,
-  })
-  const copilotOutput = await sandbox.runCommand('copilot', args, {
-    user: NODE_USER,
-    env: {
-      COPILOT_GITHUB_TOKEN: copilotToken,
-    },
-  })
-  const messages: Array<Message> = copilotOutput.stdout.split('\n').flatMap(line => {
-    const trimmed = line.trim()
-    if (trimmed.length === 0) {
-      return []
-    }
-    return parseMessage(JSON.parse(trimmed))
+    copilotToken,
   })
 
   const TEST_PATH = 'scenario.test.ts'
@@ -384,4 +661,4 @@ async function runTreatment(
   }
 }
 
-export {getCopilotArgs, getVitestConfig, run}
+export {getCopilotArgs, getCopilotSdkRunnerScript, getVitestConfig, normalizeCopilotMessage, run}

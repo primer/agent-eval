@@ -15,6 +15,7 @@ const output: AgentEvalOutput = {
     name: 'Example',
     description: 'An example experiment',
     models: [{name: 'gpt-5.5', reasoningEfforts: ['high']}],
+    runners: ['copilot-cli'],
     scenarios: ['example'],
   },
   scenarios: [
@@ -43,6 +44,7 @@ const output: AgentEvalOutput = {
       treatmentId: 'treatment-id',
       model: 'gpt-5.5',
       reasoningEffort: 'high',
+      runner: 'copilot-cli',
       scenarioId: 'example',
       artifacts: {
         copilotConfigPath: '/artifacts/.copilot',
@@ -86,6 +88,7 @@ describe(createAgentEvalOutput, () => {
       name: 'Example',
       description: 'An example experiment',
       models: [{name: 'gpt-5.5', reasoningEfforts: ['high']}],
+      runners: ['copilot-cli'],
       scenarios: ['example'],
       treatments: [],
     }
@@ -101,6 +104,7 @@ describe(createAgentEvalOutput, () => {
         id: 'treatment-id',
         model: 'gpt-5.5',
         reasoningEffort: 'high',
+        runner: 'copilot-cli',
       },
     }
     const duplicateTreatmentResult: TreatmentResult = {

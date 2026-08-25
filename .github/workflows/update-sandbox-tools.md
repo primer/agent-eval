@@ -52,7 +52,10 @@ Keep the stable versions of npm and GitHub Copilot CLI used by evaluation sandbo
 ## Required process
 
 1. Read both current pins before making changes.
-2. Query both version sources. Only use the versions returned by the `latest` npm distribution tag. Do not select prerelease versions.
+2. Query both version sources with these exact commands, run separately (no shell chaining like `;`/`&&` and no redirection):
+   - `npm view npm@latest version`
+   - `npm view @github/copilot@latest version`
+     Only use the versions returned by the `latest` npm distribution tag. Do not select prerelease versions.
 3. If both current pins match their latest stable versions, call `noop` as the final action and report that both tools are current.
 4. For each outdated tool:
    - Update only its documented pin.

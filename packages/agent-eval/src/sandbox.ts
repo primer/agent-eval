@@ -10,8 +10,8 @@ import tarStream from 'tar-stream'
 import {McpConfigFileSchema} from './mcp-config'
 import type {McpConfigFile, McpServerConfig} from './mcp-config'
 
-const COPILOT_CLI_VERSION = '1.0.74'
-const NPM_VERSION = '11.17.0'
+const COPILOT_CLI_VERSION = '1.0.80'
+const NPM_VERSION = '12.0.2'
 
 /**
  * Working directory inside the container.

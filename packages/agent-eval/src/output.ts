@@ -151,15 +151,14 @@ const AgentEvalOutputResultSchema = z.object({
     ),
   }),
   // Runs created before walkthroughs were supported do not include this field
-  walkthrough: z._default(
-    z.discriminatedUnion('type', [
+  walkthrough: z
+    .discriminatedUnion('type', [
       z.object({type: z.literal('Unavailable')}),
       z.object({type: z.literal('Screenshot'), filepath: z.string()}),
       z.object({type: z.literal('Screenshots'), screenshots: z.array(z.string())}),
       z.object({type: z.literal('Video'), filepath: z.string()}),
-    ]),
-    {type: 'Unavailable'},
-  ),
+    ])
+    .default({type: 'Unavailable' as const}),
 })
 
 const AgentEvalOutputSchema = z.object({

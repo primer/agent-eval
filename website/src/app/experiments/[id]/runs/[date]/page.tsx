@@ -2,10 +2,15 @@ import type {AgentEvalOutput} from '@primer/agent-eval/output'
 import {get as getExperiment} from '../../../../../experiments'
 import {get as getRun, list as listRuns} from '../../../../../runs'
 import {notFound} from 'next/navigation'
+import fs from 'node:fs/promises'
+import path from 'node:path'
 import {Page} from './components/Page'
 import type {RunDetails, TranscriptEntry} from './components/Page'
+import type {Walkthrough} from '../../../../../../../packages/agent-eval/src/treatment'
 
 const EMPTY_RUN_PARAM = '__no-runs__'
+const REPOSITORY_ROOT = path.resolve(process.cwd(), '..')
+const ARTIFACTS_DIRECTORY = path.join(REPOSITORY_ROOT, 'artifacts')
 
 type RunPageProps = {
   params: Promise<{
@@ -143,30 +148,103 @@ function createTranscript(logs: Array<LogMessage>): Array<TranscriptEntry> {
   return entries.filter(entry => entry.content.length > 0)
 }
 
-function createRunDetails(date: string, output: AgentEvalOutput): RunDetails {
+async function getArtifactDataUrl(artifactPath: string | undefined, mimeType: string): Promise<string | undefined> {
+  if (!artifactPath) {
+    return undefined
+  }
+
+  const absolutePath = path.isAbsolute(artifactPath) ? artifactPath : path.resolve(REPOSITORY_ROOT, artifactPath)
+  const relativePath = path.relative(ARTIFACTS_DIRECTORY, absolutePath)
+  if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+    return undefined
+  }
+
+  try {
+    const contents = await fs.readFile(absolutePath)
+    return `data:${mimeType};base64,${contents.toString('base64')}`
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return undefined
+    }
+    throw error
+  }
+}
+
+function getImageMimeType(artifactPath: string): string {
+  const extension = path.extname(artifactPath).toLowerCase()
+  if (extension === '.jpg' || extension === '.jpeg') {
+    return 'image/jpeg'
+  }
+  return 'image/png'
+}
+
+export type WalkthroughDataUrl =
+  | {
+      type: 'Unavailable'
+    }
+  | {type: 'Screenshot'; screenshot: string}
+  | {type: 'Screenshots'; screenshots: Array<string>}
+  | {type: 'Video'; video: string}
+
+async function getWalkthroughDataUrls(walkthrough: Walkthrough): Promise<WalkthroughDataUrl> {
+  if (walkthrough.type === 'Screenshot') {
+    return {
+      type: 'Screenshot',
+      screenshot: await getArtifactDataUrl(walkthrough.filepath, getImageMimeType(walkthrough.filepath)),
+    }
+  }
+
+  if (walkthrough.type === 'Screenshots') {
+    const sources = await Promise.all(
+      walkthrough.screenshots.map(artifactPath => getArtifactDataUrl(artifactPath, getImageMimeType(artifactPath))),
+    )
+    return {
+      type: 'Screenshots',
+      screenshots: sources.filter((source): source is string => source !== undefined),
+    }
+  }
+
+  if (walkthrough.type === 'Video') {
+    return {
+      type: 'Video',
+      video: await getArtifactDataUrl(walkthrough.filepath, 'video/webm'),
+    }
+  }
+
+  return {
+    type: 'Unavailable',
+  }
+}
+
+async function createRunDetails(date: string, output: AgentEvalOutput): Promise<RunDetails> {
   const treatments = new Map(output.treatments.map(treatment => [treatment.id, treatment.config.name]))
   return {
     date,
-    results: output.results.map(result => ({
-      id: result.id,
-      scenarioId: result.scenarioId,
-      treatment: treatments.get(result.treatmentId) ?? 'Unknown treatment',
-      model: result.model,
-      reasoningEffort: result.reasoningEffort,
-      testsPassed: result.testResults.numPassedTests,
-      totalTests: result.testResults.numTotalTests,
-      turns: result.assistant.turns,
-      outputTokens: result.assistant.outputTokens,
-      premiumRequests: result.assistant.premiumRequests,
-      totalApiDurationMs: result.assistant.totalApiDurationMs,
-      sessionDurationMs: result.assistant.sessionDurationMs,
-      tests: result.testResults.tests.map(test => ({
-        fullName: test.fullName,
-        status: test.status,
-        description: test.description,
+    results: await Promise.all(
+      output.results.map(async result => ({
+        id: result.id,
+        scenarioId: result.scenarioId,
+        treatment: treatments.get(result.treatmentId) ?? 'Unknown treatment',
+        model: result.model,
+        reasoningEffort: result.reasoningEffort,
+        testsPassed: result.testResults.numPassedTests,
+        totalTests: result.testResults.numTotalTests,
+        turns: result.assistant.turns,
+        outputTokens: result.assistant.outputTokens,
+        premiumRequests: result.assistant.premiumRequests,
+        totalApiDurationMs: result.assistant.totalApiDurationMs,
+        sessionDurationMs: result.assistant.sessionDurationMs,
+        tests: result.testResults.tests.map(test => {
+          return {
+            fullName: test.fullName,
+            status: test.status,
+            description: test.description,
+          }
+        }),
+        walkthrough: await getWalkthroughDataUrls(result.walkthrough),
+        transcript: createTranscript(result.assistant.logs),
       })),
-      transcript: createTranscript(result.assistant.logs),
-    })),
+    ),
   }
 }
 
@@ -183,7 +261,7 @@ export default async function RunPage(props: RunPageProps) {
     notFound()
   }
 
-  return <Page experiment={experiment} run={createRunDetails(date, run.output)} />
+  return <Page experiment={experiment} run={await createRunDetails(date, run.output)} />
 }
 
 export async function generateStaticParams() {

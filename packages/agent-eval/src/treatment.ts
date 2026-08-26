@@ -44,6 +44,13 @@ type TreatmentResult = {
       description?: string
     }>
   }
+  walkthrough: Walkthrough
 }
 
-export type {Treatment, TreatmentResult}
+type Walkthrough =
+  | {type: 'Unavailable'}
+  | {type: 'Screenshot'; filepath: string}
+  | {type: 'Screenshots'; screenshots: Array<string>}
+  | {type: 'Video'; filepath: string}
+
+export type {Treatment, TreatmentResult, Walkthrough}

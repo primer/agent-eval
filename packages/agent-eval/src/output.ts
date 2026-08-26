@@ -4,7 +4,7 @@ import type {ExperimentConfig, ExperimentScenarioConfig} from './experiment-conf
 import {models} from './model'
 import type {Model, ReasoningEffort} from './model'
 import type {ResolvedScenario} from './resolve-experiment-scenario'
-import type {TreatmentResult} from './treatment'
+import type {TreatmentResult, Walkthrough} from './treatment'
 
 type AgentEvalOutputResult = {
   id: string
@@ -41,6 +41,7 @@ type AgentEvalOutputResult = {
       description?: string
     }>
   }
+  walkthrough: Walkthrough
 }
 
 type AgentEvalOutput = {
@@ -149,6 +150,12 @@ const AgentEvalOutputResultSchema = z.object({
       }),
     ),
   }),
+  walkthrough: z.discriminatedUnion('type', [
+    z.object({type: z.literal('Unavailable')}),
+    z.object({type: z.literal('Screenshot'), filepath: z.string()}),
+    z.object({type: z.literal('Screenshots'), screenshots: z.array(z.string())}),
+    z.object({type: z.literal('Video'), filepath: z.string()}),
+  ]),
 })
 
 const AgentEvalOutputSchema = z.object({
@@ -226,6 +233,7 @@ function createAgentEvalOutput({
         artifacts: result.artifacts,
         assistant: result.assistant,
         testResults: result.testResults,
+        walkthrough: result.walkthrough,
       }
     }),
   }

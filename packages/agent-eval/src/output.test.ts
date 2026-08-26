@@ -76,6 +76,9 @@ const output: AgentEvalOutput = {
           },
         ],
       },
+      walkthrough: {
+        type: 'Unavailable',
+      },
     },
   ],
 }

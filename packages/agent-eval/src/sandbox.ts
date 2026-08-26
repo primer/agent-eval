@@ -433,9 +433,15 @@ async function createContainer(docker: Docker, dockerImage: string): Promise<Ini
   await execCommand(docker, container, 'apt-get', ['update'], {
     user: 'root',
   })
-  await execCommand(docker, container, 'apt-get', ['install', '-y', '--no-install-recommends', 'ca-certificates'], {
-    user: 'root',
-  })
+  await execCommand(
+    docker,
+    container,
+    'apt-get',
+    ['install', '-y', '--no-install-recommends', 'ca-certificates', 'curl'],
+    {
+      user: 'root',
+    },
+  )
   await execCommand(docker, container, 'test', ['-d', '/etc/ssl/certs'], {
     user: 'root',
   })

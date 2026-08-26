@@ -172,8 +172,9 @@ describe(parseAgentEvalOutput, () => {
   })
 
   test('defaults the walkthrough for results without one', () => {
-    const {walkthrough: _walkthrough, ...resultWithoutWalkthrough} = output.results[0]
+    const {walkthrough, ...resultWithoutWalkthrough} = output.results[0]
 
+    expect(walkthrough).toEqual({type: 'Unavailable'})
     expect(
       parseAgentEvalOutput({
         ...output,

@@ -126,7 +126,9 @@ files may export an `experiment` named export or a default export. `--experiment
 may also be a path to a local experiment file when you only want to run one
 experiment. The experiments directory defaults to `./experiments`. Use
 `--scenarios` to set the directory containing scenario directories; it defaults
-to `./scenarios`.
+to `./scenarios`. Logs default to the `info` level. Use `--log-level` with
+`debug`, `info`, `warn`, or `error` to control their verbosity. The default
+changes to `debug` when GitHub Actions runner debug logging is enabled.
 
 ## Scenario config authoring
 

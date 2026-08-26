@@ -7,6 +7,7 @@ import type {Model, ReasoningEffort} from './model'
 import {isMessageType, parseMessage, type Message} from './copilot-cli'
 import {getTestMetadata, parseTestResults} from './vitest'
 import {existsSync} from 'node:fs'
+import {logger} from './logger'
 
 const PLAYWRIGHT_BROWSERS_PATH = '/ms-playwright'
 const CHROMIUM_EXECUTABLE_PATH = '/usr/bin/chromium'
@@ -115,7 +116,7 @@ async function retry<T>(fn: () => Promise<T>, retries: number): Promise<T> {
     return await fn()
   } catch (error) {
     if (retries > 0) {
-      console.log('Retrying after error: %s', error)
+      logger.warn('Retrying after error: %s', error)
       return retry(fn, retries - 1)
     }
     throw error
@@ -150,10 +151,10 @@ async function runTreatment(
   treatment: Treatment,
   {artifactsDirectory, copilotToken, dockerImage}: RunTreatmentOptions,
 ): Promise<TreatmentResult> {
-  console.log('Running treatment: %s (%s)', treatment.config.name, treatment.id)
+  logger.info('Running treatment: %s (%s)', treatment.config.name, treatment.id)
   await using sandbox = await Sandbox.create({dockerImage})
 
-  console.log('Copying files from: %s...', treatment.scenario.directory)
+  logger.debug('Copying files from: %s...', treatment.scenario.directory)
   await sandbox.copy(treatment.scenario.directory, CONTAINER_WORKDIR, {
     exclude: ['scenario.config.ts', 'scenario.test.ts', 'scenario.browser.test.ts', 'node_modules', '.next'],
   })
@@ -161,42 +162,42 @@ async function runTreatment(
     user: 'root',
   })
 
-  console.log('Obfuscating package name...')
+  logger.debug('Obfuscating package name...')
   await sandbox.runCommand('npm', ['pkg', 'set', `name=${treatment.id}`], {
     user: NODE_USER,
   })
 
-  console.log('Removing workspace dependency...')
+  logger.debug('Removing workspace dependency...')
   await sandbox.runCommand('npm', ['pkg', 'delete', 'devDependencies.@primer/agent-eval'], {
     user: NODE_USER,
   })
 
-  console.log('Installing dependencies...')
+  logger.debug('Installing dependencies...')
   await sandbox.runCommand('npm', ['install'], {
     user: NODE_USER,
   })
 
   if (treatment.experiment.setup) {
-    console.log('Running experiment setup...')
+    logger.debug('Running experiment setup...')
     await treatment.experiment.setup({
       sandbox,
     })
   }
 
   if (treatment.config.setup) {
-    console.log('Running treatment setup...')
+    logger.debug('Running treatment setup...')
     await treatment.config.setup({
       sandbox,
     })
   }
 
-  console.log('Run build script...')
+  logger.debug('Run build script...')
   await sandbox.runCommand('npm', ['run', 'build', '--if-present'], {
     user: NODE_USER,
   })
 
   if (treatment.scenario.browserTestPath) {
-    console.log('Installing browser test dependencies...')
+    logger.debug('Installing browser test dependencies...')
     await sandbox.runCommand(
       'npm',
       ['install', '--no-save', '--package-lock=false', 'vitest', 'playwright', '@vitest/browser-playwright'],
@@ -204,7 +205,7 @@ async function runTreatment(
         user: NODE_USER,
       },
     )
-    console.log('Installing Playwright browser...')
+    logger.debug('Installing Playwright browser...')
     await sandbox.runCommand('./node_modules/.bin/playwright', ['install', '--with-deps', 'chromium'], {
       user: 'root',
       env: {
@@ -213,7 +214,7 @@ async function runTreatment(
     })
   }
 
-  console.log('Running copilot...')
+  logger.debug('Running copilot...')
   const {prompt} = treatment.scenario.config
   const args = getCopilotArgs({
     prompt,
@@ -313,7 +314,7 @@ async function runTreatment(
     )
   }
 
-  console.log('Capturing walkthrough...')
+  logger.debug('Capturing walkthrough...')
   await sandbox.runCommand('apt-get', ['install', '-y', 'chromium'], {
     user: 'root',
   })
@@ -361,7 +362,7 @@ Only capture the walkthrough, do not make any further code changes.`
   )
 
   if (walkthroughResult.exitCode !== 0) {
-    console.warn('Unable to capture walkthrough: %s', walkthroughResult.stderr)
+    logger.warn('Unable to capture walkthrough: %s', walkthroughResult.stderr)
   }
 
   // Turns
@@ -398,17 +399,17 @@ Only capture the walkthrough, do not make any further code changes.`
   const testResultsPath = path.join(workspacePath, 'test-results.json')
   await fs.mkdir(workspacePath, {recursive: true})
 
-  console.log('Downloading agent workspace to: %s...', workspacePath)
+  logger.debug('Downloading agent workspace to: %s...', workspacePath)
   await sandbox.download(CONTAINER_WORKDIR, workspacePath, {
     ignore(name) {
       return name.includes('node_modules') || name.includes('.next') || name.includes('dist')
     },
   })
 
-  console.log('Downloading copilot config to: %s...', copilotConfigPath)
+  logger.debug('Downloading copilot config to: %s...', copilotConfigPath)
   await sandbox.download(COPILOT_DIR, copilotConfigPath)
 
-  console.log('Downloading skills config to: %s...', skillsConfigPath)
+  logger.debug('Downloading skills config to: %s...', skillsConfigPath)
   await sandbox.download(AGENTS_DIR, skillsConfigPath)
 
   let walkthrough: Walkthrough = {
@@ -416,7 +417,7 @@ Only capture the walkthrough, do not make any further code changes.`
   }
 
   if (existsSync(path.join(workspacePath, WALKTHROUGH_DIR))) {
-    console.log(
+    logger.debug(
       'Moving walkthrough artifacts from: %s to: %s...',
       path.join(workspacePath, WALKTHROUGH_DIR),
       walkthroughPath,

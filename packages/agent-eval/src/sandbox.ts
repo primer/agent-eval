@@ -7,6 +7,7 @@ import Docker from 'dockerode'
 import tarFs from 'tar-fs'
 import type {Headers} from 'tar-fs'
 import tarStream from 'tar-stream'
+import {logger} from './logger'
 import {McpConfigFileSchema} from './mcp-config'
 import type {McpConfigFile, McpServerConfig} from './mcp-config'
 
@@ -421,7 +422,7 @@ async function createContainer(docker: Docker, dockerImage: string): Promise<Ini
 
   await container.start()
 
-  console.log('Creating workspace directory...')
+  logger.debug('Creating workspace directory...')
   await execCommand(docker, container, 'mkdir', ['-p', CONTAINER_WORKDIR], {
     user: 'root',
   })
@@ -429,7 +430,7 @@ async function createContainer(docker: Docker, dockerImage: string): Promise<Ini
     user: 'root',
   })
 
-  console.log('Installing CA certificates...')
+  logger.debug('Installing CA certificates...')
   await execCommand(docker, container, 'apt-get', ['update'], {
     user: 'root',
   })
@@ -446,7 +447,7 @@ async function createContainer(docker: Docker, dockerImage: string): Promise<Ini
     user: 'root',
   })
 
-  console.log('Installing npm...')
+  logger.debug('Installing npm...')
   await execCommand(docker, container, 'npm', ['install', '--global', `npm@${NPM_VERSION}`], {
     user: 'root',
   })
@@ -457,7 +458,7 @@ async function createContainer(docker: Docker, dockerImage: string): Promise<Ini
     throw new Error(`Expected npm ${NPM_VERSION}, received ${npmVersion.stdout.trim()}`)
   }
 
-  console.log('Setting up npm for non-root global installs')
+  logger.debug('Setting up npm for non-root global installs')
   await execCommand(docker, container, 'mkdir', ['-p', NPM_GLOBAL_DIR], {
     user: 'root',
   })
@@ -468,7 +469,7 @@ async function createContainer(docker: Docker, dockerImage: string): Promise<Ini
     user: NODE_USER,
   })
 
-  console.log('Setting up copilot...')
+  logger.debug('Setting up copilot...')
   await execCommand(docker, container, 'mkdir', ['-p', COPILOT_DIR], {
     user: 'root',
   })
@@ -485,7 +486,7 @@ async function createContainer(docker: Docker, dockerImage: string): Promise<Ini
     user: NODE_USER,
   })
 
-  console.log('Setting up agents config...')
+  logger.debug('Setting up agents config...')
   await execCommand(docker, container, 'mkdir', ['-p', AGENTS_DIR], {
     user: 'root',
   })

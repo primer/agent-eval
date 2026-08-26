@@ -12,6 +12,7 @@ import {findExperiment, listExperiments} from './experiments'
 import {resolveExperimentScenario} from './resolve-experiment-scenario'
 import {run} from './run'
 import {parseShard, selectShard} from './shard'
+import {getDefaultLogLevel, logger, parseLogLevel} from './logger'
 
 const {values} = parseArgs({
   options: {
@@ -44,6 +45,10 @@ const {values} = parseArgs({
       short: 'h',
       description: 'Learn more about the command and its options',
     },
+    'log-level': {
+      type: 'string',
+      description: 'The minimum log level to display (debug, info, warn, or error)',
+    },
     output: {
       type: 'string',
       description: 'The target file in which results are written',
@@ -60,8 +65,10 @@ const {values} = parseArgs({
   },
 })
 
+logger.setLevel(parseLogLevel(values['log-level'] ?? getDefaultLogLevel()))
+
 if (values.help) {
-  console.log(`
+  process.stdout.write(`
 Usage: agent-eval [options]
 
 Options:
@@ -71,6 +78,7 @@ Options:
   -e, --experiment <file>    The file name of the experiment to run
       --experiments <dir>    The directory containing local experiment files
   -h, --help                 Learn more about the command and its options
+      --log-level <level>    The minimum log level to display (default: info)
       --output <file>        The target file in which results are written (default: output.json)
       --scenarios <dir>      The directory containing scenario directories
       --shard <order/total>  The shard to run
@@ -448,7 +456,7 @@ function formatSummaryRow(summary: ResultSummary, level: 'treatment' | 'scenario
 
 const config = selectedExperiment.config
 
-console.log('Running experiment:', config.name)
+logger.info('Running experiment: %s', config.name)
 
 const scenarios = await Promise.all(
   config.scenarios.map(scenarioConfig => {
@@ -499,7 +507,7 @@ const results: Array<TreatmentResult> = await run(randomize(selectedTreatments),
 
 const sortedResults = results.toSorted(compareResults)
 const resultSummaries = formatResultSummaries(sortedResults)
-console.log(resultSummaries)
+process.stdout.write(`${resultSummaries}\n`)
 await appendResultsToJobSummary(resultSummaries)
 
 const outputFilePath = path.isAbsolute(values.output) ? values.output : path.resolve(process.cwd(), values.output)

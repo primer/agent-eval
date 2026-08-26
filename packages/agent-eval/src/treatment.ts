@@ -20,6 +20,7 @@ type TreatmentResult = {
     directory: string
     skillsConfigPath: string
     testResultsPath: string
+    walkthroughPath: string
     workspacePath: string
   }
   assistant: {
@@ -44,6 +45,13 @@ type TreatmentResult = {
       description?: string
     }>
   }
+  walkthrough: {}
 }
 
-export type {Treatment, TreatmentResult}
+type Walkthrough =
+  | {type: 'Unavailable'}
+  | {type: 'Screenshot'; filepath: string}
+  | {type: 'Screenshots'; screenshots: Array<string>}
+  | {type: 'Video'; filepath: string}
+
+export type {Treatment, TreatmentResult, Walkthrough}

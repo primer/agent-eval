@@ -4,7 +4,7 @@ import type {ExperimentConfig, ExperimentScenarioConfig} from './experiment-conf
 import {models} from './model'
 import type {Model, ReasoningEffort} from './model'
 import type {ResolvedScenario} from './resolve-experiment-scenario'
-import type {TreatmentResult} from './treatment'
+import type {TreatmentResult, Walkthrough} from './treatment'
 
 type AgentEvalOutputResult = {
   id: string
@@ -41,6 +41,7 @@ type AgentEvalOutputResult = {
       description?: string
     }>
   }
+  walkthrough: Walkthrough
 }
 
 type AgentEvalOutput = {

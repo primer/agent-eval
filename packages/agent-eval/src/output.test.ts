@@ -171,6 +171,17 @@ describe(parseAgentEvalOutput, () => {
     expect(parseAgentEvalOutput(outputWithUnknownMessage)).toEqual(outputWithUnknownMessage)
   })
 
+  test('defaults the walkthrough for results without one', () => {
+    const {walkthrough: _walkthrough, ...resultWithoutWalkthrough} = output.results[0]
+
+    expect(
+      parseAgentEvalOutput({
+        ...output,
+        results: [resultWithoutWalkthrough],
+      }),
+    ).toEqual(output)
+  })
+
   test('throws for invalid agent eval output', () => {
     expect(() =>
       parseAgentEvalOutput({

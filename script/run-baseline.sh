@@ -12,7 +12,7 @@ if [[ ! "$run_date" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
 fi
 
 arguments=(
-  --artifacts "$repository_root/artifacts/$run_date"
+  --artifacts "$repository_root/artifacts"
   --concurrency "${CONCURRENCY:-1}"
   --docker-image "${DOCKER_IMAGE:-node:26.5.0-slim}"
   --experiment baseline

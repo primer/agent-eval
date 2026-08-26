@@ -436,8 +436,8 @@ Only capture the walkthrough, do not make any further code changes.`
       }
     } else if (existsSync(path.join(walkthroughPath, 'screenshots'))) {
       const screenshotsDir = path.join(walkthroughPath, 'screenshots')
-      const entries = await fs.readdir(screenshotsDir).then(entries => {
-        return entries.toSorted((a, b) => a.localeCompare(b, undefined, {numeric: true}))
+      const entries = await fs.readdir(screenshotsDir).then(filenames => {
+        return filenames.toSorted((a, b) => a.localeCompare(b, undefined, {numeric: true}))
       })
       const screenshots = entries.filter(entry => {
         return IMAGE_EXTENSIONS.has(path.extname(entry).toLowerCase())
@@ -459,7 +459,6 @@ Only capture the walkthrough, do not make any further code changes.`
       copilotConfigPath,
       skillsConfigPath,
       testResultsPath,
-      walkthroughPath,
       workspacePath,
     },
     assistant: {

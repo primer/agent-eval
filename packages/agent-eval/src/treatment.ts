@@ -20,7 +20,6 @@ type TreatmentResult = {
     directory: string
     skillsConfigPath: string
     testResultsPath: string
-    walkthroughPath: string
     workspacePath: string
   }
   assistant: {
@@ -45,7 +44,7 @@ type TreatmentResult = {
       description?: string
     }>
   }
-  walkthrough: {}
+  walkthrough: Walkthrough
 }
 
 type Walkthrough =

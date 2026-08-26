@@ -150,6 +150,12 @@ const AgentEvalOutputResultSchema = z.object({
       }),
     ),
   }),
+  walkthrough: z.discriminatedUnion('type', [
+    z.object({type: z.literal('Unavailable')}),
+    z.object({type: z.literal('Screenshot'), filepath: z.string()}),
+    z.object({type: z.literal('Screenshots'), screenshots: z.array(z.string())}),
+    z.object({type: z.literal('Video'), filepath: z.string()}),
+  ]),
 })
 
 const AgentEvalOutputSchema = z.object({
@@ -227,6 +233,7 @@ function createAgentEvalOutput({
         artifacts: result.artifacts,
         assistant: result.assistant,
         testResults: result.testResults,
+        walkthrough: result.walkthrough,
       }
     }),
   }

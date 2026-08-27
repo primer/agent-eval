@@ -113,6 +113,8 @@ const ResolvedScenarioSchema = z.object({
   browserTestPath: z.optional(z.string()),
 })
 
+const unavailableWalkthrough = {type: 'Unavailable'} as const
+
 const AgentEvalOutputResultSchema = z.object({
   id: z.string(),
   treatmentId: z.string(),
@@ -150,12 +152,18 @@ const AgentEvalOutputResultSchema = z.object({
       }),
     ),
   }),
-  walkthrough: z.discriminatedUnion('type', [
-    z.object({type: z.literal('Unavailable')}),
-    z.object({type: z.literal('Screenshot'), filepath: z.string()}),
-    z.object({type: z.literal('Screenshots'), screenshots: z.array(z.string())}),
-    z.object({type: z.literal('Video'), filepath: z.string()}),
-  ]),
+  // Runs created before walkthroughs were supported do not include this field
+  walkthrough: z.pipe(
+    z.optional(
+      z.discriminatedUnion('type', [
+        z.object({type: z.literal('Unavailable')}),
+        z.object({type: z.literal('Screenshot'), filepath: z.string()}),
+        z.object({type: z.literal('Screenshots'), screenshots: z.array(z.string())}),
+        z.object({type: z.literal('Video'), filepath: z.string()}),
+      ]),
+    ),
+    z.transform(value => value ?? unavailableWalkthrough),
+  ),
 })
 
 const AgentEvalOutputSchema = z.object({

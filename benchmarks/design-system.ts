@@ -6,80 +6,96 @@ export const benchmark = defineConfig({
   capabilities: [
     {
       name: 'Uses components',
-      scenarios: [
-        // Uses component from the design system unsolicited (e.g. when referring to a button)
-        // Does not re-create a component that already exists
-      ],
+      scenarios: ['001-agent-uses-button-from-primer', '006-agent-uses-pagination-component'],
     },
     {
       name: 'Infers correct component based on usage',
-      scenarios: [
-        // When talking broadly about an action or case, translates to
-        // components in Primer instead of creating a new component
-      ],
+      scenarios: ['007-agent-infers-billing-banner', '008-agent-infers-action-menu'],
+    },
+    {
+      name: 'Composes components correctly',
+      scenarios: [],
+    },
+    {
+      name: 'Uses documented component APIs',
+      scenarios: [],
     },
     {
       name: 'Uses tokens',
       scenarios: [
-        // Color tokens
-        // Size tokens
-        // Typography tokens
-        // Motion tokens
+        '009-agent-uses-layout-and-color-tokens',
+        '010-agent-uses-typography-tokens',
+        '011-agent-uses-motion-tokens',
       ],
     },
     {
       name: 'Infers correct token based on usage',
-      scenarios: [
-        // Given a specific context it can find the correct token
-      ],
+      scenarios: ['012-agent-infers-status-tokens', '013-agent-infers-compact-control-tokens'],
     },
     {
       name: 'Uses icons',
-      scenarios: [
-        // Uses icons from Primer before creating its own
-        // Does not use icons from other libraries
-        // Suggests creating an issue or contributing to primer/octicons if
-        // missing
-      ],
+      scenarios: ['002-agent-uses-octicon-from-primer', '014-agent-replaces-custom-icons-with-octicons'],
     },
     {
       name: 'Infers correct icon based on usage',
-      scenarios: [
-        // Given a specific context it finds the right icon to use
-      ],
+      scenarios: ['015-agent-infers-copy-icon'],
     },
     {
       name: 'Uses UI patterns',
       scenarios: [
-        // Given a specific context it infers what components to use and how to
-        // combine them (forms, loading states, empty states, etc)
+        '003-agent-uses-form-from-primer',
+        '016-agent-uses-loading-and-empty-state-patterns',
+        '017-agent-uses-confirmation-pattern',
+        '018-agent-uses-filter-pattern',
       ],
+    },
+    {
+      name: 'Implements navigation patterns',
+      scenarios: [],
+    },
+    {
+      name: 'Applies accessibility guidance',
+      scenarios: [],
+    },
+    {
+      name: 'Builds responsive interfaces',
+      scenarios: [],
+    },
+    {
+      name: 'Handles interaction states',
+      scenarios: [],
     },
     {
       name: 'Uses utilities',
-      scenarios: [
-        // Prefers importing and using hooks instead of re-implementing them
-      ],
+      scenarios: ['019-agent-uses-dismissal-utilities', '020-agent-uses-resize-observer-utility'],
+    },
+    {
+      name: 'Extends the design system safely',
+      scenarios: [],
     },
     {
       name: 'Getting started',
-      scenarios: [
-        // New project
-      ],
+      scenarios: ['004-agent-setup-nextjs', '021-agent-sets-up-primer-in-vite'],
     },
     {
       name: 'Theming',
       scenarios: [
-        // Bringing in primitives
-        // Theme switching
+        '005-agent-enables-theme-switching',
+        '022-agent-enables-automatic-theming',
+        '023-agent-adds-theme-switcher',
       ],
     },
     {
+      name: 'Supports accessible color modes',
+      scenarios: [],
+    },
+    {
       name: 'Works with TailwindCSS',
-      scenarios: [
-        // New project can bring in tailwindcss
-        // Uses correct utility classes
-      ],
+      scenarios: ['024-agent-sets-up-tailwindcss', '025-agent-uses-tokens-with-tailwindcss'],
+    },
+    {
+      name: 'Respects component maturity',
+      scenarios: ['026-agent-avoids-deprecated-notification'],
     },
   ],
 })

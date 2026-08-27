@@ -20,6 +20,15 @@ const {values} = parseArgs({
       short: 'a',
       description: 'The directory to save artifacts to',
     },
+    benchmark: {
+      type: 'string',
+      short: 'b',
+      description: 'The file name of the benchmark to run',
+    },
+    benchmarks: {
+      type: 'string',
+      description: 'The directory containing local benchmark files',
+    },
     concurrency: {
       type: 'string',
       short: 'c',
@@ -66,6 +75,8 @@ Usage: agent-eval [options]
 
 Options:
   -a, --artifacts <dir>      The directory to save artifacts to
+  -b, --benchmark <file>     The file name of the benchmark to run
+      --benchmarks <dir>     The directory containing local benchmark files
   -c, --concurrency <num>    The number of treatments to run in parallel
       --docker-image <image> The Docker container image to use for running treatments (must be a Debian-based Node image with apt-get and a node user, e.g. node:26.5.0-slim)
   -e, --experiment <file>    The file name of the experiment to run
@@ -102,7 +113,9 @@ if (!existsSync(ARTIFACTS_DIR)) {
   await fs.mkdir(ARTIFACTS_DIR, {recursive: true})
 }
 
-if (values.experiment) {
+if (values.benchmark) {
+  //
+} else if (values.experiment) {
   const config = await findExperiment(values.experiment, {
     directory: values.experiments,
   })

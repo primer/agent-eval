@@ -1,3 +1,5 @@
+export {getBenchmark, listBenchmarks} from './benchmark'
+export type {BenchmarkConfig} from './benchmark'
 export {findExperiment, listExperiments, loadExperimentConfigs} from './experiments'
 export type {ExperimentSourceOptions, LoadExperimentOptions} from './experiments'
 export {findScenario, listScenarios} from './scenarios'

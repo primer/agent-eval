@@ -47,10 +47,14 @@ type TreatmentResult = {
   walkthrough: Walkthrough
 }
 
+const ControlTreatment: TreatmentConfig = {
+  name: 'Control',
+}
+
 type Walkthrough =
   | {type: 'Unavailable'}
   | {type: 'Screenshot'; filepath: string}
   | {type: 'Screenshots'; screenshots: Array<string>}
   | {type: 'Video'; filepath: string}
 
-export type {Treatment, TreatmentResult, Walkthrough}
+export type {Treatment, TreatmentResult, ControlTreatment, Walkthrough}

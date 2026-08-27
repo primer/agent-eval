@@ -146,6 +146,17 @@ function getCopilotArgs({
   return [...args, '--mode', 'autopilot', '--output-format', 'json']
 }
 
+function getTotalNanoAiu(messages: Array<Message>): number {
+  const usageCheckpoint = messages.findLast(message => {
+    return isMessageType(message, 'session.usage_checkpoint')
+  })
+  if (!usageCheckpoint) {
+    throw new Error('No session usage checkpoint found in copilot output')
+  }
+
+  return usageCheckpoint.data.totalNanoAiu
+}
+
 async function runTreatment(
   treatment: Treatment,
   {artifactsDirectory, copilotToken, dockerImage}: RunTreatmentOptions,
@@ -466,6 +477,7 @@ Only capture the walkthrough, do not make any further code changes.`
       turns: assistantTurns.size,
       outputTokens,
       premiumRequests: result.usage.premiumRequests,
+      totalNanoAiu: getTotalNanoAiu(messages),
       // Time to complete (latency)
       totalApiDurationMs: result.usage.totalApiDurationMs,
       sessionDurationMs: result.usage.sessionDurationMs,
@@ -483,4 +495,4 @@ Only capture the walkthrough, do not make any further code changes.`
   }
 }
 
-export {getCopilotArgs, getVitestConfig, run}
+export {getCopilotArgs, getTotalNanoAiu, getVitestConfig, run}

@@ -24,6 +24,7 @@ type AgentEvalOutputResult = {
     turns: number
     outputTokens: number
     premiumRequests: number
+    totalNanoAiu?: number
     totalApiDurationMs: number
     sessionDurationMs: number
     tools: Record<string, number>
@@ -133,6 +134,8 @@ const AgentEvalOutputResultSchema = z.object({
     turns: z.number(),
     outputTokens: z.number(),
     premiumRequests: z.number(),
+    // Runs created before totalNanoAiu was supported do not include this field
+    totalNanoAiu: z.optional(z.number()),
     totalApiDurationMs: z.number(),
     sessionDurationMs: z.number(),
     tools: z.record(z.string(), z.number()),

@@ -1,5 +1,6 @@
 import {describe, expect, test} from 'vitest'
-import {getCopilotArgs, getVitestConfig} from './run'
+import {parseMessage} from './copilot-cli'
+import {getCopilotArgs, getTotalNanoAiu, getVitestConfig} from './run'
 
 describe('getCopilotArgs', () => {
   test('omits reasoning effort when not configured', () => {
@@ -51,5 +52,42 @@ describe('getVitestConfig', () => {
     expect(config).toContain('provider: playwright()')
     expect(config).toContain(`instances: [{browser: 'chromium'}]`)
     expect(config).toContain(`outputFile: "browser-test-results.json"`)
+  })
+})
+
+describe('getTotalNanoAiu', () => {
+  test('returns totalNanoAiu from the latest usage checkpoint', () => {
+    const messages = [
+      parseMessage({
+        type: 'session.usage_checkpoint',
+        data: {
+          totalNanoAiu: 1_000_000_000,
+          totalPremiumRequests: 0,
+          modelCacheState: [],
+        },
+        id: 'first-checkpoint',
+        timestamp: '2026-08-27T15:00:00.000Z',
+        parentId: 'parent',
+      }),
+      parseMessage({
+        type: 'session.usage_checkpoint',
+        data: {
+          totalNanoAiu: 2_839_800_000,
+          totalPremiumRequests: 0,
+          modelCacheState: [],
+        },
+        id: 'last-checkpoint',
+        timestamp: '2026-08-27T15:01:00.000Z',
+        parentId: 'first-checkpoint',
+      }),
+    ]
+
+    expect(getTotalNanoAiu(messages)).toBe(2_839_800_000)
+  })
+
+  test('throws when there is no usage checkpoint', () => {
+    expect(() => {
+      getTotalNanoAiu([])
+    }).toThrow('No session usage checkpoint found')
   })
 })

@@ -1,7 +1,7 @@
 'use client'
 
 import {CheckCircleFillIcon, CopilotIcon, PersonIcon, XCircleFillIcon} from '@primer/octicons-react'
-import {Breadcrumbs, FormControl, NavList, PageLayout, Select, Stack, UnderlineNav} from '@primer/react'
+import {Breadcrumbs, FormControl, Select, Stack, UnderlineNav} from '@primer/react'
 import type {Experiment} from '../../../../../../experiments'
 import type {Route} from 'next'
 import Link from 'next/link'
@@ -270,10 +270,6 @@ function groupResultsByScenario(results: Array<RunResult>): Array<ScenarioResult
   })
 }
 
-function getResultHeadingId(index: number): string {
-  return `result-${index}-heading`
-}
-
 function ScenarioResults({group, index}: {group: ScenarioResultGroup; index: number}) {
   const modelOptions = new Map<string, string>()
   const treatmentOptions = new Set<string>()
@@ -297,11 +293,11 @@ function ScenarioResults({group, index}: {group: ScenarioResultGroup; index: num
     )
   }
 
-  const resultHeadingId = getResultHeadingId(index)
+  const resultHeadingId = `result-${index}-heading`
   const summaryHeadingId = `result-${index}-summary-heading`
 
   return (
-    <article aria-labelledby={resultHeadingId} className="flex flex-col gap-4 scroll-mt-4">
+    <article aria-labelledby={resultHeadingId} className="flex flex-col gap-4">
       <header className="border-b border-default pb-3 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <h2 className="text-title-medium m-0" id={resultHeadingId}>
           {group.scenarioId}
@@ -404,26 +400,11 @@ export function Page({experiment, run}: Props) {
           <Breadcrumbs.Item selected>{run.date}</Breadcrumbs.Item>
         </Breadcrumbs>
         <h1 className="sr-only">Run results for {experiment.name}</h1>
-        <PageLayout containerWidth="full" padding="none" rowGap="normal">
-          <PageLayout.Pane aria-label="Run scenarios" divider="line" padding="none" position="start" sticky>
-            <NavList aria-label="Run scenarios">
-              {resultGroups.map((group, index) => {
-                return (
-                  <NavList.Item href={`#${getResultHeadingId(index)}`} key={group.scenarioId}>
-                    {group.scenarioId}
-                  </NavList.Item>
-                )
-              })}
-            </NavList>
-          </PageLayout.Pane>
-          <PageLayout.Content as="div">
-            <div className="flex flex-col gap-8">
-              {resultGroups.map((group, index) => {
-                return <ScenarioResults group={group} index={index} key={group.scenarioId} />
-              })}
-            </div>
-          </PageLayout.Content>
-        </PageLayout>
+        <div className="flex flex-col gap-8">
+          {resultGroups.map((group, index) => {
+            return <ScenarioResults group={group} index={index} key={group.scenarioId} />
+          })}
+        </div>
       </div>
     </Stack>
   )

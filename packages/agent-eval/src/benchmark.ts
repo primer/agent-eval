@@ -1,34 +1,25 @@
-import fs from 'node:fs/promises'
-import path from 'node:path'
-// import * as z from 'zod/mini'
-import type {Model, ModelConfig, ReasoningEffort} from './model'
-import type {Sandbox} from './sandbox'
-import {ControlTreatment, type TreatmentConfig} from './experiment-config'
-import {getScenario} from './scenario'
-import type {Scenario} from './scenario'
 import {randomUUID} from 'node:crypto'
+import path from 'node:path'
+import * as z from 'zod/mini'
+import {ModelVariantConfigSchema, type Model, type ReasoningEffort} from './model'
+import type {Sandbox} from './sandbox'
+import {ControlTreatment} from './experiment-config'
+import type {Scenario} from './scenario'
+import type {Host} from './host'
 
-// const BenchmarkConfigSchema = z.object({
-//   name: z.string(),
-//   description: z.string(),
-//   capabilities: z.array(
-//     z.object({
-//       name: z.string(),
-//       scenarios: z.array(z.string()),
-//     }),
-//   ),
-// })
+const BenchmarkConfigSchema = z.object({
+  name: z.string(),
+  description: z.string(),
+  models: ModelVariantConfigSchema,
+  capabilities: z.array(
+    z.object({
+      name: z.string(),
+      scenarios: z.array(z.string()),
+    }),
+  ),
+})
 
-type BenchmarkConfig = {
-  name: string
-  description: string
-  models: Array<ModelConfig>
-  setup: Setup
-  capabilities: Array<{
-    name: string
-    scenarios: Array<string>
-  }>
-}
+type BenchmarkConfig = z.infer<typeof BenchmarkConfigSchema>
 
 type Setup = ({sandbox}: {sandbox: Sandbox}) => Promise<void>
 
@@ -37,48 +28,65 @@ function defineConfig(config: BenchmarkConfig): BenchmarkConfig {
 }
 
 type BenchmarkModule = {
-  benchmark: BenchmarkConfig
+  benchmark?: BenchmarkConfig
+  default?: BenchmarkConfig
+}
+
+type Benchmark = BenchmarkConfig & {
+  id: string
 }
 
 const BENCHMARK_FILE_EXTENSIONS = new Set(['.cjs', '.js', '.mjs', '.ts'])
 
-async function listBenchmarks(directory: string) {
-  const stats = await fs.stat(directory)
+async function listBenchmarks(host: Host, directory: string): Promise<Array<Benchmark>> {
+  const stats = await host.fs.stat(directory)
   if (!stats.isDirectory()) {
     throw new Error('Expected benchmarks to be a directory')
   }
 
-  const filenames = await fs.readdir(directory)
-  const benchmarks = await Promise.all(
-    filenames
-      .filter(filename => {
-        return isBenchmarkFile(filename)
-      })
-      .map(async filename => {
-        const filepath = path.join(directory, filename)
-        const mod: BenchmarkModule = await import(filepath)
-        if (!mod.benchmark) {
-          throw new Error(`Benchmark file must export "benchmark": ${filepath}`)
-        }
-        return [getBenchmarkId(filename), mod.benchmark] as const
-      }),
-  )
+  const filenames = await host.fs.readdir(directory)
+  const benchmarks: Array<Benchmark> = []
+
+  for (const filename of filenames) {
+    if (!isBenchmarkFile(filename)) {
+      continue
+    }
+
+    const filepath = path.join(directory, filename)
+    const mod: BenchmarkModule = await host.loadModule(filepath)
+    const data = mod.benchmark ?? mod.default
+    if (!data) {
+      continue
+    }
+
+    const parseResult = BenchmarkConfigSchema.safeParse(data)
+    if (!parseResult.success) {
+      throw new Error(
+        `Benchmark file must export a valid benchmark config: ${filepath}\n${z.prettifyError(parseResult.error)}`,
+      )
+    }
+
+    benchmarks.push({
+      id: getBenchmarkId(filename),
+      ...parseResult.data,
+    })
+  }
 
   return benchmarks
 }
 
-async function getBenchmark(directory: string, id: string): Promise<BenchmarkConfig> {
-  const benchmarks = await listBenchmarks(directory)
-  const benchmark = benchmarks.find(([benchmarkId]) => benchmarkId === id)
+async function getBenchmark(host: Host, directory: string, id: string): Promise<Benchmark> {
+  const benchmarks = await listBenchmarks(host, directory)
+  const benchmark = benchmarks.find(benchmark => benchmark.id === id)
   if (!benchmark) {
     throw new Error(`Benchmark "${id}" was not found in: ${directory}`)
   }
 
-  return benchmark[1]
+  return benchmark
 }
 
 function getBenchmarkId(filename: string): string {
-  return path.basename(filename)
+  return path.basename(filename, path.extname(filename))
 }
 
 function isBenchmarkFile(filename: string): boolean {
@@ -99,7 +107,7 @@ function isBenchmarkFile(filename: string): boolean {
 
 type BenchmarkResult = {}
 
-type Treatment = {
+type Treatment<M extends Model> = {
   id: string
   scenario: Scenario
   config: {
@@ -107,7 +115,7 @@ type Treatment = {
     setup?: Setup
   }
   model: Model
-  reasoningEffort: ReasoningEffort | null
+  reasoningEffort: ReasoningEffort<M> | null
 }
 
 type RunOptions = {

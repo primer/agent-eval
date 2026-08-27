@@ -152,5 +152,5 @@ function getModelVariants(input: ModelVariantConfig): Array<ModelVariant<Model>>
   })
 }
 
-export {models, getModelVariants}
+export {models, getModelVariants, ModelVariantConfigSchema}
 export type {ModelConfig, Model, ReasoningEffort, ModelVariantConfig}

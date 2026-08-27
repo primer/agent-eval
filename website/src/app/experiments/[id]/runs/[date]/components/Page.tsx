@@ -1,7 +1,7 @@
 'use client'
 
 import {CheckCircleFillIcon, CopilotIcon, PersonIcon, XCircleFillIcon} from '@primer/octicons-react'
-import {Breadcrumbs, Stack, UnderlineNav} from '@primer/react'
+import {Breadcrumbs, FormControl, Select, Stack, UnderlineNav} from '@primer/react'
 import type {Experiment} from '../../../../../../experiments'
 import type {Route} from 'next'
 import Link from 'next/link'
@@ -41,6 +41,11 @@ type RunResult = {
 type RunDetails = {
   date: string
   results: Array<RunResult>
+}
+
+type ScenarioResultGroup = {
+  scenarioId: string
+  results: [RunResult, ...Array<RunResult>]
 }
 
 function formatDuration(milliseconds: number): string {
@@ -237,12 +242,114 @@ function ResultTabs({index, result}: {index: number; result: RunResult}) {
   )
 }
 
+function getResultLabel(result: RunResult): string {
+  const model = result.reasoningEffort ? `${result.model} (${result.reasoningEffort})` : result.model
+  return `${model} · ${result.treatment}`
+}
+
+function groupResultsByScenario(results: Array<RunResult>): Array<ScenarioResultGroup> {
+  const groups = new Map<string, ScenarioResultGroup>()
+
+  for (const result of results) {
+    const group = groups.get(result.scenarioId)
+    if (group) {
+      group.results.push(result)
+    } else {
+      groups.set(result.scenarioId, {
+        scenarioId: result.scenarioId,
+        results: [result],
+      })
+    }
+  }
+
+  return Array.from(groups.values())
+}
+
+function ScenarioResults({group, index}: {group: ScenarioResultGroup; index: number}) {
+  const [selectedResultId, setSelectedResultId] = useState(group.results[0].id)
+  const selectedResult = group.results.find(result => {
+    return result.id === selectedResultId
+  })
+
+  if (!selectedResult) {
+    throw new Error(`Selected result "${selectedResultId}" was not found for scenario "${group.scenarioId}"`)
+  }
+
+  const resultHeadingId = `result-${index}-heading`
+  const summaryHeadingId = `result-${index}-summary-heading`
+
+  return (
+    <article aria-labelledby={resultHeadingId} className="flex flex-col gap-4">
+      <header className="border-b border-default pb-3 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+        <h3 className="text-title-medium m-0" id={resultHeadingId}>
+          {group.scenarioId}
+        </h3>
+        <FormControl>
+          <FormControl.Label>Model and treatment</FormControl.Label>
+          <Select
+            value={selectedResultId}
+            onChange={event => {
+              setSelectedResultId(event.currentTarget.value)
+            }}
+          >
+            {group.results.map(result => {
+              return (
+                <Select.Option key={result.id} value={result.id}>
+                  {getResultLabel(result)}
+                </Select.Option>
+              )
+            })}
+          </Select>
+        </FormControl>
+      </header>
+      <div className="flex flex-col gap-4">
+        <section className="bg-default border border-default rounded-lg p-4" aria-labelledby={summaryHeadingId}>
+          <h4 className="text-title-small mt-0 mb-3" id={summaryHeadingId}>
+            Run summary
+          </h4>
+          <dl className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 m-0">
+            <div className="bg-muted rounded-md p-3">
+              <dt className="text-caption text-muted">Tests passed</dt>
+              <dd className="text-title-small m-0">
+                {selectedResult.testsPassed}/{selectedResult.totalTests}
+              </dd>
+            </div>
+            <div className="bg-muted rounded-md p-3">
+              <dt className="text-caption text-muted">Turns</dt>
+              <dd className="text-title-small m-0">{selectedResult.turns}</dd>
+            </div>
+            <div className="bg-muted rounded-md p-3">
+              <dt className="text-caption text-muted">Output tokens</dt>
+              <dd className="text-title-small m-0">{selectedResult.outputTokens.toLocaleString('en-US')}</dd>
+            </div>
+            <div className="bg-muted rounded-md p-3">
+              <dt className="text-caption text-muted">Premium requests</dt>
+              <dd className="text-title-small m-0">{selectedResult.premiumRequests}</dd>
+            </div>
+            <div className="bg-muted rounded-md p-3">
+              <dt className="text-caption text-muted">API time</dt>
+              <dd className="text-title-small m-0">{formatDuration(selectedResult.totalApiDurationMs)}</dd>
+            </div>
+            <div className="bg-muted rounded-md p-3">
+              <dt className="text-caption text-muted">Session time</dt>
+              <dd className="text-title-small m-0">{formatDuration(selectedResult.sessionDurationMs)}</dd>
+            </div>
+          </dl>
+        </section>
+        <ResultTabs index={index} result={selectedResult} />
+      </div>
+    </article>
+  )
+}
+
 type Props = {
   experiment: Experiment
   run: RunDetails
 }
 
 export function Page({experiment, run}: Props) {
+  const resultGroups = groupResultsByScenario(run.results)
+
   return (
     <Stack padding="normal">
       <div className="w-full max-w-screen-xl mx-auto flex flex-col gap-6">
@@ -268,64 +375,8 @@ export function Page({experiment, run}: Props) {
             Results
           </h2>
           <div className="flex flex-col gap-8">
-            {run.results.map((result, index) => {
-              const resultHeadingId = `result-${index}-heading`
-              const summaryHeadingId = `result-${index}-summary-heading`
-
-              return (
-                <article aria-labelledby={resultHeadingId} className="flex flex-col gap-4" key={result.id}>
-                  <header className="border-b border-default pb-3">
-                    <h3 className="text-title-medium m-0" id={resultHeadingId}>
-                      {result.scenarioId}
-                    </h3>
-                    <p className="text-body-medium text-muted mt-1 mb-0">
-                      {result.treatment}
-                      {' · '}
-                      {result.model}
-                      {result.reasoningEffort ? ` (${result.reasoningEffort})` : null}
-                    </p>
-                  </header>
-                  <div className="flex flex-col gap-4">
-                    <section
-                      className="bg-default border border-default rounded-lg p-4"
-                      aria-labelledby={summaryHeadingId}
-                    >
-                      <h4 className="text-title-small mt-0 mb-3" id={summaryHeadingId}>
-                        Run summary
-                      </h4>
-                      <dl className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 m-0">
-                        <div className="bg-muted rounded-md p-3">
-                          <dt className="text-caption text-muted">Tests passed</dt>
-                          <dd className="text-title-small m-0">
-                            {result.testsPassed}/{result.totalTests}
-                          </dd>
-                        </div>
-                        <div className="bg-muted rounded-md p-3">
-                          <dt className="text-caption text-muted">Turns</dt>
-                          <dd className="text-title-small m-0">{result.turns}</dd>
-                        </div>
-                        <div className="bg-muted rounded-md p-3">
-                          <dt className="text-caption text-muted">Output tokens</dt>
-                          <dd className="text-title-small m-0">{result.outputTokens.toLocaleString('en-US')}</dd>
-                        </div>
-                        <div className="bg-muted rounded-md p-3">
-                          <dt className="text-caption text-muted">Premium requests</dt>
-                          <dd className="text-title-small m-0">{result.premiumRequests}</dd>
-                        </div>
-                        <div className="bg-muted rounded-md p-3">
-                          <dt className="text-caption text-muted">API time</dt>
-                          <dd className="text-title-small m-0">{formatDuration(result.totalApiDurationMs)}</dd>
-                        </div>
-                        <div className="bg-muted rounded-md p-3">
-                          <dt className="text-caption text-muted">Session time</dt>
-                          <dd className="text-title-small m-0">{formatDuration(result.sessionDurationMs)}</dd>
-                        </div>
-                      </dl>
-                    </section>
-                    <ResultTabs index={index} result={result} />
-                  </div>
-                </article>
-              )
+            {resultGroups.map((group, index) => {
+              return <ScenarioResults group={group} index={index} key={group.scenarioId} />
             })}
           </div>
         </section>

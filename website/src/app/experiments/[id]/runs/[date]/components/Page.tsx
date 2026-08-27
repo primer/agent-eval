@@ -1,12 +1,12 @@
 'use client'
 
 import {CheckCircleFillIcon, CopilotIcon, PersonIcon, XCircleFillIcon} from '@primer/octicons-react'
-import {Breadcrumbs, Stack, UnderlineNav} from '@primer/react'
+import {Breadcrumbs, FormControl, Select, Stack, UnderlineNav} from '@primer/react'
 import type {Experiment} from '../../../../../../experiments'
 import type {Route} from 'next'
 import Link from 'next/link'
 import Image from 'next/image'
-import {useState} from 'react'
+import {useId, useState} from 'react'
 import type {WalkthroughDataUrl} from '../page'
 
 type TranscriptEntry = {
@@ -144,21 +144,22 @@ function UiWalkthrough({scenarioId, walkthrough}: {scenarioId: string; walkthrou
 
 type ResultTab = 'walkthrough' | 'tests' | 'transcript'
 
-function ResultTabs({index, result}: {index: number; result: RunResult}) {
+function ResultTabs({result}: {result: RunResult}) {
   const [selectedTab, setSelectedTab] = useState<ResultTab>('walkthrough')
+  const id = useId()
   const tabIds = {
-    walkthrough: `result-${index}-walkthrough-tab`,
-    tests: `result-${index}-tests-tab`,
-    transcript: `result-${index}-transcript-tab`,
+    walkthrough: `result-${id}-walkthrough-tab`,
+    tests: `result-${id}-tests-tab`,
+    transcript: `result-${id}-transcript-tab`,
   }
-  const panelId = `result-${index}-${selectedTab}-panel`
+  const panelId = `result-${id}-${selectedTab}-panel`
 
   return (
     <section className="bg-default border border-default rounded-lg overflow-hidden">
       <UnderlineNav aria-label={`${result.scenarioId} result details`}>
         <UnderlineNav.Item
           aria-current={selectedTab === 'walkthrough' ? 'page' : undefined}
-          href={`#result-${index}-walkthrough-panel`}
+          href={`#result-${id}-walkthrough-panel`}
           id={tabIds.walkthrough}
           onSelect={event => {
             event.preventDefault()
@@ -170,7 +171,7 @@ function ResultTabs({index, result}: {index: number; result: RunResult}) {
         <UnderlineNav.Item
           aria-current={selectedTab === 'tests' ? 'page' : undefined}
           counter={result.tests.length}
-          href={`#result-${index}-tests-panel`}
+          href={`#result-${id}-tests-panel`}
           id={tabIds.tests}
           onSelect={event => {
             event.preventDefault()
@@ -182,7 +183,7 @@ function ResultTabs({index, result}: {index: number; result: RunResult}) {
         <UnderlineNav.Item
           aria-current={selectedTab === 'transcript' ? 'page' : undefined}
           counter={result.transcript.length}
-          href={`#result-${index}-transcript-panel`}
+          href={`#result-${id}-transcript-panel`}
           id={tabIds.transcript}
           onSelect={event => {
             event.preventDefault()
@@ -242,7 +243,101 @@ type Props = {
   run: RunDetails
 }
 
+function getModelKey(result: RunResult): string {
+  return JSON.stringify([result.model, result.reasoningEffort])
+}
+
+function getModelLabel(result: RunResult): string {
+  return `${result.model}${result.reasoningEffort ? ` (${result.reasoningEffort})` : ''}`
+}
+
+function ScenarioResults({index, results, scenarioId}: {index: number; results: Array<RunResult>; scenarioId: string}) {
+  const models = Array.from(new Map(results.map(result => [getModelKey(result), getModelLabel(result)])))
+  const [selectedModel, setSelectedModel] = useState(models[0]?.[0] ?? '')
+  const visibleResults = results.filter(result => getModelKey(result) === selectedModel)
+  const scenarioHeadingId = `scenario-${index}-heading`
+
+  return (
+    <article aria-labelledby={scenarioHeadingId} className="flex flex-col gap-4">
+      <header className="border-b border-default pb-3 flex flex-wrap items-end justify-between gap-3">
+        <h3 className="text-title-medium m-0" id={scenarioHeadingId}>
+          {scenarioId}
+        </h3>
+        <FormControl>
+          <FormControl.Label>Model</FormControl.Label>
+          <Select onChange={event => setSelectedModel(event.currentTarget.value)} value={selectedModel}>
+            {models.map(([value, label]) => (
+              <Select.Option key={value} value={value}>
+                {label}
+              </Select.Option>
+            ))}
+          </Select>
+        </FormControl>
+      </header>
+      <div className="flex flex-col gap-6">
+        {visibleResults.map(result => {
+          const resultId = result.id.replaceAll(/[^a-zA-Z0-9_-]/g, '-')
+          const resultHeadingId = `result-${resultId}-heading`
+          const summaryHeadingId = `result-${resultId}-summary-heading`
+
+          return (
+            <section aria-labelledby={resultHeadingId} className="flex flex-col gap-4" key={result.id}>
+              <h4 className="text-title-small m-0" id={resultHeadingId}>
+                {result.treatment}
+              </h4>
+              <div className="flex flex-col gap-4">
+                <section className="bg-default border border-default rounded-lg p-4" aria-labelledby={summaryHeadingId}>
+                  <h5 className="text-title-small mt-0 mb-3" id={summaryHeadingId}>
+                    Run summary
+                  </h5>
+                  <dl className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 m-0">
+                    <div className="bg-muted rounded-md p-3">
+                      <dt className="text-caption text-muted">Tests passed</dt>
+                      <dd className="text-title-small m-0">
+                        {result.testsPassed}/{result.totalTests}
+                      </dd>
+                    </div>
+                    <div className="bg-muted rounded-md p-3">
+                      <dt className="text-caption text-muted">Turns</dt>
+                      <dd className="text-title-small m-0">{result.turns}</dd>
+                    </div>
+                    <div className="bg-muted rounded-md p-3">
+                      <dt className="text-caption text-muted">Output tokens</dt>
+                      <dd className="text-title-small m-0">{result.outputTokens.toLocaleString('en-US')}</dd>
+                    </div>
+                    <div className="bg-muted rounded-md p-3">
+                      <dt className="text-caption text-muted">Premium requests</dt>
+                      <dd className="text-title-small m-0">{result.premiumRequests}</dd>
+                    </div>
+                    <div className="bg-muted rounded-md p-3">
+                      <dt className="text-caption text-muted">API time</dt>
+                      <dd className="text-title-small m-0">{formatDuration(result.totalApiDurationMs)}</dd>
+                    </div>
+                    <div className="bg-muted rounded-md p-3">
+                      <dt className="text-caption text-muted">Session time</dt>
+                      <dd className="text-title-small m-0">{formatDuration(result.sessionDurationMs)}</dd>
+                    </div>
+                  </dl>
+                </section>
+                <ResultTabs result={result} />
+              </div>
+            </section>
+          )
+        })}
+      </div>
+    </article>
+  )
+}
+
 export function Page({experiment, run}: Props) {
+  const groupedResults = new Map<string, Array<RunResult>>()
+  for (const result of run.results) {
+    const results = groupedResults.get(result.scenarioId) ?? []
+    results.push(result)
+    groupedResults.set(result.scenarioId, results)
+  }
+  const scenarios = Array.from(groupedResults, ([scenarioId, results]) => ({scenarioId, results}))
+
   return (
     <Stack padding="normal">
       <div className="w-full max-w-screen-xl mx-auto flex flex-col gap-6">
@@ -268,65 +363,9 @@ export function Page({experiment, run}: Props) {
             Results
           </h2>
           <div className="flex flex-col gap-8">
-            {run.results.map((result, index) => {
-              const resultHeadingId = `result-${index}-heading`
-              const summaryHeadingId = `result-${index}-summary-heading`
-
-              return (
-                <article aria-labelledby={resultHeadingId} className="flex flex-col gap-4" key={result.id}>
-                  <header className="border-b border-default pb-3">
-                    <h3 className="text-title-medium m-0" id={resultHeadingId}>
-                      {result.scenarioId}
-                    </h3>
-                    <p className="text-body-medium text-muted mt-1 mb-0">
-                      {result.treatment}
-                      {' · '}
-                      {result.model}
-                      {result.reasoningEffort ? ` (${result.reasoningEffort})` : null}
-                    </p>
-                  </header>
-                  <div className="flex flex-col gap-4">
-                    <section
-                      className="bg-default border border-default rounded-lg p-4"
-                      aria-labelledby={summaryHeadingId}
-                    >
-                      <h4 className="text-title-small mt-0 mb-3" id={summaryHeadingId}>
-                        Run summary
-                      </h4>
-                      <dl className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 m-0">
-                        <div className="bg-muted rounded-md p-3">
-                          <dt className="text-caption text-muted">Tests passed</dt>
-                          <dd className="text-title-small m-0">
-                            {result.testsPassed}/{result.totalTests}
-                          </dd>
-                        </div>
-                        <div className="bg-muted rounded-md p-3">
-                          <dt className="text-caption text-muted">Turns</dt>
-                          <dd className="text-title-small m-0">{result.turns}</dd>
-                        </div>
-                        <div className="bg-muted rounded-md p-3">
-                          <dt className="text-caption text-muted">Output tokens</dt>
-                          <dd className="text-title-small m-0">{result.outputTokens.toLocaleString('en-US')}</dd>
-                        </div>
-                        <div className="bg-muted rounded-md p-3">
-                          <dt className="text-caption text-muted">Premium requests</dt>
-                          <dd className="text-title-small m-0">{result.premiumRequests}</dd>
-                        </div>
-                        <div className="bg-muted rounded-md p-3">
-                          <dt className="text-caption text-muted">API time</dt>
-                          <dd className="text-title-small m-0">{formatDuration(result.totalApiDurationMs)}</dd>
-                        </div>
-                        <div className="bg-muted rounded-md p-3">
-                          <dt className="text-caption text-muted">Session time</dt>
-                          <dd className="text-title-small m-0">{formatDuration(result.sessionDurationMs)}</dd>
-                        </div>
-                      </dl>
-                    </section>
-                    <ResultTabs index={index} result={result} />
-                  </div>
-                </article>
-              )
-            })}
+            {scenarios.map(({scenarioId, results}, index) => (
+              <ScenarioResults index={index} key={scenarioId} results={results} scenarioId={scenarioId} />
+            ))}
           </div>
         </section>
       </div>

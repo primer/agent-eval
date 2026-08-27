@@ -56,6 +56,7 @@ const output: AgentEvalOutput = {
         turns: 1,
         outputTokens: 100,
         premiumRequests: 1,
+        totalNanoAiu: 2_839_800_000,
         totalApiDurationMs: 1000,
         sessionDurationMs: 2000,
         tools: {
@@ -95,6 +96,10 @@ describe(createAgentEvalOutput, () => {
     const scenario: ResolvedScenario = output.scenarios[0]
     const result: TreatmentResult = {
       ...output.results[0],
+      assistant: {
+        ...output.results[0].assistant,
+        totalNanoAiu: 2_839_800_000,
+      },
       treatment: {
         config: {
           name: 'Control',
@@ -143,6 +148,13 @@ describe(parseAgentEvalOutput, () => {
 
   test('parses serialized agent eval output', () => {
     expect(parseAgentEvalOutput(JSON.stringify(output))).toEqual(output)
+  })
+
+  test('parses output created before totalNanoAiu was supported', () => {
+    const legacyOutput = structuredClone(output)
+    delete legacyOutput.results[0].assistant.totalNanoAiu
+
+    expect(parseAgentEvalOutput(legacyOutput)).toEqual(legacyOutput)
   })
 
   test('preserves unknown Copilot messages', () => {

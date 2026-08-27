@@ -21,6 +21,7 @@ export type BaselineResult = {
   turns: BaselineMetric
   outputTokens: BaselineMetric
   premiumRequests: BaselineMetric
+  totalNanoAiu: BaselineMetric
   apiDuration: BaselineMetric
   sessionDuration: BaselineMetric
   toolCalls: BaselineMetric
@@ -118,6 +119,14 @@ export function BaselineResultsTable({
             align: 'end',
             width: 'auto',
             renderCell: row => <Metric value={row.premiumRequests} />,
+          },
+          {
+            id: 'nano-aiu',
+            header: 'Nano AIU',
+            field: 'totalNanoAiu',
+            align: 'end',
+            width: 'auto',
+            renderCell: row => <Metric value={row.totalNanoAiu} />,
           },
           {
             id: 'api-time',

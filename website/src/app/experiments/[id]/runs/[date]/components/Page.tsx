@@ -1,7 +1,7 @@
 'use client'
 
 import {CheckCircleFillIcon, CopilotIcon, PersonIcon, XCircleFillIcon} from '@primer/octicons-react'
-import {Breadcrumbs, FormControl, Select, Stack, UnderlineNav} from '@primer/react'
+import {Breadcrumbs, FormControl, NavList, PageLayout, Select, Stack, UnderlineNav} from '@primer/react'
 import type {Experiment} from '../../../../../../experiments'
 import type {Route} from 'next'
 import Link from 'next/link'
@@ -265,7 +265,13 @@ function groupResultsByScenario(results: Array<RunResult>): Array<ScenarioResult
     }
   }
 
-  return Array.from(groups.values())
+  return Array.from(groups.values()).toSorted((firstGroup, secondGroup) => {
+    return firstGroup.scenarioId.localeCompare(secondGroup.scenarioId)
+  })
+}
+
+function getResultHeadingId(index: number): string {
+  return `result-${index}-heading`
 }
 
 function ScenarioResults({group, index}: {group: ScenarioResultGroup; index: number}) {
@@ -275,6 +281,9 @@ function ScenarioResults({group, index}: {group: ScenarioResultGroup; index: num
     modelOptions.set(getModelValue(result), getModelLabel(result))
     treatmentOptions.add(result.treatment)
   }
+  const sortedModelOptions = Array.from(modelOptions).toSorted(([, firstLabel], [, secondLabel]) => {
+    return firstLabel.localeCompare(secondLabel)
+  })
 
   const [selectedModel, setSelectedModel] = useState(getModelValue(group.results[0]))
   const [selectedTreatment, setSelectedTreatment] = useState(group.results[0].treatment)
@@ -288,15 +297,15 @@ function ScenarioResults({group, index}: {group: ScenarioResultGroup; index: num
     )
   }
 
-  const resultHeadingId = `result-${index}-heading`
+  const resultHeadingId = getResultHeadingId(index)
   const summaryHeadingId = `result-${index}-summary-heading`
 
   return (
-    <article aria-labelledby={resultHeadingId} className="flex flex-col gap-4">
+    <article aria-labelledby={resultHeadingId} className="flex flex-col gap-4 scroll-mt-4">
       <header className="border-b border-default pb-3 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-        <h3 className="text-title-medium m-0" id={resultHeadingId}>
+        <h2 className="text-title-medium m-0" id={resultHeadingId}>
           {group.scenarioId}
-        </h3>
+        </h2>
         <div className="flex flex-col sm:flex-row gap-3">
           <FormControl>
             <FormControl.Label>Model</FormControl.Label>
@@ -306,7 +315,7 @@ function ScenarioResults({group, index}: {group: ScenarioResultGroup; index: num
                 setSelectedModel(event.currentTarget.value)
               }}
             >
-              {Array.from(modelOptions, ([value, label]) => {
+              {sortedModelOptions.map(([value, label]) => {
                 return (
                   <Select.Option key={value} value={value}>
                     {label}
@@ -336,9 +345,9 @@ function ScenarioResults({group, index}: {group: ScenarioResultGroup; index: num
       </header>
       <div className="flex flex-col gap-4">
         <section className="bg-default border border-default rounded-lg p-4" aria-labelledby={summaryHeadingId}>
-          <h4 className="text-title-small mt-0 mb-3" id={summaryHeadingId}>
+          <h3 className="text-title-small mt-0 mb-3" id={summaryHeadingId}>
             Run summary
-          </h4>
+          </h3>
           <dl className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 m-0">
             <div className="bg-muted rounded-md p-3">
               <dt className="text-caption text-muted">Tests passed</dt>
@@ -394,24 +403,27 @@ export function Page({experiment, run}: Props) {
           </Breadcrumbs.Item>
           <Breadcrumbs.Item selected>{run.date}</Breadcrumbs.Item>
         </Breadcrumbs>
-        <header className="border-b border-default pb-4">
-          <h1 className="text-title-large m-0">
-            Run <time dateTime={run.date}>{run.date}</time>
-          </h1>
-          <p className="text-muted mt-2 mb-0">
-            {run.results.length} results for {experiment.name}.
-          </p>
-        </header>
-        <section aria-labelledby="results-heading">
-          <h2 className="text-title-medium mt-0 mb-4" id="results-heading">
-            Results
-          </h2>
-          <div className="flex flex-col gap-8">
-            {resultGroups.map((group, index) => {
-              return <ScenarioResults group={group} index={index} key={group.scenarioId} />
-            })}
-          </div>
-        </section>
+        <h1 className="sr-only">Run results for {experiment.name}</h1>
+        <PageLayout containerWidth="full" padding="none" rowGap="normal">
+          <PageLayout.Pane aria-label="Run scenarios" divider="line" padding="none" position="start" sticky>
+            <NavList aria-label="Run scenarios">
+              {resultGroups.map((group, index) => {
+                return (
+                  <NavList.Item href={`#${getResultHeadingId(index)}`} key={group.scenarioId}>
+                    {group.scenarioId}
+                  </NavList.Item>
+                )
+              })}
+            </NavList>
+          </PageLayout.Pane>
+          <PageLayout.Content as="div">
+            <div className="flex flex-col gap-8">
+              {resultGroups.map((group, index) => {
+                return <ScenarioResults group={group} index={index} key={group.scenarioId} />
+              })}
+            </div>
+          </PageLayout.Content>
+        </PageLayout>
       </div>
     </Stack>
   )

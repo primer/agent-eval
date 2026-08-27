@@ -11,7 +11,7 @@ export const metadata = {
 
 export default function Layout({children}: {children: React.ReactNode}) {
   return (
-    <html lang="en" data-color-mode="light" data-light-theme="light" data-dark-theme="dark">
+    <html lang="en" data-color-mode="auto" data-light-theme="light" data-dark-theme="dark">
       <body>
         <PageHeader />
         <main>{children}</main>

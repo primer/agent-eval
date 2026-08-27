@@ -5,7 +5,3 @@
 .navigation {
   box-shadow: none;
 }
-
-.navigationItem::after {
-  display: none;
-}

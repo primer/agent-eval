@@ -20,17 +20,11 @@ export function PageHeader() {
           </span>
         </Link>
         <UnderlineNav aria-label="Agent eval" className={`${styles.navigation} grow shrink basis-full`}>
-          <UnderlineNav.Item
-            as={Link}
-            className={styles.navigationItem}
-            href="/"
-            aria-current={pathname === '/' ? 'page' : undefined}
-          >
+          <UnderlineNav.Item as={Link} href="/" aria-current={pathname === '/' ? 'page' : undefined}>
             Overview
           </UnderlineNav.Item>
           <UnderlineNav.Item
             as={Link}
-            className={styles.navigationItem}
             href="/baseline"
             aria-current={pathname.startsWith('/baseline') ? 'page' : undefined}
           >
@@ -38,7 +32,6 @@ export function PageHeader() {
           </UnderlineNav.Item>
           <UnderlineNav.Item
             as={Link}
-            className={styles.navigationItem}
             href="/experiments"
             aria-current={pathname.startsWith('/experiments') ? 'page' : undefined}
           >
@@ -46,7 +39,6 @@ export function PageHeader() {
           </UnderlineNav.Item>
           <UnderlineNav.Item
             as={Link}
-            className={styles.navigationItem}
             href="/scenarios"
             aria-current={pathname.startsWith('/scenarios') ? 'page' : undefined}
           >

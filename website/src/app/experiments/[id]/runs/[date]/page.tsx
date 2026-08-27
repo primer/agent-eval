@@ -232,6 +232,7 @@ async function createRunDetails(date: string, output: AgentEvalOutput): Promise<
         turns: result.assistant.turns,
         outputTokens: result.assistant.outputTokens,
         premiumRequests: result.assistant.premiumRequests,
+        totalNanoAiu: result.assistant.totalNanoAiu,
         totalApiDurationMs: result.assistant.totalApiDurationMs,
         sessionDurationMs: result.assistant.sessionDurationMs,
         tests: result.testResults.tests.map(test => {

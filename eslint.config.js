@@ -17,6 +17,8 @@ const config = defineConfig([
     '**/generated/**',
     '**/artifacts/**',
     '**/.agents/**',
+    // Next.js output dir
+    '**/out/**',
   ]),
   js.configs.recommended,
   github.recommended,

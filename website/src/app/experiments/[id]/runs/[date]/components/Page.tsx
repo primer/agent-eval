@@ -272,10 +272,8 @@ function groupResultsByScenario(results: Array<RunResult>): Array<ScenarioResult
 
 function ScenarioResults({group, index}: {group: ScenarioResultGroup; index: number}) {
   const modelOptions = new Map<string, string>()
-  const treatmentOptions = new Set<string>()
   for (const result of group.results) {
     modelOptions.set(getModelValue(result), getModelLabel(result))
-    treatmentOptions.add(result.treatment)
   }
   const sortedModelOptions = Array.from(modelOptions).toSorted(([, firstLabel], [, secondLabel]) => {
     return firstLabel.localeCompare(secondLabel)
@@ -283,15 +281,20 @@ function ScenarioResults({group, index}: {group: ScenarioResultGroup; index: num
 
   const [selectedModel, setSelectedModel] = useState(getModelValue(group.results[0]))
   const [selectedTreatment, setSelectedTreatment] = useState(group.results[0].treatment)
-  const selectedResult = group.results.find(result => {
-    return getModelValue(result) === selectedModel && result.treatment === selectedTreatment
+  const resultsForSelectedModel = group.results.filter(result => {
+    return getModelValue(result) === selectedModel
   })
-
-  if (!selectedResult) {
-    throw new Error(
-      `Selected model "${selectedModel}" and treatment "${selectedTreatment}" were not found for scenario "${group.scenarioId}"`,
-    )
-  }
+  const treatmentOptions = Array.from(new Set(resultsForSelectedModel.map(result => result.treatment))).toSorted(
+    (firstTreatment, secondTreatment) => {
+      return firstTreatment.localeCompare(secondTreatment)
+    },
+  )
+  const selectedResult =
+    resultsForSelectedModel.find(result => {
+      return result.treatment === selectedTreatment
+    }) ??
+    resultsForSelectedModel[0] ??
+    group.results[0]
 
   const resultHeadingId = `result-${index}-heading`
   const summaryHeadingId = `result-${index}-summary-heading`
@@ -308,7 +311,18 @@ function ScenarioResults({group, index}: {group: ScenarioResultGroup; index: num
             <Select
               value={selectedModel}
               onChange={event => {
-                setSelectedModel(event.currentTarget.value)
+                const nextModel = event.currentTarget.value
+                const resultsForNextModel = group.results.filter(result => {
+                  return getModelValue(result) === nextModel
+                })
+                const nextTreatment = resultsForNextModel.some(result => {
+                  return result.treatment === selectedTreatment
+                })
+                  ? selectedTreatment
+                  : (resultsForNextModel[0] ?? group.results[0]).treatment
+
+                setSelectedModel(nextModel)
+                setSelectedTreatment(nextTreatment)
               }}
             >
               {sortedModelOptions.map(([value, label]) => {
@@ -323,12 +337,12 @@ function ScenarioResults({group, index}: {group: ScenarioResultGroup; index: num
           <FormControl>
             <FormControl.Label>Treatment</FormControl.Label>
             <Select
-              value={selectedTreatment}
+              value={selectedResult.treatment}
               onChange={event => {
                 setSelectedTreatment(event.currentTarget.value)
               }}
             >
-              {Array.from(treatmentOptions, treatment => {
+              {treatmentOptions.map(treatment => {
                 return (
                   <Select.Option key={treatment} value={treatment}>
                     {treatment}
@@ -402,7 +416,7 @@ export function Page({experiment, run}: Props) {
         <h1 className="sr-only">Run results for {experiment.name}</h1>
         <div className="flex flex-col gap-8">
           {resultGroups.map((group, index) => {
-            return <ScenarioResults group={group} index={index} key={group.scenarioId} />
+            return <ScenarioResults group={group} index={index} key={`${run.date}:${group.scenarioId}`} />
           })}
         </div>
       </div>

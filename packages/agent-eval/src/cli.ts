@@ -78,7 +78,7 @@ Options:
   -e, --experiment <file>    The file name of the experiment to run
       --experiments <dir>    The directory containing local experiment files
   -h, --help                 Learn more about the command and its options
-      --log-level <level>    The minimum log level to display (default: info)
+      --log-level <level>    The minimum log level to display (default: ${getDefaultLogLevel()})
       --output <file>        The target file in which results are written (default: output.json)
       --scenarios <dir>      The directory containing scenario directories
       --shard <order/total>  The shard to run

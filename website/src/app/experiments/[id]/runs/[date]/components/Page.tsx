@@ -242,9 +242,12 @@ function ResultTabs({index, result}: {index: number; result: RunResult}) {
   )
 }
 
-function getResultLabel(result: RunResult): string {
-  const model = result.reasoningEffort ? `${result.model} (${result.reasoningEffort})` : result.model
-  return `${model} · ${result.treatment}`
+function getModelValue(result: RunResult): string {
+  return JSON.stringify([result.model, result.reasoningEffort ?? null])
+}
+
+function getModelLabel(result: RunResult): string {
+  return result.reasoningEffort ? `${result.model} (${result.reasoningEffort})` : result.model
 }
 
 function groupResultsByScenario(results: Array<RunResult>): Array<ScenarioResultGroup> {
@@ -266,13 +269,23 @@ function groupResultsByScenario(results: Array<RunResult>): Array<ScenarioResult
 }
 
 function ScenarioResults({group, index}: {group: ScenarioResultGroup; index: number}) {
-  const [selectedResultId, setSelectedResultId] = useState(group.results[0].id)
+  const modelOptions = new Map<string, string>()
+  const treatmentOptions = new Set<string>()
+  for (const result of group.results) {
+    modelOptions.set(getModelValue(result), getModelLabel(result))
+    treatmentOptions.add(result.treatment)
+  }
+
+  const [selectedModel, setSelectedModel] = useState(getModelValue(group.results[0]))
+  const [selectedTreatment, setSelectedTreatment] = useState(group.results[0].treatment)
   const selectedResult = group.results.find(result => {
-    return result.id === selectedResultId
+    return getModelValue(result) === selectedModel && result.treatment === selectedTreatment
   })
 
   if (!selectedResult) {
-    throw new Error(`Selected result "${selectedResultId}" was not found for scenario "${group.scenarioId}"`)
+    throw new Error(
+      `Selected model "${selectedModel}" and treatment "${selectedTreatment}" were not found for scenario "${group.scenarioId}"`,
+    )
   }
 
   const resultHeadingId = `result-${index}-heading`
@@ -284,23 +297,42 @@ function ScenarioResults({group, index}: {group: ScenarioResultGroup; index: num
         <h3 className="text-title-medium m-0" id={resultHeadingId}>
           {group.scenarioId}
         </h3>
-        <FormControl>
-          <FormControl.Label>Model and treatment</FormControl.Label>
-          <Select
-            value={selectedResultId}
-            onChange={event => {
-              setSelectedResultId(event.currentTarget.value)
-            }}
-          >
-            {group.results.map(result => {
-              return (
-                <Select.Option key={result.id} value={result.id}>
-                  {getResultLabel(result)}
-                </Select.Option>
-              )
-            })}
-          </Select>
-        </FormControl>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <FormControl>
+            <FormControl.Label>Model</FormControl.Label>
+            <Select
+              value={selectedModel}
+              onChange={event => {
+                setSelectedModel(event.currentTarget.value)
+              }}
+            >
+              {Array.from(modelOptions, ([value, label]) => {
+                return (
+                  <Select.Option key={value} value={value}>
+                    {label}
+                  </Select.Option>
+                )
+              })}
+            </Select>
+          </FormControl>
+          <FormControl>
+            <FormControl.Label>Treatment</FormControl.Label>
+            <Select
+              value={selectedTreatment}
+              onChange={event => {
+                setSelectedTreatment(event.currentTarget.value)
+              }}
+            >
+              {Array.from(treatmentOptions, treatment => {
+                return (
+                  <Select.Option key={treatment} value={treatment}>
+                    {treatment}
+                  </Select.Option>
+                )
+              })}
+            </Select>
+          </FormControl>
+        </div>
       </header>
       <div className="flex flex-col gap-4">
         <section className="bg-default border border-default rounded-lg p-4" aria-labelledby={summaryHeadingId}>

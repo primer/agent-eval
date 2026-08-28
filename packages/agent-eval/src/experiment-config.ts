@@ -1,5 +1,5 @@
 import type {ExperimentModelConfig} from './model'
-import type {Sandbox} from './sandbox'
+import type {SandboxInstance} from './sandbox'
 
 type ScenarioConfig = {
   description?: string
@@ -28,7 +28,7 @@ type TreatmentConfig = {
   setup?: Setup
 }
 
-type Setup = ({sandbox}: {sandbox: Sandbox}) => Promise<void>
+type Setup = ({sandbox}: {sandbox: SandboxInstance}) => Promise<void>
 
 const ControlTreatment: TreatmentConfig = {
   name: 'Control',

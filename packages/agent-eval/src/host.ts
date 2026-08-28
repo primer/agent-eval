@@ -1,6 +1,8 @@
 import {existsSync} from 'node:fs'
 import fs from 'node:fs/promises'
 import {memfs, Volume, type NestedDirectoryJSON} from 'memfs'
+import type {Sandbox} from './sandbox'
+import {VirtualSandbox} from './sandbox'
 
 type FileSystem = typeof import('node:fs/promises')
 
@@ -11,7 +13,7 @@ interface Host {
 }
 
 class SystemHost implements Host {
-  static create() {
+  static async create() {
     return new SystemHost()
   }
 

@@ -4,7 +4,8 @@ import {MessageSchema, parseMessage, type Message} from './copilot-cli'
 import type {Plan} from './plan'
 import {TrialSchema, type Trial} from './trial'
 import type {Host} from './host'
-import {CONTAINER_WORKDIR, NODE_USER, Sandbox} from './sandbox'
+// import {CONTAINER_WORKDIR, NODE_USER, Sandbox} from './sandbox'
+import type {Sandbox} from './sandbox'
 import {parseTestResults} from './vitest'
 import {logger} from './logger'
 
@@ -53,11 +54,10 @@ type TrialResult = z.infer<typeof TrialResultSchema>
 type RunOptions = {
   artifactsDirectory: string
   copilotToken: string
-  dockerImage?: string
   maxConcurrency?: number
 }
 
-async function run(host: Host, plan: Plan, options: RunOptions): Promise<Array<TrialResult>> {
+async function run(host: Host, sandbox: Sandbox, plan: Plan, options: RunOptions): Promise<Array<TrialResult>> {
   const {artifactsDirectory, copilotToken, dockerImage, maxConcurrency = 1} = options
   const queue = new Queue({
     concurrency: maxConcurrency,
@@ -67,10 +67,9 @@ async function run(host: Host, plan: Plan, options: RunOptions): Promise<Array<T
     plan.trials.map(trial => {
       return queue.add(() => {
         return retry(() => {
-          return runTrial(host, trial, {
+          return runTrial(host, sandbox, trial, {
             artifactsDirectory,
             copilotToken,
-            dockerImage,
           })
         })
       })
@@ -83,82 +82,81 @@ async function run(host: Host, plan: Plan, options: RunOptions): Promise<Array<T
 type RunTrialOptions = {
   artifactsDirectory: string
   copilotToken: string
-  dockerImage?: string
 }
 
-async function runTrial(host: Host, trial: Trial, options: RunTrialOptions): Promise<TrialResult> {
-  const {artifactsDirectory, copilotToken, dockerImage} = options
-
-  logger.info('Running trial treatment: %s (%s)', trial.treatment.name, trial.id)
-
-  await using sandbox = await Sandbox.create({
-    dockerImage,
-  })
-
-  logger.info('Copying files from: %s...', trial.scenario.directory)
-
-  await sandbox.copy(trial.scenario.directory, CONTAINER_WORKDIR, {
-    exclude: ['scenario.config.ts', 'scenario.test.ts', 'scenario.browser.test.ts', 'node_modules', '.next'],
-  })
-  await sandbox.runCommand('chown', ['-R', NODE_USER, '.'], {
-    user: 'root',
-  })
-
-  logger.info('Obfuscating package name...')
-  await sandbox.runCommand('npm', ['pkg', 'set', `name=${trial.id}`], {
-    user: NODE_USER,
-  })
-
-  logger.info('Removing workspace dependency...')
-  await sandbox.runCommand('npm', ['pkg', 'delete', 'devDependencies.@primer/agent-eval'], {
-    user: NODE_USER,
-  })
-
-  logger.info('Installing dependencies...')
-  await sandbox.runCommand('npm', ['install'], {
-    user: NODE_USER,
-  })
-
-  if (trial.setup) {
-    logger.info('Running generic setup...')
-    await trial.setup({
-      sandbox,
-    })
-  }
-
-  if (trial.treatment.setup) {
-    logger.info('Running treatment setup...')
-    await trial.treatment.setup({
-      sandbox,
-    })
-  }
-
-  logger.info('Run build script...')
-  await sandbox.runCommand('npm', ['run', 'build', '--if-present'], {
-    user: NODE_USER,
-  })
-
-  logger.info('Running copilot...')
-  const copilotOutput = await sandbox.runCommand(
-    'copilot',
-    ['--prompt', trial.scenario.prompt, '--model', trial.model.name, '--reasoning-effort', trial.model.reasoningEffort],
-    {
-      user: NODE_USER,
-      env: {
-        COPILOT_GITHUB_TOKEN: copilotToken,
-      },
-    },
-  )
-  const messages: Array<Message> = copilotOutput.stdout.split('\n').flatMap(line => {
-    const trimmed = line.trim()
-    if (trimmed.length === 0) {
-      return []
-    }
-    return parseMessage(JSON.parse(trimmed))
-  })
-
-  logger.info('Running tests...')
-
+async function runTrial(host: Host, sandbox: Sandbox, trial: Trial, options: RunTrialOptions): Promise<TrialResult> {
+  // const {artifactsDirectory, copilotToken, dockerImage} = options
+  //
+  // logger.info('Running trial treatment: %s (%s)', trial.treatment.name, trial.id)
+  //
+  // await using sandbox = await Sandbox.create({
+  //   dockerImage,
+  // })
+  //
+  // logger.info('Copying files from: %s...', trial.scenario.directory)
+  //
+  // await sandbox.copy(trial.scenario.directory, CONTAINER_WORKDIR, {
+  //   exclude: ['scenario.config.ts', 'scenario.test.ts', 'scenario.browser.test.ts', 'node_modules', '.next'],
+  // })
+  // await sandbox.runCommand('chown', ['-R', NODE_USER, '.'], {
+  //   user: 'root',
+  // })
+  //
+  // logger.info('Obfuscating package name...')
+  // await sandbox.runCommand('npm', ['pkg', 'set', `name=${trial.id}`], {
+  //   user: NODE_USER,
+  // })
+  //
+  // logger.info('Removing workspace dependency...')
+  // await sandbox.runCommand('npm', ['pkg', 'delete', 'devDependencies.@primer/agent-eval'], {
+  //   user: NODE_USER,
+  // })
+  //
+  // logger.info('Installing dependencies...')
+  // await sandbox.runCommand('npm', ['install'], {
+  //   user: NODE_USER,
+  // })
+  //
+  // if (trial.setup) {
+  //   logger.info('Running generic setup...')
+  //   await trial.setup({
+  //     sandbox,
+  //   })
+  // }
+  //
+  // if (trial.treatment.setup) {
+  //   logger.info('Running treatment setup...')
+  //   await trial.treatment.setup({
+  //     sandbox,
+  //   })
+  // }
+  //
+  // logger.info('Run build script...')
+  // await sandbox.runCommand('npm', ['run', 'build', '--if-present'], {
+  //   user: NODE_USER,
+  // })
+  //
+  // logger.info('Running copilot...')
+  // const copilotOutput = await sandbox.runCommand(
+  //   'copilot',
+  //   ['--prompt', trial.scenario.prompt, '--model', trial.model.name, '--reasoning-effort', trial.model.reasoningEffort],
+  //   {
+  //     user: NODE_USER,
+  //     env: {
+  //       COPILOT_GITHUB_TOKEN: copilotToken,
+  //     },
+  //   },
+  // )
+  // const messages: Array<Message> = copilotOutput.stdout.split('\n').flatMap(line => {
+  //   const trimmed = line.trim()
+  //   if (trimmed.length === 0) {
+  //     return []
+  //   }
+  //   return parseMessage(JSON.parse(trimmed))
+  // })
+  //
+  // logger.info('Running tests...')
+  //
   // const TEST_PATH = 'scenario.test.ts'
   // const VITEST_CONFIG_PATH = 'vitest.agent-eval.config.ts'
   // const TEST_RESULTS_PATH = 'test-results.json'

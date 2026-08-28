@@ -5,7 +5,7 @@ import type {
   LocalCopilotPluginSource,
   McpServerConfig,
   RemoteCopilotPluginSource,
-  Sandbox,
+  SandboxInstance,
 } from './sandbox'
 import type {ExperimentModelConfig, Model, ModelConfig, ModelInfo, ReasoningEffort} from './model'
 
@@ -25,7 +25,7 @@ export type {
   ModelInfo,
   ReasoningEffort,
   RemoteCopilotPluginSource,
-  Sandbox,
+  SandboxInstance as Sandbox,
   TreatmentConfig,
 }
 export {defineConfig}

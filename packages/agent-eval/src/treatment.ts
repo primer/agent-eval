@@ -1,60 +1,27 @@
-import type {ExperimentConfig, TreatmentConfig} from './experiment-config'
-import type {Model, ReasoningEffort} from './model'
-import type {Message} from './copilot-cli'
-import type {ResolvedScenario} from './resolve-experiment-scenario'
+import * as z from 'zod/mini'
+import {SandboxSchema} from './sandbox'
 
-type Treatment = {
-  config: TreatmentConfig
-  scenario: ResolvedScenario
-  experiment: ExperimentConfig
-  id: string
-  model: Model
-  reasoningEffort?: ReasoningEffort
-}
+const TreatmentSetupSchema = z.function({
+  input: [
+    z.object({
+      sandbox: SandboxSchema,
+    }),
+  ],
+  output: z.promise(z.void()),
+})
 
-type TreatmentResult = {
-  id: string
-  treatment: Treatment
-  artifacts: {
-    copilotConfigPath: string
-    directory: string
-    skillsConfigPath: string
-    testResultsPath: string
-    workspacePath: string
-  }
-  assistant: {
-    logs: Array<Message>
-    turns: number
-    outputTokens: number
-    premiumRequests: number
-    totalApiDurationMs: number
-    sessionDurationMs: number
-    tools: Record<string, number>
-  }
-  testResults: {
-    numTotalTests: number
-    numPassedTests: number
-    numFailedTests: number
-    numPendingTests: number
-    numTodoTests: number
-    tests: Array<{
-      title: string
-      fullName: string
-      status: 'passed' | 'failed' | 'skipped' | 'pending' | 'todo' | 'disabled'
-      description?: string
-    }>
-  }
-  walkthrough: Walkthrough
-}
+type TreatmentSetup = z.infer<typeof TreatmentSetupSchema>
 
-const ControlTreatment: TreatmentConfig = {
+const TreatmentSchema = z.object({
+  name: z.string(),
+  setup: z.optional(TreatmentSetupSchema),
+})
+
+type Treatment = z.infer<typeof TreatmentSchema>
+
+const ControlTreatment: Treatment = {
   name: 'Control',
 }
 
-type Walkthrough =
-  | {type: 'Unavailable'}
-  | {type: 'Screenshot'; filepath: string}
-  | {type: 'Screenshots'; screenshots: Array<string>}
-  | {type: 'Video'; filepath: string}
-
-export type {Treatment, TreatmentResult, ControlTreatment, Walkthrough}
+export {ControlTreatment, TreatmentSchema, TreatmentSetupSchema}
+export type {Treatment, TreatmentSetup}

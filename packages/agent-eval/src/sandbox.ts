@@ -7,6 +7,7 @@ import Docker from 'dockerode'
 import tarFs from 'tar-fs'
 import type {Headers} from 'tar-fs'
 import tarStream from 'tar-stream'
+import * as z from 'zod/mini'
 import {McpConfigFileSchema} from './mcp-config'
 import type {McpConfigFile, McpServerConfig} from './mcp-config'
 
@@ -778,7 +779,9 @@ function captureStream(destination: NodeJS.WritableStream): {stream: Writable; r
   }
 }
 
-export {CONTAINER_WORKDIR, COPILOT_DIR, CUSTOM_AGENTS_DIR, SKILLS_DIR, AGENTS_DIR, NODE_USER, Sandbox}
+const SandboxSchema = z.instanceof(Sandbox)
+
+export {CONTAINER_WORKDIR, COPILOT_DIR, CUSTOM_AGENTS_DIR, SKILLS_DIR, AGENTS_DIR, NODE_USER, Sandbox, SandboxSchema}
 export type {
   AgentSkillCopiedFile,
   AgentSkillFile,

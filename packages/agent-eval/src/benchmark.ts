@@ -1,27 +1,28 @@
 import {randomUUID} from 'node:crypto'
 import path from 'node:path'
 import * as z from 'zod/mini'
-import {ModelVariantConfigSchema, type Model, type ReasoningEffort} from './model'
-import type {Sandbox} from './sandbox'
-import {ControlTreatment} from './experiment-config'
-import type {Scenario} from './scenario'
+import {getModelVariants, ModelVariantConfigSchema, type Model, type ModelVariant, type ReasoningEffort} from './model'
+import {getScenario, type Scenario} from './scenario'
 import type {Host} from './host'
+import {ControlTreatment, TreatmentSetupSchema} from './treatment'
+import type {Treatment} from './treatment'
+
+const CapabilityConfigSchema = z.object({
+  name: z.string(),
+  scenarios: z.array(z.string()),
+})
 
 const BenchmarkConfigSchema = z.object({
   name: z.string(),
   description: z.string(),
   models: ModelVariantConfigSchema,
-  capabilities: z.array(
-    z.object({
-      name: z.string(),
-      scenarios: z.array(z.string()),
-    }),
-  ),
+  setup: z.optional(TreatmentSetupSchema),
+  capabilities: z.array(CapabilityConfigSchema),
 })
 
 type BenchmarkConfig = z.infer<typeof BenchmarkConfigSchema>
 
-type Setup = ({sandbox}: {sandbox: Sandbox}) => Promise<void>
+type CapabilityConfig = z.infer<typeof CapabilityConfigSchema>
 
 function defineConfig(config: BenchmarkConfig): BenchmarkConfig {
   return config
@@ -105,53 +106,58 @@ function isBenchmarkFile(filename: string): boolean {
   return true
 }
 
-type BenchmarkResult = {}
-
-type Treatment<M extends Model> = {
-  id: string
-  scenario: Scenario
-  config: {
-    name: string
-    setup?: Setup
-  }
-  model: Model
-  reasoningEffort: ReasoningEffort<M> | null
-}
-
-type RunOptions = {
+type RunContext = {
   artifactsDirectory: string
   benchmarksDirectory: string
+  host: Host
   scenariosDirectory: string
 }
 
-async function run(config: BenchmarkConfig, options: RunOptions): Promise<BenchmarkResult> {
-  const treatments = config.capabilities.flatMap(capability => {
-    return config.models.flatMap(model => {
-      return capability.scenarios.flatMap(scenario => {
-        return [
-          {
-            id: randomUUID(),
-            config: ControlTreatment,
-            scenario,
-            setup: config.setup,
-            model: model.name,
-            reasoningEffort: model.reasoningEfforts.length > 0 ? model.reasoningEfforts[0] : null,
+type Trial = {
+  id: string
+  capability: CapabilityConfig
+  scenario: Scenario
+  treatment: Treatment
+  model: ModelVariant
+}
+
+type TrialRun = {}
+
+type TrialResult = {}
+
+async function run(context: RunContext, benchmark: Benchmark): Promise<TrialResult> {
+  const trials: Array<Trial> = []
+
+  for (const variant of getModelVariants(benchmark.models)) {
+    for (const capability of benchmark.capabilities) {
+      for (const scenarioId of capability.scenarios) {
+        const scenario = await getScenario(context.host, context.scenariosDirectory, scenarioId)
+
+        trials.push({
+          id: randomUUID(),
+          capability,
+          scenario,
+          treatment: ControlTreatment,
+          model: variant,
+        })
+
+        trials.push({
+          id: randomUUID(),
+          capability,
+          scenario,
+          treatment: {
+            name: 'Benchmark',
+            setup: benchmark.setup,
           },
-          {
-            id: randomUUID(),
-            scenario,
-            config: {
-              name: 'Benchmark',
-              setup: config.setup,
-            },
-            model: model.name,
-            reasoningEffort: model.reasoningEfforts.length > 0 ? model.reasoningEfforts[0] : null,
-          },
-        ]
-      })
-    })
-  })
-  //
+          model: variant,
+        })
+      }
+    }
+  }
+
+  console.log(trials)
+
+  throw new Error('unimplemented')
 }
 
 export {defineConfig, listBenchmarks, getBenchmark, run}

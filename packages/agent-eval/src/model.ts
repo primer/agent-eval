@@ -59,14 +59,38 @@ const models = [
   },
 ] as const
 
+const reasoningEffortsByModel = new Map<string, ReadonlySet<string>>(
+  models.map(model => {
+    return [model.name, new Set<string>(model.reasoningEfforts)]
+  }),
+)
+
 type ModelConfig = (typeof models)[number]
 type Model = ModelConfig['name']
 type ReasoningEfforts<M extends Model> = Extract<ModelConfig, {name: M}>['reasoningEfforts']
 type ReasoningEffort<M extends Model> = ReasoningEfforts<M>[number]
-type ModelVariant<M extends Model> = {
-  name: M
-  reasoningEffort: ReasoningEffort<M>
-}
+type ModelVariant<M extends Model = Model> = M extends Model
+  ? {
+      name: M
+      reasoningEffort: ReasoningEffort<M>
+    }
+  : never
+
+const ModelVariantSchema = z.custom<ModelVariant>(value => {
+  if (typeof value !== 'object' || value === null) {
+    return false
+  }
+
+  if (!('name' in value) || typeof value.name !== 'string') {
+    return false
+  }
+
+  if (!('reasoningEffort' in value) || typeof value.reasoningEffort !== 'string') {
+    return false
+  }
+
+  return reasoningEffortsByModel.get(value.name)?.has(value.reasoningEffort) ?? false
+})
 
 const ModelVariantConfigSchema = z.array(
   z.union([
@@ -152,5 +176,5 @@ function getModelVariants(input: ModelVariantConfig): Array<ModelVariant<Model>>
   })
 }
 
-export {models, getModelVariants, ModelVariantConfigSchema}
-export type {ModelConfig, Model, ReasoningEffort, ModelVariantConfig}
+export {models, getModelVariants, ModelVariantSchema, ModelVariantConfigSchema}
+export type {ModelConfig, Model, ModelVariant, ReasoningEffort, ModelVariantConfig}

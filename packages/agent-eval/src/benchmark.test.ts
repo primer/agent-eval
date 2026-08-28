@@ -1,6 +1,7 @@
 import {test, expect} from 'vitest'
-import {defineConfig, listBenchmarks, getBenchmark} from './benchmark'
+import {defineConfig, listBenchmarks, getBenchmark, run} from './benchmark'
 import {VirtualHost} from './host'
+import {defineConfig as defineScenarioConfig} from './scenario'
 
 test('listBenchmarks', async () => {
   const config = JSON.stringify(
@@ -130,4 +131,48 @@ test('getBenchmark throw error on invalid config', async () => {
     ✖ Invalid input
       → at capabilities]
   `)
+})
+
+test('run', async () => {
+  const scenario = JSON.stringify(
+    defineScenarioConfig({
+      prompt: 'test',
+    }),
+  )
+  const host = VirtualHost.create({
+    '/artifacts': {},
+    '/benchmarks': {},
+    '/scenarios': {
+      '001-scenario': {
+        'scenario.config.ts': `export default ${scenario}`,
+        'scenario.test.ts': '',
+        'package.json': JSON.stringify({}),
+      },
+      '002-scenario': {
+        'scenario.config.ts': `export default ${scenario}`,
+        'scenario.test.ts': '',
+        'package.json': JSON.stringify({}),
+      },
+    },
+  })
+  await run(
+    {
+      artifactsDirectory: '/artifacts',
+      benchmarksDirectory: '/benchmarks',
+      host,
+      scenariosDirectory: '/scenarios',
+    },
+    {
+      id: 'test',
+      name: 'test',
+      description: 'test',
+      models: ['gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.6-sol'],
+      capabilities: [
+        {
+          name: 'test',
+          scenarios: ['001-scenario', '002-scenario'],
+        },
+      ],
+    },
+  )
 })

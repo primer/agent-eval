@@ -18,15 +18,17 @@ type ScenarioConfigModule = {
   default?: unknown
 }
 
-type Scenario = {
-  id: string
-  directory: string
-  prompt: string
-  description?: string
-  tags: Array<string>
-  testPath: string
-  browserTestPath?: string
-}
+const ScenarioSchema = z.object({
+  id: z.string(),
+  directory: z.string(),
+  prompt: z.string(),
+  description: z.optional(z.string()),
+  tags: z.array(z.string()),
+  testPath: z.string(),
+  browserTestPath: z.optional(z.string()),
+})
+
+type Scenario = z.infer<typeof ScenarioSchema>
 
 async function listScenarios(host: Host, directory: string): Promise<Array<Scenario>> {
   const stats = await host.fs.stat(directory)
@@ -114,5 +116,5 @@ async function getScenario(host: Host, directory: string, id: string): Promise<S
   throw new Error(`Scenario "${id}" was not found in: ${directory}`)
 }
 
-export {defineConfig, listScenarios, getScenario, ScenarioConfigSchema}
+export {defineConfig, listScenarios, getScenario, ScenarioSchema, ScenarioConfigSchema}
 export type {ScenarioConfig, Scenario}

@@ -17,7 +17,7 @@
     "@eslint/js": "10.0.1",
     "@github/prettier-config": "^0.0.6",
     "@primer/agent-eval": "workspace:*",
-    "@types/node": "^26.1.2",
+    "@types/node": "^26.2.0",
     "eslint": "^10.8.1",
     "eslint-plugin-github": "^6.1.2",
     "globals": "^17.9.0",

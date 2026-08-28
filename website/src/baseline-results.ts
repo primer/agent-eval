@@ -165,9 +165,6 @@ function getBaselineComparisons(output: AgentEvalOutput): Array<BaselineComparis
         premiumRequests: formatMetric(control?.assistant.premiumRequests, baseline?.assistant.premiumRequests, value =>
           numberFormatter.format(value),
         ),
-        totalNanoAiu: formatMetric(control?.assistant.totalNanoAiu, baseline?.assistant.totalNanoAiu, value =>
-          numberFormatter.format(value),
-        ),
         apiDuration: formatMetric(
           control?.assistant.totalApiDurationMs,
           baseline?.assistant.totalApiDurationMs,
@@ -207,7 +204,6 @@ function getBaselineComparisons(output: AgentEvalOutput): Array<BaselineComparis
           turns: comparison.turns,
           outputTokens: comparison.outputTokens,
           premiumRequests: comparison.premiumRequests,
-          totalNanoAiu: comparison.totalNanoAiu,
           apiDuration: comparison.apiDuration,
           sessionDuration: comparison.sessionDuration,
           toolCalls: comparison.toolCalls,
@@ -264,11 +260,6 @@ function getAggregateBaselineResults(output: AgentEvalOutput): Array<BaselineRes
           average(baselines.map(result => result.assistant.premiumRequests)),
           value => numberFormatter.format(value),
         ),
-        totalNanoAiu: formatMetric(
-          average(controls.map(result => result.assistant.totalNanoAiu)),
-          average(baselines.map(result => result.assistant.totalNanoAiu)),
-          value => numberFormatter.format(value),
-        ),
         apiDuration: formatMetric(
           average(controls.map(result => result.assistant.totalApiDurationMs)),
           average(baselines.map(result => result.assistant.totalApiDurationMs)),
@@ -306,7 +297,6 @@ function getAggregateBaselineResults(output: AgentEvalOutput): Array<BaselineRes
       turns: result.turns,
       outputTokens: result.outputTokens,
       premiumRequests: result.premiumRequests,
-      totalNanoAiu: result.totalNanoAiu,
       apiDuration: result.apiDuration,
       sessionDuration: result.sessionDuration,
       toolCalls: result.toolCalls,
@@ -333,12 +323,12 @@ function getBaselineTrendPoints(date: string, output: AgentEvalOutput): Array<Ba
       const controlToolCalls = countToolCalls(control)
       const baselineToolCalls = countToolCalls(result)
       const metric = (
-        value: number | undefined,
+        value: number,
         controlValue: number | undefined,
-        raw = value === undefined ? '—' : numberFormatter.format(value),
+        raw = numberFormatter.format(value),
         controlRaw = controlValue === undefined ? null : numberFormatter.format(controlValue),
       ) => ({
-        value: value ?? null,
+        value,
         raw,
         change: getPercentChangeValue(controlValue, value),
         controlValue: controlValue ?? null,
@@ -362,7 +352,6 @@ function getBaselineTrendPoints(date: string, output: AgentEvalOutput): Array<Ba
           turns: metric(result.assistant.turns, control?.assistant.turns),
           outputTokens: metric(result.assistant.outputTokens, control?.assistant.outputTokens),
           premiumRequests: metric(result.assistant.premiumRequests, control?.assistant.premiumRequests),
-          totalNanoAiu: metric(result.assistant.totalNanoAiu, control?.assistant.totalNanoAiu),
           apiDuration: metric(
             result.assistant.totalApiDurationMs / 1000,
             control ? control.assistant.totalApiDurationMs / 1000 : undefined,
@@ -445,10 +434,6 @@ function getAggregateTrendPoints(date: string, output: AgentEvalOutput): Array<B
           premiumRequests: metric(
             average(baselines.map(result => result.assistant.premiumRequests)),
             average(controls.map(result => result.assistant.premiumRequests)),
-          ),
-          totalNanoAiu: metric(
-            average(baselines.map(result => result.assistant.totalNanoAiu)),
-            average(controls.map(result => result.assistant.totalNanoAiu)),
           ),
           apiDuration: (() => {
             const baselineValue = average(baselines.map(result => result.assistant.totalApiDurationMs))

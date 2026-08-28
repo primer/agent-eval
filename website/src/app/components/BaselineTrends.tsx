@@ -14,14 +14,7 @@ type BaselineTrendMetric = {
 }
 
 type BaselineTrendMetricId =
-  | 'tests'
-  | 'turns'
-  | 'outputTokens'
-  | 'premiumRequests'
-  | 'totalNanoAiu'
-  | 'apiDuration'
-  | 'sessionDuration'
-  | 'toolCalls'
+  'tests' | 'turns' | 'outputTokens' | 'premiumRequests' | 'apiDuration' | 'sessionDuration' | 'toolCalls'
 
 export type BaselineTrendPoint = {
   id: string
@@ -40,7 +33,6 @@ const metrics: Array<{
   {id: 'turns', label: 'Turns'},
   {id: 'outputTokens', label: 'Output tokens'},
   {id: 'premiumRequests', label: 'Premium requests'},
-  {id: 'totalNanoAiu', label: 'Nano AIU'},
   {id: 'apiDuration', label: 'API time'},
   {id: 'sessionDuration', label: 'Session time'},
   {id: 'toolCalls', label: 'Tool calls'},

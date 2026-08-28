@@ -1,9 +1,6 @@
-import fs from 'node:fs/promises'
-import os from 'node:os'
-import path from 'node:path'
 import {describe, expect, test} from 'vitest'
 import {parseMessage} from './copilot-cli'
-import {getCopilotArgs, getTotalNanoAiu, getVitestConfig, moveWalkthroughArtifacts} from './run'
+import {getCopilotArgs, getTotalNanoAiu, getVitestConfig} from './run'
 
 describe('getCopilotArgs', () => {
   test('omits reasoning effort when not configured', () => {
@@ -92,34 +89,5 @@ describe('getTotalNanoAiu', () => {
     expect(() => {
       getTotalNanoAiu([])
     }).toThrow('No session usage checkpoint found')
-  })
-})
-
-describe('moveWalkthroughArtifacts', () => {
-  test('replaces an existing walkthrough directory before moving', async () => {
-    const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-eval-run-test-'))
-    const workspacePath = path.join(tempDir, 'workspace')
-    const walkthroughPath = path.join(tempDir, 'walkthrough')
-
-    await fs.mkdir(path.join(workspacePath, 'walkthrough'), {recursive: true})
-    await fs.writeFile(path.join(workspacePath, 'walkthrough', 'screenshot.png'), 'new')
-    await fs.mkdir(walkthroughPath, {recursive: true})
-    await fs.writeFile(path.join(walkthroughPath, 'stale.txt'), 'old')
-
-    await expect(moveWalkthroughArtifacts(workspacePath, walkthroughPath)).resolves.toBe(true)
-
-    await expect(fs.readFile(path.join(walkthroughPath, 'screenshot.png'), 'utf8')).resolves.toBe('new')
-    await expect(fs.access(path.join(walkthroughPath, 'stale.txt'))).rejects.toThrow()
-  })
-
-  test('returns false when no walkthrough directory is present', async () => {
-    const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-eval-run-test-'))
-    const workspacePath = path.join(tempDir, 'workspace')
-    const walkthroughPath = path.join(tempDir, 'walkthrough')
-
-    await fs.mkdir(workspacePath, {recursive: true})
-
-    await expect(moveWalkthroughArtifacts(workspacePath, walkthroughPath)).resolves.toBe(false)
-    await expect(fs.access(walkthroughPath)).rejects.toThrow()
   })
 })

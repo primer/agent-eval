@@ -15,17 +15,6 @@ const WALKTHROUGH_VIEWPORT_WIDTH = 1440
 const WALKTHROUGH_VIEWPORT_HEIGHT = 900
 const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg'])
 
-async function moveWalkthroughArtifacts(workspacePath: string, walkthroughPath: string): Promise<boolean> {
-  const sourceWalkthroughPath = path.join(workspacePath, WALKTHROUGH_DIR)
-  if (!existsSync(sourceWalkthroughPath)) {
-    return false
-  }
-
-  await fs.rm(walkthroughPath, {recursive: true, force: true})
-  await fs.rename(sourceWalkthroughPath, walkthroughPath)
-  return true
-}
-
 type RunOptions = {
   artifactsDirectory: string
   copilotToken: string
@@ -418,6 +407,7 @@ Only capture the walkthrough, do not make any further code changes.`
   const copilotConfigPath = path.join(artifactDirectory, '.copilot')
   const skillsConfigPath = path.join(artifactDirectory, '.agents')
   const testResultsPath = path.join(workspacePath, 'test-results.json')
+  await fs.rm(artifactDirectory, {recursive: true, force: true})
   await fs.mkdir(workspacePath, {recursive: true})
 
   console.log('Downloading agent workspace to: %s...', workspacePath)
@@ -437,12 +427,14 @@ Only capture the walkthrough, do not make any further code changes.`
     type: 'Unavailable',
   }
 
-  if (await moveWalkthroughArtifacts(workspacePath, walkthroughPath)) {
+  if (existsSync(path.join(workspacePath, WALKTHROUGH_DIR))) {
     console.log(
       'Moving walkthrough artifacts from: %s to: %s...',
       path.join(workspacePath, WALKTHROUGH_DIR),
       walkthroughPath,
     )
+    await fs.mkdir(walkthroughPath, {recursive: true})
+    await fs.rename(path.join(workspacePath, WALKTHROUGH_DIR), walkthroughPath)
 
     if (existsSync(path.join(walkthroughPath, 'screenshot.png'))) {
       walkthrough = {
@@ -504,4 +496,4 @@ Only capture the walkthrough, do not make any further code changes.`
   }
 }
 
-export {getCopilotArgs, getTotalNanoAiu, getVitestConfig, moveWalkthroughArtifacts, run}
+export {getCopilotArgs, getTotalNanoAiu, getVitestConfig, run}

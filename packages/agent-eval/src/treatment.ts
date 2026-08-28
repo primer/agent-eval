@@ -27,7 +27,7 @@ type TreatmentResult = {
     turns: number
     outputTokens: number
     premiumRequests: number
-    totalNanoAiu: number
+    totalNanoAiu?: number
     totalApiDurationMs: number
     sessionDurationMs: number
     tools: Record<string, number>

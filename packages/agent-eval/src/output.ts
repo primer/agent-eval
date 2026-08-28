@@ -134,7 +134,7 @@ const AgentEvalOutputResultSchema = z.object({
     turns: z.number(),
     outputTokens: z.number(),
     premiumRequests: z.number(),
-    // Runs created before totalNanoAiu was supported do not include this field
+    // Runs that do not report totalNanoAiu do not include this field
     totalNanoAiu: z.optional(z.number()),
     totalApiDurationMs: z.number(),
     sessionDurationMs: z.number(),

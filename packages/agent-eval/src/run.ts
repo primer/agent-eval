@@ -146,15 +146,12 @@ function getCopilotArgs({
   return [...args, '--mode', 'autopilot', '--output-format', 'json']
 }
 
-function getTotalNanoAiu(messages: Array<Message>): number {
+function getTotalNanoAiu(messages: Array<Message>): number | undefined {
   const usageCheckpoint = messages.findLast(message => {
     return isMessageType(message, 'session.usage_checkpoint')
   })
-  if (!usageCheckpoint) {
-    throw new Error('No session usage checkpoint found in copilot output')
-  }
 
-  return usageCheckpoint.data.totalNanoAiu
+  return usageCheckpoint?.data.totalNanoAiu
 }
 
 async function runTreatment(

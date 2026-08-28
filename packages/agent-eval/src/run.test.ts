@@ -85,9 +85,7 @@ describe('getTotalNanoAiu', () => {
     expect(getTotalNanoAiu(messages)).toBe(2_839_800_000)
   })
 
-  test('throws when there is no usage checkpoint', () => {
-    expect(() => {
-      getTotalNanoAiu([])
-    }).toThrow('No session usage checkpoint found')
+  test('returns undefined when there is no usage checkpoint', () => {
+    expect(getTotalNanoAiu([])).toBeUndefined()
   })
 })

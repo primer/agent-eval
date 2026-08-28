@@ -407,6 +407,7 @@ Only capture the walkthrough, do not make any further code changes.`
   const copilotConfigPath = path.join(artifactDirectory, '.copilot')
   const skillsConfigPath = path.join(artifactDirectory, '.agents')
   const testResultsPath = path.join(workspacePath, 'test-results.json')
+  await fs.rm(artifactDirectory, {recursive: true, force: true})
   await fs.mkdir(workspacePath, {recursive: true})
 
   console.log('Downloading agent workspace to: %s...', workspacePath)

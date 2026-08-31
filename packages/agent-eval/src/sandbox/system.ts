@@ -41,6 +41,8 @@ import type {
   SandboxCreateOptions,
 } from './types'
 import {DefaultHost, type Host} from '../host'
+import {VirtualSandbox} from './virtual'
+import {resolveContainerPath} from './path'
 
 const COPILOT_CLI_VERSION = '1.0.80'
 const NPM_VERSION = '12.0.2'
@@ -110,14 +112,16 @@ class SystemSandbox implements Sandbox {
   }
 
   async download(containerFilePath: string, hostDestinationPath: string, options: DownloadOptions = {}): Promise<void> {
+    const containerPath = resolveContainerPath(containerFilePath)
+
     await this.#host.fs.mkdir(hostDestinationPath, {
       recursive: true,
     })
 
     const archive = await this.#container.getArchive({
-      path: containerFilePath,
+      path: containerPath,
     })
-    const sourceName = path.posix.basename(containerFilePath)
+    const sourceName = path.posix.basename(containerPath)
 
     await pipeline(
       archive,
@@ -406,14 +410,6 @@ async function createContainer(docker: Docker, dockerImage: string): Promise<Ini
   return container as InitializedContainer
 }
 
-function resolveContainerPath(filepath: string): string {
-  if (path.posix.isAbsolute(filepath)) {
-    return filepath
-  }
-
-  return path.posix.join(CONTAINER_WORKDIR, filepath)
-}
-
 function mapCopiedHeader(header: Headers, sourceName: string, destinationName: string): Headers {
   const name =
     header.name === sourceName
@@ -682,6 +678,8 @@ function captureStream(destination: NodeJS.WritableStream): {stream: Writable; r
   }
 }
 
-const SandboxSchema = z.instanceof(SystemSandbox)
+const SandboxSchema = z.custom<Sandbox>(value => {
+  return value instanceof SystemSandbox || value instanceof VirtualSandbox
+})
 
 export {SandboxSchema, SystemSandbox}

@@ -1,20 +1,15 @@
 import path from 'node:path'
 import {VirtualHost, type Host} from '../host'
-import type {McpServerConfig} from '../mcp-config'
-import {CONTAINER_WORKDIR} from './constants'
-import type {
-  AgentSkillOptions,
-  CommandResult,
-  CopilotPluginConfig,
-  CopyOptions,
-  CustomAgentOptions,
-  DownloadOptions,
-  RunOptions,
-  Sandbox,
-  SandboxCreateOptions,
-} from './types'
+import {resolveContainerPath} from './path'
+import type {CommandResult, CopyOptions, DownloadOptions, RunOptions, Sandbox, SandboxCreateOptions} from './types'
 
 const defaultCreateOptions: SandboxCreateOptions = {}
+
+type CommandListener = (
+  command: string,
+  args?: Array<string>,
+  options?: RunOptions,
+) => CommandResult | Promise<CommandResult | undefined> | undefined
 
 export class VirtualSandbox implements Sandbox {
   static async create(options: SandboxCreateOptions = defaultCreateOptions) {
@@ -26,6 +21,8 @@ export class VirtualSandbox implements Sandbox {
   }
 
   #host: Host
+  #commandListeners: Set<CommandListener> = new Set()
+  #commands: Array<[command: string, args: Array<string>, options: RunOptions, result: CommandResult]> = []
 
   constructor(host: Host) {
     this.#host = host
@@ -38,7 +35,7 @@ export class VirtualSandbox implements Sandbox {
       throw new Error(`Cannot copy "${sourcePath}" because it is not a file or directory`)
     }
 
-    const destination = resolveSandboxPath(destinationPath)
+    const destination = resolveContainerPath(destinationPath)
     if (!path.posix.basename(destination)) {
       throw new Error(`Cannot copy "${sourcePath}" to "${destinationPath}" because the destination must include a name`)
     }
@@ -50,7 +47,7 @@ export class VirtualSandbox implements Sandbox {
   }
 
   async download(containerFilePath: string, hostDestinationPath: string, options: DownloadOptions = {}): Promise<void> {
-    const source = resolveSandboxPath(containerFilePath)
+    const source = resolveContainerPath(containerFilePath)
     const destination = path.resolve(hostDestinationPath)
     const sourceStats = await this.#host.fs.stat(source)
 
@@ -66,7 +63,7 @@ export class VirtualSandbox implements Sandbox {
           continue
         }
 
-        await copyPath(this.#host, path.join(source, name), path.join(destination, name), relativePath => {
+        await copyPath(this.#host, path.posix.join(source, name), path.join(destination, name), relativePath => {
           return options.ignore?.(path.posix.join(name, relativePath)) ?? false
         })
       }
@@ -80,12 +77,12 @@ export class VirtualSandbox implements Sandbox {
   }
 
   readFile(filepath: string): Promise<string> {
-    return this.#host.fs.readFile(resolveSandboxPath(filepath), 'utf8')
+    return this.#host.fs.readFile(resolveContainerPath(filepath), 'utf8')
   }
 
   async writeFile(filepath: string, contents: string): Promise<void> {
-    const destination = resolveSandboxPath(filepath)
-    await this.#host.fs.mkdir(path.dirname(destination), {
+    const destination = resolveContainerPath(filepath)
+    await this.#host.fs.mkdir(path.posix.dirname(destination), {
       recursive: true,
     })
     await this.#host.fs.writeFile(destination, contents, 'utf8')
@@ -93,7 +90,7 @@ export class VirtualSandbox implements Sandbox {
 
   async exists(filepath: string): Promise<boolean> {
     try {
-      await this.#host.fs.access(resolveSandboxPath(filepath))
+      await this.#host.fs.access(resolveContainerPath(filepath))
       return true
     } catch (error) {
       if (isErrorWithCode(error, 'ENOENT')) {
@@ -104,52 +101,38 @@ export class VirtualSandbox implements Sandbox {
     }
   }
 
-  runCommand(command: string, args?: Array<string>, options?: RunOptions): Promise<CommandResult> {
-    void command
-    void args
-    void options
-    throw new Error('Method not implemented.')
+  async runCommand(command: string, args: Array<string> = [], options: RunOptions = {}): Promise<CommandResult> {
+    for (const listener of this.#commandListeners) {
+      const result = await listener(command, args, options)
+      if (result) {
+        this.#commands.push([command, args, options, result])
+        return result
+      }
+    }
+
+    const result: CommandResult = {
+      stdout: '',
+      stderr: '',
+      exitCode: 0,
+    }
+    this.#commands.push([command, args, options, result])
+
+    return result
   }
 
-  addAgentInstruction(text: string): Promise<void> {
-    void text
-    throw new Error('Method not implemented.')
-  }
+  async addAgentInstruction(): Promise<void> {}
 
-  addAgentSkill(name: string, description: string, contents: string, options?: AgentSkillOptions): Promise<void> {
-    void name
-    void description
-    void contents
-    void options
-    throw new Error('Method not implemented.')
-  }
+  async addAgentSkill(): Promise<void> {}
 
-  addCustomAgent(name: string, description: string, contents: string, options?: CustomAgentOptions): Promise<void> {
-    void name
-    void description
-    void contents
-    void options
-    throw new Error('Method not implemented.')
-  }
+  async addCustomAgent(): Promise<void> {}
 
-  addMcpServer(name: string, config: McpServerConfig): Promise<void> {
-    void name
-    void config
-    throw new Error('Method not implemented.')
-  }
+  async addMcpServer(): Promise<void> {}
 
-  addCopilotPlugin(config: CopilotPluginConfig): Promise<void> {
-    void config
-    throw new Error('Method not implemented.')
-  }
-}
+  async addCopilotPlugin(): Promise<void> {}
 
-function resolveSandboxPath(filepath: string): string {
-  if (path.posix.isAbsolute(filepath)) {
-    return filepath
+  addCommandListener(listener: CommandListener): void {
+    this.#commandListeners.add(listener)
   }
-
-  return path.posix.join(CONTAINER_WORKDIR, filepath)
 }
 
 async function copyPath(

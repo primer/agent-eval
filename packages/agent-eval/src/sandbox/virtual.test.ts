@@ -1,5 +1,5 @@
 import path from 'node:path'
-import {describe, expect, test} from 'vitest'
+import {describe, expect, test, vi} from 'vitest'
 import {VirtualHost} from '../host'
 import {CONTAINER_WORKDIR} from './constants'
 import {VirtualSandbox} from './virtual'
@@ -16,6 +16,20 @@ describe('VirtualSandbox', () => {
     expect(await sandbox.exists('nested/example.txt')).toBe(true)
     expect(await sandbox.readFile('nested/example.txt')).toBe('example')
     expect(await host.fs.readFile(path.join(CONTAINER_WORKDIR, 'nested/example.txt'), 'utf8')).toBe('example')
+  })
+
+  test('resolves absolute and relative container paths', async () => {
+    const host = VirtualHost.create({
+      '/absolute/example.txt': 'absolute',
+      [CONTAINER_WORKDIR]: {
+        'relative.txt': 'relative',
+      },
+    })
+    const sandbox = await VirtualSandbox.create({host})
+
+    expect(await sandbox.readFile('/absolute/../absolute/example.txt')).toBe('absolute')
+    expect(await sandbox.readFile('./nested/../relative.txt')).toBe('relative')
+    expect(await sandbox.exists('/absolute/example.txt')).toBe(true)
   })
 
   test('copies host directories into the sandbox with exclusions', async () => {
@@ -53,6 +67,42 @@ describe('VirtualSandbox', () => {
     expect(await host.fs.readFile('/download/nested/included.txt', 'utf8')).toBe('nested')
     await expect(host.fs.access('/download/nested/ignored.txt')).rejects.toMatchObject({
       code: 'ENOENT',
+    })
+  })
+
+  test('downloads relative container files from the sandbox workspace', async () => {
+    const host = VirtualHost.create({
+      [CONTAINER_WORKDIR]: {
+        'result.txt': 'result',
+      },
+    })
+    const sandbox = await VirtualSandbox.create({host})
+
+    await sandbox.download('./nested/../result.txt', '/download')
+
+    expect(await host.fs.readFile('/download/result.txt', 'utf8')).toBe('result')
+  })
+
+  test('uses asynchronous command listeners', async () => {
+    const sandbox = await VirtualSandbox.create()
+    const listener = vi.fn().mockResolvedValue({
+      stdout: 'installed',
+      stderr: '',
+      exitCode: 0,
+    })
+    sandbox.addCommandListener(listener)
+
+    const result = await sandbox.runCommand('npm', ['install'], {
+      user: '1000:1000',
+    })
+
+    expect(listener).toHaveBeenCalledWith('npm', ['install'], {
+      user: '1000:1000',
+    })
+    expect(result).toEqual({
+      stdout: 'installed',
+      stderr: '',
+      exitCode: 0,
     })
   })
 })

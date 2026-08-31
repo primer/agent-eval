@@ -19,7 +19,7 @@ export const logger = pino(
     base: undefined,
     level: 'info',
     timestamp: false,
-    // enabled: process.env.NODE_ENV !== 'test',
+    enabled: process.env.NODE_ENV !== 'test',
   },
   ...stream,
 )

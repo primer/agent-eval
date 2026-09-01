@@ -16,7 +16,7 @@ tools:
   bash:
     - 'corepack:*'
     - 'git:diff'
-    - 'npm:view:*'
+    - 'npm view pnpm@latest version'
     - 'pnpm:*'
   edit:
 steps:

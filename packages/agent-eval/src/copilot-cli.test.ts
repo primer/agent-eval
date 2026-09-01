@@ -60,6 +60,20 @@ describe(parseMessage, () => {
       parentId: '080d2918-29d2-4da6-b115-3fe37825b5d2',
     },
     {
+      type: 'user.message',
+      data: {
+        content: "Update the index page to use a primary button with the text 'Submit'",
+        transformedContent: "Update the index page to use a primary button with the text 'Submit'",
+        supportedNativeDocumentMimeTypes: [],
+        agentMode: 'autopilot',
+        interactionId: '40a03f57-636f-41be-bef9-cfe71591862a',
+        parentAgentTaskId: 'b5c96c9d-a61b-4689-9720-455a5a1e2644',
+      },
+      id: '30d361b9-068e-4ebe-bef0-857a8d92e5ab',
+      timestamp: '2026-09-01T21:29:34.818Z',
+      parentId: '0344de20-b203-4642-a644-4cc19a9283ac',
+    },
+    {
       type: 'assistant.turn_start',
       data: {
         turnId: '10',
@@ -167,6 +181,32 @@ describe(parseMessage, () => {
       id: '3afee1ac-f9eb-44ca-b8b8-b50e9c89e015',
       timestamp: '2026-08-17T00:23:26.072Z',
       parentId: '2b1722fe-509e-4368-8c8b-2ae8985099b6',
+    },
+    {
+      type: 'assistant.message',
+      data: {
+        messageId: '99e762aa-0196-42be-8756-39ba3c294a07',
+        content: '',
+        toolRequests: [
+          {
+            toolCallId: 'call_oLjXYouZFO1PA5D6u8d54cFX',
+            name: 'glob',
+            arguments: {
+              pattern: '**/*',
+              paths: '/home/sandbox/workspace',
+            },
+            type: 'function',
+            intentionSummary: '**/*',
+          },
+        ],
+        interactionId: 'feb477c9-0fb1-47d5-bd08-b397389ec2da',
+        turnId: '0',
+        reasoningOpaque: 'opaque',
+        encryptedContent: 'encrypted',
+      },
+      id: '0c89050a-a6f6-4cd5-8ded-7e25d70b01bc',
+      timestamp: '2026-09-01T21:35:25.627Z',
+      parentId: '2ac75cd3-5bf3-4986-a5b2-00cfa4b6e9f5',
     },
     {
       type: 'assistant.idle',

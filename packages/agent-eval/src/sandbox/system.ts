@@ -45,7 +45,7 @@ import {resolveContainerPath} from './path'
 import {logger} from '../logger'
 import {createCapturedStream} from './captured-stream'
 
-const COPILOT_CLI_VERSION = '1.0.80'
+const COPILOT_CLI_VERSION = '1.0.82'
 const NPM_VERSION = '12.0.2'
 
 const DEFAULT_MCP_CONFIG: McpConfigFile = {
@@ -396,6 +396,15 @@ async function createContainer(docker: Docker, dockerImage: string): Promise<Ini
   await execCommand(docker, container, 'touch', [path.join(COPILOT_DIR, 'mcp-config.json')], {
     user: NODE_USER,
   })
+  await execCommand(
+    docker,
+    container,
+    'bash',
+    ['-c', `echo '${JSON.stringify(DEFAULT_MCP_CONFIG)}' > ${MCP_CONFIG_PATH}`],
+    {
+      user: NODE_USER,
+    },
+  )
   await execCommand(docker, container, 'mkdir', ['-p', CUSTOM_AGENTS_DIR], {
     user: NODE_USER,
   })

@@ -108,6 +108,8 @@ const env = getEnvironmentConfig({
   scenariosDirectory: values.scenarios,
 })
 
+logger.debug('Environment configuration: %o', env)
+
 if (values.benchmark) {
   logger.info('Running benchmark: %s', values.benchmark)
   await runBenchmark({
@@ -115,7 +117,7 @@ if (values.benchmark) {
     id: values.benchmark,
   })
 } else if (values.experiment) {
-  logger.info('Running experiment: %s', values.benchmark)
+  logger.info('Running experiment: %s', values.experiment)
   await runExperiment({
     env,
     id: values.experiment,

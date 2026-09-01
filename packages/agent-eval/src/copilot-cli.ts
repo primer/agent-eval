@@ -101,7 +101,7 @@ const UserMessageSchema = z.object({
   data: z.object({
     content: z.string(),
     transformedContent: z.string(),
-    attachments: z.array(z.unknown()),
+    attachments: z.optional(z.array(z.unknown())),
     supportedNativeDocumentMimeTypes: z.array(z.string()),
     agentMode: z.string(),
     interactionId: z.string(),
@@ -149,7 +149,7 @@ const AssistantMessageSchema = z.object({
     encryptedContent: z.optional(z.string()),
     phase: z.optional(z.string()),
     outputTokens: z.optional(z.number()),
-    requestId: z.string(),
+    requestId: z.optional(z.string()),
   }),
 })
 

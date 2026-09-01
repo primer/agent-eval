@@ -165,6 +165,7 @@ async function runTrial({
       trial.model.reasoningEffort,
       '--mode',
       'autopilot',
+      '--allow-all',
       '--output-format',
       'json',
     ],
@@ -226,7 +227,7 @@ async function runTrial({
   await sandbox.writeFile(
     'agent-browser.json',
     JSON.stringify({
-      executablePath: CHROMIUM_EXECUTABLE_PATH,
+      executablePath: '/usr/bin/chromium',
     }),
   )
   const walkthroughPrompt = `Record a visual walkthrough of what you implemented so a reviewer can see it without running the code themselves.
@@ -251,6 +252,7 @@ Only capture the walkthrough, do not make any further code changes.`
       'medium',
       '--mode',
       'autopilot',
+      '--allow-all',
       '--output-format',
       'json',
     ],
@@ -284,7 +286,7 @@ Only capture the walkthrough, do not make any further code changes.`
   logger.debug('[%s] Downloading agent workspace to: %s...', trial.treatment.name, workspaceDirectory)
   await sandbox.download(CONTAINER_WORKDIR, workspaceDirectory, {
     ignore(name) {
-      return name.includes('node_modules') || name.includes('.next') || name.includes('dist')
+      return name.includes('node_modules') || name.includes('.next') || name.includes('.turbo') || name.includes('dist')
     },
   })
 
@@ -357,7 +359,7 @@ Only capture the walkthrough, do not make any further code changes.`
 }
 
 function getVitestConfig(outputFile: string) {
-  return `import {defineConfig} from 'vites/tconfig';
+  return `import {defineConfig} from 'vitest/config';
 
 export default defineConfig({
   test: {

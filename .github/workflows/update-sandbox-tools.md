@@ -13,11 +13,7 @@ network:
     - defaults
     - node
 tools:
-  bash:
-    - 'corepack:*'
-    - 'git:diff'
-    - 'npm:view:*'
-    - 'pnpm:*'
+  bash: [':*']
   edit:
 steps:
   - name: configure pnpm

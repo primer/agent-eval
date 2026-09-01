@@ -5,7 +5,7 @@ import {VirtualHost} from './host'
 import {VirtualSandbox} from './sandbox'
 
 test('runTrial', async () => {
-  const host = new VirtualHost({
+  const host = VirtualHost.create({
     '/test': {
       'scenario.test.ts': '',
     },
@@ -42,7 +42,6 @@ test('runTrial', async () => {
   })
 
   const result = await runTrial(
-    host,
     sandbox,
     {
       id: 'test',

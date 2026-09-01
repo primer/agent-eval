@@ -6,7 +6,7 @@ import {TrialSchema, type Trial} from './trial'
 import type {Host} from './host'
 // import {CONTAINER_WORKDIR, NODE_USER, Sandbox} from './sandbox'
 import {CONTAINER_WORKDIR, NODE_USER, type Sandbox} from './sandbox'
-import {parseTestResults} from './vitest'
+import {parseTestResults, TestResultsSchema} from './vitest'
 import {logger} from './logger'
 
 const AssistantSchema = z.object({
@@ -19,22 +19,6 @@ const AssistantSchema = z.object({
   tools: z.record(z.string(), z.number()),
 })
 
-const TestResultsSchema = z.object({
-  numTotalTests: z.number(),
-  numPassedTests: z.number(),
-  numFailedTests: z.number(),
-  numPendingTests: z.number(),
-  numTodoTests: z.number(),
-  tests: z.array(
-    z.object({
-      title: z.string(),
-      fullName: z.string(),
-      status: z.enum(['passed', 'failed', 'skipped', 'pending', 'todo', 'disabled']),
-      description: z.optional(z.string()),
-    }),
-  ),
-})
-
 const WalkthroughSchema = z.discriminatedUnion('type', [
   z.object({type: z.literal('Unavailable')}),
   z.object({type: z.literal('Screenshot'), filepath: z.string()}),
@@ -44,9 +28,11 @@ const WalkthroughSchema = z.discriminatedUnion('type', [
 
 const TrialResultSchema = z.object({
   trial: TrialSchema,
-  // assistant: AssistantSchema,
-  // testResults: TestResultsSchema,
-  // walkthrough: WalkthroughSchema,
+  assistant: z.object({
+    sessions: z.array(z.array(MessageSchema)),
+  }),
+  testResults: TestResultsSchema,
+  walkthrough: WalkthroughSchema,
 })
 
 type TrialResult = z.infer<typeof TrialResultSchema>
@@ -58,7 +44,7 @@ type RunOptions = {
 }
 
 async function run(host: Host, sandbox: Sandbox, plan: Plan, options: RunOptions): Promise<Array<TrialResult>> {
-  const {artifactsDirectory, copilotToken, dockerImage, maxConcurrency = 1} = options
+  const {artifactsDirectory, copilotToken, maxConcurrency = 1} = options
   const queue = new Queue({
     concurrency: maxConcurrency,
   })
@@ -84,7 +70,7 @@ type RunTrialOptions = {
   copilotToken: string
 }
 
-async function runTrial(host: Host, sandbox: Sandbox, trial: Trial, options: RunTrialOptions): Promise<TrialResult> {
+async function runTrial(sandbox: Sandbox, trial: Trial, options: RunTrialOptions): Promise<TrialResult> {
   logger.info('Running trial treatment: %s (%s)', trial.treatment.name, trial.id)
 
   const {artifactsDirectory, copilotToken} = options
@@ -176,9 +162,13 @@ async function runTrial(host: Host, sandbox: Sandbox, trial: Trial, options: Run
 
   return {
     trial,
-    // assistant: {},
-    // testResults: {},
-    // walkthrough: {},
+    assistant: {
+      sessions: [messages],
+    },
+    testResults: testResults.data,
+    walkthrough: {
+      type: 'Unavailable',
+    },
   }
 }
 

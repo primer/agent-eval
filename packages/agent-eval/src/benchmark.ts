@@ -3,9 +3,10 @@ import path from 'node:path'
 import * as z from 'zod/mini'
 import {getModelVariants, ModelVariantConfigSchema, type Model, type ModelVariant, type ReasoningEffort} from './model'
 import {getScenario, type Scenario} from './scenario'
-import type {Host} from './host'
+import {DefaultHost, type Host} from './host'
 import {ControlTreatment, TreatmentSetupSchema} from './treatment'
 import type {Treatment} from './treatment'
+import type {EnvironmentConfig} from './environment'
 
 const CapabilityConfigSchema = z.object({
   name: z.string(),
@@ -15,7 +16,7 @@ const CapabilityConfigSchema = z.object({
 const BenchmarkConfigSchema = z.object({
   name: z.string(),
   description: z.string(),
-  models: ModelVariantConfigSchema,
+  models: z.array(ModelVariantConfigSchema),
   setup: z.optional(TreatmentSetupSchema),
   capabilities: z.array(CapabilityConfigSchema),
 })
@@ -106,59 +107,71 @@ function isBenchmarkFile(filename: string): boolean {
   return true
 }
 
-type RunContext = {
-  artifactsDirectory: string
-  benchmarksDirectory: string
-  host: Host
-  scenariosDirectory: string
-}
-
-type Trial = {
-  id: string
-  capability: CapabilityConfig
-  scenario: Scenario
-  treatment: Treatment
-  model: ModelVariant
-}
-
-type TrialRun = {}
-
+// type RunContext = {
+//   artifactsDirectory: string
+//   benchmarksDirectory: string
+//   host: Host
+//   scenariosDirectory: string
+// }
+//
+// type Trial = {
+//   id: string
+//   capability: CapabilityConfig
+//   scenario: Scenario
+//   treatment: Treatment
+//   model: ModelVariant
+// }
+//
+// type TrialRun = {}
+//
 type TrialResult = {}
 
-async function run(context: RunContext, benchmark: Benchmark): Promise<TrialResult> {
-  const trials: Array<Trial> = []
-
-  for (const variant of getModelVariants(benchmark.models)) {
-    for (const capability of benchmark.capabilities) {
-      for (const scenarioId of capability.scenarios) {
-        const scenario = await getScenario(context.host, context.scenariosDirectory, scenarioId)
-
-        trials.push({
-          id: randomUUID(),
-          capability,
-          scenario,
-          treatment: ControlTreatment,
-          model: variant,
-        })
-
-        trials.push({
-          id: randomUUID(),
-          capability,
-          scenario,
-          treatment: {
-            name: 'Benchmark',
-            setup: benchmark.setup,
-          },
-          model: variant,
-        })
-      }
-    }
-  }
-
-  console.log(trials)
+async function run({
+  env,
+  host = DefaultHost,
+  id,
+}: {
+  env: EnvironmentConfig
+  host?: Host
+  id: string
+}): Promise<TrialResult> {
+  const benchmark = await getBenchmark(host, env.benchmarksDirectory, id)
+  console.log(benchmark)
 
   throw new Error('unimplemented')
+  // const trials: Array<Trial> = []
+  //
+  // for (const variant of getModelVariants(benchmark.models)) {
+  //   for (const capability of benchmark.capabilities) {
+  //     for (const scenarioId of capability.scenarios) {
+  //       const scenario = await getScenario(context.host, context.scenariosDirectory, scenarioId)
+  //
+  //       trials.push({
+  //         id: randomUUID(),
+  //         capability,
+  //         scenario,
+  //         treatment: ControlTreatment,
+  //         model: variant,
+  //       })
+  //
+  //       trials.push({
+  //         id: randomUUID(),
+  //         capability,
+  //         scenario,
+  //         treatment: {
+  //           name: 'Benchmark',
+  //           setup: benchmark.setup,
+  //         },
+  //         model: variant,
+  //       })
+  //     }
+  //   }
+  // }
+  //
+  // console.log(trials)
+  //
+  // throw new Error('unimplemented')
 }
 
-export {defineConfig, listBenchmarks, getBenchmark, run}
-export type {BenchmarkConfig}
+export {defineConfig, listBenchmarks, getBenchmark, run, BenchmarkConfigSchema}
+export type {BenchmarkConfig, Benchmark}

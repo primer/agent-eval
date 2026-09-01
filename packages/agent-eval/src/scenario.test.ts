@@ -54,6 +54,76 @@ test('listScenarios', async () => {
   expect(scenarios).not.toContainEqual(expect.objectContaining({id: '005-missing-test'}))
 })
 
+test('listScenarios includes optional metadata and browser tests', async () => {
+  const config = JSON.stringify(
+    defineConfig({
+      description: 'Test scenario',
+      prompt: 'Complete the task',
+      tags: ['test', 'browser'],
+    }),
+  )
+  const host = VirtualHost.create({
+    '/scenarios': {
+      '001-scenario': {
+        'browser.test.ts': '',
+        'package.json': '{}',
+        'scenario.config.ts': `export default ${config}`,
+        'scenario.test.ts': '',
+      },
+    },
+  })
+
+  await expect(listScenarios(host, '/scenarios')).resolves.toEqual([
+    {
+      id: '001-scenario',
+      directory: '/scenarios/001-scenario',
+      prompt: 'Complete the task',
+      description: 'Test scenario',
+      tags: ['test', 'browser'],
+      testPath: '/scenarios/001-scenario/scenario.test.ts',
+      browserTestPath: '/scenarios/001-scenario/browser.test.ts',
+    },
+  ])
+})
+
+test('listScenarios ignores configs without a default export', async () => {
+  const config = JSON.stringify(
+    defineConfig({
+      prompt: 'test',
+    }),
+  )
+  const host = VirtualHost.create({
+    '/scenarios': {
+      '001-scenario': {
+        'package.json': '{}',
+        'scenario.config.ts': `export const scenario = ${config}`,
+        'scenario.test.ts': '',
+      },
+    },
+  })
+
+  await expect(listScenarios(host, '/scenarios')).resolves.toEqual([])
+})
+
+test('listScenarios excludes template directories', async () => {
+  const config = JSON.stringify(
+    defineConfig({
+      prompt: 'test',
+    }),
+  )
+  const host = VirtualHost.create({
+    '/scenarios': {
+      '000-template': {
+        'package.json': '{}',
+        'scenario.config.ts': `export default ${config}`,
+        'scenario.test.ts': '',
+      },
+    },
+  })
+
+  await expect(listScenarios(host, '/scenarios')).resolves.toEqual([])
+})
+
 test('throws if input is not a directory', async () => {
   const host = VirtualHost.create({
     '/test': '',

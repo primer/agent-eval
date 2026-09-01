@@ -1,5 +1,5 @@
 export * from './constants'
-export {SandboxSchema, SystemSandbox} from './system'
+export {SandboxSchema, SystemSandbox, DEFAULT_DOCKER_IMAGE} from './system'
 export {VirtualSandbox} from './virtual'
 export type {
   AgentSkillCopiedFile,

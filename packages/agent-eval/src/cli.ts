@@ -1,17 +1,9 @@
 #!/usr/bin/env node
-import {randomUUID} from 'node:crypto'
-import {existsSync} from 'node:fs'
-import path from 'node:path'
-import fs from 'node:fs/promises'
+
 import {parseArgs} from 'node:util'
-import {ControlTreatment, type ExperimentConfig} from './experiment-config'
-import {resolveModelConfigs, type Model, type ReasoningEffort} from './model'
-import {createAgentEvalOutput} from './output'
-import type {Treatment, TreatmentResult} from './treatment'
-import {findExperiment, listExperiments} from './experiments'
-import {resolveExperimentScenario} from './resolve-experiment-scenario'
-import {run} from './run'
-import {parseShard, selectShard} from './shard'
+import {getEnvironmentConfig} from './environment'
+import {run as runBenchmark} from './benchmark'
+import {run as runExperiment} from './experiment'
 
 const {values} = parseArgs({
   options: {
@@ -62,30 +54,29 @@ const {values} = parseArgs({
       type: 'string',
       description: 'The directory containing scenario directories',
     },
-    shard: {
-      type: 'string',
-      description: 'The shard to run in <order>/<total> format',
-    },
   },
 })
 
-if (values.help) {
+function displayHelp() {
   console.log(`
 Usage: agent-eval [options]
 
 Options:
-  -a, --artifacts <dir>      The directory to save artifacts to
+  -a, --artifacts <dir>      The directory to save artifacts to (default: ./artifacts)
   -b, --benchmark <file>     The file name of the benchmark to run
-      --benchmarks <dir>     The directory containing local benchmark files
+      --benchmarks <dir>     The directory containing local benchmark files (default: ./benchmarks)
   -c, --concurrency <num>    The number of treatments to run in parallel
       --docker-image <image> The Docker container image to use for running treatments (must be a Debian-based Node image with apt-get and a node user, e.g. node:26.5.0-slim)
   -e, --experiment <file>    The file name of the experiment to run
-      --experiments <dir>    The directory containing local experiment files
+      --experiments <dir>    The directory containing local experiment files (default: ./experiments)
   -h, --help                 Learn more about the command and its options
       --output <file>        The target file in which results are written (default: output.json)
-      --scenarios <dir>      The directory containing scenario directories
-      --shard <order/total>  The shard to run
+      --scenarios <dir>      The directory containing scenario directories (default: ./scenarios)
 `)
+}
+
+if (values.help) {
+  displayHelp()
   process.exit(0)
 }
 
@@ -93,440 +84,457 @@ const COPILOT_GITHUB_TOKEN = process.env.COPILOT_GITHUB_TOKEN
 const GITHUB_STEP_SUMMARY = process.env.GITHUB_STEP_SUMMARY
 
 if (!COPILOT_GITHUB_TOKEN) {
-  throw new Error('COPILOT_GITHUB_TOKEN environment variable is required to run the experiments')
+  throw new Error('COPILOT_GITHUB_TOKEN environment variable is required to run agent-eval')
 }
 
-const ARTIFACTS_DIR = path.resolve(values.artifacts ?? 'artifacts')
-const DOCKER_IMAGE = values['docker-image']?.trim() || undefined
-const parsedConcurrency = values.concurrency ? parseInt(values.concurrency, 10) : 1
-const MAX_CONCURRENCY =
-  Number.isFinite(parsedConcurrency) && Number.isInteger(parsedConcurrency) && parsedConcurrency >= 1
-    ? parsedConcurrency
-    : 1
-const SHARD = values.shard ? parseShard(values.shard) : undefined
-let selectedExperiment: {
-  id: string
-  config: ExperimentConfig
-}
-
-if (!existsSync(ARTIFACTS_DIR)) {
-  await fs.mkdir(ARTIFACTS_DIR, {recursive: true})
-}
+const env = getEnvironmentConfig({
+  artifactsDirectory: values.artifacts,
+  benchmarksDirectory: values.benchmarks,
+  concurrency: values.concurrency,
+  copilotToken: COPILOT_GITHUB_TOKEN,
+  dockerImage: values['docker-image']?.trim(),
+  experimentsDirectory: values.experiments,
+  outputPath: values.output,
+  scenariosDirectory: values.scenarios,
+})
 
 if (values.benchmark) {
-  //
+  await runBenchmark({
+    env,
+    id: values.benchmark,
+  })
 } else if (values.experiment) {
-  const config = await findExperiment(values.experiment, {
-    directory: values.experiments,
+  await runExperiment({
+    env,
+    id: values.experiment,
   })
-  if (!config) {
-    const experiments = await listExperiments({
-      directory: values.experiments,
-    })
-    throw new Error(
-      `Experiment "${values.experiment}" was not found. Available experiments:\n${experiments
-        .map(([id]) => id)
-        .join('\n')}`,
-    )
-  }
-
-  selectedExperiment = {
-    id: existsSync(values.experiment)
-      ? path.basename(values.experiment, path.extname(values.experiment))
-      : values.experiment,
-    config,
-  }
 } else {
-  const experiments = await listExperiments({
-    directory: values.experiments,
-  })
-  if (experiments.length !== 1) {
-    throw new Error(
-      `Select an experiment with --experiment. Available experiments:\n${experiments.map(([id]) => id).join('\n')}`,
-    )
-  }
-
-  selectedExperiment = {
-    id: experiments[0][0],
-    config: experiments[0][1],
-  }
+  displayHelp()
 }
 
-function randomize<T>(input: Array<T>): Array<T> {
-  const randomized: Array<T> = input.slice()
-
-  // Fisher–Yates shuffle
-  for (let i = randomized.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[randomized[i], randomized[j]] = [randomized[j], randomized[i]]
-  }
-
-  return randomized
-}
-
-function getSuccessRate(result: TreatmentResult): number {
-  if (result.testResults.numTotalTests === 0) {
-    return 0
-  }
-
-  return result.testResults.numPassedTests / result.testResults.numTotalTests
-}
-
-function compareResults(a: TreatmentResult, b: TreatmentResult): number {
-  return (
-    getSuccessRate(b) - getSuccessRate(a) ||
-    a.assistant.outputTokens - b.assistant.outputTokens ||
-    a.assistant.sessionDurationMs - b.assistant.sessionDurationMs ||
-    a.assistant.premiumRequests - b.assistant.premiumRequests ||
-    a.treatment.experiment.name.localeCompare(b.treatment.experiment.name) ||
-    a.treatment.config.name.localeCompare(b.treatment.config.name) ||
-    a.treatment.model.localeCompare(b.treatment.model) ||
-    (a.treatment.reasoningEffort ?? '').localeCompare(b.treatment.reasoningEffort ?? '') ||
-    a.treatment.scenario.id.localeCompare(b.treatment.scenario.id)
-  )
-}
-
-type ResultSummary = {
-  experiment: string
-  treatment?: string
-  scenario?: string
-  model?: Model
-  reasoningEffort?: ReasoningEffort
-  runs: number
-  numPassedTests: number
-  numTotalTests: number
-  outputTokens: number
-  premiumRequests: number
-  sessionDurationMs: number
-  totalApiDurationMs: number
-}
-
-type ResultSummaryValues = {
-  treatment?: string
-  scenario?: string
-  model?: Model
-  reasoningEffort?: ReasoningEffort
-}
-
-function createResultSummary(result: TreatmentResult, summaryValues: ResultSummaryValues = {}): ResultSummary {
-  return {
-    experiment: result.treatment.experiment.name,
-    treatment: summaryValues.treatment,
-    scenario: summaryValues.scenario,
-    model: summaryValues.model,
-    reasoningEffort: summaryValues.reasoningEffort,
-    runs: 0,
-    numPassedTests: 0,
-    numTotalTests: 0,
-    outputTokens: 0,
-    premiumRequests: 0,
-    sessionDurationMs: 0,
-    totalApiDurationMs: 0,
-  }
-}
-
-function addResultToSummary(summary: ResultSummary, result: TreatmentResult) {
-  summary.runs += 1
-  summary.numPassedTests += result.testResults.numPassedTests
-  summary.numTotalTests += result.testResults.numTotalTests
-  summary.outputTokens += result.assistant.outputTokens
-  summary.premiumRequests += result.assistant.premiumRequests
-  summary.sessionDurationMs += result.assistant.sessionDurationMs
-  summary.totalApiDurationMs += result.assistant.totalApiDurationMs
-}
-
-function getSummarySuccessRate(summary: ResultSummary): number {
-  if (summary.numTotalTests === 0) {
-    return 0
-  }
-
-  return summary.numPassedTests / summary.numTotalTests
-}
-
-function compareSummaries(a: ResultSummary, b: ResultSummary): number {
-  return (
-    getSummarySuccessRate(b) - getSummarySuccessRate(a) ||
-    a.outputTokens - b.outputTokens ||
-    a.sessionDurationMs - b.sessionDurationMs ||
-    a.premiumRequests - b.premiumRequests ||
-    a.experiment.localeCompare(b.experiment) ||
-    (a.treatment ?? '').localeCompare(b.treatment ?? '') ||
-    (a.scenario ?? '').localeCompare(b.scenario ?? '') ||
-    (a.model ?? '').localeCompare(b.model ?? '') ||
-    (a.reasoningEffort ?? '').localeCompare(b.reasoningEffort ?? '')
-  )
-}
-
-function formatPercent(value: number): string {
-  return `${(value * 100).toFixed(1)}%`
-}
-
-function formatDuration(ms: number): string {
-  const seconds = ms / 1000
-
-  if (seconds < 60) {
-    return `${seconds.toFixed(1)}s`
-  }
-
-  const minutes = Math.floor(seconds / 60)
-  const remainingSeconds = seconds - minutes * 60
-  return `${minutes}m ${remainingSeconds.toFixed(1)}s`
-}
-
-function formatNumber(value: number): string {
-  return new Intl.NumberFormat('en-US').format(value)
-}
-
-type TableRow = Record<string, string | number>
-
-function formatTable(rows: Array<TableRow>, columns: Array<string>): string {
-  const columnWidths = columns.map(column => {
-    let width = column.length
-
-    for (const row of rows) {
-      width = Math.max(width, String(row[column] ?? '').length)
-    }
-
-    return width
-  })
-
-  const formatRow = (row: TableRow) => {
-    return columns
-      .map((column, index) => {
-        return String(row[column] ?? '').padEnd(columnWidths[index])
-      })
-      .join('  ')
-  }
-
-  return [
-    formatRow(Object.fromEntries(columns.map(column => [column, column]))),
-    columnWidths.map(width => '-'.repeat(width)).join('  '),
-    ...rows.map(formatRow),
-  ].join('\n')
-}
-
-function getSummaryKey(result: TreatmentResult, summaryValues: ResultSummaryValues = {}): string {
-  return [
-    result.treatment.experiment.name,
-    summaryValues.treatment ?? '',
-    summaryValues.scenario ?? '',
-    summaryValues.model ?? '',
-    summaryValues.reasoningEffort ?? '',
-  ].join('\0')
-}
-
-type ResultHierarchy = Array<{
-  experiment: string
-  treatments: Array<{
-    summary: ResultSummary
-    scenarios: Array<{
-      summary: ResultSummary
-      models: Array<ResultSummary>
-    }>
-  }>
-}>
-
-function getResultSummaries(results: Array<TreatmentResult>): ResultHierarchy {
-  const experiments = new Set<string>()
-  const treatmentSummaries = new Map<string, ResultSummary>()
-  const scenarioSummaries = new Map<string, ResultSummary>()
-  const modelSummaries = new Map<string, ResultSummary>()
-
-  for (const result of results) {
-    experiments.add(result.treatment.experiment.name)
-
-    const treatmentValues = {
-      treatment: result.treatment.config.name,
-    }
-    const treatmentKey = getSummaryKey(result, treatmentValues)
-    const treatmentSummary = treatmentSummaries.get(treatmentKey) ?? createResultSummary(result, treatmentValues)
-    addResultToSummary(treatmentSummary, result)
-    treatmentSummaries.set(treatmentKey, treatmentSummary)
-
-    const scenarioValues = {
-      treatment: result.treatment.config.name,
-      scenario: result.treatment.scenario.id,
-    }
-    const scenarioKey = getSummaryKey(result, scenarioValues)
-    const scenarioSummary = scenarioSummaries.get(scenarioKey) ?? createResultSummary(result, scenarioValues)
-    addResultToSummary(scenarioSummary, result)
-    scenarioSummaries.set(scenarioKey, scenarioSummary)
-
-    const modelValues = {
-      treatment: result.treatment.config.name,
-      scenario: result.treatment.scenario.id,
-      model: result.treatment.model,
-      reasoningEffort: result.treatment.reasoningEffort,
-    }
-    const modelKey = getSummaryKey(result, modelValues)
-    const modelSummary = modelSummaries.get(modelKey) ?? createResultSummary(result, modelValues)
-    addResultToSummary(modelSummary, result)
-    modelSummaries.set(modelKey, modelSummary)
-  }
-
-  return [...experiments].toSorted().map(experiment => {
-    return {
-      experiment,
-      treatments: [...treatmentSummaries.values()]
-        .filter(treatmentSummary => {
-          return treatmentSummary.experiment === experiment
-        })
-        .toSorted(compareSummaries)
-        .map(summary => {
-          return {
-            summary,
-            scenarios: [...scenarioSummaries.values()]
-              .filter(scenarioSummary => {
-                return scenarioSummary.experiment === experiment && scenarioSummary.treatment === summary.treatment
-              })
-              .toSorted(compareSummaries)
-              .map(scenarioSummary => {
-                return {
-                  summary: scenarioSummary,
-                  models: [...modelSummaries.values()]
-                    .filter(modelSummary => {
-                      return (
-                        modelSummary.experiment === experiment &&
-                        modelSummary.treatment === summary.treatment &&
-                        modelSummary.scenario === scenarioSummary.scenario
-                      )
-                    })
-                    .toSorted(compareSummaries),
-                }
-              }),
-          }
-        }),
-    }
-  })
-}
-
-function formatResultSummaries(results: Array<TreatmentResult>): string {
-  const columns = [
-    'Experiment',
-    'Treatment',
-    'Scenario',
-    'Model',
-    'Reasoning Effort',
-    'Success Rate',
-    'Tests',
-    'Runs',
-    'Output Tokens',
-    'Premium Requests',
-    'Session Time',
-    'API Time',
-  ]
-  const rows: Array<TableRow> = []
-
-  for (const {treatments} of getResultSummaries(results)) {
-    for (const {summary, scenarios} of treatments) {
-      rows.push(formatSummaryRow(summary, 'treatment'))
-
-      for (const {summary: scenarioSummary, models} of scenarios) {
-        rows.push(formatSummaryRow(scenarioSummary, 'scenario'))
-
-        for (const model of models) {
-          rows.push(formatSummaryRow(model, 'model'))
-        }
-      }
-    }
-  }
-
-  return formatTable(rows, columns)
-}
-
-async function appendResultsToJobSummary(resultSummaries: string) {
-  if (!GITHUB_STEP_SUMMARY) {
-    return
-  }
-
-  await fs.appendFile(GITHUB_STEP_SUMMARY, `## Experiment results\n\n\`\`\`\n${resultSummaries}\n\`\`\`\n`)
-}
-
-function formatSummaryRow(summary: ResultSummary, level: 'treatment' | 'scenario' | 'model'): TableRow {
-  return {
-    Experiment: level === 'treatment' ? summary.experiment : '',
-    Treatment: level === 'treatment' ? (summary.treatment ?? '') : '',
-    Scenario: level === 'treatment' ? 'All scenarios' : level === 'scenario' ? `  ${summary.scenario ?? ''}` : '',
-    Model: level === 'model' ? `    ${summary.model ?? ''}` : 'All models',
-    'Reasoning Effort': level === 'model' ? (summary.reasoningEffort ?? '') : '',
-    'Success Rate': formatPercent(getSummarySuccessRate(summary)),
-    Tests: `${summary.numPassedTests}/${summary.numTotalTests}`,
-    Runs: summary.runs,
-    'Output Tokens': formatNumber(summary.outputTokens),
-    'Premium Requests': formatNumber(summary.premiumRequests),
-    'Session Time': formatDuration(summary.sessionDurationMs),
-    'API Time': formatDuration(summary.totalApiDurationMs),
-  }
-}
-
-const config = selectedExperiment.config
-
-console.log('Running experiment:', config.name)
-
-const scenarios = await Promise.all(
-  config.scenarios.map(scenarioConfig => {
-    return resolveExperimentScenario(scenarioConfig, {
-      directory: values.scenarios,
-    })
-  }),
-)
-
-const treatments: Array<Treatment> = config.models.flatMap(modelConfig => {
-  return resolveModelConfigs(modelConfig).flatMap(({name: model, reasoningEffort}) => {
-    return scenarios.flatMap(scenarioConfig => {
-      return [
-        {
-          config: ControlTreatment,
-          scenario: scenarioConfig,
-          experiment: config,
-          id: randomUUID(),
-          model,
-          reasoningEffort,
-        },
-        ...config.treatments.map(treatment => {
-          return {
-            config: treatment,
-            scenario: scenarioConfig,
-            experiment: config,
-            id: randomUUID(),
-            model,
-            reasoningEffort,
-          }
-        }),
-      ]
-    })
-  })
-})
-
-// Randomize treatments to mitigate any ordering effects. We want to make sure
-// that if there are any external factors that could impact the scenarios (e.g.
-// rate limits, resource constraints), they are more likely to impact all
-// scenarios rather than just the ones at the end.
-const selectedTreatments = SHARD ? selectShard(treatments, SHARD) : treatments
-const results: Array<TreatmentResult> = await run(randomize(selectedTreatments), {
-  artifactsDirectory: ARTIFACTS_DIR,
-  copilotToken: COPILOT_GITHUB_TOKEN,
-  dockerImage: DOCKER_IMAGE,
-  maxConcurrency: MAX_CONCURRENCY,
-})
-
-const sortedResults = results.toSorted(compareResults)
-const resultSummaries = formatResultSummaries(sortedResults)
-console.log(resultSummaries)
-await appendResultsToJobSummary(resultSummaries)
-
-const outputFilePath = path.isAbsolute(values.output) ? values.output : path.resolve(process.cwd(), values.output)
-
-if (!existsSync(path.dirname(outputFilePath))) {
-  await fs.mkdir(path.dirname(outputFilePath), {recursive: true})
-}
-
-const output = createAgentEvalOutput({
-  id: randomUUID(),
-  experimentId: selectedExperiment.id,
-  experiment: config,
-  scenarios,
-  results: sortedResults,
-})
-
-await fs.writeFile(outputFilePath, JSON.stringify(output, null, 2))
+// let selectedExperiment: {
+//   id: string
+//   config: ExperimentConfig
+// }
+//
+// if (!existsSync(ARTIFACTS_DIR)) {
+//   await fs.mkdir(ARTIFACTS_DIR, {recursive: true})
+// }
+//
+// if (values.benchmark) {
+//   //
+// } else if (values.experiment) {
+//   const config = await findExperiment(values.experiment, {
+//     directory: values.experiments,
+//   })
+//   if (!config) {
+//     const experiments = await listExperiments({
+//       directory: values.experiments,
+//     })
+//     throw new Error(
+//       `Experiment "${values.experiment}" was not found. Available experiments:\n${experiments
+//         .map(([id]) => id)
+//         .join('\n')}`,
+//     )
+//   }
+//
+//   selectedExperiment = {
+//     id: existsSync(values.experiment)
+//       ? path.basename(values.experiment, path.extname(values.experiment))
+//       : values.experiment,
+//     config,
+//   }
+// } else {
+//   const experiments = await listExperiments({
+//     directory: values.experiments,
+//   })
+//   if (experiments.length !== 1) {
+//     throw new Error(
+//       `Select an experiment with --experiment. Available experiments:\n${experiments.map(([id]) => id).join('\n')}`,
+//     )
+//   }
+//
+//   selectedExperiment = {
+//     id: experiments[0][0],
+//     config: experiments[0][1],
+//   }
+// }
+//
+// function randomize<T>(input: Array<T>): Array<T> {
+//   const randomized: Array<T> = input.slice()
+//
+//   // Fisher–Yates shuffle
+//   for (let i = randomized.length - 1; i > 0; i--) {
+//     const j = Math.floor(Math.random() * (i + 1))
+//     ;[randomized[i], randomized[j]] = [randomized[j], randomized[i]]
+//   }
+//
+//   return randomized
+// }
+//
+// function getSuccessRate(result: TreatmentResult): number {
+//   if (result.testResults.numTotalTests === 0) {
+//     return 0
+//   }
+//
+//   return result.testResults.numPassedTests / result.testResults.numTotalTests
+// }
+//
+// function compareResults(a: TreatmentResult, b: TreatmentResult): number {
+//   return (
+//     getSuccessRate(b) - getSuccessRate(a) ||
+//     a.assistant.outputTokens - b.assistant.outputTokens ||
+//     a.assistant.sessionDurationMs - b.assistant.sessionDurationMs ||
+//     a.assistant.premiumRequests - b.assistant.premiumRequests ||
+//     a.treatment.experiment.name.localeCompare(b.treatment.experiment.name) ||
+//     a.treatment.config.name.localeCompare(b.treatment.config.name) ||
+//     a.treatment.model.localeCompare(b.treatment.model) ||
+//     (a.treatment.reasoningEffort ?? '').localeCompare(b.treatment.reasoningEffort ?? '') ||
+//     a.treatment.scenario.id.localeCompare(b.treatment.scenario.id)
+//   )
+// }
+//
+// type ResultSummary = {
+//   experiment: string
+//   treatment?: string
+//   scenario?: string
+//   model?: Model
+//   reasoningEffort?: ReasoningEffort
+//   runs: number
+//   numPassedTests: number
+//   numTotalTests: number
+//   outputTokens: number
+//   premiumRequests: number
+//   sessionDurationMs: number
+//   totalApiDurationMs: number
+// }
+//
+// type ResultSummaryValues = {
+//   treatment?: string
+//   scenario?: string
+//   model?: Model
+//   reasoningEffort?: ReasoningEffort
+// }
+//
+// function createResultSummary(result: TreatmentResult, summaryValues: ResultSummaryValues = {}): ResultSummary {
+//   return {
+//     experiment: result.treatment.experiment.name,
+//     treatment: summaryValues.treatment,
+//     scenario: summaryValues.scenario,
+//     model: summaryValues.model,
+//     reasoningEffort: summaryValues.reasoningEffort,
+//     runs: 0,
+//     numPassedTests: 0,
+//     numTotalTests: 0,
+//     outputTokens: 0,
+//     premiumRequests: 0,
+//     sessionDurationMs: 0,
+//     totalApiDurationMs: 0,
+//   }
+// }
+//
+// function addResultToSummary(summary: ResultSummary, result: TreatmentResult) {
+//   summary.runs += 1
+//   summary.numPassedTests += result.testResults.numPassedTests
+//   summary.numTotalTests += result.testResults.numTotalTests
+//   summary.outputTokens += result.assistant.outputTokens
+//   summary.premiumRequests += result.assistant.premiumRequests
+//   summary.sessionDurationMs += result.assistant.sessionDurationMs
+//   summary.totalApiDurationMs += result.assistant.totalApiDurationMs
+// }
+//
+// function getSummarySuccessRate(summary: ResultSummary): number {
+//   if (summary.numTotalTests === 0) {
+//     return 0
+//   }
+//
+//   return summary.numPassedTests / summary.numTotalTests
+// }
+//
+// function compareSummaries(a: ResultSummary, b: ResultSummary): number {
+//   return (
+//     getSummarySuccessRate(b) - getSummarySuccessRate(a) ||
+//     a.outputTokens - b.outputTokens ||
+//     a.sessionDurationMs - b.sessionDurationMs ||
+//     a.premiumRequests - b.premiumRequests ||
+//     a.experiment.localeCompare(b.experiment) ||
+//     (a.treatment ?? '').localeCompare(b.treatment ?? '') ||
+//     (a.scenario ?? '').localeCompare(b.scenario ?? '') ||
+//     (a.model ?? '').localeCompare(b.model ?? '') ||
+//     (a.reasoningEffort ?? '').localeCompare(b.reasoningEffort ?? '')
+//   )
+// }
+//
+// function formatPercent(value: number): string {
+//   return `${(value * 100).toFixed(1)}%`
+// }
+//
+// function formatDuration(ms: number): string {
+//   const seconds = ms / 1000
+//
+//   if (seconds < 60) {
+//     return `${seconds.toFixed(1)}s`
+//   }
+//
+//   const minutes = Math.floor(seconds / 60)
+//   const remainingSeconds = seconds - minutes * 60
+//   return `${minutes}m ${remainingSeconds.toFixed(1)}s`
+// }
+//
+// function formatNumber(value: number): string {
+//   return new Intl.NumberFormat('en-US').format(value)
+// }
+//
+// type TableRow = Record<string, string | number>
+//
+// function formatTable(rows: Array<TableRow>, columns: Array<string>): string {
+//   const columnWidths = columns.map(column => {
+//     let width = column.length
+//
+//     for (const row of rows) {
+//       width = Math.max(width, String(row[column] ?? '').length)
+//     }
+//
+//     return width
+//   })
+//
+//   const formatRow = (row: TableRow) => {
+//     return columns
+//       .map((column, index) => {
+//         return String(row[column] ?? '').padEnd(columnWidths[index])
+//       })
+//       .join('  ')
+//   }
+//
+//   return [
+//     formatRow(Object.fromEntries(columns.map(column => [column, column]))),
+//     columnWidths.map(width => '-'.repeat(width)).join('  '),
+//     ...rows.map(formatRow),
+//   ].join('\n')
+// }
+//
+// function getSummaryKey(result: TreatmentResult, summaryValues: ResultSummaryValues = {}): string {
+//   return [
+//     result.treatment.experiment.name,
+//     summaryValues.treatment ?? '',
+//     summaryValues.scenario ?? '',
+//     summaryValues.model ?? '',
+//     summaryValues.reasoningEffort ?? '',
+//   ].join('\0')
+// }
+//
+// type ResultHierarchy = Array<{
+//   experiment: string
+//   treatments: Array<{
+//     summary: ResultSummary
+//     scenarios: Array<{
+//       summary: ResultSummary
+//       models: Array<ResultSummary>
+//     }>
+//   }>
+// }>
+//
+// function getResultSummaries(results: Array<TreatmentResult>): ResultHierarchy {
+//   const experiments = new Set<string>()
+//   const treatmentSummaries = new Map<string, ResultSummary>()
+//   const scenarioSummaries = new Map<string, ResultSummary>()
+//   const modelSummaries = new Map<string, ResultSummary>()
+//
+//   for (const result of results) {
+//     experiments.add(result.treatment.experiment.name)
+//
+//     const treatmentValues = {
+//       treatment: result.treatment.config.name,
+//     }
+//     const treatmentKey = getSummaryKey(result, treatmentValues)
+//     const treatmentSummary = treatmentSummaries.get(treatmentKey) ?? createResultSummary(result, treatmentValues)
+//     addResultToSummary(treatmentSummary, result)
+//     treatmentSummaries.set(treatmentKey, treatmentSummary)
+//
+//     const scenarioValues = {
+//       treatment: result.treatment.config.name,
+//       scenario: result.treatment.scenario.id,
+//     }
+//     const scenarioKey = getSummaryKey(result, scenarioValues)
+//     const scenarioSummary = scenarioSummaries.get(scenarioKey) ?? createResultSummary(result, scenarioValues)
+//     addResultToSummary(scenarioSummary, result)
+//     scenarioSummaries.set(scenarioKey, scenarioSummary)
+//
+//     const modelValues = {
+//       treatment: result.treatment.config.name,
+//       scenario: result.treatment.scenario.id,
+//       model: result.treatment.model,
+//       reasoningEffort: result.treatment.reasoningEffort,
+//     }
+//     const modelKey = getSummaryKey(result, modelValues)
+//     const modelSummary = modelSummaries.get(modelKey) ?? createResultSummary(result, modelValues)
+//     addResultToSummary(modelSummary, result)
+//     modelSummaries.set(modelKey, modelSummary)
+//   }
+//
+//   return [...experiments].toSorted().map(experiment => {
+//     return {
+//       experiment,
+//       treatments: [...treatmentSummaries.values()]
+//         .filter(treatmentSummary => {
+//           return treatmentSummary.experiment === experiment
+//         })
+//         .toSorted(compareSummaries)
+//         .map(summary => {
+//           return {
+//             summary,
+//             scenarios: [...scenarioSummaries.values()]
+//               .filter(scenarioSummary => {
+//                 return scenarioSummary.experiment === experiment && scenarioSummary.treatment === summary.treatment
+//               })
+//               .toSorted(compareSummaries)
+//               .map(scenarioSummary => {
+//                 return {
+//                   summary: scenarioSummary,
+//                   models: [...modelSummaries.values()]
+//                     .filter(modelSummary => {
+//                       return (
+//                         modelSummary.experiment === experiment &&
+//                         modelSummary.treatment === summary.treatment &&
+//                         modelSummary.scenario === scenarioSummary.scenario
+//                       )
+//                     })
+//                     .toSorted(compareSummaries),
+//                 }
+//               }),
+//           }
+//         }),
+//     }
+//   })
+// }
+//
+// function formatResultSummaries(results: Array<TreatmentResult>): string {
+//   const columns = [
+//     'Experiment',
+//     'Treatment',
+//     'Scenario',
+//     'Model',
+//     'Reasoning Effort',
+//     'Success Rate',
+//     'Tests',
+//     'Runs',
+//     'Output Tokens',
+//     'Premium Requests',
+//     'Session Time',
+//     'API Time',
+//   ]
+//   const rows: Array<TableRow> = []
+//
+//   for (const {treatments} of getResultSummaries(results)) {
+//     for (const {summary, scenarios} of treatments) {
+//       rows.push(formatSummaryRow(summary, 'treatment'))
+//
+//       for (const {summary: scenarioSummary, models} of scenarios) {
+//         rows.push(formatSummaryRow(scenarioSummary, 'scenario'))
+//
+//         for (const model of models) {
+//           rows.push(formatSummaryRow(model, 'model'))
+//         }
+//       }
+//     }
+//   }
+//
+//   return formatTable(rows, columns)
+// }
+//
+// async function appendResultsToJobSummary(resultSummaries: string) {
+//   if (!GITHUB_STEP_SUMMARY) {
+//     return
+//   }
+//
+//   await fs.appendFile(GITHUB_STEP_SUMMARY, `## Experiment results\n\n\`\`\`\n${resultSummaries}\n\`\`\`\n`)
+// }
+//
+// function formatSummaryRow(summary: ResultSummary, level: 'treatment' | 'scenario' | 'model'): TableRow {
+//   return {
+//     Experiment: level === 'treatment' ? summary.experiment : '',
+//     Treatment: level === 'treatment' ? (summary.treatment ?? '') : '',
+//     Scenario: level === 'treatment' ? 'All scenarios' : level === 'scenario' ? `  ${summary.scenario ?? ''}` : '',
+//     Model: level === 'model' ? `    ${summary.model ?? ''}` : 'All models',
+//     'Reasoning Effort': level === 'model' ? (summary.reasoningEffort ?? '') : '',
+//     'Success Rate': formatPercent(getSummarySuccessRate(summary)),
+//     Tests: `${summary.numPassedTests}/${summary.numTotalTests}`,
+//     Runs: summary.runs,
+//     'Output Tokens': formatNumber(summary.outputTokens),
+//     'Premium Requests': formatNumber(summary.premiumRequests),
+//     'Session Time': formatDuration(summary.sessionDurationMs),
+//     'API Time': formatDuration(summary.totalApiDurationMs),
+//   }
+// }
+//
+// const config = selectedExperiment.config
+//
+// console.log('Running experiment:', config.name)
+//
+// const scenarios = await Promise.all(
+//   config.scenarios.map(scenarioConfig => {
+//     return resolveExperimentScenario(scenarioConfig, {
+//       directory: values.scenarios,
+//     })
+//   }),
+// )
+//
+// const treatments: Array<Treatment> = config.models.flatMap(modelConfig => {
+//   return resolveModelConfigs(modelConfig).flatMap(({name: model, reasoningEffort}) => {
+//     return scenarios.flatMap(scenarioConfig => {
+//       return [
+//         {
+//           config: ControlTreatment,
+//           scenario: scenarioConfig,
+//           experiment: config,
+//           id: randomUUID(),
+//           model,
+//           reasoningEffort,
+//         },
+//         ...config.treatments.map(treatment => {
+//           return {
+//             config: treatment,
+//             scenario: scenarioConfig,
+//             experiment: config,
+//             id: randomUUID(),
+//             model,
+//             reasoningEffort,
+//           }
+//         }),
+//       ]
+//     })
+//   })
+// })
+//
+// // Randomize treatments to mitigate any ordering effects. We want to make sure
+// // that if there are any external factors that could impact the scenarios (e.g.
+// // rate limits, resource constraints), they are more likely to impact all
+// // scenarios rather than just the ones at the end.
+// const selectedTreatments = SHARD ? selectShard(treatments, SHARD) : treatments
+// const results: Array<TreatmentResult> = await run(randomize(selectedTreatments), {
+//   artifactsDirectory: ARTIFACTS_DIR,
+//   copilotToken: COPILOT_GITHUB_TOKEN,
+//   dockerImage: DOCKER_IMAGE,
+//   maxConcurrency: MAX_CONCURRENCY,
+// })
+//
+// const sortedResults = results.toSorted(compareResults)
+// const resultSummaries = formatResultSummaries(sortedResults)
+// console.log(resultSummaries)
+// await appendResultsToJobSummary(resultSummaries)
+//
+// const outputFilePath = path.isAbsolute(values.output) ? values.output : path.resolve(process.cwd(), values.output)
+//
+// if (!existsSync(path.dirname(outputFilePath))) {
+//   await fs.mkdir(path.dirname(outputFilePath), {recursive: true})
+// }
+//
+// const output = createAgentEvalOutput({
+//   id: randomUUID(),
+//   experimentId: selectedExperiment.id,
+//   experiment: config,
+//   scenarios,
+//   results: sortedResults,
+// })
+//
+// await fs.writeFile(outputFilePath, JSON.stringify(output, null, 2))

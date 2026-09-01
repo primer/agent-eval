@@ -1,21 +1,21 @@
-export {getBenchmark, listBenchmarks} from './benchmark'
-export type {BenchmarkConfig} from './benchmark'
-export {findExperiment, listExperiments, loadExperimentConfigs} from './experiments'
-export type {ExperimentSourceOptions, LoadExperimentOptions} from './experiments'
-export {findScenario, listScenarios} from './scenarios'
-export type {ResolvedScenario, ScenarioSourceOptions} from './scenarios'
-export {run} from './run'
-export type {Treatment, TreatmentResult} from './treatment'
-export {defineConfig} from './experiment'
-export {models} from './model'
-export type {
-  ExperimentConfig,
-  ExperimentModelConfig,
-  Model,
-  ModelConfig,
-  ModelInfo,
-  ReasoningEffort,
-  TreatmentConfig,
+export {defineConfig as defineBenchmarkConfig, getBenchmark, listBenchmarks, BenchmarkConfigSchema} from './benchmark'
+export type {BenchmarkConfig, Benchmark} from './benchmark'
+
+export {
+  defineConfig as defineExperimentConfig,
+  getExperiment,
+  listExperiments,
+  ExperimentConfigSchema,
 } from './experiment'
-export {createAgentEvalOutput, parseAgentEvalOutput} from './output'
-export type {AgentEvalOutput, AgentEvalOutputResult} from './output'
+export type {ExperimentConfig, Experiment} from './experiment'
+
+export {defineConfig as defineScenarioConfig, getScenario, listScenarios, ScenarioConfigSchema} from './scenario'
+export type {ScenarioConfig, Scenario} from './scenario'
+
+export {TreatmentSchema, ControlTreatment} from './treatment'
+export type {Treatment} from './treatment'
+
+// export {run} from './run'
+// export {models} from './model'
+// export {createAgentEvalOutput, parseAgentEvalOutput} from './output'
+// export type {AgentEvalOutput, AgentEvalOutputResult} from './output'

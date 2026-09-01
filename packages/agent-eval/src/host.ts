@@ -1,8 +1,7 @@
 import {existsSync} from 'node:fs'
 import fs from 'node:fs/promises'
 import {memfs, Volume, type NestedDirectoryJSON} from 'memfs'
-import type {Sandbox} from './sandbox'
-import {VirtualSandbox} from './sandbox'
+import {SystemSandbox, VirtualSandbox, type Sandbox, type SandboxCreateOptions} from './sandbox'
 
 type FileSystem = typeof import('node:fs/promises')
 
@@ -10,6 +9,7 @@ interface Host {
   existsSync: typeof existsSync
   fs: FileSystem
   loadModule<T = unknown>(filepath: string): Promise<T>
+  createSandbox: (options?: SandboxCreateOptions) => Promise<Sandbox>
 }
 
 class SystemHost implements Host {
@@ -27,6 +27,10 @@ class SystemHost implements Host {
 
   loadModule<T = unknown>(filepath: string): Promise<T> {
     return import(filepath)
+  }
+
+  createSandbox(options?: SandboxCreateOptions): Promise<Sandbox> {
+    return SystemSandbox.create(options)
   }
 }
 
@@ -53,6 +57,10 @@ class VirtualHost implements Host {
     const encodedContent = Buffer.from(contents).toString('base64')
     const dataUri = `data:text/javascript;base64,${encodedContent}`
     return await import(dataUri)
+  }
+
+  crateSandbox(options?: SandboxCreateOptions): Promise<Sandbox> {
+    return VirtualSandbox.create(options)
   }
 }
 

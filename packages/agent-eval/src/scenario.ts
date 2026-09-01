@@ -2,11 +2,17 @@ import path from 'node:path'
 import * as z from 'zod/mini'
 import type {Host} from './host'
 
-const ScenarioConfigSchema = z.object({
-  description: z.optional(z.string()),
-  prompt: z.string(),
-  tags: z.optional(z.array(z.string())),
-})
+const ScenarioConfigSchema = z.union([
+  z.object({
+    description: z.optional(z.string()),
+    prompt: z.string(),
+    tags: z.optional(z.array(z.string())),
+  }),
+  z.object({
+    name: z.optional(z.string()),
+    path: z.string(),
+  }),
+])
 
 type ScenarioConfig = z.infer<typeof ScenarioConfigSchema>
 

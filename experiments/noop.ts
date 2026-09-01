@@ -10,5 +10,12 @@ export const experiment = defineConfig({
     },
   ],
   scenarios: ['001-agent-uses-button-from-primer'],
-  treatments: [],
+  treatments: [
+    {
+      name: 'noop',
+      async setup() {
+        //
+      },
+    },
+  ],
 })

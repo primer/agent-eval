@@ -43,6 +43,7 @@ import type {
 import {DefaultHost, type Host} from '../host'
 import {VirtualSandbox} from './virtual'
 import {resolveContainerPath} from './path'
+import {logger} from '../logger'
 
 const COPILOT_CLI_VERSION = '1.0.80'
 const NPM_VERSION = '12.0.2'
@@ -335,7 +336,7 @@ async function createContainer(docker: Docker, dockerImage: string): Promise<Ini
 
   await container.start()
 
-  console.log('Creating workspace directory...')
+  logger.info('Creating workspace directory...')
   await execCommand(docker, container, 'mkdir', ['-p', CONTAINER_WORKDIR], {
     user: 'root',
   })
@@ -343,7 +344,7 @@ async function createContainer(docker: Docker, dockerImage: string): Promise<Ini
     user: 'root',
   })
 
-  console.log('Installing CA certificates...')
+  logger.info('Installing CA certificates...')
   await execCommand(docker, container, 'apt-get', ['update'], {
     user: 'root',
   })
@@ -360,7 +361,7 @@ async function createContainer(docker: Docker, dockerImage: string): Promise<Ini
     user: 'root',
   })
 
-  console.log('Installing npm...')
+  logger.info('Installing npm...')
   await execCommand(docker, container, 'npm', ['install', '--global', `npm@${NPM_VERSION}`], {
     user: 'root',
   })
@@ -371,7 +372,7 @@ async function createContainer(docker: Docker, dockerImage: string): Promise<Ini
     throw new Error(`Expected npm ${NPM_VERSION}, received ${npmVersion.stdout.trim()}`)
   }
 
-  console.log('Setting up npm for non-root global installs')
+  logger.info('Setting up npm for non-root global installs')
   await execCommand(docker, container, 'mkdir', ['-p', NPM_GLOBAL_DIR], {
     user: 'root',
   })
@@ -382,7 +383,7 @@ async function createContainer(docker: Docker, dockerImage: string): Promise<Ini
     user: NODE_USER,
   })
 
-  console.log('Setting up copilot...')
+  logger.info('Setting up copilot...')
   await execCommand(docker, container, 'mkdir', ['-p', COPILOT_DIR], {
     user: 'root',
   })
@@ -399,7 +400,7 @@ async function createContainer(docker: Docker, dockerImage: string): Promise<Ini
     user: NODE_USER,
   })
 
-  console.log('Setting up agents config...')
+  logger.info('Setting up agents config...')
   await execCommand(docker, container, 'mkdir', ['-p', AGENTS_DIR], {
     user: 'root',
   })
@@ -682,4 +683,4 @@ const SandboxSchema = z.custom<Sandbox>(value => {
   return value instanceof SystemSandbox || value instanceof VirtualSandbox
 })
 
-export {SandboxSchema, SystemSandbox}
+export {SandboxSchema, SystemSandbox, DEFAULT_DOCKER_IMAGE}

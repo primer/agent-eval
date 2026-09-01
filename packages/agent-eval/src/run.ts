@@ -1,13 +1,17 @@
+import path from 'node:path'
 import Queue from 'p-queue'
 import * as z from 'zod/mini'
 import {MessageSchema, parseMessage, type Message} from './copilot-cli'
 import type {Plan} from './plan'
 import {TrialSchema, type Trial} from './trial'
-import type {Host} from './host'
+import {DefaultHost, type Host} from './host'
 // import {CONTAINER_WORKDIR, NODE_USER, Sandbox} from './sandbox'
-import {CONTAINER_WORKDIR, NODE_USER, type Sandbox} from './sandbox'
+import {AGENTS_DIR, CONTAINER_WORKDIR, COPILOT_DIR, NODE_USER, type Sandbox} from './sandbox'
 import {parseTestResults, TestResultsSchema} from './vitest'
 import {logger} from './logger'
+import type {EnvironmentConfig} from './environment'
+
+const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg'])
 
 const AssistantSchema = z.object({
   logs: z.array(MessageSchema),
@@ -26,10 +30,23 @@ const WalkthroughSchema = z.discriminatedUnion('type', [
   z.object({type: z.literal('Video'), filepath: z.string()}),
 ])
 
+type Walkthrough = z.infer<typeof WalkthroughSchema>
+
 const TrialResultSchema = z.object({
+  artifacts: z.object({
+    directory: z.string(),
+    copilotConfigDirectory: z.string(),
+    skillsConfigDirectory: z.string(),
+    testResultsPath: z.string(),
+    workspaceDirectory: z.string(),
+  }),
   trial: TrialSchema,
   assistant: z.object({
-    sessions: z.array(z.array(MessageSchema)),
+    sessions: z.array(
+      z.object({
+        messages: z.array(MessageSchema),
+      }),
+    ),
   }),
   testResults: TestResultsSchema,
   walkthrough: WalkthroughSchema,
@@ -43,19 +60,29 @@ type RunOptions = {
   maxConcurrency?: number
 }
 
-async function run(host: Host, sandbox: Sandbox, plan: Plan, options: RunOptions): Promise<Array<TrialResult>> {
-  const {artifactsDirectory, copilotToken, maxConcurrency = 1} = options
+async function run({
+  env,
+  host = DefaultHost,
+  plan,
+}: {
+  env: EnvironmentConfig
+  host?: Host
+  plan: Plan
+}): Promise<Array<TrialResult>> {
   const queue = new Queue({
-    concurrency: maxConcurrency,
+    concurrency: env.concurrency,
   })
 
   const results = await Promise.all(
     plan.trials.map(trial => {
       return queue.add(() => {
-        return retry(() => {
+        return retry(async () => {
+          await using sandbox = await host.createSandbox({
+            dockerImage: env.dockerImage,
+          })
           return runTrial(host, sandbox, trial, {
-            artifactsDirectory,
-            copilotToken,
+            artifactsDirectory: env.artifactsDirectory,
+            copilotToken: env.copilotToken,
           })
         })
       })
@@ -70,7 +97,7 @@ type RunTrialOptions = {
   copilotToken: string
 }
 
-async function runTrial(sandbox: Sandbox, trial: Trial, options: RunTrialOptions): Promise<TrialResult> {
+async function runTrial(host: Host, sandbox: Sandbox, trial: Trial, options: RunTrialOptions): Promise<TrialResult> {
   logger.info('Running trial treatment: %s (%s)', trial.treatment.name, trial.id)
 
   const {artifactsDirectory, copilotToken} = options
@@ -160,15 +187,93 @@ async function runTrial(sandbox: Sandbox, trial: Trial, options: RunTrialOptions
     throw new Error(`Failed to parse test results: ${testResults.error}`)
   }
 
+  const WALKTHROUGH_DIR = 'walkthrough'
+  const WALKTHROUGH_VIEWPORT_WIDTH = 1440
+  const WALKTHROUGH_VIEWPORT_HEIGHT = 900
+
+  const artifactDirectory = path.join(artifactsDirectory, trial.id)
+  const workspaceDirectory = path.join(artifactDirectory, 'workspace')
+  const walkthroughPath = path.join(artifactDirectory, 'walkthrough')
+  const copilotConfigDirectory = path.join(artifactDirectory, '.copilot')
+  const skillsConfigDirectory = path.join(artifactDirectory, '.agents')
+  const testResultsPath = path.join(workspaceDirectory, 'test-results.json')
+
+  if (host.existsSync(artifactDirectory)) {
+    await host.fs.rm(artifactDirectory, {recursive: true, force: true})
+  }
+  await host.fs.mkdir(workspaceDirectory, {recursive: true})
+
+  logger.info('Downloading agent workspace to: %s...', workspaceDirectory)
+  await sandbox.download(CONTAINER_WORKDIR, workspaceDirectory, {
+    ignore(name) {
+      return name.includes('node_modules') || name.includes('.next') || name.includes('dist')
+    },
+  })
+
+  logger.info('Downloading copilot config to: %s...', copilotConfigDirectory)
+  await sandbox.download(COPILOT_DIR, copilotConfigDirectory)
+
+  logger.info('Downloading skills config to: %s...', skillsConfigDirectory)
+  await sandbox.download(AGENTS_DIR, skillsConfigDirectory)
+
+  let walkthrough: Walkthrough = {
+    type: 'Unavailable',
+  }
+
+  if (host.existsSync(path.join(workspaceDirectory, WALKTHROUGH_DIR))) {
+    logger.info(
+      'Moving walkthrough artifacts from: %s to: %s...',
+      path.join(workspaceDirectory, WALKTHROUGH_DIR),
+      walkthroughPath,
+    )
+    await host.fs.mkdir(walkthroughPath, {recursive: true})
+    await host.fs.rename(path.join(workspaceDirectory, WALKTHROUGH_DIR), walkthroughPath)
+
+    if (host.existsSync(path.join(walkthroughPath, 'screenshot.png'))) {
+      walkthrough = {
+        type: 'Screenshot',
+        filepath: path.join(walkthroughPath, 'screenshot.png'),
+      }
+    } else if (host.existsSync(path.join(walkthroughPath, 'walkthrough.webm'))) {
+      walkthrough = {
+        type: 'Video',
+        filepath: path.join(walkthroughPath, 'walkthrough.webm'),
+      }
+    } else if (host.existsSync(path.join(walkthroughPath, 'screenshots'))) {
+      const screenshotsDir = path.join(walkthroughPath, 'screenshots')
+      const entries = await host.fs.readdir(screenshotsDir).then(filenames => {
+        return filenames.toSorted((a, b) => a.localeCompare(b, undefined, {numeric: true}))
+      })
+      const screenshots = entries.filter(entry => {
+        return IMAGE_EXTENSIONS.has(path.extname(entry).toLowerCase())
+      })
+      if (screenshots.length > 0) {
+        walkthrough = {
+          type: 'Screenshots',
+          screenshots: screenshots.map(screenshot => path.join(screenshotsDir, screenshot)),
+        }
+      }
+    }
+  }
+
   return {
+    artifacts: {
+      directory: artifactDirectory,
+      copilotConfigDirectory,
+      skillsConfigDirectory,
+      testResultsPath,
+      workspaceDirectory,
+    },
     trial,
     assistant: {
-      sessions: [messages],
+      sessions: [
+        {
+          messages,
+        },
+      ],
     },
     testResults: testResults.data,
-    walkthrough: {
-      type: 'Unavailable',
-    },
+    walkthrough,
   }
 }
 

@@ -1,15 +1,9 @@
 import path from 'node:path'
 import {VirtualHost, type Host} from '../host'
 import {resolveContainerPath} from './path'
-import type {CommandResult, CopyOptions, DownloadOptions, RunOptions, Sandbox, SandboxCreateOptions} from './types'
+import type {CommandResult, CopyOptions, DownloadOptions, Sandbox, SandboxCreateOptions} from './types'
 
 const defaultCreateOptions: SandboxCreateOptions = {}
-
-type CommandListener = (
-  command: string,
-  args?: Array<string>,
-  options?: RunOptions,
-) => CommandResult | Promise<CommandResult | undefined> | undefined
 
 export class VirtualSandbox implements Sandbox {
   static async create(options: SandboxCreateOptions = defaultCreateOptions) {
@@ -21,8 +15,6 @@ export class VirtualSandbox implements Sandbox {
   }
 
   #host: Host
-  #commandListeners: Set<CommandListener> = new Set()
-  #commands: Array<[command: string, args: Array<string>, options: RunOptions, result: CommandResult]> = []
 
   constructor(host: Host) {
     this.#host = host
@@ -101,23 +93,12 @@ export class VirtualSandbox implements Sandbox {
     }
   }
 
-  async runCommand(command: string, args: Array<string> = [], options: RunOptions = {}): Promise<CommandResult> {
-    for (const listener of this.#commandListeners) {
-      const result = await listener(command, args, options)
-      if (result) {
-        this.#commands.push([command, args, options, result])
-        return result
-      }
-    }
-
-    const result: CommandResult = {
+  async runCommand(): Promise<CommandResult> {
+    return {
       stdout: '',
       stderr: '',
       exitCode: 0,
     }
-    this.#commands.push([command, args, options, result])
-
-    return result
   }
 
   async addAgentInstruction(): Promise<void> {}
@@ -129,10 +110,6 @@ export class VirtualSandbox implements Sandbox {
   async addMcpServer(): Promise<void> {}
 
   async addCopilotPlugin(): Promise<void> {}
-
-  addCommandListener(listener: CommandListener): void {
-    this.#commandListeners.add(listener)
-  }
 }
 
 async function copyPath(

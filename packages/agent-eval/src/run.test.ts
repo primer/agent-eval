@@ -1,44 +1,31 @@
-import {test, expect, vi} from 'vitest'
-import {run, runTrial} from './run'
-import {plan} from './plan'
-import {VirtualHost} from './host'
-import {VirtualSandbox} from './sandbox'
+import {expect, test, vi} from 'vitest'
+import {runTrial} from './run'
+import {NODE_USER, VirtualSandbox} from './sandbox'
 
 test('runTrial', async () => {
-  const host = VirtualHost.create({
-    '/test': {
-      'scenario.test.ts': '',
-    },
-  })
-  await using sandbox = await VirtualSandbox.create({
-    host,
-  })
-
-  sandbox.addCommandListener(async (cmd, args) => {
-    if (cmd !== 'sh') {
-      return
+  await using sandbox = await VirtualSandbox.create()
+  vi.spyOn(sandbox, 'copy').mockResolvedValue()
+  const runCommand = vi.spyOn(sandbox, 'runCommand').mockImplementation(async command => {
+    if (command === 'sh') {
+      await sandbox.writeFile(
+        'test-results.json',
+        JSON.stringify({
+          numTotalTests: 0,
+          numPassedTests: 0,
+          numFailedTests: 0,
+          numPendingTests: 0,
+          numTodoTests: 0,
+          success: true,
+          testResults: [],
+        }),
+      )
     }
 
-    if (!Array.isArray(args)) {
-      return
+    return {
+      stdout: '',
+      stderr: '',
+      exitCode: 0,
     }
-
-    if (args[0] !== '-c' || !args[1].startsWith('npx vitest run')) {
-      return
-    }
-
-    await sandbox.writeFile(
-      'test-results.json',
-      JSON.stringify({
-        numTotalTests: 0,
-        numPassedTests: 0,
-        numFailedTests: 0,
-        numPendingTests: 0,
-        numTodoTests: 0,
-        success: true,
-        testResults: [],
-      }),
-    )
   })
 
   const result = await runTrial(
@@ -65,4 +52,16 @@ test('runTrial', async () => {
       copilotToken: '',
     },
   )
+
+  expect(runCommand).toHaveBeenCalledWith(
+    'copilot',
+    ['--prompt', 'test', '--model', 'gpt-5.6-sol', '--reasoning-effort', 'medium'],
+    {
+      user: NODE_USER,
+      env: {
+        COPILOT_GITHUB_TOKEN: '',
+      },
+    },
+  )
+  expect(result.assistant.sessions).toEqual([[]])
 })

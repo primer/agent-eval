@@ -1,5 +1,5 @@
 import path from 'node:path'
-import {describe, expect, test, vi} from 'vitest'
+import {describe, expect, test} from 'vitest'
 import {VirtualHost} from '../host'
 import {CONTAINER_WORKDIR} from './constants'
 import {VirtualSandbox} from './virtual'
@@ -81,28 +81,5 @@ describe('VirtualSandbox', () => {
     await sandbox.download('./nested/../result.txt', '/download')
 
     expect(await host.fs.readFile('/download/result.txt', 'utf8')).toBe('result')
-  })
-
-  test('uses asynchronous command listeners', async () => {
-    const sandbox = await VirtualSandbox.create()
-    const listener = vi.fn().mockResolvedValue({
-      stdout: 'installed',
-      stderr: '',
-      exitCode: 0,
-    })
-    sandbox.addCommandListener(listener)
-
-    const result = await sandbox.runCommand('npm', ['install'], {
-      user: '1000:1000',
-    })
-
-    expect(listener).toHaveBeenCalledWith('npm', ['install'], {
-      user: '1000:1000',
-    })
-    expect(result).toEqual({
-      stdout: 'installed',
-      stderr: '',
-      exitCode: 0,
-    })
   })
 })

@@ -1,6 +1,6 @@
 import path from 'node:path'
 import * as z from 'zod/mini'
-import {ModelVariantConfigSchema, type ModelVariant, type ModelVariantConfig} from './model'
+import {getModelVariants, ModelVariantConfigSchema, type ModelVariant} from './model'
 import {getScenario, type Scenario} from './scenario'
 import {ControlTreatment, TreatmentSchema, TreatmentSetupSchema, type Treatment, type TreatmentSetup} from './treatment'
 import {DefaultHost, type Host} from './host'
@@ -14,7 +14,7 @@ import {randomUUID} from 'node:crypto'
 const ExperimentConfigSchema = z.object({
   name: z.string(),
   description: z.string(),
-  models: z.array(ModelVariantConfigSchema),
+  models: ModelVariantConfigSchema,
   scenarios: z.array(z.string()),
   setup: z.optional(TreatmentSetupSchema),
   treatments: z.array(TreatmentSchema),
@@ -99,8 +99,12 @@ async function listExperiments({
     const experiment: Experiment = {
       id,
       filepath,
-      ...config,
+      name: config.name,
+      description: config.description,
+      models: getModelVariants(config.models),
       scenarios,
+      setup: config.setup,
+      treatments: config.treatments,
     }
     experiments.push(experiment)
   }
@@ -167,9 +171,8 @@ async function run({env, host = DefaultHost, id}: {env: EnvironmentConfig; host?
     host,
     plan,
   })
-  console.log(results)
 
-  // throw new Error('unimplemented')
+  return results
 }
 
 export {defineConfig, listExperiments, getExperiment, ExperimentConfigSchema, run}

@@ -80,9 +80,12 @@ async function run({
           await using sandbox = await host.createSandbox({
             dockerImage: env.dockerImage,
           })
-          return runTrial(host, sandbox, trial, {
+          return await runTrial({
             artifactsDirectory: env.artifactsDirectory,
             copilotToken: env.copilotToken,
+            host,
+            sandbox,
+            trial,
           })
         })
       })
@@ -92,15 +95,20 @@ async function run({
   return results
 }
 
-type RunTrialOptions = {
+async function runTrial({
+  artifactsDirectory,
+  copilotToken,
+  host = DefaultHost,
+  sandbox,
+  trial,
+}: {
   artifactsDirectory: string
   copilotToken: string
-}
-
-async function runTrial(host: Host, sandbox: Sandbox, trial: Trial, options: RunTrialOptions): Promise<TrialResult> {
+  host?: Host
+  sandbox: Sandbox
+  trial: Trial
+}): Promise<TrialResult> {
   logger.info('Running trial treatment: %s (%s)', trial.treatment.name, trial.id)
-
-  const {artifactsDirectory, copilotToken} = options
 
   logger.info('Copying files from: %s...', trial.scenario.directory)
 
@@ -111,44 +119,55 @@ async function runTrial(host: Host, sandbox: Sandbox, trial: Trial, options: Run
     user: 'root',
   })
 
-  logger.info('Obfuscating package name...')
+  logger.info('[%s] Obfuscating package name...', trial.treatment.name)
   await sandbox.runCommand('npm', ['pkg', 'set', `name=${trial.id}`], {
     user: NODE_USER,
   })
 
-  logger.info('Removing workspace dependency...')
+  logger.info('[%s] Removing workspace dependency...', trial.treatment.name)
   await sandbox.runCommand('npm', ['pkg', 'delete', 'devDependencies.@primer/agent-eval'], {
     user: NODE_USER,
   })
 
-  logger.info('Installing dependencies...')
+  logger.info('[%s] Installing dependencies...', trial.treatment.name)
   await sandbox.runCommand('npm', ['install'], {
     user: NODE_USER,
   })
 
   if (trial.setup) {
-    logger.info('Running generic setup...')
+    logger.info('[%s] Running generic setup...', trial.treatment.name)
     await trial.setup({
       sandbox,
     })
   }
 
   if (trial.treatment.setup) {
-    logger.info('Running treatment setup...')
+    logger.info('[%s] Running treatment setup...', trial.treatment.name)
     await trial.treatment.setup({
       sandbox,
     })
   }
 
-  logger.info('Run build script...')
+  logger.info('[%s] Run build script...', trial.treatment.name)
   await sandbox.runCommand('npm', ['run', 'build', '--if-present'], {
     user: NODE_USER,
   })
 
-  logger.info('Running copilot...')
+  logger.info('[%s] Running copilot...', trial.treatment.name)
   const copilotOutput = await sandbox.runCommand(
     'copilot',
-    ['--prompt', trial.scenario.prompt, '--model', trial.model.name, '--reasoning-effort', trial.model.reasoningEffort],
+    [
+      '--prompt',
+      trial.scenario.prompt,
+      '--model',
+      trial.model.name,
+      '--reasoning-effort',
+      trial.model.reasoningEffort,
+      '--mode',
+      'autopilot',
+      '--output-format',
+      'json',
+    ],
     {
       user: NODE_USER,
       env: {
@@ -164,7 +183,7 @@ async function runTrial(host: Host, sandbox: Sandbox, trial: Trial, options: Run
     return parseMessage(JSON.parse(trimmed))
   })
 
-  logger.info('Running tests...')
+  logger.info('[%s] Running tests...', trial.treatment.name)
 
   const TEST_PATH = 'scenario.test.ts'
   const VITEST_CONFIG_PATH = 'vitest.agent-eval.config.ts'
@@ -190,6 +209,63 @@ async function runTrial(host: Host, sandbox: Sandbox, trial: Trial, options: Run
   const WALKTHROUGH_DIR = 'walkthrough'
   const WALKTHROUGH_VIEWPORT_WIDTH = 1440
   const WALKTHROUGH_VIEWPORT_HEIGHT = 900
+  console.log('Capturing walkthrough...')
+  await sandbox.runCommand('apt-get', ['install', '-y', 'chromium'], {
+    user: 'root',
+  })
+  await sandbox.runCommand('npm', ['install', '-g', '--allow-scripts=agent-browser', 'agent-browser'], {
+    user: NODE_USER,
+  })
+  await sandbox.runCommand(
+    'npx',
+    ['skills', 'add', 'vercel-labs/agent-browser', '--yes', '--skill', '*', '--global', '--agent', 'github-copilot'],
+    {
+      user: NODE_USER,
+    },
+  )
+  await sandbox.writeFile(
+    'agent-browser.json',
+    JSON.stringify({
+      executablePath: CHROMIUM_EXECUTABLE_PATH,
+    }),
+  )
+  const walkthroughPrompt = `Record a visual walkthrough of what you implemented so a reviewer can see it without running the code themselves.
+
+Figure out how to start this project's server (for example by checking package.json scripts or the README) and run it in the background. Use the agent-browser CLI (already installed) to open the running app and set the browser viewport to ${WALKTHROUGH_VIEWPORT_WIDTH}x${WALKTHROUGH_VIEWPORT_HEIGHT} before capturing anything.
+
+Save the result inside a "${WALKTHROUGH_DIR}" directory (create it if it doesn't exist) at the root of the project:
+
+- If what you built is a single screen, take one screenshot and save it as ${WALKTHROUGH_DIR}/screenshot.png.
+- If there are a few distinct views worth showing (for example separate pages or states), take a screenshot of each, in the order a reviewer should look at them, saved as ${WALKTHROUGH_DIR}/screenshots/01.png, ${WALKTHROUGH_DIR}/screenshots/02.png, etc.
+- If reviewing the change requires seeing an interactive flow across multiple steps or pages, record a short video of yourself clicking through it instead and save it as ${WALKTHROUGH_DIR}/walkthrough.webm.
+
+Only capture the walkthrough, do not make any further code changes.`
+  const walkthroughResult = await sandbox.runCommand(
+    'copilot',
+    [
+      '--prompt',
+      walkthroughPrompt,
+      '--model',
+      'gpt-5.6-terra',
+      '--reasoning-effort',
+      'medium',
+      '--mode',
+      'autopilot',
+      '--output-format',
+      'json',
+    ],
+    {
+      user: NODE_USER,
+      env: {
+        COPILOT_GITHUB_TOKEN: copilotToken,
+      },
+      allowNonZeroExitCode: true,
+    },
+  )
+
+  if (walkthroughResult.exitCode !== 0) {
+    logger.warn('[%s] Unable to capture walkthrough: %s', trial.treatment.name, walkthroughResult.stderr)
+  }
 
   const artifactDirectory = path.join(artifactsDirectory, trial.id)
   const workspaceDirectory = path.join(artifactDirectory, 'workspace')
@@ -203,17 +279,19 @@ async function runTrial(host: Host, sandbox: Sandbox, trial: Trial, options: Run
   }
   await host.fs.mkdir(workspaceDirectory, {recursive: true})
 
-  logger.info('Downloading agent workspace to: %s...', workspaceDirectory)
+  logger.info('[%s] Downloading artifacts to: %s...', trial.treatment.name, artifactDirectory)
+
+  logger.debug('[%s] Downloading agent workspace to: %s...', trial.treatment.name, workspaceDirectory)
   await sandbox.download(CONTAINER_WORKDIR, workspaceDirectory, {
     ignore(name) {
       return name.includes('node_modules') || name.includes('.next') || name.includes('dist')
     },
   })
 
-  logger.info('Downloading copilot config to: %s...', copilotConfigDirectory)
+  logger.debug('[%s] Downloading copilot config to: %s...', trial.treatment.name, copilotConfigDirectory)
   await sandbox.download(COPILOT_DIR, copilotConfigDirectory)
 
-  logger.info('Downloading skills config to: %s...', skillsConfigDirectory)
+  logger.debug('[%s] Downloading skills config to: %s...', trial.treatment.name, skillsConfigDirectory)
   await sandbox.download(AGENTS_DIR, skillsConfigDirectory)
 
   let walkthrough: Walkthrough = {
@@ -221,8 +299,9 @@ async function runTrial(host: Host, sandbox: Sandbox, trial: Trial, options: Run
   }
 
   if (host.existsSync(path.join(workspaceDirectory, WALKTHROUGH_DIR))) {
-    logger.info(
-      'Moving walkthrough artifacts from: %s to: %s...',
+    logger.debug(
+      '[%s] Moving walkthrough artifacts from: %s to: %s...',
+      trial.treatment.name,
       path.join(workspaceDirectory, WALKTHROUGH_DIR),
       walkthroughPath,
     )

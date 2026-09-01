@@ -1,6 +1,5 @@
 import {randomUUID} from 'node:crypto'
 import path from 'node:path'
-import {Writable} from 'node:stream'
 import {pipeline} from 'node:stream/promises'
 import Docker from 'dockerode'
 import tarFs from 'tar-fs'
@@ -44,6 +43,7 @@ import {DefaultHost, type Host} from '../host'
 import {VirtualSandbox} from './virtual'
 import {resolveContainerPath} from './path'
 import {logger} from '../logger'
+import {createCapturedStream} from './captured-stream'
 
 const COPILOT_CLI_VERSION = '1.0.80'
 const NPM_VERSION = '12.0.2'
@@ -336,7 +336,7 @@ async function createContainer(docker: Docker, dockerImage: string): Promise<Ini
 
   await container.start()
 
-  logger.info('Creating workspace directory...')
+  logger.debug('Creating workspace directory...')
   await execCommand(docker, container, 'mkdir', ['-p', CONTAINER_WORKDIR], {
     user: 'root',
   })
@@ -344,7 +344,7 @@ async function createContainer(docker: Docker, dockerImage: string): Promise<Ini
     user: 'root',
   })
 
-  logger.info('Installing CA certificates...')
+  logger.debug('Installing CA certificates...')
   await execCommand(docker, container, 'apt-get', ['update'], {
     user: 'root',
   })
@@ -361,7 +361,7 @@ async function createContainer(docker: Docker, dockerImage: string): Promise<Ini
     user: 'root',
   })
 
-  logger.info('Installing npm...')
+  logger.debug('Installing npm...')
   await execCommand(docker, container, 'npm', ['install', '--global', `npm@${NPM_VERSION}`], {
     user: 'root',
   })
@@ -372,7 +372,7 @@ async function createContainer(docker: Docker, dockerImage: string): Promise<Ini
     throw new Error(`Expected npm ${NPM_VERSION}, received ${npmVersion.stdout.trim()}`)
   }
 
-  logger.info('Setting up npm for non-root global installs')
+  logger.debug('Setting up npm for non-root global installs')
   await execCommand(docker, container, 'mkdir', ['-p', NPM_GLOBAL_DIR], {
     user: 'root',
   })
@@ -383,7 +383,7 @@ async function createContainer(docker: Docker, dockerImage: string): Promise<Ini
     user: NODE_USER,
   })
 
-  logger.info('Setting up copilot...')
+  logger.debug('Setting up copilot...')
   await execCommand(docker, container, 'mkdir', ['-p', COPILOT_DIR], {
     user: 'root',
   })
@@ -400,7 +400,7 @@ async function createContainer(docker: Docker, dockerImage: string): Promise<Ini
     user: NODE_USER,
   })
 
-  logger.info('Setting up agents config...')
+  logger.debug('Setting up agents config...')
   await execCommand(docker, container, 'mkdir', ['-p', AGENTS_DIR], {
     user: 'root',
   })
@@ -631,13 +631,20 @@ async function execCommand(
   })
 
   return new Promise((resolve, reject) => {
-    const stdout = captureStream(process.stdout)
-    const stderr = captureStream(process.stderr)
+    const stdout = createCapturedStream(line => {
+      logger.debug('[sandbox]: %s', line)
+    })
+    const stderr = createCapturedStream(line => {
+      logger.debug('[sandbox]: %s', line)
+    })
 
     docker.modem.demuxStream(stream, stdout.stream, stderr.stream)
 
     stream.on('end', async () => {
       try {
+        stdout.flush()
+        stderr.flush()
+
         const inspectInfo = await exec.inspect()
         const exitCode = inspectInfo.ExitCode ?? 0
         const result = {
@@ -656,27 +663,12 @@ async function execCommand(
         reject(error)
       }
     })
-    stream.on('error', reject)
+    stream.on('error', error => {
+      stdout.flush()
+      stderr.flush()
+      reject(error)
+    })
   })
-}
-
-function captureStream(destination: NodeJS.WritableStream): {stream: Writable; read(): string} {
-  const chunks: Array<Buffer> = []
-  const stream = new Writable({
-    write(chunk: Buffer | string, encoding, callback) {
-      const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk, encoding)
-      chunks.push(buffer)
-      destination.write(buffer)
-      callback()
-    },
-  })
-
-  return {
-    stream,
-    read() {
-      return Buffer.concat(chunks).toString('utf8')
-    },
-  }
 }
 
 const SandboxSchema = z.custom<Sandbox>(value => {

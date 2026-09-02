@@ -15,7 +15,7 @@ const PlanSchema = z.object({
 type Plan = z.infer<typeof PlanSchema>
 
 // TODO: support plan with sharding
-async function createPlan(trials: Array<Trial>): Promise<Plan> {
+async function create(trials: Array<Trial>): Promise<Plan> {
   return {
     trials: randomize(trials),
   }
@@ -78,5 +78,5 @@ async function retry<T>(fn: () => Promise<T>, retries: number = 3): Promise<T> {
   }
 }
 
-export {createPlan, run}
+export {create, run}
 export type {Plan}

@@ -59,8 +59,11 @@ class VirtualHost implements Host {
     return await import(dataUri)
   }
 
-  crateSandbox(options?: SandboxCreateOptions): Promise<Sandbox> {
-    return VirtualSandbox.create(options)
+  createSandbox(options?: SandboxCreateOptions): Promise<Sandbox> {
+    return VirtualSandbox.create({
+      host: this,
+      ...options,
+    })
   }
 }
 

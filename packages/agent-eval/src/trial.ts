@@ -175,7 +175,7 @@ async function run({
   const WALKTHROUGH_DIR = 'walkthrough'
   const WALKTHROUGH_VIEWPORT_WIDTH = 1440
   const WALKTHROUGH_VIEWPORT_HEIGHT = 900
-  console.log('Capturing walkthrough...')
+  logger.debug('Capturing walkthrough...')
   await sandbox.runCommand('apt-get', ['install', '-y', 'chromium'], {
     user: 'root',
   })

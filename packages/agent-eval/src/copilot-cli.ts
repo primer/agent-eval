@@ -298,6 +298,8 @@ const ResultMessageSchema = z.object({
   }),
 })
 
+type ResultMessage = z.infer<typeof ResultMessageSchema>
+
 const KnownMessageSchema = z.discriminatedUnion('type', [
   SessionMcpServerStatusChangedMessageSchema,
   SessionMcpServersLoadedMessageSchema,
@@ -390,4 +392,4 @@ export {
   isMessageType,
   parseMessage,
 }
-export type {KnownMessage, Message, UnknownMessage, UnknownMessageType}
+export type {KnownMessage, Message, ResultMessage, UnknownMessage, UnknownMessageType}

@@ -6,8 +6,7 @@ import {ControlTreatment, TreatmentSchema, TreatmentSetupSchema, type Treatment,
 import {DefaultHost, type Host} from './host'
 import type {EnvironmentConfig} from './environment'
 import {logger} from './logger'
-import {createPlan} from './plan'
-import {run as runTrials} from './run'
+import {create as createPlan, run as runPlan} from './plan'
 import type {Trial} from './trial'
 import {randomUUID} from 'node:crypto'
 
@@ -166,7 +165,7 @@ async function run({env, host = DefaultHost, id}: {env: EnvironmentConfig; host?
     })
   })
   const plan = await createPlan(trials)
-  const results = await runTrials({
+  const results = await runPlan({
     env,
     host,
     plan,

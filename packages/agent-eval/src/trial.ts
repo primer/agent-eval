@@ -78,7 +78,7 @@ async function run({
   logger.info('Copying files from: %s...', trial.scenario.directory)
 
   await sandbox.copy(trial.scenario.directory, CONTAINER_WORKDIR, {
-    exclude: ['scenario.config.ts', 'scenario.test.ts', 'scenario.browser.test.ts', 'node_modules', '.next'],
+    exclude: ['scenario.config.ts', 'scenario.test.ts', 'scenario.browser.test.ts', 'node_modules', '.next', 'dist'],
   })
   await sandbox.runCommand('chown', ['-R', NODE_USER, '.'], {
     user: 'root',

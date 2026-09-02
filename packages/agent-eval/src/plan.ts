@@ -1,6 +1,9 @@
+import Queue from 'p-queue'
 import * as z from 'zod/mini'
-import {TrialSchema} from './trial'
-import type {Trial} from './trial'
+import {TrialSchema, run as runTrial} from './trial'
+import type {Trial, TrialResult} from './trial'
+import type {EnvironmentConfig} from './environment'
+import {DefaultHost, type Host} from './host'
 
 const PlanSchema = z.object({
   trials: z.array(TrialSchema),
@@ -30,5 +33,50 @@ function randomize<T>(input: Array<T>): Array<T> {
   return randomized
 }
 
-export {createPlan}
+type RunPlanOptions = {
+  env: EnvironmentConfig
+  host?: Host
+  plan: Plan
+}
+
+async function run({env, host = DefaultHost, plan}: RunPlanOptions): Promise<Array<TrialResult>> {
+  const queue = new Queue({
+    concurrency: env.concurrency,
+  })
+
+  const results = await Promise.all(
+    plan.trials.map(trial => {
+      return queue.add(() => {
+        return retry(async () => {
+          await using sandbox = await host.createSandbox({
+            dockerImage: env.dockerImage,
+          })
+          return await runTrial({
+            artifactsDirectory: env.artifactsDirectory,
+            copilotToken: env.copilotToken,
+            host,
+            sandbox,
+            trial,
+          })
+        })
+      })
+    }),
+  )
+
+  return results
+}
+
+async function retry<T>(fn: () => Promise<T>, retries: number = 3): Promise<T> {
+  try {
+    return await fn()
+  } catch (error) {
+    if (retries > 0) {
+      console.log('Retrying after error: %s', error)
+      return retry(fn, retries - 1)
+    }
+    throw error
+  }
+}
+
+export {createPlan, run}
 export type {Plan}

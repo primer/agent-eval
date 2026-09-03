@@ -19,12 +19,20 @@ type EnvironmentOptions = {
   copilotToken: string
   dockerImage?: string
   experimentsDirectory?: string
+  outputDirectory?: string
   outputPath?: string
   scenariosDirectory?: string
 }
 
 function getEnvironmentConfig(options: EnvironmentOptions): EnvironmentConfig {
-  const artifactsDirectory = path.resolve(options.artifactsDirectory ?? 'artifacts')
+  if (options.outputDirectory && (options.artifactsDirectory || options.outputPath)) {
+    throw new Error('--output-dir cannot be combined with --artifacts or --output')
+  }
+
+  const outputDirectory = options.outputDirectory ? path.resolve(options.outputDirectory) : undefined
+  const artifactsDirectory = outputDirectory
+    ? path.join(outputDirectory, 'artifacts')
+    : path.resolve(options.artifactsDirectory ?? 'artifacts')
   const benchmarksDirectory = path.resolve(options.benchmarksDirectory ?? 'benchmarks')
   const parsedConcurrency = options.concurrency ? parseInt(options.concurrency, 10) : 1
   const concurrency =
@@ -32,7 +40,9 @@ function getEnvironmentConfig(options: EnvironmentOptions): EnvironmentConfig {
       ? parsedConcurrency
       : 1
   const experimentsDirectory = path.resolve(options.experimentsDirectory ?? 'experiments')
-  const outputPath = path.resolve(options.outputPath ?? 'output.json')
+  const outputPath = outputDirectory
+    ? path.join(outputDirectory, 'output.json')
+    : path.resolve(options.outputPath ?? 'output.json')
   const scenariosDirectory = path.resolve(options.scenariosDirectory ?? 'scenarios')
 
   return {

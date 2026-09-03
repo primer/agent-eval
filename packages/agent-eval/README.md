@@ -128,6 +128,29 @@ experiment. The experiments directory defaults to `./experiments`. Use
 `--scenarios` to set the directory containing scenario directories; it defaults
 to `./scenarios`.
 
+### Result bundles
+
+Keep the output file and artifacts in one directory so results can be moved
+between machines without rewriting paths:
+
+```text
+run/
+├── output.json
+└── artifacts/
+```
+
+```sh
+agent-eval \
+  --experiment example \
+  --output-dir run
+```
+
+Artifact and walkthrough references written by the CLI are relative to the
+directory containing `output.json`. Upload or download the complete `run`
+directory to preserve those references. `--output-dir` creates `output.json`
+and `artifacts/` within the selected directory. Use the existing `--output` and
+`--artifacts` options separately when a custom layout is required.
+
 ## Scenario config authoring
 
 Use `defineScenario` from `@primer/agent-eval/scenario` in each

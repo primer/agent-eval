@@ -64,6 +64,44 @@ const TrialResultSchema = z.object({
 
 type TrialResult = z.infer<typeof TrialResultSchema>
 
+type PortableTrialPaths = Pick<TrialResult, 'artifacts' | 'walkthrough'>
+
+function getPortableTrialPaths(result: TrialResult, baseDirectory: string): PortableTrialPaths {
+  const toPortablePath = (filepath: string): string => {
+    if (!path.isAbsolute(filepath)) {
+      return filepath.split(path.sep).join(path.posix.sep)
+    }
+
+    return path.relative(baseDirectory, filepath).split(path.sep).join(path.posix.sep)
+  }
+
+  let walkthrough: Walkthrough
+  if (result.walkthrough.type === 'Screenshots') {
+    walkthrough = {
+      type: 'Screenshots',
+      screenshots: result.walkthrough.screenshots.map(toPortablePath),
+    }
+  } else if (result.walkthrough.type === 'Screenshot' || result.walkthrough.type === 'Video') {
+    walkthrough = {
+      ...result.walkthrough,
+      filepath: toPortablePath(result.walkthrough.filepath),
+    }
+  } else {
+    walkthrough = result.walkthrough
+  }
+
+  return {
+    artifacts: {
+      directory: toPortablePath(result.artifacts.directory),
+      copilotConfigDirectory: toPortablePath(result.artifacts.copilotConfigDirectory),
+      skillsConfigDirectory: toPortablePath(result.artifacts.skillsConfigDirectory),
+      testResultsPath: toPortablePath(result.artifacts.testResultsPath),
+      workspaceDirectory: toPortablePath(result.artifacts.workspaceDirectory),
+    },
+    walkthrough,
+  }
+}
+
 async function run({
   artifactsDirectory,
   copilotToken,
@@ -414,5 +452,14 @@ function compare(a: CompareTrialResult, b: CompareTrialResult): number {
   )
 }
 
-export {TrialSchema, TrialResultSchema, TrialArtifactsSchema, TrialAgentSchema, WalkthroughSchema, run, compare}
+export {
+  TrialSchema,
+  TrialResultSchema,
+  TrialArtifactsSchema,
+  TrialAgentSchema,
+  WalkthroughSchema,
+  run,
+  compare,
+  getPortableTrialPaths,
+}
 export type {Trial, TrialResult}

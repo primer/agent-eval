@@ -45,6 +45,42 @@ describe('getEnvironmentConfig', () => {
     })
   })
 
+  test('derives the output and artifacts paths from an output directory', () => {
+    expect(
+      getEnvironmentConfig({
+        copilotToken: 'token',
+        outputDirectory: './results/run',
+      }),
+    ).toEqual({
+      artifactsDirectory: path.resolve('results/run/artifacts'),
+      benchmarksDirectory: path.resolve('benchmarks'),
+      concurrency: 1,
+      copilotToken: 'token',
+      dockerImage: DEFAULT_DOCKER_IMAGE,
+      experimentsDirectory: path.resolve('experiments'),
+      outputPath: path.resolve('results/run/output.json'),
+      scenariosDirectory: path.resolve('scenarios'),
+    })
+  })
+
+  test('rejects output directory combinations with explicit output paths', () => {
+    expect(() => {
+      getEnvironmentConfig({
+        artifactsDirectory: './artifacts',
+        copilotToken: 'token',
+        outputDirectory: './results/run',
+      })
+    }).toThrow('--output-dir cannot be combined with --artifacts or --output')
+
+    expect(() => {
+      getEnvironmentConfig({
+        copilotToken: 'token',
+        outputDirectory: './results/run',
+        outputPath: './output.json',
+      })
+    }).toThrow('--output-dir cannot be combined with --artifacts or --output')
+  })
+
   test.each(['0', '-1', 'invalid', '1.5'])('falls back to one for invalid concurrency %s', concurrency => {
     expect(
       getEnvironmentConfig({

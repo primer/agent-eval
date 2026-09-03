@@ -4,16 +4,18 @@ import * as z from 'zod/mini'
 import type {EnvironmentConfig} from './environment'
 import {DefaultHost, type Host} from './host'
 import {logger} from './logger'
-import {
-  getModelVariants,
-  ModelVariantConfigSchema,
-  ModelVariantSchema,
-  type ModelVariant,
-} from './model'
+import {getModelVariants, ModelVariantConfigSchema, ModelVariantSchema, type ModelVariant} from './model'
 import {create as createPlan, run as runPlan} from './plan'
 import {getScenario, ScenarioSchema, type Scenario} from './scenario'
 import {ControlTreatment, TreatmentSchema, TreatmentSetupSchema, type TreatmentSetup} from './treatment'
-import {TrialAgentSchema, TrialArtifactsSchema, WalkthroughSchema, type Trial, type TrialResult} from './trial'
+import {
+  getPortableTrialPaths,
+  TrialAgentSchema,
+  TrialArtifactsSchema,
+  WalkthroughSchema,
+  type Trial,
+  type TrialResult,
+} from './trial'
 import {TestResultsSchema} from './vitest'
 
 const CapabilityConfigSchema = z.object({
@@ -271,7 +273,15 @@ type BenchmarkOutput = {
   trials: Map<string, z.infer<typeof BenchmarkTrialOutputSchema>>
 }
 
-function output(benchmarkId: string, trialResults: BenchmarkRunResult): BenchmarkOutput {
+type BenchmarkOutputOptions = {
+  baseDirectory?: string
+}
+
+function output(
+  benchmarkId: string,
+  trialResults: BenchmarkRunResult,
+  options: BenchmarkOutputOptions = {},
+): BenchmarkOutput {
   const result: BenchmarkOutput = {
     benchmarkId,
     capabilities: new Map(),
@@ -281,7 +291,10 @@ function output(benchmarkId: string, trialResults: BenchmarkRunResult): Benchmar
   }
 
   for (const trialResult of trialResults) {
-    const {artifacts, capability, trial} = trialResult
+    const {capability, trial} = trialResult
+    const {artifacts, walkthrough} = options.baseDirectory
+      ? getPortableTrialPaths(trialResult, options.baseDirectory)
+      : trialResult
 
     if (!result.capabilities.has(capability.name)) {
       result.capabilities.set(capability.name, {
@@ -307,7 +320,7 @@ function output(benchmarkId: string, trialResults: BenchmarkRunResult): Benchmar
       scenarioId: trial.scenario.id,
       testResults: trialResult.testResults,
       treatmentId: trial.treatment.name,
-      walkthrough: trialResult.walkthrough,
+      walkthrough,
     })
   }
 
@@ -338,4 +351,12 @@ function deserialize(input: unknown): BenchmarkOutput {
 }
 
 export {BenchmarkConfigSchema, defineConfig, deserialize, getBenchmark, listBenchmarks, output, run, serialize}
-export type {BenchmarkConfig, Benchmark, BenchmarkOutput, BenchmarkRunResult, BenchmarkTrialResult, Capability}
+export type {
+  BenchmarkConfig,
+  Benchmark,
+  BenchmarkOutput,
+  BenchmarkOutputOptions,
+  BenchmarkRunResult,
+  BenchmarkTrialResult,
+  Capability,
+}

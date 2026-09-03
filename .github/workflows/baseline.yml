@@ -50,14 +50,19 @@ jobs:
           RUN_DATE: ${{ needs.setup.outputs.run-date }}
           SHARD: ${{ matrix.order }}/${{ strategy.job-total }}
         run: script/run-baseline.sh
+      - name: prepare baseline artifact
+        if: ${{ always() }}
+        run: |
+          mkdir -p workflow-artifact
+          if [[ -d results ]]; then
+            mv results workflow-artifact/results
+          fi
       - name: upload baseline results
         if: ${{ always() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: baseline-shard-${{ github.run_id }}-${{ matrix.order }}
-          path: |
-            results
-            artifacts
+          path: workflow-artifact
           if-no-files-found: error
           retention-days: 1
           compression-level: 9
@@ -88,13 +93,15 @@ jobs:
               ]
           ' "$output_directory"/output-*.json > "$output_directory/output.json"
           rm "$output_directory"/output-*.json
+      - name: prepare baseline artifact
+        run: |
+          mkdir -p workflow-artifact
+          mv results workflow-artifact/results
       - name: upload baseline results
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: baseline-${{ github.run_id }}
-          path: |
-            results
-            artifacts
+          path: workflow-artifact
           if-no-files-found: error
           retention-days: 90
           compression-level: 9

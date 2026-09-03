@@ -1,5 +1,5 @@
 import type {Model, ReasoningEffort} from './model'
-import type {BenchmarkTrialResult} from './benchmark'
+import type {Benchmark, BenchmarkTrialResult} from './benchmark'
 import type {TrialResult} from './trial'
 
 type ResultSummary = {
@@ -41,6 +41,8 @@ type BenchmarkComparison = {
   benchmark: string
   capability: string
   scenario?: string
+  model?: Model
+  reasoningEffort?: ReasoningEffort<Model>
   control: ResultSummary
   benchmarkTreatment: ResultSummary
 }
@@ -234,12 +236,34 @@ function formatSummaryRow(summary: ResultSummary, level: 'treatment' | 'scenario
   }
 }
 
-function formatPercentagePointDifference(value: number): string {
-  const sign = value > 0 ? '+' : ''
-  return `${sign}${(value * 100).toFixed(1)} pp`
+function formatPercentDelta(control: number, benchmark: number): string {
+  if (control === 0) {
+    return benchmark === 0 ? '0.0%' : 'N/A'
+  }
+
+  const delta = (benchmark - control) / control
+  const sign = delta > 0 ? '+' : ''
+  return `${sign}${(delta * 100).toFixed(1)}%`
 }
 
-function getBenchmarkComparisons(benchmark: string, results: Array<BenchmarkTrialResult>): Array<BenchmarkComparison> {
+function formatBenchmarkValue(value: string, control: number, benchmark: number): string {
+  return `${value} (${formatPercentDelta(control, benchmark)})`
+}
+
+function compareBenchmarkModelPerformance(a: ResultSummary, b: ResultSummary): number {
+  return (
+    getSuccessRate(b) - getSuccessRate(a) ||
+    a.outputTokens - b.outputTokens ||
+    a.premiumRequests - b.premiumRequests ||
+    a.sessionDurationMs - b.sessionDurationMs ||
+    a.totalApiDurationMs - b.totalApiDurationMs
+  )
+}
+
+function getBenchmarkComparisons(
+  benchmark: Pick<Benchmark, 'name' | 'capabilities'>,
+  results: Array<BenchmarkTrialResult>,
+): Array<BenchmarkComparison> {
   const comparisons = new Map<string, BenchmarkComparison>()
 
   for (const result of results) {
@@ -252,13 +276,26 @@ function getBenchmarkComparisons(benchmark: string, results: Array<BenchmarkTria
         key: `${result.capability.name}\0${result.trial.scenario.id}`,
         scenario: result.trial.scenario.id,
       },
+      {
+        key: [
+          result.capability.name,
+          result.trial.scenario.id,
+          result.trial.model.name,
+          result.trial.model.reasoningEffort,
+        ].join('\0'),
+        scenario: result.trial.scenario.id,
+        model: result.trial.model.name,
+        reasoningEffort: result.trial.model.reasoningEffort,
+      },
     ]
 
     for (const value of values) {
       const comparison = comparisons.get(value.key) ?? {
-        benchmark,
+        benchmark: benchmark.name,
         capability: result.capability.name,
         scenario: value.scenario,
+        model: value.model,
+        reasoningEffort: value.reasoningEffort,
         control: createResultSummary(benchmark),
         benchmarkTreatment: createResultSummary(benchmark),
       }
@@ -268,41 +305,112 @@ function getBenchmarkComparisons(benchmark: string, results: Array<BenchmarkTria
     }
   }
 
+  const capabilityOrder = new Map(
+    benchmark.capabilities.map((capability, index) => {
+      return [capability.name, index]
+    }),
+  )
+  const scenarioOrder = new Map(
+    benchmark.capabilities.map(capability => {
+      return [
+        capability.name,
+        new Map(
+          capability.scenarios.map((scenario, index) => {
+            return [scenario.id, index]
+          }),
+        ),
+      ]
+    }),
+  )
+
   return [...comparisons.values()].toSorted((a, b) => {
+    const capabilityDifference =
+      (capabilityOrder.get(a.capability) ?? Number.MAX_SAFE_INTEGER) -
+      (capabilityOrder.get(b.capability) ?? Number.MAX_SAFE_INTEGER)
+    if (capabilityDifference !== 0) {
+      return capabilityDifference
+    }
+
+    const scenarioDifference =
+      Number(Boolean(a.scenario)) - Number(Boolean(b.scenario)) ||
+      (scenarioOrder.get(a.capability)?.get(a.scenario ?? '') ?? Number.MAX_SAFE_INTEGER) -
+        (scenarioOrder.get(b.capability)?.get(b.scenario ?? '') ?? Number.MAX_SAFE_INTEGER) ||
+      (a.scenario ?? '').localeCompare(b.scenario ?? '')
+    if (scenarioDifference !== 0) {
+      return scenarioDifference
+    }
+
+    const modelDifference = Number(Boolean(a.model)) - Number(Boolean(b.model))
+    if (modelDifference !== 0) {
+      return modelDifference
+    }
+
+    if (a.model && b.model) {
+      return (
+        compareBenchmarkModelPerformance(a.benchmarkTreatment, b.benchmarkTreatment) ||
+        a.model.localeCompare(b.model) ||
+        (a.reasoningEffort ?? '').localeCompare(b.reasoningEffort ?? '')
+      )
+    }
+
     return (
       a.capability.localeCompare(b.capability) ||
-      Number(Boolean(a.scenario)) - Number(Boolean(b.scenario)) ||
-      (a.scenario ?? '').localeCompare(b.scenario ?? '')
+      (a.scenario ?? '').localeCompare(b.scenario ?? '') ||
+      (a.model ?? '').localeCompare(b.model ?? '')
     )
   })
 }
 
 function formatBenchmarkComparison(comparison: BenchmarkComparison): TableRow {
-  const controlSuccessRate = getSuccessRate(comparison.control)
-  const benchmarkSuccessRate = getSuccessRate(comparison.benchmarkTreatment)
-
   return {
     Benchmark: comparison.scenario ? '' : comparison.benchmark,
     Capability: comparison.scenario ? '' : comparison.capability,
-    Scenario: comparison.scenario ? `  ${comparison.scenario}` : 'All scenarios',
-    Control: formatPercent(controlSuccessRate),
-    'With benchmark': formatPercent(benchmarkSuccessRate),
-    Delta: formatPercentagePointDifference(benchmarkSuccessRate - controlSuccessRate),
-    'Control tests': `${comparison.control.numPassedTests}/${comparison.control.numTotalTests}`,
-    'Benchmark tests': `${comparison.benchmarkTreatment.numPassedTests}/${comparison.benchmarkTreatment.numTotalTests}`,
+    Scenario: comparison.model ? '' : comparison.scenario ? `  ${comparison.scenario}` : 'All scenarios',
+    Model: comparison.model ? `    ${comparison.model}` : 'All models',
+    'Reasoning Effort': comparison.reasoningEffort ?? '',
+    Tests: formatBenchmarkValue(
+      `${comparison.benchmarkTreatment.numPassedTests}/${comparison.benchmarkTreatment.numTotalTests}`,
+      comparison.control.numPassedTests,
+      comparison.benchmarkTreatment.numPassedTests,
+    ),
+    'Output Tokens': formatBenchmarkValue(
+      formatNumber(comparison.benchmarkTreatment.outputTokens),
+      comparison.control.outputTokens,
+      comparison.benchmarkTreatment.outputTokens,
+    ),
+    'Premium Requests': formatBenchmarkValue(
+      formatNumber(comparison.benchmarkTreatment.premiumRequests),
+      comparison.control.premiumRequests,
+      comparison.benchmarkTreatment.premiumRequests,
+    ),
+    'Session Time': formatBenchmarkValue(
+      formatDuration(comparison.benchmarkTreatment.sessionDurationMs),
+      comparison.control.sessionDurationMs,
+      comparison.benchmarkTreatment.sessionDurationMs,
+    ),
+    'API Time': formatBenchmarkValue(
+      formatDuration(comparison.benchmarkTreatment.totalApiDurationMs),
+      comparison.control.totalApiDurationMs,
+      comparison.benchmarkTreatment.totalApiDurationMs,
+    ),
   }
 }
 
-function formatBenchmarkResults(benchmark: string, results: Array<BenchmarkTrialResult>): string {
+function formatBenchmarkResults(
+  benchmark: Pick<Benchmark, 'name' | 'capabilities'>,
+  results: Array<BenchmarkTrialResult>,
+): string {
   const columns = [
     'Benchmark',
     'Capability',
     'Scenario',
-    'Control',
-    'With benchmark',
-    'Delta',
-    'Control tests',
-    'Benchmark tests',
+    'Model',
+    'Reasoning Effort',
+    'Tests',
+    'Output Tokens',
+    'Premium Requests',
+    'Session Time',
+    'API Time',
   ]
   const rows = getBenchmarkComparisons(benchmark, results).map(formatBenchmarkComparison)
 

@@ -14,7 +14,14 @@ import {logger} from './logger'
 import {create as createPlan, run as runPlan} from './plan'
 import {getScenario, ScenarioSchema, type Scenario} from './scenario'
 import {ControlTreatment, TreatmentSchema, TreatmentSetupSchema, type Treatment, type TreatmentSetup} from './treatment'
-import {TrialAgentSchema, TrialArtifactsSchema, WalkthroughSchema, type Trial, type TrialResult} from './trial'
+import {
+  getPortableTrialPaths,
+  TrialAgentSchema,
+  TrialArtifactsSchema,
+  WalkthroughSchema,
+  type Trial,
+  type TrialResult,
+} from './trial'
 import {TestResultsSchema} from './vitest'
 
 type ExperimentConfig = {
@@ -230,6 +237,10 @@ type ExperimentOutput = {
   trials: Map<string, z.infer<typeof ExperimentOutputTrialSchema>>
 }
 
+type ExperimentOutputOptions = {
+  baseDirectory?: string
+}
+
 const SerializedExperimentOutputSchema = z.object({
   experimentId: z.string(),
   scenarios: z.record(z.string(), ExperimentOutputScenarioSchema),
@@ -237,7 +248,11 @@ const SerializedExperimentOutputSchema = z.object({
   trials: z.record(z.string(), ExperimentOutputTrialSchema),
 })
 
-function output(experimentId: string, trialResults: ExperimentRunResult): ExperimentOutput {
+function output(
+  experimentId: string,
+  trialResults: ExperimentRunResult,
+  options: ExperimentOutputOptions = {},
+): ExperimentOutput {
   const result: ExperimentOutput = {
     experimentId,
     scenarios: new Map(),
@@ -246,7 +261,10 @@ function output(experimentId: string, trialResults: ExperimentRunResult): Experi
   }
 
   for (const trialResult of trialResults) {
-    const {artifacts, trial} = trialResult
+    const {trial} = trialResult
+    const {artifacts, walkthrough} = options.baseDirectory
+      ? getPortableTrialPaths(trialResult, options.baseDirectory)
+      : trialResult
 
     if (!result.scenarios.has(trial.scenario.id)) {
       result.scenarios.set(trial.scenario.id, trial.scenario)
@@ -264,7 +282,7 @@ function output(experimentId: string, trialResults: ExperimentRunResult): Experi
       scenarioId: trial.scenario.id,
       testResults: trialResult.testResults,
       treatmentId: trial.treatment.name,
-      walkthrough: trialResult.walkthrough,
+      walkthrough,
     })
   }
 
@@ -293,4 +311,4 @@ function deserialize(input: unknown): ExperimentOutput {
 }
 
 export {ExperimentConfigSchema, defineConfig, deserialize, getExperiment, listExperiments, output, run, serialize}
-export type {ExperimentConfig, Experiment, ExperimentOutput}
+export type {ExperimentConfig, Experiment, ExperimentOutput, ExperimentOutputOptions}

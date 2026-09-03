@@ -24,6 +24,7 @@ describe('cli', () => {
 
     await expect(import('./cli')).rejects.toThrow('process.exit')
     expect(log).toHaveBeenCalledWith(expect.stringContaining('Usage: agent-eval [options]'))
+    expect(log).toHaveBeenCalledWith(expect.stringContaining('--output-dir <dir>'))
   })
 
   test('requires a Copilot token before running', async () => {
@@ -43,5 +44,12 @@ describe('cli', () => {
     await import('./cli')
 
     expect(log).toHaveBeenCalledWith(expect.stringContaining('Usage: agent-eval [options]'))
+  })
+
+  test('rejects output directory combinations with explicit artifact paths', async () => {
+    process.argv = ['node', 'agent-eval', '--output-dir', 'results/run', '--artifacts', 'artifacts']
+    process.env.COPILOT_GITHUB_TOKEN = 'token'
+
+    await expect(import('./cli')).rejects.toThrow('--output-dir cannot be combined with --artifacts or --output')
   })
 })

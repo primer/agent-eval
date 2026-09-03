@@ -68,7 +68,10 @@ const {values} = parseArgs({
     output: {
       type: 'string',
       description: 'The target file in which results are written',
-      default: 'output.json',
+    },
+    'output-dir': {
+      type: 'string',
+      description: 'The directory containing output.json and its artifacts',
     },
     scenarios: {
       type: 'string',
@@ -92,6 +95,7 @@ Options:
   -h, --help                 Learn more about the command and its options
       --log-level <level>    The log level to use (default: info)
       --output <file>        The target file in which results are written (default: output.json)
+      --output-dir <dir>     The directory containing output.json and its artifacts
       --scenarios <dir>      The directory containing scenario directories (default: ./scenarios)
 `)
 }
@@ -119,6 +123,7 @@ const env = getEnvironmentConfig({
   copilotToken: COPILOT_GITHUB_TOKEN,
   dockerImage: values['docker-image']?.trim(),
   experimentsDirectory: values.experiments,
+  outputDirectory: values['output-dir'],
   outputPath: values.output,
   scenariosDirectory: values.scenarios,
 })
@@ -144,9 +149,17 @@ if (values.benchmark) {
   }
 
   logger.info('Writing benchmark output to: %s', env.outputPath)
-  await fs.writeFile(env.outputPath, serializeBenchmarkOutput(getBenchmarkOutput(benchmark.id, sorted)), 'utf-8')
+  await fs.writeFile(
+    env.outputPath,
+    serializeBenchmarkOutput(
+      getBenchmarkOutput(benchmark.id, sorted, {
+        baseDirectory: path.dirname(env.outputPath),
+      }),
+    ),
+    'utf-8',
+  )
 
-  const resultSummaries = formatBenchmarkResults(benchmark.name, sorted)
+  const resultSummaries = formatBenchmarkResults(benchmark, sorted)
   console.log(resultSummaries)
 
   if (GITHUB_STEP_SUMMARY) {
@@ -168,7 +181,9 @@ if (values.benchmark) {
 
   logger.info('Writing experiment output to: %s', env.outputPath)
 
-  const output = getExperimentOutput(experiment.id, sorted)
+  const output = getExperimentOutput(experiment.id, sorted, {
+    baseDirectory: path.dirname(env.outputPath),
+  })
 
   if (!existsSync(path.dirname(env.outputPath))) {
     await fs.mkdir(path.dirname(env.outputPath), {recursive: true})

@@ -31,3 +31,4 @@ out
 # Generated files
 artifacts/
 results/
+output.json

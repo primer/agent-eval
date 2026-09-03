@@ -2,46 +2,13 @@
 
 import {CheckCircleFillIcon, CopilotIcon, PersonIcon, XCircleFillIcon} from '@primer/octicons-react'
 import {Breadcrumbs, FormControl, Select, Stack, UnderlineNav} from '@primer/react'
-import type {Experiment} from '../../../../../../experiments'
+import type {RunDetails, TranscriptEntry, WalkthroughDataUrl} from '../../run-details'
 import type {Route} from 'next'
 import Link from 'next/link'
 import Image from 'next/image'
 import {useState} from 'react'
-import type {WalkthroughDataUrl} from '../page'
 
-type TranscriptEntry = {
-  id: string
-  label: string
-  timestamp?: string
-  content: string
-}
-
-type RunResult = {
-  id: string
-  scenarioId: string
-  treatment: string
-  model: string
-  reasoningEffort?: string
-  testsPassed: number
-  totalTests: number
-  turns: number
-  outputTokens: number
-  premiumRequests: number
-  totalApiDurationMs: number
-  sessionDurationMs: number
-  tests: Array<{
-    fullName: string
-    status: string
-    description?: string
-  }>
-  transcript: Array<TranscriptEntry>
-  walkthrough: WalkthroughDataUrl
-}
-
-type RunDetails = {
-  date: string
-  results: Array<RunResult>
-}
+type RunResult = RunDetails['results'][number]
 
 type ScenarioResultGroup = {
   scenarioId: string
@@ -394,26 +361,32 @@ function ScenarioResults({group, index}: {group: ScenarioResultGroup; index: num
 }
 
 type Props = {
-  experiment: Experiment
+  resource: {
+    id: string
+    name: string
+    collectionLabel: string
+    collectionHref: Route
+    href: Route
+  }
   run: RunDetails
 }
 
-export function Page({experiment, run}: Props) {
+export function RunDetailsPage({resource, run}: Props) {
   const resultGroups = groupResultsByScenario(run.results)
 
   return (
     <Stack padding="normal">
       <div className="w-full max-w-screen-xl mx-auto flex flex-col gap-6">
         <Breadcrumbs>
-          <Breadcrumbs.Item as={Link} href="/experiments">
-            Experiments
+          <Breadcrumbs.Item as={Link} href={resource.collectionHref}>
+            {resource.collectionLabel}
           </Breadcrumbs.Item>
-          <Breadcrumbs.Item as={Link} href={`/experiments/${experiment.id}` as Route}>
-            {experiment.id}
+          <Breadcrumbs.Item as={Link} href={resource.href}>
+            {resource.id}
           </Breadcrumbs.Item>
           <Breadcrumbs.Item selected>{run.date}</Breadcrumbs.Item>
         </Breadcrumbs>
-        <h1 className="sr-only">Run results for {experiment.name}</h1>
+        <h1 className="sr-only">Run results for {resource.name}</h1>
         <div className="flex flex-col gap-8">
           {resultGroups.map((group, index) => {
             return <ScenarioResults group={group} index={index} key={`${run.date}:${group.scenarioId}`} />
@@ -423,5 +396,3 @@ export function Page({experiment, run}: Props) {
     </Stack>
   )
 }
-
-export type {RunDetails, TranscriptEntry}

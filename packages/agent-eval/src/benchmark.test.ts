@@ -227,11 +227,11 @@ test('output serializes and deserializes benchmark capability metadata', () => {
   const trialResult: BenchmarkTrialResult = {
     capability,
     artifacts: {
-      directory: '/artifacts/trial',
-      copilotConfigDirectory: '/artifacts/trial/.copilot',
-      skillsConfigDirectory: '/artifacts/trial/.agents',
-      testResultsPath: '/artifacts/trial/workspace/test-results.json',
-      workspaceDirectory: '/artifacts/trial/workspace',
+      directory: '/bundle/artifacts/trial',
+      copilotConfigDirectory: '/bundle/artifacts/trial/.copilot',
+      skillsConfigDirectory: '/bundle/artifacts/trial/.agents',
+      testResultsPath: '/bundle/artifacts/trial/workspace/test-results.json',
+      workspaceDirectory: '/bundle/artifacts/trial/workspace',
     },
     trial: {
       id: 'trial',
@@ -257,11 +257,17 @@ test('output serializes and deserializes benchmark capability metadata', () => {
       testResults: [],
     },
     walkthrough: {
-      type: 'Unavailable',
+      type: 'Screenshots',
+      screenshots: [
+        '/bundle/artifacts/trial/walkthrough/screenshots/01.png',
+        '/bundle/artifacts/trial/walkthrough/screenshots/02.png',
+      ],
     },
   }
 
-  const benchmarkOutput = output('test-benchmark', [trialResult])
+  const benchmarkOutput = output('test-benchmark', [trialResult], {
+    baseDirectory: '/bundle',
+  })
 
   expect(benchmarkOutput.benchmarkId).toBe('test-benchmark')
   expect(benchmarkOutput.capabilities.get('Test capability')).toEqual({
@@ -271,8 +277,22 @@ test('output serializes and deserializes benchmark capability metadata', () => {
   expect(benchmarkOutput.trials.get('trial')).toEqual(
     expect.objectContaining({
       capabilityId: 'Test capability',
+      artifacts: {
+        directory: 'artifacts/trial',
+        copilotConfigDirectory: 'artifacts/trial/.copilot',
+        skillsConfigDirectory: 'artifacts/trial/.agents',
+        testResultsPath: 'artifacts/trial/workspace/test-results.json',
+        workspaceDirectory: 'artifacts/trial/workspace',
+      },
       scenarioId: '001-scenario',
       treatmentId: 'Benchmark',
+      walkthrough: {
+        type: 'Screenshots',
+        screenshots: [
+          'artifacts/trial/walkthrough/screenshots/01.png',
+          'artifacts/trial/walkthrough/screenshots/02.png',
+        ],
+      },
     }),
   )
   expect(deserialize(serialize(benchmarkOutput))).toEqual(benchmarkOutput)

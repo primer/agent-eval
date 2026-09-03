@@ -1,11 +1,10 @@
-import type {AgentEvalOutput, AgentEvalOutputResult} from '@primer/agent-eval/output'
 import type {BaselineComparison, BaselineResult} from './app/components/Index'
 import type {BaselineTrendPoint} from './app/components/BaselineTrends'
-import {list as listRuns} from './runs'
+import {list as listRuns, type RunOutput, type RunOutputResult} from './runs'
 
 type TreatmentResults = {
-  control?: AgentEvalOutputResult
-  baseline?: AgentEvalOutputResult
+  control?: RunOutputResult
+  baseline?: RunOutputResult
 }
 
 type ModelTreatmentResults = TreatmentResults & {
@@ -54,7 +53,7 @@ function getPercentChangeValue(control: number | undefined, baseline: number | u
   return ((baseline - control) / Math.abs(control)) * 100
 }
 
-function getTestPassRate(result: AgentEvalOutputResult | undefined) {
+function getTestPassRate(result: RunOutputResult | undefined) {
   if (!result) {
     return undefined
   }
@@ -66,7 +65,7 @@ function getTestPassRate(result: AgentEvalOutputResult | undefined) {
   return result.testResults.numPassedTests / result.testResults.numTotalTests
 }
 
-function countToolCalls(result: AgentEvalOutputResult | undefined) {
+function countToolCalls(result: RunOutputResult | undefined) {
   if (!result) {
     return undefined
   }
@@ -102,7 +101,7 @@ function formatDuration(milliseconds: number): string {
   return `${percentFormatter.format(milliseconds / 1000)}s`
 }
 
-function getBaselineComparisons(output: AgentEvalOutput): Array<BaselineComparison> {
+function getBaselineComparisons(output: RunOutput): Array<BaselineComparison> {
   const controlTreatment = output.treatments.find(treatment => treatment.config.name === 'Control')
   const baselineTreatment = output.treatments.find(treatment => treatment.config.name === 'Recommended')
 
@@ -212,7 +211,7 @@ function getBaselineComparisons(output: AgentEvalOutput): Array<BaselineComparis
   })
 }
 
-function getAggregateBaselineResults(output: AgentEvalOutput): Array<BaselineResult> {
+function getAggregateBaselineResults(output: RunOutput): Array<BaselineResult> {
   const controlTreatment = output.treatments.find(treatment => treatment.config.name === 'Control')
   const baselineTreatment = output.treatments.find(treatment => treatment.config.name === 'Recommended')
 
@@ -223,7 +222,7 @@ function getAggregateBaselineResults(output: AgentEvalOutput): Array<BaselineRes
   const results = output.experiment.models.flatMap(model => {
     const reasoningEfforts = model.reasoningEfforts.length > 0 ? model.reasoningEfforts : [undefined]
     return reasoningEfforts.map(reasoningEffort => {
-      const matches = (result: AgentEvalOutputResult) =>
+      const matches = (result: RunOutputResult) =>
         result.model === model.name && result.reasoningEffort === reasoningEffort
       const controls = output.results.filter(result => result.treatmentId === controlTreatment.id && matches(result))
       const baselines = output.results.filter(result => result.treatmentId === baselineTreatment.id && matches(result))
@@ -303,7 +302,7 @@ function getAggregateBaselineResults(output: AgentEvalOutput): Array<BaselineRes
     }))
 }
 
-function getBaselineTrendPoints(date: string, output: AgentEvalOutput): Array<BaselineTrendPoint> {
+function getBaselineTrendPoints(date: string, output: RunOutput): Array<BaselineTrendPoint> {
   const controlTreatment = output.treatments.find(treatment => treatment.config.name === 'Control')
   const baselineTreatment = output.treatments.find(treatment => treatment.config.name === 'Recommended')
   if (!controlTreatment || !baselineTreatment) {
@@ -370,7 +369,7 @@ function getBaselineTrendPoints(date: string, output: AgentEvalOutput): Array<Ba
     })
 }
 
-function getAggregateTrendPoints(date: string, output: AgentEvalOutput): Array<BaselineTrendPoint> {
+function getAggregateTrendPoints(date: string, output: RunOutput): Array<BaselineTrendPoint> {
   const controlTreatment = output.treatments.find(treatment => treatment.config.name === 'Control')
   const baselineTreatment = output.treatments.find(treatment => treatment.config.name === 'Recommended')
   if (!controlTreatment || !baselineTreatment) {
@@ -380,7 +379,7 @@ function getAggregateTrendPoints(date: string, output: AgentEvalOutput): Array<B
   return output.experiment.models.flatMap(model => {
     const reasoningEfforts = model.reasoningEfforts.length > 0 ? model.reasoningEfforts : [undefined]
     return reasoningEfforts.map(reasoningEffort => {
-      const matches = (result: AgentEvalOutputResult) =>
+      const matches = (result: RunOutputResult) =>
         result.model === model.name && result.reasoningEffort === reasoningEffort
       const controls = output.results.filter(result => result.treatmentId === controlTreatment.id && matches(result))
       const baselines = output.results.filter(result => result.treatmentId === baselineTreatment.id && matches(result))

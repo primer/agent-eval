@@ -1,12 +1,11 @@
-import type {AgentEvalOutput} from '@primer/agent-eval/output'
 import {get as getExperiment} from '../../../../../experiments'
 import {get as getRun, list as listRuns} from '../../../../../runs'
+import type {RunOutput} from '../../../../../runs'
 import {notFound} from 'next/navigation'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import {Page} from './components/Page'
 import type {RunDetails, TranscriptEntry} from './components/Page'
-import type {Walkthrough} from '../../../../../../../packages/agent-eval/src/treatment'
 
 const EMPTY_RUN_PARAM = '__no-runs__'
 const REPOSITORY_ROOT = path.resolve(process.cwd(), '..')
@@ -19,7 +18,8 @@ type RunPageProps = {
   }>
 }
 
-type LogMessage = AgentEvalOutput['results'][number]['assistant']['logs'][number]
+type LogMessage = RunOutput['results'][number]['assistant']['logs'][number]
+type Walkthrough = RunOutput['results'][number]['walkthrough']
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : null
@@ -216,7 +216,7 @@ async function getWalkthroughDataUrls(walkthrough: Walkthrough): Promise<Walkthr
   }
 }
 
-async function createRunDetails(date: string, output: AgentEvalOutput): Promise<RunDetails> {
+async function createRunDetails(date: string, output: RunOutput): Promise<RunDetails> {
   const treatments = new Map(output.treatments.map(treatment => [treatment.id, treatment.config.name]))
   return {
     date,

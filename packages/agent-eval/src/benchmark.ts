@@ -26,7 +26,7 @@ const BenchmarkConfigSchema = z.object({
 
 type BenchmarkConfig = z.infer<typeof BenchmarkConfigSchema>
 
-function defineConfig(config: BenchmarkConfig): BenchmarkConfig {
+function defineConfig<const Config extends BenchmarkConfig>(config: Config): Config {
   return config
 }
 

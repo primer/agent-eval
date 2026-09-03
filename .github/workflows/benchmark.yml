@@ -1,5 +1,7 @@
 name: benchmark
 on:
+  schedule:
+    - cron: '0 0 * * 1'
   workflow_dispatch:
     inputs:
       concurrency:
@@ -16,7 +18,7 @@ on:
         type: string
 
 concurrency:
-  group: ${{ github.workflow }}
+  group: weekly-design-system-benchmark
   cancel-in-progress: false
 
 permissions:

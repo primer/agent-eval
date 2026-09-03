@@ -53,7 +53,7 @@ ARG NPM_VERSION
 ARG COPILOT_CLI_VERSION
 
 RUN apt-get update \\
-  && apt-get install -y --no-install-recommends ca-certificates curl \\
+  && apt-get install -y --no-install-recommends ca-certificates chromium curl \\
   && rm -rf /var/lib/apt/lists/*
 
 RUN npm install --global "npm@\${NPM_VERSION}"

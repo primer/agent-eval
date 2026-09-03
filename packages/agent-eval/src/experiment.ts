@@ -128,7 +128,7 @@ async function getExperiment({
     experimentsDirectory,
     scenariosDirectory,
   })
-  const experiment = experiments.find(experiment => experiment.id === id)
+  const experiment = experiments.find(candidate => candidate.id === id)
   if (experiment) {
     return experiment
   }
@@ -185,44 +185,48 @@ async function run({
   return results
 }
 
-const ExperimentOutputSchema = z.object({
-  scenarios: z.map(
-    z.string(),
-    z.pick(ScenarioSchema, {
-      id: true,
-      directory: true,
-      prompt: true,
-      description: true,
-      tags: true,
-      testPath: true,
-      browserTestPath: true,
-    }),
-  ),
-  treatments: z.map(
-    z.string(),
-    z.pick(TreatmentSchema, {
-      name: true,
-    }),
-  ),
-  trials: z.map(
-    z.string(),
-    z.object({
-      agent: TrialAgentSchema,
-      artifacts: TrialArtifactsSchema,
-      id: z.string(),
-      model: ModelVariantSchema,
-      scenarioId: z.string(),
-      testResults: TestResultsSchema,
-      treatmentId: z.string(),
-      walkthrough: WalkthroughSchema,
-    }),
-  ),
+const ExperimentOutputScenarioSchema = z.pick(ScenarioSchema, {
+  id: true,
+  directory: true,
+  prompt: true,
+  description: true,
+  tags: true,
+  testPath: true,
+  browserTestPath: true,
 })
 
-type ExperimentOutput = z.infer<typeof ExperimentOutputSchema>
+const ExperimentOutputTreatmentSchema = z.pick(TreatmentSchema, {
+  name: true,
+})
 
-function output(trialResults: ExperimentRunResult): ExperimentOutput {
+const ExperimentOutputTrialSchema = z.object({
+  agent: TrialAgentSchema,
+  artifacts: TrialArtifactsSchema,
+  id: z.string(),
+  model: ModelVariantSchema,
+  scenarioId: z.string(),
+  testResults: TestResultsSchema,
+  treatmentId: z.string(),
+  walkthrough: WalkthroughSchema,
+})
+
+type ExperimentOutput = {
+  experimentId: string
+  scenarios: Map<string, z.infer<typeof ExperimentOutputScenarioSchema>>
+  treatments: Map<string, z.infer<typeof ExperimentOutputTreatmentSchema>>
+  trials: Map<string, z.infer<typeof ExperimentOutputTrialSchema>>
+}
+
+const SerializedExperimentOutputSchema = z.object({
+  experimentId: z.string(),
+  scenarios: z.record(z.string(), ExperimentOutputScenarioSchema),
+  treatments: z.record(z.string(), ExperimentOutputTreatmentSchema),
+  trials: z.record(z.string(), ExperimentOutputTrialSchema),
+})
+
+function output(experimentId: string, trialResults: ExperimentRunResult): ExperimentOutput {
   const result: ExperimentOutput = {
+    experimentId,
     scenarios: new Map(),
     treatments: new Map(),
     trials: new Map(),
@@ -254,19 +258,21 @@ function output(trialResults: ExperimentRunResult): ExperimentOutput {
   return result
 }
 
-function serialize(output: ExperimentOutput): string {
+function serialize(experimentOutput: ExperimentOutput): string {
   return JSON.stringify({
-    scenarios: Object.fromEntries(output.scenarios),
-    treatments: Object.fromEntries(output.treatments),
-    trials: Object.fromEntries(output.trials),
+    experimentId: experimentOutput.experimentId,
+    scenarios: Object.fromEntries(experimentOutput.scenarios),
+    treatments: Object.fromEntries(experimentOutput.treatments),
+    trials: Object.fromEntries(experimentOutput.trials),
   })
 }
 
 function deserialize(input: unknown): ExperimentOutput {
   const parsed = typeof input === 'string' ? JSON.parse(input) : input
-  const result = ExperimentOutputSchema.parse(parsed, {reportInput: true})
+  const result = SerializedExperimentOutputSchema.parse(parsed, {reportInput: true})
 
   return {
+    experimentId: result.experimentId,
     scenarios: new Map(Object.entries(result.scenarios)),
     treatments: new Map(Object.entries(result.treatments)),
     trials: new Map(Object.entries(result.trials)),
@@ -274,4 +280,4 @@ function deserialize(input: unknown): ExperimentOutput {
 }
 
 export {ExperimentConfigSchema, defineConfig, deserialize, getExperiment, listExperiments, output, run, serialize}
-export type {ExperimentConfig, Experiment}
+export type {ExperimentConfig, Experiment, ExperimentOutput}

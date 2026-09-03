@@ -5,7 +5,12 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import {parseArgs} from 'node:util'
 import {getEnvironmentConfig} from './environment'
-import {run as runBenchmark} from './benchmark'
+import {
+  getBenchmark,
+  run as runBenchmark,
+  output as getBenchmarkOutput,
+  serialize as serializeBenchmarkOutput,
+} from './benchmark'
 import {
   getExperiment,
   run as runExperiment,
@@ -16,7 +21,6 @@ import {logger} from './logger'
 import {formatExperimentResults} from './report'
 import {compare as compareTrial} from './trial'
 
-const start = Date.now()
 const {values} = parseArgs({
   options: {
     artifacts: {
@@ -123,17 +127,31 @@ logger.debug('Environment configuration: %o', env)
 
 if (values.benchmark) {
   logger.info('Running benchmark: %s', values.benchmark)
-  await runBenchmark({
+
+  const benchmark = await getBenchmark({
+    benchmarksDirectory: env.benchmarksDirectory,
+    scenariosDirectory: env.scenariosDirectory,
+    id: values.benchmark,
+  })
+  const result = await runBenchmark({
     env,
     id: values.benchmark,
   })
+  const sorted = result.toSorted(compareTrial)
 
   if (!existsSync(path.dirname(env.outputPath))) {
     await fs.mkdir(path.dirname(env.outputPath), {recursive: true})
   }
 
   logger.info('Writing benchmark output to: %s', env.outputPath)
-  // await fs.writeFile(env.outputPath, serializeExperimentOutput(output), 'utf-8')
+  await fs.writeFile(env.outputPath, serializeBenchmarkOutput(getBenchmarkOutput(benchmark.id, sorted)), 'utf-8')
+
+  const resultSummaries = formatExperimentResults(benchmark.name, sorted)
+  console.log(resultSummaries)
+
+  if (GITHUB_STEP_SUMMARY) {
+    await fs.appendFile(GITHUB_STEP_SUMMARY, `## Benchmark results\n\n\`\`\`\n${resultSummaries}\n\`\`\`\n`)
+  }
 } else if (values.experiment) {
   logger.info('Running experiment: %s', values.experiment)
 
@@ -150,7 +168,7 @@ if (values.benchmark) {
 
   logger.info('Writing experiment output to: %s', env.outputPath)
 
-  const output = getExperimentOutput(sorted)
+  const output = getExperimentOutput(experiment.id, sorted)
 
   if (!existsSync(path.dirname(env.outputPath))) {
     await fs.mkdir(path.dirname(env.outputPath), {recursive: true})

@@ -6,17 +6,26 @@ const config = defineConfig({
   name: 'Test experiment',
   description: 'Tests an experiment',
   models: ['gpt-5.6-sol'],
-  scenarios: [
-    {
-      prompt: 'Complete the task',
-    },
-  ],
+  scenarios: [],
   treatments: [
     {
       name: 'Test treatment',
     },
   ],
 })
+
+function resolveConfig(input: typeof config) {
+  return {
+    ...input,
+    models: [
+      {
+        name: 'gpt-5.6-sol' as const,
+        reasoningEffort: 'medium' as const,
+      },
+    ],
+    setup: undefined,
+  }
+}
 
 test('listExperiments loads named and default exports from supported files', async () => {
   const serializedConfig = JSON.stringify(config)
@@ -29,28 +38,32 @@ test('listExperiments loads named and default exports from supported files', asy
     },
   })
 
-  const experiments = await listExperiments(host, '/experiments')
+  const experiments = await listExperiments({
+    host,
+    experimentsDirectory: '/experiments',
+    scenariosDirectory: '/scenarios',
+  })
 
   expect(experiments).toHaveLength(4)
   expect(experiments).toEqual(
     expect.arrayContaining([
       {
-        ...config,
+        ...resolveConfig(config),
         id: 'named',
         filepath: '/experiments/named.ts',
       },
       {
-        ...config,
+        ...resolveConfig(config),
         id: 'default',
         filepath: '/experiments/default.js',
       },
       {
-        ...config,
+        ...resolveConfig(config),
         id: 'commonjs',
         filepath: '/experiments/commonjs.cjs',
       },
       {
-        ...config,
+        ...resolveConfig(config),
         id: 'module',
         filepath: '/experiments/module.mjs',
       },
@@ -76,9 +89,15 @@ test('listExperiments prefers the named experiment export', async () => {
     },
   })
 
-  await expect(listExperiments(host, '/experiments')).resolves.toEqual([
+  await expect(
+    listExperiments({
+      host,
+      experimentsDirectory: '/experiments',
+      scenariosDirectory: '/scenarios',
+    }),
+  ).resolves.toEqual([
     {
-      ...namedConfig,
+      ...resolveConfig(namedConfig),
       id: 'experiment',
       filepath: '/experiments/experiment.ts',
     },
@@ -98,9 +117,15 @@ test('listExperiments ignores unsupported, reserved, missing, and invalid config
     },
   })
 
-  await expect(listExperiments(host, '/experiments')).resolves.toEqual([
+  await expect(
+    listExperiments({
+      host,
+      experimentsDirectory: '/experiments',
+      scenariosDirectory: '/scenarios',
+    }),
+  ).resolves.toEqual([
     {
-      ...config,
+      ...resolveConfig(config),
       id: 'valid',
       filepath: '/experiments/valid.ts',
     },
@@ -110,9 +135,13 @@ test('listExperiments ignores unsupported, reserved, missing, and invalid config
 test('listExperiments throws when the directory does not exist', async () => {
   const host = VirtualHost.create()
 
-  await expect(listExperiments(host, '/experiments')).rejects.toThrowError(
-    'Experiments directory does not exist: /experiments',
-  )
+  await expect(
+    listExperiments({
+      host,
+      experimentsDirectory: '/experiments',
+      scenariosDirectory: '/scenarios',
+    }),
+  ).rejects.toThrowError('Experiments directory does not exist: /experiments')
 })
 
 test('listExperiments throws when the path is not a directory', async () => {
@@ -120,9 +149,13 @@ test('listExperiments throws when the path is not a directory', async () => {
     '/experiments': '',
   })
 
-  await expect(listExperiments(host, '/experiments')).rejects.toThrowError(
-    'Experiments path is not a directory: /experiments',
-  )
+  await expect(
+    listExperiments({
+      host,
+      experimentsDirectory: '/experiments',
+      scenariosDirectory: '/scenarios',
+    }),
+  ).rejects.toThrowError('Experiments path is not a directory: /experiments')
 })
 
 test('getExperiment returns the experiment matching the id', async () => {
@@ -134,8 +167,15 @@ test('getExperiment returns the experiment matching the id', async () => {
     },
   })
 
-  await expect(getExperiment(host, '/experiments', 'second')).resolves.toEqual({
-    ...config,
+  await expect(
+    getExperiment({
+      host,
+      experimentsDirectory: '/experiments',
+      scenariosDirectory: '/scenarios',
+      id: 'second',
+    }),
+  ).resolves.toEqual({
+    ...resolveConfig(config),
     id: 'second',
     filepath: '/experiments/second.ts',
   })
@@ -146,7 +186,12 @@ test('getExperiment throws when the experiment is not found', async () => {
     '/experiments': {},
   })
 
-  await expect(getExperiment(host, '/experiments', 'missing')).rejects.toThrowError(
-    'Experiment "missing" was not found in: /experiments',
-  )
+  await expect(
+    getExperiment({
+      host,
+      experimentsDirectory: '/experiments',
+      scenariosDirectory: '/scenarios',
+      id: 'missing',
+    }),
+  ).rejects.toThrowError('Experiment "missing" was not found in: /experiments')
 })

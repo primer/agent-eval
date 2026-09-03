@@ -1,5 +1,21 @@
-export {defineConfig as defineBenchmarkConfig, getBenchmark, listBenchmarks, BenchmarkConfigSchema} from './benchmark'
-export type {BenchmarkConfig, Benchmark} from './benchmark'
+export {
+  BenchmarkConfigSchema,
+  defineConfig as defineBenchmarkConfig,
+  deserialize as deserializeBenchmarkOutput,
+  getBenchmark,
+  listBenchmarks,
+  output as getBenchmarkOutput,
+  run as runBenchmark,
+  serialize as serializeBenchmarkOutput,
+} from './benchmark'
+export type {
+  BenchmarkConfig,
+  Benchmark,
+  BenchmarkOutput,
+  BenchmarkRunResult,
+  BenchmarkTrialResult,
+  Capability,
+} from './benchmark'
 
 export {
   ExperimentConfigSchema,
@@ -11,10 +27,10 @@ export {
   run as runExperiment,
   serialize as serializeExperimentOutput,
 } from './experiment'
-export type {ExperimentConfig, Experiment} from './experiment'
+export type {ExperimentConfig, Experiment, ExperimentOutput} from './experiment'
 
 export {defineConfig as defineScenarioConfig, getScenario, listScenarios, ScenarioConfigSchema} from './scenario'
-export type {ScenarioConfig, Scenario} from './scenario'
+export type {ScenarioConfig, Scenario, ScenarioSourceOptions} from './scenario'
 
 export {TreatmentSchema, ControlTreatment} from './treatment'
 export type {Treatment} from './treatment'

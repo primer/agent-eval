@@ -1,18 +1,12 @@
 import path from 'node:path'
 import * as z from 'zod/mini'
-import type {Host} from './host'
+import {DefaultHost, type Host} from './host'
 
-const ScenarioConfigSchema = z.union([
-  z.object({
-    description: z.optional(z.string()),
-    prompt: z.string(),
-    tags: z.optional(z.array(z.string())),
-  }),
-  z.object({
-    name: z.optional(z.string()),
-    path: z.string(),
-  }),
-])
+const ScenarioConfigSchema = z.object({
+  description: z.optional(z.string()),
+  prompt: z.string(),
+  tags: z.optional(z.array(z.string())),
+})
 
 type ScenarioConfig = z.infer<typeof ScenarioConfigSchema>
 
@@ -36,7 +30,38 @@ const ScenarioSchema = z.object({
 
 type Scenario = z.infer<typeof ScenarioSchema>
 
-async function listScenarios(host: Host, directory: string): Promise<Array<Scenario>> {
+type ScenarioSourceOptions = {
+  host?: Host
+  directory: string
+}
+
+function getScenarioSource(
+  hostOrOptions: Host | ScenarioSourceOptions,
+  directory?: string,
+): {host: Host; directory: string} {
+  if (directory !== undefined) {
+    return {
+      host: hostOrOptions as Host,
+      directory,
+    }
+  }
+
+  const options = hostOrOptions as ScenarioSourceOptions
+  return {
+    host: options.host ?? DefaultHost,
+    directory: options.directory,
+  }
+}
+
+async function listScenarios(options: ScenarioSourceOptions): Promise<Array<Scenario>>
+async function listScenarios(host: Host, directory: string): Promise<Array<Scenario>>
+async function listScenarios(
+  hostOrOptions: Host | ScenarioSourceOptions,
+  directory?: string,
+): Promise<Array<Scenario>> {
+  const source = getScenarioSource(hostOrOptions, directory)
+  const {host} = source
+  directory = source.directory
   const stats = await host.fs.stat(directory)
   if (!stats.isDirectory()) {
     throw new Error('Expected scenarios path to be a directory')
@@ -112,15 +137,23 @@ async function listScenarios(host: Host, directory: string): Promise<Array<Scena
   return scenarios
 }
 
-async function getScenario(host: Host, directory: string, id: string): Promise<Scenario> {
-  const scenarios = await listScenarios(host, directory)
-  const scenario = scenarios.find(scenario => scenario.id === id)
+async function getScenario(options: ScenarioSourceOptions & {id: string}): Promise<Scenario>
+async function getScenario(host: Host, directory: string, id: string): Promise<Scenario>
+async function getScenario(
+  hostOrOptions: Host | (ScenarioSourceOptions & {id: string}),
+  directory?: string,
+  id?: string,
+): Promise<Scenario> {
+  const source = getScenarioSource(hostOrOptions, directory)
+  id = id ?? (hostOrOptions as ScenarioSourceOptions & {id: string}).id
+  const scenarios = await listScenarios(source)
+  const scenario = scenarios.find(candidate => candidate.id === id)
   if (scenario) {
     return scenario
   }
 
-  throw new Error(`Scenario "${id}" was not found in: ${directory}`)
+  throw new Error(`Scenario "${id}" was not found in: ${source.directory}`)
 }
 
 export {defineConfig, listScenarios, getScenario, ScenarioSchema, ScenarioConfigSchema}
-export type {ScenarioConfig, Scenario}
+export type {ScenarioConfig, Scenario, ScenarioSourceOptions}

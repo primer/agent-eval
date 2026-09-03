@@ -1,12 +1,15 @@
 import {randomUUID} from 'node:crypto'
 import path from 'node:path'
 import * as z from 'zod/mini'
-import {getModelVariants, ModelVariantConfigSchema, type Model, type ModelVariant, type ReasoningEffort} from './model'
-import {getScenario, type Scenario} from './scenario'
-import {DefaultHost, type Host} from './host'
-import {ControlTreatment, TreatmentSetupSchema} from './treatment'
-import type {Treatment} from './treatment'
 import type {EnvironmentConfig} from './environment'
+import {DefaultHost, type Host} from './host'
+import {logger} from './logger'
+import {getModelVariants, ModelVariantConfigSchema, ModelVariantSchema, type ModelVariant} from './model'
+import {create as createPlan, run as runPlan} from './plan'
+import {getScenario, ScenarioSchema, type Scenario} from './scenario'
+import {ControlTreatment, TreatmentSchema, TreatmentSetupSchema, type TreatmentSetup} from './treatment'
+import {TrialAgentSchema, TrialArtifactsSchema, WalkthroughSchema, type Trial, type TrialResult} from './trial'
+import {TestResultsSchema} from './vitest'
 
 const CapabilityConfigSchema = z.object({
   name: z.string(),
@@ -16,37 +19,58 @@ const CapabilityConfigSchema = z.object({
 const BenchmarkConfigSchema = z.object({
   name: z.string(),
   description: z.string(),
-  models: z.array(ModelVariantConfigSchema),
+  models: ModelVariantConfigSchema,
   setup: z.optional(TreatmentSetupSchema),
   capabilities: z.array(CapabilityConfigSchema),
 })
 
 type BenchmarkConfig = z.infer<typeof BenchmarkConfigSchema>
 
-type CapabilityConfig = z.infer<typeof CapabilityConfigSchema>
-
 function defineConfig(config: BenchmarkConfig): BenchmarkConfig {
   return config
 }
 
-type BenchmarkModule = {
-  benchmark?: BenchmarkConfig
-  default?: BenchmarkConfig
+type Capability = {
+  name: string
+  scenarios: Array<Scenario>
 }
 
-type Benchmark = BenchmarkConfig & {
+type Benchmark = {
   id: string
+  filepath: string
+  name: BenchmarkConfig['name']
+  description: BenchmarkConfig['description']
+  models: Array<ModelVariant>
+  setup?: TreatmentSetup
+  capabilities: Array<Capability>
+}
+
+type BenchmarkModule = {
+  benchmark?: unknown
+  default?: unknown
 }
 
 const BENCHMARK_FILE_EXTENSIONS = new Set(['.cjs', '.js', '.mjs', '.ts'])
 
-async function listBenchmarks(host: Host, directory: string): Promise<Array<Benchmark>> {
-  const stats = await host.fs.stat(directory)
-  if (!stats.isDirectory()) {
-    throw new Error('Expected benchmarks to be a directory')
+async function listBenchmarks({
+  host = DefaultHost,
+  benchmarksDirectory,
+  scenariosDirectory,
+}: {
+  host?: Host
+  benchmarksDirectory: string
+  scenariosDirectory: string
+}): Promise<Array<Benchmark>> {
+  if (!host.existsSync(benchmarksDirectory)) {
+    throw new Error(`Benchmarks directory does not exist: ${benchmarksDirectory}`)
   }
 
-  const filenames = await host.fs.readdir(directory)
+  const stats = await host.fs.stat(benchmarksDirectory)
+  if (!stats.isDirectory()) {
+    throw new Error(`Benchmarks path is not a directory: ${benchmarksDirectory}`)
+  }
+
+  const filenames = await host.fs.readdir(benchmarksDirectory)
   const benchmarks: Array<Benchmark> = []
 
   for (const filename of filenames) {
@@ -54,7 +78,7 @@ async function listBenchmarks(host: Host, directory: string): Promise<Array<Benc
       continue
     }
 
-    const filepath = path.join(directory, filename)
+    const filepath = path.join(benchmarksDirectory, filename)
     const mod: BenchmarkModule = await host.loadModule(filepath)
     const data = mod.benchmark ?? mod.default
     if (!data) {
@@ -63,28 +87,64 @@ async function listBenchmarks(host: Host, directory: string): Promise<Array<Benc
 
     const parseResult = BenchmarkConfigSchema.safeParse(data)
     if (!parseResult.success) {
-      throw new Error(
-        `Benchmark file must export a valid benchmark config: ${filepath}\n${z.prettifyError(parseResult.error)}`,
+      logger.warn(
+        `Failed to parse benchmark config for file: ${filepath}. Error: ${z.prettifyError(parseResult.error)}`,
       )
+      continue
     }
+
+    const {data: config} = parseResult
+    const capabilities = await Promise.all(
+      config.capabilities.map(async capability => {
+        const scenarios = await Promise.all(
+          capability.scenarios.map(scenario => {
+            return getScenario(host, scenariosDirectory, scenario)
+          }),
+        )
+
+        return {
+          name: capability.name,
+          scenarios,
+        }
+      }),
+    )
 
     benchmarks.push({
       id: getBenchmarkId(filename),
-      ...parseResult.data,
+      filepath,
+      name: config.name,
+      description: config.description,
+      models: getModelVariants(config.models),
+      setup: config.setup,
+      capabilities,
     })
   }
 
   return benchmarks
 }
 
-async function getBenchmark(host: Host, directory: string, id: string): Promise<Benchmark> {
-  const benchmarks = await listBenchmarks(host, directory)
-  const benchmark = benchmarks.find(benchmark => benchmark.id === id)
-  if (!benchmark) {
-    throw new Error(`Benchmark "${id}" was not found in: ${directory}`)
+async function getBenchmark({
+  host = DefaultHost,
+  benchmarksDirectory,
+  scenariosDirectory,
+  id,
+}: {
+  host?: Host
+  benchmarksDirectory: string
+  scenariosDirectory: string
+  id: string
+}): Promise<Benchmark> {
+  const benchmarks = await listBenchmarks({
+    host,
+    benchmarksDirectory,
+    scenariosDirectory,
+  })
+  const benchmark = benchmarks.find(candidate => candidate.id === id)
+  if (benchmark) {
+    return benchmark
   }
 
-  return benchmark
+  throw new Error(`Benchmark "${id}" was not found in: ${benchmarksDirectory}`)
 }
 
 function getBenchmarkId(filename: string): string {
@@ -92,39 +152,14 @@ function getBenchmarkId(filename: string): string {
 }
 
 function isBenchmarkFile(filename: string): boolean {
-  if (path.extname(filename) === '.d.ts') {
-    return false
-  }
-
-  if (!BENCHMARK_FILE_EXTENSIONS.has(path.extname(filename))) {
-    return false
-  }
-
-  if (path.basename(filename) === 'index') {
-    return false
-  }
-
-  return true
+  return !filename.endsWith('.d.ts') && filename !== 'index.ts' && BENCHMARK_FILE_EXTENSIONS.has(path.extname(filename))
 }
 
-// type RunContext = {
-//   artifactsDirectory: string
-//   benchmarksDirectory: string
-//   host: Host
-//   scenariosDirectory: string
-// }
-//
-// type Trial = {
-//   id: string
-//   capability: CapabilityConfig
-//   scenario: Scenario
-//   treatment: Treatment
-//   model: ModelVariant
-// }
-//
-// type TrialRun = {}
-//
-type TrialResult = {}
+type BenchmarkTrialResult = TrialResult & {
+  capability: Capability
+}
+
+type BenchmarkRunResult = Array<BenchmarkTrialResult>
 
 async function run({
   env,
@@ -134,44 +169,168 @@ async function run({
   env: EnvironmentConfig
   host?: Host
   id: string
-}): Promise<TrialResult> {
-  const benchmark = await getBenchmark(host, env.benchmarksDirectory, id)
-  console.log(benchmark)
+}): Promise<BenchmarkRunResult> {
+  const benchmark = await getBenchmark({
+    host,
+    benchmarksDirectory: env.benchmarksDirectory,
+    scenariosDirectory: env.scenariosDirectory,
+    id,
+  })
+  const benchmarkTreatment = {
+    name: 'Benchmark',
+    setup: benchmark.setup,
+  }
+  const trialCapabilities = new Map<string, Capability>()
+  const trials: Array<Trial> = benchmark.models.flatMap(model => {
+    return benchmark.capabilities.flatMap(capability => {
+      return capability.scenarios.flatMap(scenario => {
+        return [ControlTreatment, benchmarkTreatment].map(treatment => {
+          const trial = {
+            id: randomUUID(),
+            scenario,
+            treatment,
+            model,
+          }
+          trialCapabilities.set(trial.id, capability)
+          return trial
+        })
+      })
+    })
+  })
+  const plan = await createPlan(trials)
+  const results = await runPlan({
+    env,
+    host,
+    plan,
+  })
 
-  throw new Error('unimplemented')
-  // const trials: Array<Trial> = []
-  //
-  // for (const variant of getModelVariants(benchmark.models)) {
-  //   for (const capability of benchmark.capabilities) {
-  //     for (const scenarioId of capability.scenarios) {
-  //       const scenario = await getScenario(context.host, context.scenariosDirectory, scenarioId)
-  //
-  //       trials.push({
-  //         id: randomUUID(),
-  //         capability,
-  //         scenario,
-  //         treatment: ControlTreatment,
-  //         model: variant,
-  //       })
-  //
-  //       trials.push({
-  //         id: randomUUID(),
-  //         capability,
-  //         scenario,
-  //         treatment: {
-  //           name: 'Benchmark',
-  //           setup: benchmark.setup,
-  //         },
-  //         model: variant,
-  //       })
-  //     }
-  //   }
-  // }
-  //
-  // console.log(trials)
-  //
-  // throw new Error('unimplemented')
+  return results.map(result => {
+    const capability = trialCapabilities.get(result.trial.id)
+    if (!capability) {
+      throw new Error(`Capability was not found for trial: ${result.trial.id}`)
+    }
+
+    return {
+      ...result,
+      capability,
+    }
+  })
 }
 
-export {defineConfig, listBenchmarks, getBenchmark, run, BenchmarkConfigSchema}
-export type {BenchmarkConfig, Benchmark}
+const CapabilityOutputSchema = z.object({
+  name: z.string(),
+  scenarioIds: z.array(z.string()),
+})
+
+const BenchmarkTrialOutputSchema = z.object({
+  agent: TrialAgentSchema,
+  artifacts: TrialArtifactsSchema,
+  capabilityId: z.string(),
+  id: z.string(),
+  model: ModelVariantSchema,
+  scenarioId: z.string(),
+  testResults: TestResultsSchema,
+  treatmentId: z.string(),
+  walkthrough: WalkthroughSchema,
+})
+
+const SerializedBenchmarkOutputSchema = z.object({
+  benchmarkId: z.string(),
+  capabilities: z.record(z.string(), CapabilityOutputSchema),
+  scenarios: z.record(
+    z.string(),
+    z.pick(ScenarioSchema, {
+      id: true,
+      directory: true,
+      prompt: true,
+      description: true,
+      tags: true,
+      testPath: true,
+      browserTestPath: true,
+    }),
+  ),
+  treatments: z.record(
+    z.string(),
+    z.pick(TreatmentSchema, {
+      name: true,
+    }),
+  ),
+  trials: z.record(z.string(), BenchmarkTrialOutputSchema),
+})
+
+type BenchmarkOutput = {
+  benchmarkId: string
+  capabilities: Map<string, z.infer<typeof CapabilityOutputSchema>>
+  scenarios: Map<string, Scenario>
+  treatments: Map<string, {name: string}>
+  trials: Map<string, z.infer<typeof BenchmarkTrialOutputSchema>>
+}
+
+function output(benchmarkId: string, trialResults: BenchmarkRunResult): BenchmarkOutput {
+  const result: BenchmarkOutput = {
+    benchmarkId,
+    capabilities: new Map(),
+    scenarios: new Map(),
+    treatments: new Map(),
+    trials: new Map(),
+  }
+
+  for (const trialResult of trialResults) {
+    const {artifacts, capability, trial} = trialResult
+
+    if (!result.capabilities.has(capability.name)) {
+      result.capabilities.set(capability.name, {
+        name: capability.name,
+        scenarioIds: capability.scenarios.map(scenario => scenario.id),
+      })
+    }
+
+    if (!result.scenarios.has(trial.scenario.id)) {
+      result.scenarios.set(trial.scenario.id, trial.scenario)
+    }
+
+    if (!result.treatments.has(trial.treatment.name)) {
+      result.treatments.set(trial.treatment.name, trial.treatment)
+    }
+
+    result.trials.set(trial.id, {
+      agent: trialResult.agent,
+      artifacts,
+      capabilityId: capability.name,
+      id: trial.id,
+      model: trial.model,
+      scenarioId: trial.scenario.id,
+      testResults: trialResult.testResults,
+      treatmentId: trial.treatment.name,
+      walkthrough: trialResult.walkthrough,
+    })
+  }
+
+  return result
+}
+
+function serialize(benchmarkOutput: BenchmarkOutput): string {
+  return JSON.stringify({
+    benchmarkId: benchmarkOutput.benchmarkId,
+    capabilities: Object.fromEntries(benchmarkOutput.capabilities),
+    scenarios: Object.fromEntries(benchmarkOutput.scenarios),
+    treatments: Object.fromEntries(benchmarkOutput.treatments),
+    trials: Object.fromEntries(benchmarkOutput.trials),
+  })
+}
+
+function deserialize(input: unknown): BenchmarkOutput {
+  const parsed = typeof input === 'string' ? JSON.parse(input) : input
+  const result = SerializedBenchmarkOutputSchema.parse(parsed, {reportInput: true})
+
+  return {
+    benchmarkId: result.benchmarkId,
+    capabilities: new Map(Object.entries(result.capabilities)),
+    scenarios: new Map(Object.entries(result.scenarios)),
+    treatments: new Map(Object.entries(result.treatments)),
+    trials: new Map(Object.entries(result.trials)),
+  }
+}
+
+export {BenchmarkConfigSchema, defineConfig, deserialize, getBenchmark, listBenchmarks, output, run, serialize}
+export type {BenchmarkConfig, Benchmark, BenchmarkOutput, BenchmarkRunResult, BenchmarkTrialResult, Capability}

@@ -3,6 +3,7 @@ import {defineConfig} from '@primer/agent-eval/benchmark'
 export const benchmark = defineConfig({
   name: 'Design System',
   description: 'Benchmark the performance of different design system approaches.',
+  models: ['gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.6-sol'],
   capabilities: [
     {
       name: 'Uses components',

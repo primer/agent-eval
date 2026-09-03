@@ -2,10 +2,28 @@
 
 ## Routes
 
-| URL                | Description                                                                  |
-| :----------------- | :--------------------------------------------------------------------------- |
-| `/`                | View baseline above the fold, section for experiments, section for scenarios |
-| `/experiments`     | List experiments                                                             |
-| `/experiments/:id` | View experiment details                                                      |
-| `/scenarios`       | List scenarios                                                               |
-| `/scenarios/:id`   | View scenario details and baseline results                                   |
+| URL                           | Description                                     |
+| :---------------------------- | :---------------------------------------------- |
+| `/`                           | View the latest design system benchmark results |
+| `/benchmarks`                 | List benchmarks                                 |
+| `/benchmarks/:id`             | View benchmark results and dated runs           |
+| `/benchmarks/:id/runs/:date`  | View benchmark run details and walkthroughs     |
+| `/experiments`                | List experiments                                |
+| `/experiments/:id`            | View experiment details                         |
+| `/experiments/:id/runs/:date` | View experiment run details and walkthroughs    |
+| `/scenarios`                  | List scenarios                                  |
+| `/scenarios/:id`              | View scenario details                           |
+
+## Results
+
+The website reads portable result bundles from:
+
+```text
+results/
+├── benchmarks/<benchmark-id>/<YYYY-MM-DD>/
+│   ├── output.json
+│   └── artifacts/
+└── experiments/<experiment-id>/<YYYY-MM-DD>/
+    ├── output.json
+    └── artifacts/
+```

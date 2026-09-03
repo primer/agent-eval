@@ -22,10 +22,7 @@ export default async function RunPage(props: RunPageProps) {
     notFound()
   }
 
-  const [experiment, run] = await Promise.all([getExperiment(id), getRun(date)])
-  if (run.output.experiment.id !== id) {
-    notFound()
-  }
+  const [experiment, run] = await Promise.all([getExperiment(id), getRun(id, date)])
 
   return (
     <RunDetailsPage

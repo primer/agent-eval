@@ -13,6 +13,7 @@ import {DefaultHost, type Host} from './host'
 import {logger} from './logger'
 import {create as createPlan, run as runPlan} from './plan'
 import {getScenario, ScenarioSchema, type Scenario} from './scenario'
+import {selectShard, type Shard} from './shard'
 import {ControlTreatment, TreatmentSchema, TreatmentSetupSchema, type Treatment, type TreatmentSetup} from './treatment'
 import {
   getPortableTrialPaths,
@@ -162,10 +163,12 @@ async function run({
   env,
   host = DefaultHost,
   id,
+  shard,
 }: {
   env: EnvironmentConfig
   host?: Host
   id: string
+  shard?: Shard
 }): Promise<ExperimentRunResult> {
   const experiment = await getExperiment({
     host,
@@ -195,7 +198,7 @@ async function run({
       ]
     })
   })
-  const plan = await createPlan(trials)
+  const plan = await createPlan(shard ? selectShard(trials, shard) : trials)
   const results = await runPlan({
     env,
     host,

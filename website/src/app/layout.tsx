@@ -7,7 +7,7 @@ export const metadata = {
     default: 'primer / agent-eval',
     template: '%s · primer / agent-eval',
   },
-  description: 'View results of experiments with agents across different scenarios with Primer',
+  description: 'View design system benchmark and experiment results for coding agents',
 }
 
 export default function Layout({children}: {children: React.ReactNode}) {

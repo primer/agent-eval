@@ -15,6 +15,8 @@ type TableResult = {
   capability: string
   scenario: string
   scenarioId?: string
+  model: string
+  reasoningEffort: string
   comparison: Comparison
 }
 
@@ -26,19 +28,6 @@ type BenchmarkRun = {
   totalTests: number
 }
 
-function Delta({comparison}: {comparison: Comparison}) {
-  const tone =
-    comparison.deltaValue === null
-      ? 'text-muted'
-      : comparison.deltaValue > 0
-        ? 'text-success'
-        : comparison.deltaValue < 0
-          ? 'text-danger'
-          : 'text-muted'
-
-  return <span className={tone}>{comparison.delta}</span>
-}
-
 function createTableResults(results: BenchmarkPageResults): Array<TableResult> {
   return results.capabilities.flatMap(capability => {
     return [
@@ -46,16 +35,32 @@ function createTableResults(results: BenchmarkPageResults): Array<TableResult> {
         id: capability.id,
         capability: capability.name,
         scenario: capability.scenarios.length > 0 ? 'All scenarios' : 'Not measured',
+        model: 'All models',
+        reasoningEffort: '',
         comparison: capability.comparison,
       },
-      ...capability.scenarios.map(scenario => {
-        return {
-          id: `${capability.id}-${scenario.id}`,
-          capability: '',
-          scenario: scenario.id,
-          scenarioId: scenario.id,
-          comparison: scenario.comparison,
-        }
+      ...capability.scenarios.flatMap(scenario => {
+        return [
+          {
+            id: `${capability.id}-${scenario.id}`,
+            capability: '',
+            scenario: scenario.id,
+            scenarioId: scenario.id,
+            model: 'All models',
+            reasoningEffort: '',
+            comparison: scenario.comparison,
+          },
+          ...scenario.models.map(model => {
+            return {
+              id: `${capability.id}-${scenario.id}-${model.id}`,
+              capability: '',
+              scenario: '',
+              model: model.name,
+              reasoningEffort: model.reasoningEffort,
+              comparison: model.comparison,
+            }
+          }),
+        ]
       }),
     ]
   })
@@ -131,8 +136,8 @@ export function Page({
             Capability performance
           </Table.Title>
           <Table.Subtitle as="p" id="capability-results-description">
-            Benchmark pass rates are compared with Control across every configured scenario. Capability rows aggregate
-            all of their scenario and model results. Latest results:{' '}
+            Benchmark results are shown first, followed by the percent change from Control in parentheses. Capability
+            rows aggregate all of their scenario and model results. Latest results:{' '}
             <Link href={`/benchmarks/${benchmark.id}/runs/${results.date}` as Route}>
               <time dateTime={results.date}>{results.date}</time>
             </Link>
@@ -164,63 +169,65 @@ export function Page({
                 },
               },
               {
-                id: 'control',
-                header: 'Control',
+                id: 'model',
+                header: 'Model',
+                field: 'model',
+              },
+              {
+                id: 'reasoning-effort',
+                header: 'Reasoning effort',
+                field: 'reasoningEffort',
+              },
+              {
+                id: 'tests',
+                header: 'Tests',
                 field: 'comparison',
                 align: 'end',
                 renderCell: row => {
-                  return row.comparison.control
+                  return row.comparison.tests
                 },
               },
               {
-                id: 'benchmark',
-                header: 'Benchmark',
+                id: 'output-tokens',
+                header: 'Output tokens',
                 field: 'comparison',
                 align: 'end',
                 renderCell: row => {
-                  return row.comparison.benchmark
+                  return row.comparison.outputTokens
                 },
               },
               {
-                id: 'delta',
-                header: 'Difference',
+                id: 'premium-requests',
+                header: 'Premium requests',
                 field: 'comparison',
                 align: 'end',
                 renderCell: row => {
-                  return <Delta comparison={row.comparison} />
+                  return row.comparison.premiumRequests
                 },
               },
               {
-                id: 'control-tests',
-                header: 'Control tests',
+                id: 'session-time',
+                header: 'Session time',
                 field: 'comparison',
                 align: 'end',
                 renderCell: row => {
-                  return row.comparison.controlTests
+                  return row.comparison.sessionTime
                 },
               },
               {
-                id: 'benchmark-tests',
-                header: 'Benchmark tests',
+                id: 'api-time',
+                header: 'API time',
                 field: 'comparison',
                 align: 'end',
                 renderCell: row => {
-                  return row.comparison.benchmarkTests
+                  return row.comparison.apiTime
                 },
               },
             ]}
             data={tableResults}
           />
         </Table.Container>
-      ) : (
-        <Blankslate border>
-          <Blankslate.Heading as="h2">No results</Blankslate.Heading>
-          <Blankslate.Description>
-            No results have been recorded for this benchmark yet. Run the benchmark to compare its capabilities with
-            Control.
-          </Blankslate.Description>
-        </Blankslate>
-      )}
+      ) : null}
     </Stack>
   )
 }

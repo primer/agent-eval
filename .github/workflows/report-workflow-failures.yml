@@ -3,7 +3,7 @@ name: Report workflow failures
 on:
   workflow_run:
     workflows:
-      - baseline
+      - benchmark
       - deploy
       - update-pnpm
       - update-sandbox-tools

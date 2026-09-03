@@ -27,7 +27,17 @@ permissions:
   contents: read
 
 jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      run-date: ${{ steps.run.outputs.date }}
+    steps:
+      - name: Set run date
+        id: run
+        run: echo "date=$(date -u +%F)" >> "$GITHUB_OUTPUT"
+
   run:
+    needs: setup
     runs-on: ubuntu-latest
     strategy:
       fail-fast: true
@@ -53,18 +63,19 @@ jobs:
           CONCURRENCY: ${{ inputs.concurrency }}
           DOCKER_IMAGE: ${{ inputs.docker-image || 'node:26.5.0-slim' }}
           EXPERIMENT_NAME: ${{ inputs.experiment }}
-          OUTPUT_FILE: results/experiment/output-${{ matrix.order }}.json
+          RUN_DATE: ${{ needs.setup.outputs.run-date }}
           SHARD: ${{ matrix.order }}/${{ strategy.job-total }}
         run: |
           set -o pipefail
+          run_directory="results/experiments/$EXPERIMENT_NAME/$RUN_DATE"
           node packages/agent-eval/dist/cli.js \
             --concurrency "$CONCURRENCY" \
             --docker-image "$DOCKER_IMAGE" \
             --experiment "$EXPERIMENT_NAME" \
             --experiments experiments \
             --scenarios scenarios \
-            --artifacts results/experiment/artifacts \
-            --output "$OUTPUT_FILE" \
+            --artifacts "$run_directory/artifacts" \
+            --output "$run_directory/output-${{ matrix.order }}.json" \
             --shard "$SHARD"
       - name: Prepare experiment artifact
         if: ${{ always() }}
@@ -84,7 +95,7 @@ jobs:
           compression-level: 9
 
   merge:
-    needs: run
+    needs: [setup, run]
     runs-on: ubuntu-latest
     steps:
       - name: download experiment results
@@ -94,19 +105,14 @@ jobs:
           merge-multiple: true
       - name: merge experiment results
         run: |
-          cd results/experiment
+          cd "results/experiments/${{ inputs.experiment }}/${{ needs.setup.outputs.run-date }}"
           jq --slurp '
-            . as $outputs
-            | ([$outputs[].treatments[]] | unique_by(.config.name)) as $treatments
-            | $outputs[0]
-            | .treatments = $treatments
-            | .results = [
-                $outputs[] as $output
-                | $output.results[]
-                | . as $result
-                | ($output.treatments[] | select(.id == $result.treatmentId).config.name) as $name
-                | .treatmentId = ($treatments[] | select(.config.name == $name).id)
-              ]
+            {
+              experimentId: .[0].experimentId,
+              scenarios: (reduce .[].scenarios as $scenarios ({}; . * $scenarios)),
+              treatments: (reduce .[].treatments as $treatments ({}; . * $treatments)),
+              trials: (reduce .[].trials as $trials ({}; . * $trials))
+            }
           ' output-*.json > output.json
           rm output-*.json
       - name: Prepare experiment artifact

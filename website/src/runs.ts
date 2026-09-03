@@ -9,7 +9,7 @@ const {deserialize} = await import(
   '@primer/agent-eval/experiment'
 )
 
-const RESULTS_DIR = path.resolve(process.cwd(), '..', 'results')
+const RESULTS_DIR = path.resolve(process.cwd(), '..', 'results', 'experiments')
 
 type ExperimentOutputTrial = ExperimentOutput['trials'] extends Map<string, infer Trial> ? Trial : never
 
@@ -110,10 +110,12 @@ function isRunName(name: string): boolean {
   return !Number.isNaN(date.getTime()) && date.toISOString().startsWith(name)
 }
 
-async function listResultDirectories(): Promise<Array<Dirent>> {
+async function listExperimentDirectories(): Promise<Array<Dirent>> {
   try {
     const entries = await fs.readdir(RESULTS_DIR, {withFileTypes: true})
-    return entries.filter(entry => entry.isDirectory() && isRunName(entry.name))
+    return entries.filter(entry => {
+      return entry.isDirectory()
+    })
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
       return []
@@ -123,51 +125,57 @@ async function listResultDirectories(): Promise<Array<Dirent>> {
   }
 }
 
-async function list(): Promise<Array<Run>> {
-  const results = await listResultDirectories().then(entries => {
-    return Promise.all(
-      entries.map(async entry => {
-        const directory = path.join(RESULTS_DIR, entry.name)
-        const outputFile = path.join(directory, 'output.json')
-        const contents = await fs.readFile(outputFile, 'utf-8')
-        const output = parseOutput(contents)
-        return [directory, entry.name, output] as const
-      }),
-    )
-  })
-
-  return results
-    .map(([directory, name, output]) => {
-      const date = new Date(`${name}T00:00:00.000Z`)
-      return {id: name, name, directory, date, output}
+async function listRunDirectories(experimentId: string): Promise<Array<Dirent>> {
+  const experimentDirectory = path.join(RESULTS_DIR, experimentId)
+  try {
+    const entries = await fs.readdir(experimentDirectory, {withFileTypes: true})
+    return entries.filter(entry => {
+      return entry.isDirectory() && isRunName(entry.name)
     })
-    .toSorted((a, b) => b.date.getTime() - a.date.getTime())
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return []
+    }
+
+    throw error
+  }
 }
 
 async function listForExperiment(experimentId: string): Promise<Array<Run>> {
-  const runs = await list()
-  return runs.filter(run => run.output.experiment.id === experimentId)
+  const entries = await listRunDirectories(experimentId)
+  const runs = await Promise.all(
+    entries.map(entry => {
+      return find(experimentId, entry.name)
+    }),
+  )
+
+  return runs
+    .filter((run): run is Run => {
+      return run !== null
+    })
+    .toSorted((a, b) => {
+      return b.date.getTime() - a.date.getTime()
+    })
 }
 
-async function latest(): Promise<Run | null> {
-  const runs = await listResultDirectories().then(entries => {
-    return entries.map(entry => [new Date(`${entry.name}T00:00:00.000Z`), entry.name] as const)
+async function list(): Promise<Array<Run>> {
+  const experiments = await listExperimentDirectories()
+  const runs = await Promise.all(
+    experiments.map(experiment => {
+      return listForExperiment(experiment.name)
+    }),
+  )
+  return runs.flat().toSorted((a, b) => {
+    return b.date.getTime() - a.date.getTime()
   })
-  if (runs.length === 0) {
-    return null
-  }
-
-  const sorted = runs.toSorted((a, b) => b[0].getTime() - a[0].getTime())
-  const run = await find(sorted[0][1])
-  return run
 }
 
-async function find(name: string): Promise<Run | null> {
+async function find(experimentId: string, name: string): Promise<Run | null> {
   if (!isRunName(name)) {
     return null
   }
 
-  const directory = path.join(RESULTS_DIR, name)
+  const directory = path.join(RESULTS_DIR, experimentId, name)
   if (!existsSync(directory)) {
     return null
   }
@@ -184,6 +192,10 @@ async function find(name: string): Promise<Run | null> {
   const outputFile = path.join(directory, 'output.json')
   const contents = await fs.readFile(outputFile, 'utf-8')
   const output = parseOutput(contents)
+  if (output.experiment.id !== experimentId) {
+    return null
+  }
+
   return {
     id: name,
     name,
@@ -193,10 +205,10 @@ async function find(name: string): Promise<Run | null> {
   }
 }
 
-async function get(name: string): Promise<Run> {
-  const run = await find(name)
+async function get(experimentId: string, name: string): Promise<Run> {
+  const run = await find(experimentId, name)
   if (!run) {
-    throw new Error(`Run "${name}" was not found in: ${RESULTS_DIR}`)
+    throw new Error(`Run "${name}" for experiment "${experimentId}" was not found in: ${RESULTS_DIR}`)
   }
 
   return run
@@ -275,5 +287,5 @@ function normalizeOutput(output: ExperimentOutput): RunOutput {
   }
 }
 
-export {list, listForExperiment, latest, get}
+export {list, listForExperiment, get}
 export type {Run, RunOutput, RunOutputResult}

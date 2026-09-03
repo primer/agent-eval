@@ -19,6 +19,7 @@ import {
 } from './experiment'
 import {logger} from './logger'
 import {formatBenchmarkResults, formatExperimentResults} from './report'
+import {parseShard} from './shard'
 import {compare as compareTrial} from './trial'
 
 const {values} = parseArgs({
@@ -77,6 +78,10 @@ const {values} = parseArgs({
       type: 'string',
       description: 'The directory containing scenario directories',
     },
+    shard: {
+      type: 'string',
+      description: 'The experiment shard to run, formatted as order/total',
+    },
   },
 })
 
@@ -97,6 +102,7 @@ Options:
       --output <file>        The target file in which results are written (default: output.json)
       --output-dir <dir>     The directory containing output.json and its artifacts
       --scenarios <dir>      The directory containing scenario directories (default: ./scenarios)
+      --shard <order/total>  The experiment shard to run
 `)
 }
 
@@ -176,6 +182,7 @@ if (values.benchmark) {
   const result = await runExperiment({
     env,
     id: values.experiment,
+    shard: values.shard ? parseShard(values.shard) : undefined,
   })
   const sorted = result.toSorted(compareTrial)
 

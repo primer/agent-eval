@@ -5,7 +5,6 @@ on:
       - main
   workflow_run:
     workflows:
-      - baseline
       - benchmark
     types:
       - completed
@@ -38,7 +37,7 @@ jobs:
         run: |
           gh api --paginate \
             "/repos/$GITHUB_REPOSITORY/actions/artifacts?per_page=100" \
-            --jq '.artifacts[] | select(.expired == false and (.name | test("^(baseline|benchmark)-[0-9]+$"))) | [.created_at, .id] | @tsv' |
+            --jq '.artifacts[] | select(.expired == false and (.name | test("^benchmark-[0-9]+$"))) | [.created_at, .id] | @tsv' |
             sort |
             cut -f2 |
             while read -r artifact_id; do

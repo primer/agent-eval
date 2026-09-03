@@ -115,9 +115,11 @@ async function run({
   sandbox: Sandbox
   trial: Trial
 }): Promise<TrialResult> {
-  logger.info('Running trial treatment: %s (%s)', trial.treatment.name, trial.id)
+  const logPrefix = `[${trial.scenario.id}] [${trial.treatment.name}] [${trial.model.name} (${trial.model.reasoningEffort})]`
 
-  logger.info('Copying files from: %s...', trial.scenario.directory)
+  logger.info('%s Running trial: %s', logPrefix, trial.id)
+
+  logger.info('%s Copying files from: %s...', logPrefix, trial.scenario.directory)
 
   await sandbox.copy(trial.scenario.directory, CONTAINER_WORKDIR, {
     exclude: ['scenario.config.ts', 'scenario.test.ts', 'scenario.browser.test.ts', 'node_modules', '.next', 'dist'],
@@ -126,41 +128,41 @@ async function run({
     user: 'root',
   })
 
-  logger.info('[%s] Obfuscating package name...', trial.treatment.name)
+  logger.info('%s Obfuscating package name...', logPrefix)
   await sandbox.runCommand('npm', ['pkg', 'set', `name=${trial.id}`], {
     user: NODE_USER,
   })
 
-  logger.info('[%s] Removing workspace dependency...', trial.treatment.name)
+  logger.info('%s Removing workspace dependency...', logPrefix)
   await sandbox.runCommand('npm', ['pkg', 'delete', 'devDependencies.@primer/agent-eval'], {
     user: NODE_USER,
   })
 
-  logger.info('[%s] Installing dependencies...', trial.treatment.name)
+  logger.info('%s Installing dependencies...', logPrefix)
   await sandbox.runCommand('npm', ['install'], {
     user: NODE_USER,
   })
 
   if (trial.setup) {
-    logger.info('[%s] Running generic setup...', trial.treatment.name)
+    logger.info('%s Running generic setup...', logPrefix)
     await trial.setup({
       sandbox,
     })
   }
 
   if (trial.treatment.setup) {
-    logger.info('[%s] Running treatment setup...', trial.treatment.name)
+    logger.info('%s Running treatment setup...', logPrefix)
     await trial.treatment.setup({
       sandbox,
     })
   }
 
-  logger.info('[%s] Run build script...', trial.treatment.name)
+  logger.info('%s Run build script...', logPrefix)
   await sandbox.runCommand('npm', ['run', 'build', '--if-present'], {
     user: NODE_USER,
   })
 
-  logger.info('[%s] Running copilot...', trial.treatment.name)
+  logger.info('%s Running copilot...', logPrefix)
   const copilotOutput = await sandbox.runCommand(
     'copilot',
     [
@@ -191,7 +193,7 @@ async function run({
     return parseMessage(JSON.parse(trimmed))
   })
 
-  logger.info('[%s] Running tests...', trial.treatment.name)
+  logger.info('%s Running tests...', logPrefix)
 
   const TEST_PATH = 'scenario.test.ts'
   const VITEST_CONFIG_PATH = 'vitest.agent-eval.config.ts'
@@ -217,7 +219,7 @@ async function run({
   const WALKTHROUGH_DIR = 'walkthrough'
   const WALKTHROUGH_VIEWPORT_WIDTH = 1440
   const WALKTHROUGH_VIEWPORT_HEIGHT = 900
-  logger.debug('Capturing walkthrough...')
+  logger.debug('%s Capturing walkthrough...', logPrefix)
   await sandbox.runCommand('apt-get', ['install', '-y', 'chromium'], {
     user: 'root',
   })
@@ -273,7 +275,7 @@ Only capture the walkthrough, do not make any further code changes.`
   )
 
   if (walkthroughResult.exitCode !== 0) {
-    logger.warn('[%s] Unable to capture walkthrough: %s', trial.treatment.name, walkthroughResult.stderr)
+    logger.warn('%s Unable to capture walkthrough: %s', logPrefix, walkthroughResult.stderr)
   }
 
   const artifactDirectory = path.join(artifactsDirectory, trial.id)
@@ -288,19 +290,19 @@ Only capture the walkthrough, do not make any further code changes.`
   }
   await host.fs.mkdir(workspaceDirectory, {recursive: true})
 
-  logger.info('[%s] Downloading artifacts to: %s...', trial.treatment.name, artifactDirectory)
+  logger.info('%s Downloading artifacts to: %s...', logPrefix, artifactDirectory)
 
-  logger.debug('[%s] Downloading agent workspace to: %s...', trial.treatment.name, workspaceDirectory)
+  logger.debug('%s Downloading agent workspace to: %s...', logPrefix, workspaceDirectory)
   await sandbox.download(CONTAINER_WORKDIR, workspaceDirectory, {
     ignore(name) {
       return name.includes('node_modules') || name.includes('.next') || name.includes('.turbo') || name.includes('dist')
     },
   })
 
-  logger.debug('[%s] Downloading copilot config to: %s...', trial.treatment.name, copilotConfigDirectory)
+  logger.debug('%s Downloading copilot config to: %s...', logPrefix, copilotConfigDirectory)
   await sandbox.download(COPILOT_DIR, copilotConfigDirectory)
 
-  logger.debug('[%s] Downloading skills config to: %s...', trial.treatment.name, skillsConfigDirectory)
+  logger.debug('%s Downloading skills config to: %s...', logPrefix, skillsConfigDirectory)
   await sandbox.download(AGENTS_DIR, skillsConfigDirectory)
 
   let walkthrough: Walkthrough = {
@@ -309,8 +311,8 @@ Only capture the walkthrough, do not make any further code changes.`
 
   if (host.existsSync(path.join(workspaceDirectory, WALKTHROUGH_DIR))) {
     logger.debug(
-      '[%s] Moving walkthrough artifacts from: %s to: %s...',
-      trial.treatment.name,
+      '%s Moving walkthrough artifacts from: %s to: %s...',
+      logPrefix,
       path.join(workspaceDirectory, WALKTHROUGH_DIR),
       walkthroughPath,
     )

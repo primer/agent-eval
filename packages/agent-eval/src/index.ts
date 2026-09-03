@@ -2,10 +2,14 @@ export {defineConfig as defineBenchmarkConfig, getBenchmark, listBenchmarks, Ben
 export type {BenchmarkConfig, Benchmark} from './benchmark'
 
 export {
+  ExperimentConfigSchema,
   defineConfig as defineExperimentConfig,
+  deserialize as deserializeExperimentOutput,
   getExperiment,
   listExperiments,
-  ExperimentConfigSchema,
+  output as getExperimentOutput,
+  run as runExperiment,
+  serialize as serializeExperimentOutput,
 } from './experiment'
 export type {ExperimentConfig, Experiment} from './experiment'
 
@@ -15,7 +19,5 @@ export type {ScenarioConfig, Scenario} from './scenario'
 export {TreatmentSchema, ControlTreatment} from './treatment'
 export type {Treatment} from './treatment'
 
-// export {run} from './run'
-// export {models} from './model'
-// export {createAgentEvalOutput, parseAgentEvalOutput} from './output'
-// export type {AgentEvalOutput, AgentEvalOutputResult} from './output'
+export {TrialSchema, TrialResultSchema, run as runTrial, compare as compareTrial} from './trial'
+export type {Trial, TrialResult} from './trial'

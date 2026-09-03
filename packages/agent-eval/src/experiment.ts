@@ -1,14 +1,15 @@
+import {randomUUID} from 'node:crypto'
 import path from 'node:path'
 import * as z from 'zod/mini'
-import {getModelVariants, ModelVariantConfigSchema, type ModelVariant} from './model'
-import {getScenario, type Scenario} from './scenario'
-import {ControlTreatment, TreatmentSchema, TreatmentSetupSchema, type Treatment, type TreatmentSetup} from './treatment'
-import {DefaultHost, type Host} from './host'
 import type {EnvironmentConfig} from './environment'
+import {getModelVariants, ModelVariantConfigSchema, ModelVariantSchema, type ModelVariant} from './model'
+import {DefaultHost, type Host} from './host'
 import {logger} from './logger'
 import {create as createPlan, run as runPlan} from './plan'
-import type {Trial} from './trial'
-import {randomUUID} from 'node:crypto'
+import {getScenario, ScenarioSchema, type Scenario} from './scenario'
+import {ControlTreatment, TreatmentSchema, TreatmentSetupSchema, type Treatment, type TreatmentSetup} from './treatment'
+import {TrialAgentSchema, TrialArtifactsSchema, WalkthroughSchema, type Trial, type TrialResult} from './trial'
+import {TestResultsSchema} from './vitest'
 
 const ExperimentConfigSchema = z.object({
   name: z.string(),
@@ -135,7 +136,17 @@ async function getExperiment({
   throw new Error(`Experiment "${id}" was not found in: ${experimentsDirectory}`)
 }
 
-async function run({env, host = DefaultHost, id}: {env: EnvironmentConfig; host?: Host; id: string}) {
+type ExperimentRunResult = Array<TrialResult>
+
+async function run({
+  env,
+  host = DefaultHost,
+  id,
+}: {
+  env: EnvironmentConfig
+  host?: Host
+  id: string
+}): Promise<ExperimentRunResult> {
   const experiment = await getExperiment({
     host,
     experimentsDirectory: env.experimentsDirectory,
@@ -174,5 +185,93 @@ async function run({env, host = DefaultHost, id}: {env: EnvironmentConfig; host?
   return results
 }
 
-export {defineConfig, listExperiments, getExperiment, ExperimentConfigSchema, run}
+const ExperimentOutputSchema = z.object({
+  scenarios: z.map(
+    z.string(),
+    z.pick(ScenarioSchema, {
+      id: true,
+      directory: true,
+      prompt: true,
+      description: true,
+      tags: true,
+      testPath: true,
+      browserTestPath: true,
+    }),
+  ),
+  treatments: z.map(
+    z.string(),
+    z.pick(TreatmentSchema, {
+      name: true,
+    }),
+  ),
+  trials: z.map(
+    z.string(),
+    z.object({
+      agent: TrialAgentSchema,
+      artifacts: TrialArtifactsSchema,
+      id: z.string(),
+      model: ModelVariantSchema,
+      scenarioId: z.string(),
+      testResults: TestResultsSchema,
+      treatmentId: z.string(),
+      walkthrough: WalkthroughSchema,
+    }),
+  ),
+})
+
+type ExperimentOutput = z.infer<typeof ExperimentOutputSchema>
+
+function output(trialResults: ExperimentRunResult): ExperimentOutput {
+  const result: ExperimentOutput = {
+    scenarios: new Map(),
+    treatments: new Map(),
+    trials: new Map(),
+  }
+
+  for (const trialResult of trialResults) {
+    const {artifacts, trial} = trialResult
+
+    if (!result.scenarios.has(trial.scenario.id)) {
+      result.scenarios.set(trial.scenario.id, trial.scenario)
+    }
+
+    if (!result.treatments.has(trial.treatment.name)) {
+      result.treatments.set(trial.treatment.name, trial.treatment)
+    }
+
+    result.trials.set(trial.id, {
+      agent: trialResult.agent,
+      artifacts,
+      id: trial.id,
+      model: trial.model,
+      scenarioId: trial.scenario.id,
+      testResults: trialResult.testResults,
+      treatmentId: trial.treatment.name,
+      walkthrough: trialResult.walkthrough,
+    })
+  }
+
+  return result
+}
+
+function serialize(output: ExperimentOutput): string {
+  return JSON.stringify({
+    scenarios: Object.fromEntries(output.scenarios),
+    treatments: Object.fromEntries(output.treatments),
+    trials: Object.fromEntries(output.trials),
+  })
+}
+
+function deserialize(input: unknown): ExperimentOutput {
+  const parsed = typeof input === 'string' ? JSON.parse(input) : input
+  const result = ExperimentOutputSchema.parse(parsed, {reportInput: true})
+
+  return {
+    scenarios: new Map(Object.entries(result.scenarios)),
+    treatments: new Map(Object.entries(result.treatments)),
+    trials: new Map(Object.entries(result.trials)),
+  }
+}
+
+export {ExperimentConfigSchema, defineConfig, deserialize, getExperiment, listExperiments, output, run, serialize}
 export type {ExperimentConfig, Experiment}

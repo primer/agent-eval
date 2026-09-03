@@ -1,11 +1,15 @@
 #!/usr/bin/env node
 
+import {existsSync} from 'node:fs'
+import fs from 'node:fs/promises'
+import path from 'node:path'
 import {parseArgs} from 'node:util'
 import {getEnvironmentConfig} from './environment'
 import {run as runBenchmark} from './benchmark'
-import {run as runExperiment} from './experiment'
+import {run as runExperiment, output as getExperimentOutput, serialize as serializeExperimentOutput} from './experiment'
 import {logger} from './logger'
 
+const start = Date.now()
 const {values} = parseArgs({
   options: {
     artifacts: {
@@ -116,12 +120,42 @@ if (values.benchmark) {
     env,
     id: values.benchmark,
   })
+
+  if (!existsSync(path.dirname(env.outputPath))) {
+    await fs.mkdir(path.dirname(env.outputPath), {recursive: true})
+  }
+
+  logger.info('Writing benchmark output to: %s', env.outputPath)
+  // await fs.writeFile(env.outputPath, serializeExperimentOutput(output), 'utf-8')
+
+  logger.info(
+    'Done in %s',
+    new Intl.DurationFormat('en', {style: 'short'}).format({
+      milliseconds: Date.now() - start,
+    }),
+  )
 } else if (values.experiment) {
   logger.info('Running experiment: %s', values.experiment)
-  await runExperiment({
+
+  const result = await runExperiment({
     env,
     id: values.experiment,
   })
+  const output = getExperimentOutput(result)
+
+  if (!existsSync(path.dirname(env.outputPath))) {
+    await fs.mkdir(path.dirname(env.outputPath), {recursive: true})
+  }
+
+  logger.info('Writing experiment output to: %s', env.outputPath)
+  await fs.writeFile(env.outputPath, serializeExperimentOutput(output), 'utf-8')
+
+  logger.info(
+    'Done in %s',
+    new Intl.DurationFormat('en', {style: 'short'}).format({
+      milliseconds: Date.now() - start,
+    }),
+  )
 } else {
   displayHelp()
 }

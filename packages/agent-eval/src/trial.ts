@@ -42,18 +42,22 @@ const AgentSessionSchema = z.object({
 
 type AgentSession = z.infer<typeof AgentSessionSchema>
 
+const TrialArtifactsSchema = z.object({
+  directory: z.string(),
+  copilotConfigDirectory: z.string(),
+  skillsConfigDirectory: z.string(),
+  testResultsPath: z.string(),
+  workspaceDirectory: z.string(),
+})
+
+const TrialAgentSchema = z.object({
+  sessions: z.array(AgentSessionSchema),
+})
+
 const TrialResultSchema = z.object({
-  artifacts: z.object({
-    directory: z.string(),
-    copilotConfigDirectory: z.string(),
-    skillsConfigDirectory: z.string(),
-    testResultsPath: z.string(),
-    workspaceDirectory: z.string(),
-  }),
+  artifacts: TrialArtifactsSchema,
   trial: TrialSchema,
-  agent: z.object({
-    sessions: z.array(AgentSessionSchema),
-  }),
+  agent: TrialAgentSchema,
   testResults: TestResultsSchema,
   walkthrough: WalkthroughSchema,
 })
@@ -373,5 +377,42 @@ export default defineConfig({
 })`
 }
 
-export {TrialSchema, TrialResultSchema, run}
+type CompareTrialResult = Pick<TrialResult, 'testResults' | 'agent'>
+
+/**
+ * Compare to trial results to determine which treatment performed better. We
+ * compare trials based on:
+ *
+ * - Test success rate (higher is better)
+ * - Output tokens (lower is better)
+ * - Total API duration (lower is better)
+ * - Number of turns (lower is better)
+ * - Number of premium requests (lower is better)
+ */
+function compare(a: CompareTrialResult, b: CompareTrialResult): number {
+  const successRateA = a.testResults.numTotalTests > 0 ? a.testResults.numPassedTests / a.testResults.numTotalTests : 0
+  const successRateB = b.testResults.numTotalTests > 0 ? b.testResults.numPassedTests / b.testResults.numTotalTests : 0
+
+  const outputTokensA = a.agent.sessions.reduce((sum, session) => sum + session.outputTokens, 0)
+  const outputTokensB = b.agent.sessions.reduce((sum, session) => sum + session.outputTokens, 0)
+
+  const totalApiDurationA = a.agent.sessions.reduce((sum, session) => sum + session.totalApiDurationMs, 0)
+  const totalApiDurationB = b.agent.sessions.reduce((sum, session) => sum + session.totalApiDurationMs, 0)
+
+  const turnsA = a.agent.sessions.reduce((sum, session) => sum + session.turns, 0)
+  const turnsB = b.agent.sessions.reduce((sum, session) => sum + session.turns, 0)
+
+  const premiumRequestsA = a.agent.sessions.reduce((sum, session) => sum + session.premiumRequests, 0)
+  const premiumRequestsB = b.agent.sessions.reduce((sum, session) => sum + session.premiumRequests, 0)
+
+  return (
+    successRateB - successRateA ||
+    outputTokensA - outputTokensB ||
+    totalApiDurationA - totalApiDurationB ||
+    turnsA - turnsB ||
+    premiumRequestsA - premiumRequestsB
+  )
+}
+
+export {TrialSchema, TrialResultSchema, TrialArtifactsSchema, TrialAgentSchema, WalkthroughSchema, run, compare}
 export type {Trial, TrialResult}

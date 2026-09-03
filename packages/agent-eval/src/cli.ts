@@ -6,8 +6,15 @@ import path from 'node:path'
 import {parseArgs} from 'node:util'
 import {getEnvironmentConfig} from './environment'
 import {run as runBenchmark} from './benchmark'
-import {run as runExperiment, output as getExperimentOutput, serialize as serializeExperimentOutput} from './experiment'
+import {
+  getExperiment,
+  run as runExperiment,
+  output as getExperimentOutput,
+  serialize as serializeExperimentOutput,
+} from './experiment'
 import {logger} from './logger'
+import {formatExperimentResults} from './report'
+import {compare as compareTrial} from './trial'
 
 const start = Date.now()
 const {values} = parseArgs({
@@ -127,35 +134,36 @@ if (values.benchmark) {
 
   logger.info('Writing benchmark output to: %s', env.outputPath)
   // await fs.writeFile(env.outputPath, serializeExperimentOutput(output), 'utf-8')
-
-  logger.info(
-    'Done in %s',
-    new Intl.DurationFormat('en', {style: 'short'}).format({
-      milliseconds: Date.now() - start,
-    }),
-  )
 } else if (values.experiment) {
   logger.info('Running experiment: %s', values.experiment)
 
+  const experiment = await getExperiment({
+    experimentsDirectory: env.experimentsDirectory,
+    scenariosDirectory: env.scenariosDirectory,
+    id: values.experiment,
+  })
   const result = await runExperiment({
     env,
     id: values.experiment,
   })
-  const output = getExperimentOutput(result)
+  const sorted = result.toSorted(compareTrial)
+
+  logger.info('Writing experiment output to: %s', env.outputPath)
+
+  const output = getExperimentOutput(sorted)
 
   if (!existsSync(path.dirname(env.outputPath))) {
     await fs.mkdir(path.dirname(env.outputPath), {recursive: true})
   }
 
-  logger.info('Writing experiment output to: %s', env.outputPath)
   await fs.writeFile(env.outputPath, serializeExperimentOutput(output), 'utf-8')
 
-  logger.info(
-    'Done in %s',
-    new Intl.DurationFormat('en', {style: 'short'}).format({
-      milliseconds: Date.now() - start,
-    }),
-  )
+  const resultSummaries = formatExperimentResults(experiment.name, sorted)
+  console.log(resultSummaries)
+
+  if (GITHUB_STEP_SUMMARY) {
+    await fs.appendFile(GITHUB_STEP_SUMMARY, `## Experiment results\n\n\`\`\`\n${resultSummaries}\n\`\`\`\n`)
+  }
 } else {
   displayHelp()
 }

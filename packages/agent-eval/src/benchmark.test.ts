@@ -131,7 +131,7 @@ test('listBenchmarks validates the benchmarks directory', async () => {
       benchmarksDirectory: '/benchmarks',
       scenariosDirectory: '/scenarios',
     }),
-  ).rejects.toThrowError('Benchmarks directory does not exist: /benchmarks')
+  ).rejects.toThrow('Benchmarks directory does not exist: /benchmarks')
 
   const fileHost = VirtualHost.create({
     '/benchmarks': '',
@@ -143,7 +143,7 @@ test('listBenchmarks validates the benchmarks directory', async () => {
       benchmarksDirectory: '/benchmarks',
       scenariosDirectory: '/scenarios',
     }),
-  ).rejects.toThrowError('Benchmarks path is not a directory: /benchmarks')
+  ).rejects.toThrow('Benchmarks path is not a directory: /benchmarks')
 })
 
 test('getBenchmark returns the benchmark matching the id', async () => {
@@ -179,7 +179,7 @@ test('getBenchmark throws when the benchmark is not found', async () => {
       scenariosDirectory: '/scenarios',
       id: 'missing',
     }),
-  ).rejects.toThrowError('Benchmark "missing" was not found in: /benchmarks')
+  ).rejects.toThrow('Benchmark "missing" was not found in: /benchmarks')
 })
 
 test('run returns an empty result when the benchmark has no trials', async () => {

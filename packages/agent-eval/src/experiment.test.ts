@@ -141,7 +141,7 @@ test('listExperiments throws when the directory does not exist', async () => {
       experimentsDirectory: '/experiments',
       scenariosDirectory: '/scenarios',
     }),
-  ).rejects.toThrowError('Experiments directory does not exist: /experiments')
+  ).rejects.toThrow('Experiments directory does not exist: /experiments')
 })
 
 test('listExperiments throws when the path is not a directory', async () => {
@@ -155,7 +155,7 @@ test('listExperiments throws when the path is not a directory', async () => {
       experimentsDirectory: '/experiments',
       scenariosDirectory: '/scenarios',
     }),
-  ).rejects.toThrowError('Experiments path is not a directory: /experiments')
+  ).rejects.toThrow('Experiments path is not a directory: /experiments')
 })
 
 test('getExperiment returns the experiment matching the id', async () => {
@@ -193,5 +193,5 @@ test('getExperiment throws when the experiment is not found', async () => {
       scenariosDirectory: '/scenarios',
       id: 'missing',
     }),
-  ).rejects.toThrowError('Experiment "missing" was not found in: /experiments')
+  ).rejects.toThrow('Experiment "missing" was not found in: /experiments')
 })

@@ -4,7 +4,12 @@ import * as z from 'zod/mini'
 import type {EnvironmentConfig} from './environment'
 import {DefaultHost, type Host} from './host'
 import {logger} from './logger'
-import {getModelVariants, ModelVariantConfigSchema, ModelVariantSchema, type ModelVariant} from './model'
+import {
+  getModelVariants,
+  ModelVariantConfigSchema,
+  ModelVariantSchema,
+  type ModelVariant,
+} from './model'
 import {create as createPlan, run as runPlan} from './plan'
 import {getScenario, ScenarioSchema, type Scenario} from './scenario'
 import {ControlTreatment, TreatmentSchema, TreatmentSetupSchema, type TreatmentSetup} from './treatment'

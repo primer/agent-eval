@@ -1,4 +1,5 @@
 import type {Model, ReasoningEffort} from './model'
+import type {BenchmarkTrialResult} from './benchmark'
 import type {TrialResult} from './trial'
 
 type ResultSummary = {
@@ -35,6 +36,14 @@ type ResultHierarchy = Array<{
 }>
 
 type TableRow = Record<string, string | number>
+
+type BenchmarkComparison = {
+  benchmark: string
+  capability: string
+  scenario?: string
+  control: ResultSummary
+  benchmarkTreatment: ResultSummary
+}
 
 function createResultSummary(experiment: string, values: ResultSummaryValues = {}): ResultSummary {
   return {
@@ -225,6 +234,81 @@ function formatSummaryRow(summary: ResultSummary, level: 'treatment' | 'scenario
   }
 }
 
+function formatPercentagePointDifference(value: number): string {
+  const sign = value > 0 ? '+' : ''
+  return `${sign}${(value * 100).toFixed(1)} pp`
+}
+
+function getBenchmarkComparisons(benchmark: string, results: Array<BenchmarkTrialResult>): Array<BenchmarkComparison> {
+  const comparisons = new Map<string, BenchmarkComparison>()
+
+  for (const result of results) {
+    const values = [
+      {
+        key: result.capability.name,
+        scenario: undefined,
+      },
+      {
+        key: `${result.capability.name}\0${result.trial.scenario.id}`,
+        scenario: result.trial.scenario.id,
+      },
+    ]
+
+    for (const value of values) {
+      const comparison = comparisons.get(value.key) ?? {
+        benchmark,
+        capability: result.capability.name,
+        scenario: value.scenario,
+        control: createResultSummary(benchmark),
+        benchmarkTreatment: createResultSummary(benchmark),
+      }
+      const summary = result.trial.treatment.name === 'Control' ? comparison.control : comparison.benchmarkTreatment
+      addResultToSummary(summary, result)
+      comparisons.set(value.key, comparison)
+    }
+  }
+
+  return [...comparisons.values()].toSorted((a, b) => {
+    return (
+      a.capability.localeCompare(b.capability) ||
+      Number(Boolean(a.scenario)) - Number(Boolean(b.scenario)) ||
+      (a.scenario ?? '').localeCompare(b.scenario ?? '')
+    )
+  })
+}
+
+function formatBenchmarkComparison(comparison: BenchmarkComparison): TableRow {
+  const controlSuccessRate = getSuccessRate(comparison.control)
+  const benchmarkSuccessRate = getSuccessRate(comparison.benchmarkTreatment)
+
+  return {
+    Benchmark: comparison.scenario ? '' : comparison.benchmark,
+    Capability: comparison.scenario ? '' : comparison.capability,
+    Scenario: comparison.scenario ? `  ${comparison.scenario}` : 'All scenarios',
+    Control: formatPercent(controlSuccessRate),
+    'With benchmark': formatPercent(benchmarkSuccessRate),
+    Delta: formatPercentagePointDifference(benchmarkSuccessRate - controlSuccessRate),
+    'Control tests': `${comparison.control.numPassedTests}/${comparison.control.numTotalTests}`,
+    'Benchmark tests': `${comparison.benchmarkTreatment.numPassedTests}/${comparison.benchmarkTreatment.numTotalTests}`,
+  }
+}
+
+function formatBenchmarkResults(benchmark: string, results: Array<BenchmarkTrialResult>): string {
+  const columns = [
+    'Benchmark',
+    'Capability',
+    'Scenario',
+    'Control',
+    'With benchmark',
+    'Delta',
+    'Control tests',
+    'Benchmark tests',
+  ]
+  const rows = getBenchmarkComparisons(benchmark, results).map(formatBenchmarkComparison)
+
+  return formatTable(rows, columns)
+}
+
 function formatExperimentResults(experiment: string, results: Array<TrialResult>): string {
   const columns = [
     'Experiment',
@@ -259,4 +343,4 @@ function formatExperimentResults(experiment: string, results: Array<TrialResult>
   return formatTable(rows, columns)
 }
 
-export {formatExperimentResults}
+export {formatBenchmarkResults, formatExperimentResults}

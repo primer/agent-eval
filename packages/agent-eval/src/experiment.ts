@@ -2,7 +2,13 @@ import {randomUUID} from 'node:crypto'
 import path from 'node:path'
 import * as z from 'zod/mini'
 import type {EnvironmentConfig} from './environment'
-import {getModelVariants, ModelVariantConfigSchema, ModelVariantSchema, type ModelVariant} from './model'
+import {
+  getModelVariants,
+  ModelVariantConfigSchema,
+  ModelVariantSchema,
+  type ModelVariant,
+  type ModelVariantConfig,
+} from './model'
 import {DefaultHost, type Host} from './host'
 import {logger} from './logger'
 import {create as createPlan, run as runPlan} from './plan'
@@ -11,6 +17,15 @@ import {ControlTreatment, TreatmentSchema, TreatmentSetupSchema, type Treatment,
 import {TrialAgentSchema, TrialArtifactsSchema, WalkthroughSchema, type Trial, type TrialResult} from './trial'
 import {TestResultsSchema} from './vitest'
 
+type ExperimentConfig = {
+  name: string
+  description: string
+  models: ModelVariantConfig
+  scenarios: Array<string>
+  setup?: TreatmentSetup
+  treatments: Array<Treatment>
+}
+
 const ExperimentConfigSchema = z.object({
   name: z.string(),
   description: z.string(),
@@ -18,9 +33,7 @@ const ExperimentConfigSchema = z.object({
   scenarios: z.array(z.string()),
   setup: z.optional(TreatmentSetupSchema),
   treatments: z.array(TreatmentSchema),
-})
-
-type ExperimentConfig = z.infer<typeof ExperimentConfigSchema>
+}) satisfies z.ZodMiniType<ExperimentConfig>
 
 function defineConfig(config: ExperimentConfig): ExperimentConfig {
   return config

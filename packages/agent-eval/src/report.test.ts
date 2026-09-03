@@ -1,6 +1,7 @@
 import {expect, test} from 'vitest'
+import type {BenchmarkTrialResult, Capability} from './benchmark'
 import type {TrialResult} from './trial'
-import {formatExperimentResults} from './report'
+import {formatBenchmarkResults, formatExperimentResults} from './report'
 
 function createResult({
   treatment,
@@ -121,5 +122,92 @@ test('formats trial results as an aggregated hierarchy', () => {
     Design system  Control      All scenarios  All models                             50.0%         1/2    1     1,250          3                 55.0s         35.0s   
                                   button       All models                             50.0%         1/2    1     1,250          3                 55.0s         35.0s   
                                                    gpt-5.6-sol      medium            50.0%         1/2    1     1,250          3                 55.0s         35.0s   "
+  `)
+})
+
+test('formats benchmark results as capability comparisons by scenario', () => {
+  const capabilities: Array<Capability> = [
+    {
+      name: 'Authoring',
+      scenarios: [],
+    },
+    {
+      name: 'Migration',
+      scenarios: [],
+    },
+  ]
+  const results: Array<BenchmarkTrialResult> = [
+    {
+      ...createResult({
+        treatment: 'Control',
+        scenario: 'create-component',
+        model: {
+          name: 'gpt-5.6-sol',
+          reasoningEffort: 'medium',
+        },
+        numPassedTests: 1,
+        numTotalTests: 2,
+        sessions: [],
+      }),
+      capability: capabilities[0],
+    },
+    {
+      ...createResult({
+        treatment: 'Benchmark',
+        scenario: 'create-component',
+        model: {
+          name: 'gpt-5.6-sol',
+          reasoningEffort: 'medium',
+        },
+        numPassedTests: 2,
+        numTotalTests: 2,
+        sessions: [],
+      }),
+      capability: capabilities[0],
+    },
+    {
+      ...createResult({
+        treatment: 'Control',
+        scenario: 'migrate-component',
+        model: {
+          name: 'gpt-5.6-sol',
+          reasoningEffort: 'medium',
+        },
+        numPassedTests: 2,
+        numTotalTests: 2,
+        sessions: [],
+      }),
+      capability: capabilities[1],
+    },
+    {
+      ...createResult({
+        treatment: 'Benchmark',
+        scenario: 'migrate-component',
+        model: {
+          name: 'gpt-5.6-sol',
+          reasoningEffort: 'medium',
+        },
+        numPassedTests: 1,
+        numTotalTests: 2,
+        sessions: [],
+      }),
+      capability: capabilities[1],
+    },
+  ]
+
+  const formatted = formatBenchmarkResults('Design system', results)
+    .split('\n')
+    .map(line => {
+      return line.trimEnd()
+    })
+    .join('\n')
+
+  expect(formatted).toMatchInlineSnapshot(`
+    "Benchmark      Capability  Scenario             Control  With benchmark  Delta     Control tests  Benchmark tests
+    -------------  ----------  -------------------  -------  --------------  --------  -------------  ---------------
+    Design system  Authoring   All scenarios        50.0%    100.0%          +50.0 pp  1/2            2/2
+                                 create-component   50.0%    100.0%          +50.0 pp  1/2            2/2
+    Design system  Migration   All scenarios        100.0%   50.0%           -50.0 pp  2/2            1/2
+                                 migrate-component  100.0%   50.0%           -50.0 pp  2/2            1/2"
   `)
 })

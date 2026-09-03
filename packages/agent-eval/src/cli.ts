@@ -18,7 +18,7 @@ import {
   serialize as serializeExperimentOutput,
 } from './experiment'
 import {logger} from './logger'
-import {formatExperimentResults} from './report'
+import {formatBenchmarkResults, formatExperimentResults} from './report'
 import {compare as compareTrial} from './trial'
 
 const {values} = parseArgs({
@@ -146,7 +146,7 @@ if (values.benchmark) {
   logger.info('Writing benchmark output to: %s', env.outputPath)
   await fs.writeFile(env.outputPath, serializeBenchmarkOutput(getBenchmarkOutput(benchmark.id, sorted)), 'utf-8')
 
-  const resultSummaries = formatExperimentResults(benchmark.name, sorted)
+  const resultSummaries = formatBenchmarkResults(benchmark.name, sorted)
   console.log(resultSummaries)
 
   if (GITHUB_STEP_SUMMARY) {

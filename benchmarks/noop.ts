@@ -1,21 +1,21 @@
-import {defineConfig} from '@primer/agent-eval/experiment'
+import {defineConfig} from '@primer/agent-eval/benchmark'
 
-export const experiment = defineConfig({
+export default defineConfig({
   name: 'noop',
-  description: 'A fast experiment for testing agent-eval',
+  description: 'noop benchmark for end-to-end testing',
   models: [
     {
       name: 'gpt-5.6-luna',
       reasoningEfforts: ['low'],
     },
   ],
-  scenarios: ['001-agent-uses-button-from-primer'],
   async setup() {
     console.log('global setup')
   },
-  treatments: [
+  capabilities: [
     {
       name: 'noop',
+      scenarios: ['001-agent-uses-button-from-primer'],
       async setup() {
         console.log('local setup')
       },

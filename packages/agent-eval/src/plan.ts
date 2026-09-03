@@ -4,6 +4,7 @@ import {TrialSchema, run as runTrial} from './trial'
 import type {Trial, TrialResult} from './trial'
 import type {EnvironmentConfig} from './environment'
 import {DefaultHost, type Host} from './host'
+import {logger} from './logger'
 
 const PlanSchema = z.object({
   trials: z.array(TrialSchema),
@@ -71,7 +72,7 @@ async function retry<T>(fn: () => Promise<T>, retries: number = 3): Promise<T> {
     return await fn()
   } catch (error) {
     if (retries > 0) {
-      console.log('Retrying after error: %s', error)
+      logger.error({error}, 'Retrying')
       return retry(fn, retries - 1)
     }
     throw error

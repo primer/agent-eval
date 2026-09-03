@@ -2,13 +2,10 @@ import Docker from 'dockerode'
 import {beforeEach, describe, expect, test, vi} from 'vitest'
 import {VirtualHost} from '../host'
 import {MCP_CONFIG_PATH, NODE_USER, SKILLS_DIR} from './constants'
-import {SandboxSchema, SystemSandbox} from './system'
+import {createContainer, SandboxSchema, SystemSandbox} from './system'
 import {VirtualSandbox} from './virtual'
 
-function createSandbox() {
-  const container = {
-    stop: vi.fn(),
-  }
+function createSandbox(container = {remove: vi.fn()}) {
   // @ts-expect-error This test only exercises methods whose container operations are mocked.
   return new SystemSandbox(VirtualHost.create(), new Docker(), container)
 }
@@ -23,6 +20,42 @@ describe('SandboxSchema', () => {
     expect(() => {
       SandboxSchema.parse({})
     }).toThrow()
+  })
+})
+
+describe('SystemSandbox lifecycle', () => {
+  test('force removes the container when disposed', async () => {
+    const container = {
+      remove: vi.fn(),
+    }
+    const sandbox = createSandbox(container)
+
+    await sandbox[Symbol.asyncDispose]()
+
+    expect(container.remove).toHaveBeenCalledWith({force: true})
+  })
+
+  test('force removes the container when initialization fails', async () => {
+    const initializationError = new Error('Failed to start container')
+    const container = {
+      start: vi.fn().mockRejectedValue(initializationError),
+      remove: vi.fn(),
+    }
+    const docker = {
+      createContainer: vi.fn().mockResolvedValue(container),
+      pull: vi.fn((_name: string, callback: (error: Error | null, stream: NodeJS.ReadableStream) => void) => {
+        callback(null, {} as NodeJS.ReadableStream)
+      }),
+      modem: {
+        followProgress: vi.fn((_stream: NodeJS.ReadableStream, onFinished: (error: Error | null) => void) => {
+          onFinished(null)
+        }),
+      },
+    }
+
+    // @ts-expect-error This test only exercises the Docker methods used before container initialization.
+    await expect(createContainer(docker, 'test-image')).rejects.toBe(initializationError)
+    expect(container.remove).toHaveBeenCalledWith({force: true})
   })
 })
 

@@ -3,14 +3,7 @@ import {defineConfig} from '@primer/agent-eval/benchmark'
 export const benchmark = defineConfig({
   name: 'Design System',
   description: 'Benchmark the performance of agents with different design system tasks.',
-  models: [
-    'gpt-5.6-sol',
-    'gpt-5.6-terra',
-    'claude-opus-5',
-    'claude-sonnet-5',
-    'gemini-3.1-pro-preview',
-    'gemini-3.5-flash',
-  ],
+  models: ['gpt-5.6-sol', 'gpt-5.6-terra', 'claude-opus-5', 'claude-sonnet-5', 'gemini-3.5-flash'],
   async setup({sandbox}) {
     // Setup the Primer MCP server locally
     await sandbox.runCommand('npm', ['install', '-g', '@primer/mcp@latest'])

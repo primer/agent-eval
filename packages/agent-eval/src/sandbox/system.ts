@@ -71,7 +71,7 @@ class SystemSandbox implements Sandbox {
   }
 
   async [Symbol.asyncDispose]() {
-    await this.#container.stop()
+    await this.#container.remove({force: true})
   }
 
   async copy(sourcePath: string, destinationPath: string, options: CopyOptions = {}): Promise<void> {
@@ -334,90 +334,101 @@ async function createContainer(docker: Docker, dockerImage: string): Promise<Ini
     },
   })
 
-  await container.start()
+  try {
+    await container.start()
 
-  logger.debug('Creating workspace directory...')
-  await execCommand(docker, container, 'mkdir', ['-p', CONTAINER_WORKDIR], {
-    user: 'root',
-  })
-  await execCommand(docker, container, 'chown', ['-R', NODE_USER, CONTAINER_WORKDIR], {
-    user: 'root',
-  })
-
-  logger.debug('Installing CA certificates...')
-  await execCommand(docker, container, 'apt-get', ['update'], {
-    user: 'root',
-  })
-  await execCommand(
-    docker,
-    container,
-    'apt-get',
-    ['install', '-y', '--no-install-recommends', 'ca-certificates', 'curl'],
-    {
+    logger.debug('Creating workspace directory...')
+    await execCommand(docker, container, 'mkdir', ['-p', CONTAINER_WORKDIR], {
       user: 'root',
-    },
-  )
-  await execCommand(docker, container, 'test', ['-d', '/etc/ssl/certs'], {
-    user: 'root',
-  })
+    })
+    await execCommand(docker, container, 'chown', ['-R', NODE_USER, CONTAINER_WORKDIR], {
+      user: 'root',
+    })
 
-  logger.debug('Installing npm...')
-  await execCommand(docker, container, 'npm', ['install', '--global', `npm@${NPM_VERSION}`], {
-    user: 'root',
-  })
-  const npmVersion = await execCommand(docker, container, 'npm', ['--version'], {
-    user: 'root',
-  })
-  if (npmVersion.stdout.trim() !== NPM_VERSION) {
-    throw new Error(`Expected npm ${NPM_VERSION}, received ${npmVersion.stdout.trim()}`)
-  }
+    logger.debug('Installing CA certificates...')
+    await execCommand(docker, container, 'apt-get', ['update'], {
+      user: 'root',
+    })
+    await execCommand(
+      docker,
+      container,
+      'apt-get',
+      ['install', '-y', '--no-install-recommends', 'ca-certificates', 'curl'],
+      {
+        user: 'root',
+      },
+    )
+    await execCommand(docker, container, 'test', ['-d', '/etc/ssl/certs'], {
+      user: 'root',
+    })
 
-  logger.debug('Setting up npm for non-root global installs')
-  await execCommand(docker, container, 'mkdir', ['-p', NPM_GLOBAL_DIR], {
-    user: 'root',
-  })
-  await execCommand(docker, container, 'chown', ['-R', NODE_USER, NPM_GLOBAL_DIR], {
-    user: 'root',
-  })
-  await execCommand(docker, container, 'npm', ['config', 'set', 'prefix', NPM_GLOBAL_DIR], {
-    user: NODE_USER,
-  })
+    logger.debug('Installing npm...')
+    await execCommand(docker, container, 'npm', ['install', '--global', `npm@${NPM_VERSION}`], {
+      user: 'root',
+    })
+    const npmVersion = await execCommand(docker, container, 'npm', ['--version'], {
+      user: 'root',
+    })
+    if (npmVersion.stdout.trim() !== NPM_VERSION) {
+      throw new Error(`Expected npm ${NPM_VERSION}, received ${npmVersion.stdout.trim()}`)
+    }
 
-  logger.debug('Setting up copilot...')
-  await execCommand(docker, container, 'mkdir', ['-p', COPILOT_DIR], {
-    user: 'root',
-  })
-  await execCommand(docker, container, 'chown', ['-R', NODE_USER, COPILOT_DIR], {
-    user: 'root',
-  })
-  await execCommand(docker, container, 'npm', ['install', '-g', `@github/copilot@${COPILOT_CLI_VERSION}`], {
-    user: NODE_USER,
-  })
-  await execCommand(docker, container, 'touch', [path.join(COPILOT_DIR, 'mcp-config.json')], {
-    user: NODE_USER,
-  })
-  await execCommand(
-    docker,
-    container,
-    'bash',
-    ['-c', `echo '${JSON.stringify(DEFAULT_MCP_CONFIG)}' > ${MCP_CONFIG_PATH}`],
-    {
+    logger.debug('Setting up npm for non-root global installs')
+    await execCommand(docker, container, 'mkdir', ['-p', NPM_GLOBAL_DIR], {
+      user: 'root',
+    })
+    await execCommand(docker, container, 'chown', ['-R', NODE_USER, NPM_GLOBAL_DIR], {
+      user: 'root',
+    })
+    await execCommand(docker, container, 'npm', ['config', 'set', 'prefix', NPM_GLOBAL_DIR], {
       user: NODE_USER,
-    },
-  )
-  await execCommand(docker, container, 'mkdir', ['-p', CUSTOM_AGENTS_DIR], {
-    user: NODE_USER,
-  })
+    })
 
-  logger.debug('Setting up agents config...')
-  await execCommand(docker, container, 'mkdir', ['-p', AGENTS_DIR], {
-    user: 'root',
-  })
-  await execCommand(docker, container, 'chown', ['-R', NODE_USER, AGENTS_DIR], {
-    user: 'root',
-  })
+    logger.debug('Setting up copilot...')
+    await execCommand(docker, container, 'mkdir', ['-p', COPILOT_DIR], {
+      user: 'root',
+    })
+    await execCommand(docker, container, 'chown', ['-R', NODE_USER, COPILOT_DIR], {
+      user: 'root',
+    })
+    await execCommand(docker, container, 'npm', ['install', '-g', `@github/copilot@${COPILOT_CLI_VERSION}`], {
+      user: NODE_USER,
+    })
+    await execCommand(docker, container, 'touch', [path.join(COPILOT_DIR, 'mcp-config.json')], {
+      user: NODE_USER,
+    })
+    await execCommand(
+      docker,
+      container,
+      'bash',
+      ['-c', `echo '${JSON.stringify(DEFAULT_MCP_CONFIG)}' > ${MCP_CONFIG_PATH}`],
+      {
+        user: NODE_USER,
+      },
+    )
+    await execCommand(docker, container, 'mkdir', ['-p', CUSTOM_AGENTS_DIR], {
+      user: NODE_USER,
+    })
 
-  return container as InitializedContainer
+    logger.debug('Setting up agents config...')
+    await execCommand(docker, container, 'mkdir', ['-p', AGENTS_DIR], {
+      user: 'root',
+    })
+    await execCommand(docker, container, 'chown', ['-R', NODE_USER, AGENTS_DIR], {
+      user: 'root',
+    })
+
+    return container as InitializedContainer
+  } catch (error) {
+    try {
+      await container.remove({force: true})
+    } catch (cleanupError) {
+      throw new AggregateError([error, cleanupError], 'Failed to initialize and remove sandbox container', {
+        cause: cleanupError,
+      })
+    }
+    throw error
+  }
 }
 
 function mapCopiedHeader(header: Headers, sourceName: string, destinationName: string): Headers {
@@ -684,4 +695,4 @@ const SandboxSchema = z.custom<Sandbox>(value => {
   return value instanceof SystemSandbox || value instanceof VirtualSandbox
 })
 
-export {SandboxSchema, SystemSandbox, DEFAULT_DOCKER_IMAGE}
+export {SandboxSchema, SystemSandbox, DEFAULT_DOCKER_IMAGE, createContainer}

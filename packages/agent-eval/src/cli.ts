@@ -40,7 +40,7 @@ const {values} = parseArgs({
     'docker-image': {
       type: 'string',
       description:
-        'The Docker container image to use for running treatments (must be a Debian-based Node image with apt-get and a node user, e.g. node:26.5.0-slim)',
+        'The Docker base image to layer the treatment environment on (must be Debian-based with apt-get and a node user, default: node:26.5.0-slim)',
     },
     experiment: {
       type: 'string',
@@ -87,7 +87,7 @@ Options:
   -b, --benchmark <file>     The file name of the benchmark to run
       --benchmarks <dir>     The directory containing local benchmark files (default: ./benchmarks)
   -c, --concurrency <num>    The number of treatments to run in parallel
-      --docker-image <image> The Docker container image to use for running treatments (must be a Debian-based Node image with apt-get and a node user, e.g. node:26.5.0-slim)
+      --docker-image <image> The Docker base image to layer the treatment environment on (default: node:26.5.0-slim)
   -e, --experiment <file>    The file name of the experiment to run
       --experiments <dir>    The directory containing local experiment files (default: ./experiments)
   -h, --help                 Learn more about the command and its options

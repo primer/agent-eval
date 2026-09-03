@@ -13,8 +13,8 @@ on:
         type: string
       docker-image:
         description: >-
-          Docker container image to use for running treatments.
-          Must be a Debian-based Node image with apt-get and a node user (e.g. node:26.5.0-slim).
+          Docker base image to layer the treatment environment on.
+          Must be Debian-based with apt-get and a node user.
         required: false
         default: 'node:26.5.0-slim'
         type: string

@@ -2,7 +2,7 @@ import Docker from 'dockerode'
 import {beforeEach, describe, expect, test, vi} from 'vitest'
 import {VirtualHost} from '../host'
 import {MCP_CONFIG_PATH, NODE_USER, SKILLS_DIR} from './constants'
-import {createContainer, SandboxSchema, SystemSandbox} from './system'
+import {buildDockerImage, createContainer, SandboxSchema, SystemSandbox} from './system'
 import {VirtualSandbox} from './virtual'
 
 function createSandbox(container = {remove: vi.fn()}) {
@@ -24,6 +24,37 @@ describe('SandboxSchema', () => {
 })
 
 describe('SystemSandbox lifecycle', () => {
+  test('builds the local sandbox image', async () => {
+    const stream = {}
+    const docker = {
+      buildImage: vi.fn().mockResolvedValue(stream),
+      modem: {
+        followProgress: vi.fn((_stream: unknown, onFinished: (error: Error | null) => void) => {
+          onFinished(null)
+        }),
+      },
+    }
+
+    // @ts-expect-error This test only exercises the Docker methods used to build the image.
+    const image = await buildDockerImage(docker, 'custom-node:local')
+
+    expect(docker.buildImage).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        buildargs: {
+          BASE_IMAGE: 'custom-node:local',
+          COPILOT_CLI_VERSION: '1.0.82',
+          NPM_VERSION: '12.0.2',
+        },
+        dockerfile: 'Dockerfile',
+        t: expect.stringMatching(/^agent-eval-sandbox:[a-f0-9]{16}$/),
+        target: 'sandbox',
+      }),
+    )
+    expect(docker.modem.followProgress).toHaveBeenCalledWith(stream, expect.any(Function))
+    expect(image).toMatch(/^agent-eval-sandbox:[a-f0-9]{16}$/)
+  })
+
   test('force removes the container when disposed', async () => {
     const container = {
       remove: vi.fn(),
@@ -43,14 +74,6 @@ describe('SystemSandbox lifecycle', () => {
     }
     const docker = {
       createContainer: vi.fn().mockResolvedValue(container),
-      pull: vi.fn((_name: string, callback: (error: Error | null, stream: NodeJS.ReadableStream) => void) => {
-        callback(null, {} as NodeJS.ReadableStream)
-      }),
-      modem: {
-        followProgress: vi.fn((_stream: NodeJS.ReadableStream, onFinished: (error: Error | null) => void) => {
-          onFinished(null)
-        }),
-      },
     }
 
     // @ts-expect-error This test only exercises the Docker methods used before container initialization.

@@ -8,6 +8,7 @@ import * as z from 'zod/mini'
 import {ModelVariantSchema} from './model'
 import {ScenarioSchema} from './scenario'
 import {TreatmentSchema, TreatmentSetupSchema} from './treatment'
+import {RubricResultSchema, runRubricJudge, type RubricResult} from './rubric'
 
 const TrialSchema = z.object({
   id: z.string(),
@@ -60,6 +61,7 @@ const TrialResultSchema = z.object({
   artifacts: TrialArtifactsSchema,
   trial: TrialSchema,
   agent: TrialAgentSchema,
+  rubricResult: z.optional(RubricResultSchema),
   testResults: TestResultsSchema,
   walkthrough: WalkthroughSchema,
 })
@@ -448,6 +450,35 @@ async function run({
     await sandbox.writeFile(TEST_RESULTS_PATH, JSON.stringify(testResults))
   }
 
+  let rubricResult: RubricResult | undefined
+  if (trial.scenario.rubric) {
+    const response = messages.findLast(message => {
+      return isMessageType(message, 'assistant.message')
+    })
+
+    try {
+      if (!response || !isMessageType(response, 'assistant.message')) {
+        throw new Error('No final assistant response found in agent output')
+      }
+
+      rubricResult = await runRubricJudge({
+        sandbox,
+        copilotToken,
+        prompt: trial.scenario.prompt,
+        rubric: trial.scenario.rubric,
+        agentOutput: response.data.content,
+      })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      logger.warn('%s Rubric judge unavailable: %s', logPrefix, message)
+      rubricResult = {
+        status: 'unavailable',
+        judge: trial.scenario.rubric.judge,
+        error: message,
+      }
+    }
+  }
+
   const WALKTHROUGH_DIR = 'walkthrough'
   const WALKTHROUGH_VIEWPORT_WIDTH = 1440
   const WALKTHROUGH_VIEWPORT_HEIGHT = 900
@@ -580,7 +611,7 @@ Only capture the walkthrough, do not make any further code changes.`
     }
   }
 
-  return {
+  const result: TrialResult = {
     artifacts: {
       directory: artifactDirectory,
       copilotConfigDirectory,
@@ -595,6 +626,12 @@ Only capture the walkthrough, do not make any further code changes.`
     testResults,
     walkthrough,
   }
+
+  if (rubricResult) {
+    result.rubricResult = rubricResult
+  }
+
+  return result
 }
 
 function getAgentSession(messages: Array<Message>): AgentSession {

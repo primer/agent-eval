@@ -220,6 +220,53 @@ export default defineConfig({
 Scenario descriptions and tags are optional. Use `description` to explain what
 the scenario tests.
 
+### Rubric judging
+
+Use an optional rubric for criteria that require qualitative judgment instead
+of a deterministic test. The judge receives the original task, the agent's
+final response, and read-only access to the completed workspace:
+
+```ts
+import {defineConfig} from '@primer/agent-eval/scenario'
+
+export default defineConfig({
+  prompt: 'Build a new settings page',
+  rubric: {
+    judge: {
+      name: 'gpt-5.5',
+      reasoningEffort: 'high',
+    },
+    criteria: [
+      {
+        name: 'Product quality',
+        description: 'The result is complete, coherent, and appropriate for the task.',
+        weight: 2,
+        minimumScore: 4,
+        goodExamples: ['The page has a clear hierarchy and complete interaction states.'],
+        badExamples: ['The page is visually plausible but omits required behavior.'],
+        scores: {
+          1: 'The result does not address the task',
+          2: 'The result has major omissions',
+          3: 'The result is partially complete',
+          4: 'The result is complete with minor issues',
+          5: 'The result is complete, polished, and handles edge cases',
+        },
+      },
+    ],
+  },
+})
+```
+
+Each criterion is scored from 1 through 5. The overall score is the weighted
+average. A scored result passes when every criterion with a `minimumScore`
+meets its threshold. If the judge cannot produce a valid result, the trial
+records an explicit `unavailable` rubric result instead of treating missing
+evidence as a failing score.
+
+Keep requirements that can be checked reliably in `scenario.test.ts` or
+`browser.test.ts`. Rubrics are intended for subjective qualities and other
+criteria that require inspecting the implementation as a whole.
+
 ## Experiment config authoring
 
 Use `defineConfig` from `@primer/agent-eval/experiment` to keep local experiment

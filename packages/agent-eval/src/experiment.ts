@@ -21,6 +21,7 @@ import {
 import {getScenario, loadScenario, ScenarioSchema, type Scenario} from './scenario'
 import {selectShard, type Shard} from './shard'
 import {ControlTreatment, TreatmentSchema, TreatmentSetupSchema, type Treatment, type TreatmentSetup} from './treatment'
+import {RubricResultSchema} from './rubric'
 import {
   getPortableTrialPaths,
   readTrialFiles,
@@ -320,6 +321,7 @@ const ExperimentOutputScenarioSchema = z.pick(ScenarioSchema, {
   directory: true,
   prompt: true,
   description: true,
+  rubric: true,
   tags: true,
   testPath: true,
   browserTestPath: true,
@@ -338,6 +340,7 @@ const ExperimentOutputTrialSchema = z.object({
   testResults: TestResultsSchema,
   treatmentId: z.string(),
   walkthrough: WalkthroughSchema,
+  rubricResult: z.optional(RubricResultSchema),
 })
 
 type ExperimentOutput = {
@@ -386,7 +389,7 @@ function output(
       result.treatments.set(trial.treatment.name, trial.treatment)
     }
 
-    result.trials.set(trial.id, {
+    const outputTrial: z.infer<typeof ExperimentOutputTrialSchema> = {
       agent: trialResult.agent,
       artifacts,
       id: trial.id,
@@ -395,7 +398,11 @@ function output(
       testResults: trialResult.testResults,
       treatmentId: trial.treatment.name,
       walkthrough,
-    })
+    }
+    if (trialResult.rubricResult) {
+      outputTrial.rubricResult = trialResult.rubricResult
+    }
+    result.trials.set(trial.id, outputTrial)
   }
 
   return result

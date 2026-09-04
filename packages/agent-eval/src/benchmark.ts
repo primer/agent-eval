@@ -14,6 +14,7 @@ import {
 } from './plan'
 import {getScenario, ScenarioSchema, type Scenario} from './scenario'
 import {ControlTreatment, TreatmentSchema, TreatmentSetupSchema, type Treatment, type TreatmentSetup} from './treatment'
+import {RubricResultSchema} from './rubric'
 import {
   getPortableTrialPaths,
   readTrialFiles,
@@ -368,6 +369,7 @@ const BenchmarkTrialOutputSchema = z.object({
   testResults: TestResultsSchema,
   treatmentId: z.string(),
   walkthrough: WalkthroughSchema,
+  rubricResult: z.optional(RubricResultSchema),
 })
 
 const BenchmarkOutputFileSchema = z.object({
@@ -380,6 +382,7 @@ const BenchmarkOutputFileSchema = z.object({
       directory: true,
       prompt: true,
       description: true,
+      rubric: true,
       tags: true,
       testPath: true,
       browserTestPath: true,
@@ -442,7 +445,7 @@ function output(
       result.treatments.set(trial.treatment.name, trial.treatment)
     }
 
-    result.trials.set(trial.id, {
+    const outputTrial: z.infer<typeof BenchmarkTrialOutputSchema> = {
       agent: trialResult.agent,
       artifacts,
       capabilityId: capability.name,
@@ -452,7 +455,11 @@ function output(
       testResults: trialResult.testResults,
       treatmentId: trial.treatment.name,
       walkthrough,
-    })
+    }
+    if (trialResult.rubricResult) {
+      outputTrial.rubricResult = trialResult.rubricResult
+    }
+    result.trials.set(trial.id, outputTrial)
   }
 
   return result

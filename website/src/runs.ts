@@ -28,6 +28,7 @@ type RunOutputResult = {
     sessionDurationMs: number
     tools: Record<string, number>
   }
+  rubricResult: ExperimentOutputTrial['rubricResult']
   testResults: ExperimentOutputTrial['testResults'] & {
     tests: Array<{
       title: string
@@ -210,6 +211,7 @@ function normalizeOutput(output: ExperimentOutput): RunOutput {
         sessionDurationMs: trial.agent.sessions.reduce((total, session) => total + session.sessionDurationMs, 0),
         tools,
       },
+      rubricResult: trial.rubricResult,
       testResults: {
         ...trial.testResults,
         tests: trial.testResults.testResults.flatMap(testResult => {

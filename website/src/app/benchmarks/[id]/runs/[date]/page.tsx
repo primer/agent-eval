@@ -47,6 +47,7 @@ async function createBenchmarkRunDetails(run: BenchmarkRun): Promise<RunDetails>
           premiumRequests: sessions.reduce((total, session) => {
             return total + session.premiumRequests
           }, 0),
+          rubricResult: trial.rubricResult,
           totalApiDurationMs: sessions.reduce((total, session) => {
             return total + session.totalApiDurationMs
           }, 0),

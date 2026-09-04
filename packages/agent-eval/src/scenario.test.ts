@@ -1,6 +1,7 @@
 import {test, expect} from 'vitest'
 import {VirtualHost} from './host'
 import {listScenarios, getScenario, defineConfig} from './scenario'
+import type {Rubric} from './rubric'
 
 test('listScenarios', async () => {
   const config = JSON.stringify(
@@ -82,6 +83,55 @@ test('listScenarios includes optional metadata and browser tests', async () => {
       tags: ['test', 'browser'],
       testPath: '/scenarios/001-scenario/scenario.test.ts',
       browserTestPath: '/scenarios/001-scenario/browser.test.ts',
+    },
+  ])
+})
+
+test('listScenarios includes an optional rubric', async () => {
+  const rubric = {
+    judge: {
+      name: 'gpt-5.5',
+      reasoningEffort: 'high',
+    },
+    criteria: [
+      {
+        name: 'Correctness',
+        weight: 1,
+        minimumScore: 4,
+        scores: {
+          1: 'Incorrect',
+          2: 'Major issues',
+          3: 'Partial',
+          4: 'Correct',
+          5: 'Complete',
+        },
+      },
+    ],
+  } satisfies Rubric
+  const config = JSON.stringify(
+    defineConfig({
+      prompt: 'Complete the task',
+      rubric,
+    }),
+  )
+  const host = VirtualHost.create({
+    '/scenarios': {
+      '001-scenario': {
+        'package.json': '{}',
+        'scenario.config.ts': `export default ${config}`,
+        'scenario.test.ts': '',
+      },
+    },
+  })
+
+  await expect(listScenarios(host, '/scenarios')).resolves.toEqual([
+    {
+      id: '001-scenario',
+      directory: '/scenarios/001-scenario',
+      prompt: 'Complete the task',
+      rubric,
+      tags: [],
+      testPath: '/scenarios/001-scenario/scenario.test.ts',
     },
   ])
 })

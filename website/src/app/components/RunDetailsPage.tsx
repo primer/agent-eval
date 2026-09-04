@@ -114,12 +114,53 @@ function UiWalkthrough({scenarioId, walkthrough}: {scenarioId: string; walkthrou
   return <p>No UI walkthrough was recorded.</p>
 }
 
-type ResultTab = 'walkthrough' | 'tests' | 'transcript'
+type ResultTab = 'walkthrough' | 'rubric' | 'tests' | 'transcript'
+
+function RubricResult({result}: {result: NonNullable<RunResult['rubricResult']>}) {
+  if (result.status === 'unavailable') {
+    return (
+      <div>
+        <p className="text-body-medium font-semibold text-attention m-0">Rubric scoring was unavailable.</p>
+        <p className="text-body-medium text-muted mb-0 mt-2">{result.error}</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="grid gap-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <p className="text-title-small m-0">
+          {result.score.toFixed(2)}/5 ({result.passed ? 'passed' : 'failed'})
+        </p>
+        <span className="text-caption text-muted">
+          {result.judge.name} ({result.judge.reasoningEffort})
+        </span>
+      </div>
+      <div className="grid gap-3">
+        {result.criteria.map(criterion => {
+          return (
+            <article className="border-default rounded-md border p-3" key={criterion.name}>
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <strong>{criterion.name}</strong>
+                <span className={criterion.thresholdPassed ? 'text-success' : 'text-danger'}>
+                  {criterion.score}/5
+                  {criterion.minimumScore !== undefined ? ` (minimum ${criterion.minimumScore})` : ''}
+                </span>
+              </div>
+              <p className="text-body-medium text-muted mb-0 mt-2">{criterion.explanation}</p>
+            </article>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
 
 function ResultTabs({index, result}: {index: number; result: RunResult}) {
   const [selectedTab, setSelectedTab] = useState<ResultTab>('walkthrough')
   const tabIds = {
     walkthrough: `result-${index}-walkthrough-tab`,
+    rubric: `result-${index}-rubric-tab`,
     tests: `result-${index}-tests-tab`,
     transcript: `result-${index}-transcript-tab`,
   }
@@ -139,6 +180,20 @@ function ResultTabs({index, result}: {index: number; result: RunResult}) {
         >
           Walkthrough
         </UnderlineNav.Item>
+        {result.rubricResult ? (
+          <UnderlineNav.Item
+            aria-current={selectedTab === 'rubric' ? 'page' : undefined}
+            counter={result.rubricResult.status === 'scored' ? result.rubricResult.criteria.length : undefined}
+            href={`#result-${index}-rubric-panel`}
+            id={tabIds.rubric}
+            onSelect={event => {
+              event.preventDefault()
+              setSelectedTab('rubric')
+            }}
+          >
+            Rubric
+          </UnderlineNav.Item>
+        ) : null}
         <UnderlineNav.Item
           aria-current={selectedTab === 'tests' ? 'page' : undefined}
           counter={result.tests.length}
@@ -168,6 +223,7 @@ function ResultTabs({index, result}: {index: number; result: RunResult}) {
         {selectedTab === 'walkthrough' ? (
           <UiWalkthrough scenarioId={result.scenarioId} walkthrough={result.walkthrough} />
         ) : null}
+        {selectedTab === 'rubric' && result.rubricResult ? <RubricResult result={result.rubricResult} /> : null}
         {selectedTab === 'tests' ? (
           <ul className="list-none p-0 m-0">
             {result.tests.map(test => {

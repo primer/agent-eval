@@ -45,6 +45,9 @@ export type {Treatment} from './treatment'
 export {TrialSchema, TrialResultSchema, run as runTrial, compare as compareTrial} from './trial'
 export type {Trial, TrialResult} from './trial'
 
+export {CriterionJudgmentSchema, RubricCriterionSchema, RubricResultSchema, RubricSchema} from './rubric'
+export type {CriterionJudgment, Rubric, RubricCriterion, RubricResult, RubricScore} from './rubric'
+
 export {
   BenchmarkPlanSchema,
   ExperimentPlanSchema,

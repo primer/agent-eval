@@ -240,6 +240,118 @@ test.each([
 })
 
 describe('run', () => {
+  test('records rubric judge results', async () => {
+    const trial = createTrial()
+    trial.scenario.rubric = {
+      judge: {
+        name: 'gpt-5.5',
+        reasoningEffort: 'high',
+      },
+      criteria: [
+        {
+          name: 'Correctness',
+          weight: 1,
+          minimumScore: 4,
+          scores: {
+            1: 'Incorrect',
+            2: 'Major issues',
+            3: 'Partial',
+            4: 'Correct',
+            5: 'Complete',
+          },
+        },
+      ],
+    }
+    const {sandbox, ...runOptions} = await setup(trial)
+    const writeRubricOutput: RunCommandMock = async ({params}) => {
+      const [command, args] = params
+      if (command !== 'copilot' || !Array.isArray(args) || args[0] !== '--prompt') {
+        return
+      }
+
+      const content =
+        args[1] === trial.scenario.prompt
+          ? 'Implemented the task.'
+          : args[1].startsWith("You are evaluating another agent's work")
+            ? JSON.stringify({
+                criteria: [
+                  {
+                    name: 'Correctness',
+                    score: 5,
+                    explanation: 'The implementation is complete.',
+                  },
+                ],
+              })
+            : undefined
+      if (!content) {
+        return
+      }
+
+      const result: ResultMessage = {
+        type: 'result',
+        timestamp: '',
+        sessionId: '',
+        exitCode: 0,
+        usage: {
+          premiumRequests: 0,
+          totalApiDurationMs: 0,
+          sessionDurationMs: 0,
+          codeChanges: {
+            linesAdded: 0,
+            linesRemoved: 0,
+            filesModified: [],
+          },
+        },
+      }
+      return {
+        stdout: [
+          JSON.stringify({
+            type: 'assistant.message',
+            data: {
+              messageId: 'assistant-message',
+              content,
+              toolRequests: [],
+              interactionId: 'interaction',
+              turnId: 'turn',
+            },
+            id: 'assistant-message',
+            timestamp: '',
+            parentId: '',
+          }),
+          JSON.stringify(result),
+        ].join('\n'),
+        stderr: '',
+        exitCode: 0,
+      }
+    }
+    mockRunCommand(sandbox, [writeRubricOutput, manageAgentBrowserSkill(runOptions.host)])
+
+    const result = await run({
+      ...runOptions,
+      sandbox,
+      trial,
+    })
+
+    expect(result.rubricResult).toEqual({
+      status: 'scored',
+      judge: {
+        name: 'gpt-5.5',
+        reasoningEffort: 'high',
+      },
+      score: 5,
+      passed: true,
+      criteria: [
+        {
+          name: 'Correctness',
+          score: 5,
+          explanation: 'The implementation is complete.',
+          minimumScore: 4,
+          thresholdPassed: true,
+        },
+      ],
+    })
+  })
+
   test('collects output tokens from model messages without double counting assistant messages', async () => {
     const trial = createTrial()
     const {sandbox, ...runOptions} = await setup(trial)

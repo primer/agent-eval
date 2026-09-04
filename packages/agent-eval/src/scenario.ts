@@ -1,10 +1,12 @@
 import path from 'node:path'
 import * as z from 'zod/mini'
 import {DefaultHost, type Host} from './host'
+import {RubricSchema} from './rubric'
 
 const ScenarioConfigSchema = z.object({
   description: z.optional(z.string()),
   prompt: z.string(),
+  rubric: z.optional(RubricSchema),
   tags: z.optional(z.array(z.string())),
 })
 
@@ -23,6 +25,7 @@ const ScenarioSchema = z.object({
   directory: z.string(),
   prompt: z.string(),
   description: z.optional(z.string()),
+  rubric: z.optional(RubricSchema),
   tags: z.array(z.string()),
   testPath: z.string(),
   browserTestPath: z.optional(z.string()),
@@ -67,6 +70,9 @@ async function loadScenario(host: Host, directory: string, id = path.basename(di
 
   if (config.description) {
     scenario.description = config.description
+  }
+  if (config.rubric) {
+    scenario.rubric = config.rubric
   }
 
   const browserTestPath = ['browser.test.ts', 'scenario.browser.test.ts']

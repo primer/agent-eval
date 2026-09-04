@@ -9,7 +9,7 @@ corepack install
 # Install dependencies
 pnpm install --frozen-lockfile
 
-# Download the 10 most recent retained benchmark result bundles.
+# Download the 10 most recent retained benchmark and experiment result bundles.
 artifact_ids="$(
   gh api \
     --paginate \
@@ -17,7 +17,7 @@ artifact_ids="$(
     "/repos/primer/agent-eval/actions/artifacts?per_page=100" |
     jq --raw-output '
       [.[].artifacts[]
-        | select(.expired == false and (.name | test("^benchmark-[0-9]+$")))
+        | select(.expired == false and (.name | test("^(benchmark-[0-9]+|experiment(-[0-9]+)?)$")))
       ]
       | sort_by(.created_at)
       | .[-10:][].id

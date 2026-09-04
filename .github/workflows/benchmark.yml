@@ -46,7 +46,7 @@ jobs:
           CONCURRENCY: ${{ inputs.concurrency }}
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
           DOCKER_IMAGE: ${{ inputs.docker-image || 'node:26.5.0-slim' }}
-        run: script/run-benchmark.sh
+        run: script/run-benchmark.sh design-system
       - name: prepare benchmark artifact
         if: ${{ always() }}
         run: |

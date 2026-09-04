@@ -5,15 +5,16 @@ set -euo pipefail
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 if [[ $# -ne 1 ]]; then
-  echo "Usage: $0 <benchmark-name>" >&2
+  echo "Usage: $0 <experiment-name>" >&2
   exit 1
 fi
-benchmark_name="$1"
-run_date="${RUN_DATE:-$(date -u +%F)}"
-run_directory="$repository_root/results/benchmarks/$benchmark_name/$run_date"
 
-if [[ ! "$benchmark_name" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
-  echo "Benchmark name must be a file name without its extension" >&2
+experiment_name="$1"
+run_date="${RUN_DATE:-$(date -u +%F)}"
+run_directory="$repository_root/results/experiments/$experiment_name/$run_date"
+
+if [[ ! "$experiment_name" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
+  echo "Experiment name must be a file name without its extension" >&2
   exit 1
 fi
 
@@ -23,8 +24,8 @@ if [[ ! "$run_date" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
 fi
 
 node "$repository_root/packages/agent-eval/bin/agent-eval" \
-  --benchmark "$benchmark_name" \
-  --benchmarks "$repository_root/benchmarks" \
+  --experiment "$experiment_name" \
+  --experiments "$repository_root/experiments" \
   --concurrency "${CONCURRENCY:-1}" \
   --docker-image "${DOCKER_IMAGE:-node:26.5.0-slim}" \
   --output-dir "$run_directory" \

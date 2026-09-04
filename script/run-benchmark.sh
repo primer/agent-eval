@@ -4,11 +4,13 @@ set -euo pipefail
 
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-if [[ $# -ne 1 ]]; then
-  echo "Usage: $0 <benchmark-name>" >&2
+if [[ $# -lt 1 ]]; then
+  echo "Usage: $0 <benchmark-name> [agent-eval-options...]" >&2
   exit 1
 fi
+
 benchmark_name="$1"
+shift
 run_date="${RUN_DATE:-$(date -u +%F)}"
 run_directory="$repository_root/results/benchmarks/$benchmark_name/$run_date"
 
@@ -28,4 +30,5 @@ node "$repository_root/packages/agent-eval/bin/agent-eval" \
   --concurrency "${CONCURRENCY:-1}" \
   --docker-image "${DOCKER_IMAGE:-node:26.5.0-slim}" \
   --output-dir "$run_directory" \
-  --scenarios "$repository_root/scenarios"
+  --scenarios "$repository_root/scenarios" \
+  "$@"

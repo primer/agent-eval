@@ -44,12 +44,12 @@ class VirtualHost implements Host {
   vol: Volume
 
   constructor(json?: NestedDirectoryJSON) {
-    const {fs, vol} = memfs(json)
+    const {fs: virtualFs, vol} = memfs(json)
     this.vol = vol
-    this.existsSync = fs.existsSync
+    this.existsSync = virtualFs.existsSync
     // @ts-expect-error - not every constant is exposed but memfs should match
     // for our test cases
-    this.fs = fs.promises
+    this.fs = virtualFs.promises
   }
 
   async loadModule<T = unknown>(filepath: string): Promise<T> {

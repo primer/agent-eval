@@ -1,19 +1,16 @@
 import Queue from 'p-queue'
-import * as z from 'zod/mini'
-import {TrialSchema, run as runTrial} from './trial'
+import {run as runTrial} from './trial'
 import type {Trial, TrialResult} from './trial'
 import type {EnvironmentConfig} from './environment'
 import {DefaultHost, type Host} from './host'
 import {logger} from './logger'
 
-const PlanSchema = z.object({
-  trials: z.array(TrialSchema),
-})
-
 /**
  * A plan is an ordered list of trials to be ran.
  */
-type Plan = z.infer<typeof PlanSchema>
+type Plan = {
+  trials: Array<Trial>
+}
 
 // TODO: support plan with sharding
 async function create(trials: Array<Trial>): Promise<Plan> {

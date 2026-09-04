@@ -300,8 +300,8 @@ function getBenchmarkComparisons(
         scenario: value.scenario,
         model: value.model,
         reasoningEffort: value.reasoningEffort,
-        control: createResultSummary(benchmark),
-        benchmarkTreatment: createResultSummary(benchmark),
+        control: createResultSummary(benchmark.name),
+        benchmarkTreatment: createResultSummary(benchmark.name),
       }
       const summary = result.trial.treatment.name === 'Control' ? comparison.control : comparison.benchmarkTreatment
       addResultToSummary(summary, result)

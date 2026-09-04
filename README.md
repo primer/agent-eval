@@ -15,6 +15,7 @@ against the scenarios we care about.
 Results are scored by:
 
 - Correctness: how many tests the agent's output passes
+- Qualitative criteria: weighted rubric scores from a read-only judge, when configured
 - Cost: how much the agent spends in API calls
 - Latency: how long the agent takes to complete the scenarios
 

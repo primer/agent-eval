@@ -339,6 +339,24 @@ test('creates portable artifact paths relative to the output directory', async (
     agent: {
       sessions: [],
     },
+    rubricResult: {
+      status: 'scored',
+      judge: {
+        name: 'gpt-5.5',
+        reasoningEffort: 'high',
+      },
+      score: 4,
+      passed: true,
+      criteria: [
+        {
+          name: 'Correctness',
+          score: 4,
+          explanation: 'The implementation is correct.',
+          minimumScore: 4,
+          thresholdPassed: true,
+        },
+      ],
+    },
     testResults: {
       numTotalTests: 1,
       numPassedTests: 1,
@@ -371,6 +389,7 @@ test('creates portable artifact paths relative to the output directory', async (
         type: 'Screenshot',
         filepath: 'artifacts/trial/walkthrough/screenshot.png',
       },
+      rubricResult: trialResult.rubricResult,
     }),
   )
 

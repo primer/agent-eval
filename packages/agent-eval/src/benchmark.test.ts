@@ -354,6 +354,14 @@ test('writes and reads benchmark capability metadata', async () => {
     agent: {
       sessions: [],
     },
+    rubricResult: {
+      status: 'unavailable',
+      judge: {
+        name: 'gpt-5.5',
+        reasoningEffort: 'high',
+      },
+      error: 'Judge timed out',
+    },
     testResults: {
       numTotalTests: 1,
       numPassedTests: 1,
@@ -400,6 +408,7 @@ test('writes and reads benchmark capability metadata', async () => {
           'artifacts/trial/walkthrough/screenshots/02.png',
         ],
       },
+      rubricResult: trialResult.rubricResult,
     }),
   )
   const host = VirtualHost.create()

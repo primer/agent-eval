@@ -35,6 +35,7 @@ type RunResult = {
   turns: number
   outputTokens: number
   premiumRequests: number
+  rubricResult: RunOutputResult['rubricResult']
   totalApiDurationMs: number
   sessionDurationMs: number
   tests: Array<{
@@ -314,6 +315,7 @@ async function createExperimentRunDetails(date: string, output: RunOutput, runDi
           turns: result.assistant.turns,
           outputTokens: result.assistant.outputTokens,
           premiumRequests: result.assistant.premiumRequests,
+          rubricResult: result.rubricResult,
           totalApiDurationMs: result.assistant.totalApiDurationMs,
           sessionDurationMs: result.assistant.sessionDurationMs,
           tests: result.testResults.tests.map(test => {

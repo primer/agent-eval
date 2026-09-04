@@ -9,7 +9,7 @@ const {listScenarios, getScenario} = await import(
 
 const SCENARIOS_DIR = path.resolve(process.cwd(), '..', 'scenarios')
 
-export type ScenarioSummary = Pick<AgentEvalScenario, 'id' | 'prompt'>
+export type ScenarioSummary = Pick<AgentEvalScenario, 'id' | 'prompt' | 'rubric'>
 
 export type Scenario = ScenarioSummary & {
   test: string
@@ -24,6 +24,7 @@ export async function list(): Promise<Array<ScenarioSummary>> {
     return {
       id: scenario.id,
       prompt: scenario.prompt,
+      rubric: scenario.rubric,
     }
   })
 }
@@ -37,6 +38,7 @@ export async function get(id: string): Promise<Scenario> {
   return {
     id: scenario.id,
     prompt: scenario.prompt,
+    rubric: scenario.rubric,
     test: await fs.readFile(scenario.testPath, 'utf8'),
   }
 }

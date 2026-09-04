@@ -14,7 +14,7 @@ on:
       docker-image:
         description: >-
           Docker base image to layer the treatment environment on.
-          Must be Debian-based with apt-get and a node user.
+          Must be a Debian-based Node image with npm, apt-get, and a node user.
         required: false
         default: 'node:26.5.0-slim'
         type: string

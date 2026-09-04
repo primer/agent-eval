@@ -14,10 +14,6 @@
       "types": "./dist/benchmark.d.ts",
       "default": "./dist/benchmark.js"
     },
-    "./cli": {
-      "types": "./dist/cli.d.ts",
-      "default": "./dist/cli.js"
-    },
     "./experiment": {
       "types": "./dist/experiment.d.ts",
       "default": "./dist/experiment.js"

@@ -1,3 +1,6 @@
+import fs from 'node:fs/promises'
+import os from 'node:os'
+import path from 'node:path'
 import {afterEach, describe, expect, test, vi} from 'vitest'
 
 const originalArgv = process.argv
@@ -56,10 +59,16 @@ describe('cli', () => {
   })
 
   test('does not require a Copilot token when creating a plan', async () => {
-    process.argv = ['node', 'agent-eval', '--benchmark', 'test', '--plan']
-    delete process.env.COPILOT_GITHUB_TOKEN
+    const benchmarksDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-eval-benchmarks-'))
 
-    await expect(import('./cli')).rejects.toThrow('Benchmark "test" was not found')
+    try {
+      process.argv = ['node', 'agent-eval', '--benchmark', 'test', '--benchmarks', benchmarksDirectory, '--plan']
+      delete process.env.COPILOT_GITHUB_TOKEN
+
+      await expect(import('./cli')).rejects.toThrow('Benchmark "test" was not found')
+    } finally {
+      await fs.rm(benchmarksDirectory, {recursive: true})
+    }
   })
 
   test('does not require a Copilot token when merging shard outputs', async () => {

@@ -13,9 +13,8 @@ import {
   type Benchmark,
   type BenchmarkTrialResult,
 } from './benchmark'
-import {deserialize as deserializePlan, isBenchmarkPlan} from './plan'
 import {VirtualHost} from './host'
-import {run as runPlan} from './plan'
+import {deserialize as deserializePlan, isBenchmarkPlan, run as runPlan} from './plan'
 import {defineConfig as defineScenarioConfig} from './scenario'
 
 vi.mock('./plan', async importOriginal => {

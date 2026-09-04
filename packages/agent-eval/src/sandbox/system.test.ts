@@ -2,7 +2,14 @@ import Docker from 'dockerode'
 import {beforeEach, describe, expect, test, vi} from 'vitest'
 import {VirtualHost} from '../host'
 import {MCP_CONFIG_PATH, NODE_USER, SKILLS_DIR} from './constants'
-import {buildDockerImage, cleanupActiveContainers, createContainer, SandboxSchema, SystemSandbox} from './system'
+import {
+  buildDockerImage,
+  cleanupActiveContainers,
+  createContainer,
+  getDockerImageName,
+  SandboxSchema,
+  SystemSandbox,
+} from './system'
 import {VirtualSandbox} from './virtual'
 
 function createSandbox(container = {remove: vi.fn().mockResolvedValue(undefined)}) {
@@ -53,6 +60,13 @@ describe('SystemSandbox lifecycle', () => {
     )
     expect(docker.modem.followProgress).toHaveBeenCalledWith(stream, expect.any(Function))
     expect(image).toMatch(/^agent-eval-sandbox:[a-f0-9]{16}$/)
+  })
+
+  test('includes the Dockerfile contents in the local image tag', () => {
+    const firstImage = getDockerImageName('custom-node:local', 'FROM custom-node:local\nRUN echo first')
+    const secondImage = getDockerImageName('custom-node:local', 'FROM custom-node:local\nRUN echo second')
+
+    expect(firstImage).not.toBe(secondImage)
   })
 
   test('force removes the container when disposed', async () => {
@@ -108,6 +122,28 @@ describe('SystemSandbox lifecycle', () => {
     await sandbox[Symbol.asyncDispose]()
 
     expect(container.remove).toHaveBeenCalledTimes(1)
+  })
+
+  test('untracks containers that Docker already removed', async () => {
+    const notFoundError = Object.assign(new Error('No such container'), {statusCode: 404})
+    const container = {
+      start: vi.fn(),
+      remove: vi.fn().mockRejectedValue(notFoundError),
+    }
+    const docker = {
+      createContainer: vi.fn().mockResolvedValue(container),
+    }
+    const off = vi.spyOn(process, 'off')
+
+    // @ts-expect-error This test only exercises the Docker methods used to create and remove the container.
+    const initializedContainer = await createContainer(docker, 'test-image')
+    const sandbox = new SystemSandbox(VirtualHost.create(), new Docker(), initializedContainer)
+
+    await expect(sandbox[Symbol.asyncDispose]()).resolves.toBeUndefined()
+
+    expect(off).toHaveBeenCalledWith('SIGINT', expect.any(Function))
+    expect(off).toHaveBeenCalledWith('SIGTERM', expect.any(Function))
+    await expect(cleanupActiveContainers()).resolves.toBeUndefined()
   })
 })
 

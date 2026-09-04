@@ -428,9 +428,11 @@ async function buildDockerImage(docker: Docker, baseDockerImage: string): Promis
   return dockerImage
 }
 
-function getDockerImageName(baseDockerImage: string): string {
+function getDockerImageName(baseDockerImage: string, dockerfile = DOCKERFILE): string {
   const digest = createHash('sha256')
     .update(baseDockerImage)
+    .update('\0')
+    .update(dockerfile)
     .update('\0')
     .update(NPM_VERSION)
     .update('\0')
@@ -488,22 +490,31 @@ async function removeContainer(container: Docker.Container): Promise<void> {
     return activeRemoval
   }
 
-  const removal = container
-    .remove({force: true})
-    .then(() => {
-      removedContainers.add(container)
-      activeContainers.delete(container)
-
-      if (activeContainers.size === 0) {
-        process.off('SIGINT', terminationHandlers.SIGINT)
-        process.off('SIGTERM', terminationHandlers.SIGTERM)
+  const removal = (async () => {
+    try {
+      await container.remove({force: true})
+    } catch (error) {
+      if (!isDockerNotFoundError(error)) {
+        throw error
       }
-    })
-    .finally(() => {
-      containerRemovals.delete(container)
-    })
+    }
+
+    removedContainers.add(container)
+    activeContainers.delete(container)
+
+    if (activeContainers.size === 0) {
+      process.off('SIGINT', terminationHandlers.SIGINT)
+      process.off('SIGTERM', terminationHandlers.SIGTERM)
+    }
+  })().finally(() => {
+    containerRemovals.delete(container)
+  })
   containerRemovals.set(container, removal)
   return removal
+}
+
+function isDockerNotFoundError(error: unknown): boolean {
+  return error instanceof Error && 'statusCode' in error && error.statusCode === 404
 }
 
 async function cleanupActiveContainers(): Promise<void> {
@@ -771,4 +782,12 @@ const SandboxSchema = z.custom<Sandbox>(value => {
   return value instanceof SystemSandbox || value instanceof VirtualSandbox
 })
 
-export {SandboxSchema, SystemSandbox, DEFAULT_DOCKER_IMAGE, buildDockerImage, cleanupActiveContainers, createContainer}
+export {
+  SandboxSchema,
+  SystemSandbox,
+  DEFAULT_DOCKER_IMAGE,
+  buildDockerImage,
+  cleanupActiveContainers,
+  createContainer,
+  getDockerImageName,
+}

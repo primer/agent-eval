@@ -24,11 +24,6 @@ import {compare as compareTrial} from './trial'
 
 const {values} = parseArgs({
   options: {
-    artifacts: {
-      type: 'string',
-      short: 'a',
-      description: 'The directory to save artifacts to',
-    },
     benchmark: {
       type: 'string',
       short: 'b',
@@ -90,7 +85,6 @@ function displayHelp() {
 Usage: agent-eval [options]
 
 Options:
-  -a, --artifacts <dir>      The directory to save artifacts to (default: ./artifacts)
   -b, --benchmark <file>     The file name of the benchmark to run
       --benchmarks <dir>     The directory containing local benchmark files (default: ./benchmarks)
   -c, --concurrency <num>    The number of treatments to run in parallel
@@ -123,7 +117,6 @@ if (!COPILOT_GITHUB_TOKEN) {
 }
 
 const env = getEnvironmentConfig({
-  artifactsDirectory: values.artifacts,
   benchmarksDirectory: values.benchmarks,
   concurrency: values.concurrency,
   copilotToken: COPILOT_GITHUB_TOKEN,

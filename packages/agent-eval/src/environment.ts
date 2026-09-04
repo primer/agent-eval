@@ -13,7 +13,6 @@ type EnvironmentConfig = {
 }
 
 type EnvironmentOptions = {
-  artifactsDirectory?: string
   benchmarksDirectory?: string
   concurrency?: string
   copilotToken: string
@@ -25,14 +24,11 @@ type EnvironmentOptions = {
 }
 
 function getEnvironmentConfig(options: EnvironmentOptions): EnvironmentConfig {
-  if (options.outputDirectory && (options.artifactsDirectory || options.outputPath)) {
-    throw new Error('--output-dir cannot be combined with --artifacts or --output')
+  if (options.outputDirectory && options.outputPath) {
+    throw new Error('--output-dir cannot be combined with --output')
   }
 
   const outputDirectory = options.outputDirectory ? path.resolve(options.outputDirectory) : undefined
-  const artifactsDirectory = outputDirectory
-    ? path.join(outputDirectory, 'artifacts')
-    : path.resolve(options.artifactsDirectory ?? 'artifacts')
   const benchmarksDirectory = path.resolve(options.benchmarksDirectory ?? 'benchmarks')
   const parsedConcurrency = options.concurrency ? parseInt(options.concurrency, 10) : 1
   const concurrency =
@@ -43,6 +39,7 @@ function getEnvironmentConfig(options: EnvironmentOptions): EnvironmentConfig {
   const outputPath = outputDirectory
     ? path.join(outputDirectory, 'output.json')
     : path.resolve(options.outputPath ?? 'output.json')
+  const artifactsDirectory = path.join(path.dirname(outputPath), 'artifacts')
   const scenariosDirectory = path.resolve(options.scenariosDirectory ?? 'scenarios')
 
   return {

@@ -46,10 +46,10 @@ describe('cli', () => {
     expect(log).toHaveBeenCalledWith(expect.stringContaining('Usage: agent-eval [options]'))
   })
 
-  test('rejects output directory combinations with explicit artifact paths', async () => {
-    process.argv = ['node', 'agent-eval', '--output-dir', 'results/run', '--artifacts', 'artifacts']
+  test('rejects output directory combinations with explicit output paths', async () => {
+    process.argv = ['node', 'agent-eval', '--output-dir', 'results/run', '--output', 'output.json']
     process.env.COPILOT_GITHUB_TOKEN = 'token'
 
-    await expect(import('./cli')).rejects.toThrow('--output-dir cannot be combined with --artifacts or --output')
+    await expect(import('./cli')).rejects.toThrow('--output-dir cannot be combined with --output')
   })
 })

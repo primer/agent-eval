@@ -156,8 +156,8 @@ agent-eval \
 Artifact and walkthrough references written by the CLI are relative to the
 directory containing `output.json`. Upload or download the complete `run`
 directory to preserve those references. `--output-dir` creates `output.json`
-and `artifacts/` within the selected directory. Use the existing `--output` and
-`--artifacts` options separately when a custom layout is required.
+and `artifacts/` within the selected directory. When using `--output`, artifacts
+are written to an `artifacts/` directory beside the selected file.
 
 ## Scenario config authoring
 

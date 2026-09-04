@@ -24,7 +24,6 @@ describe('getEnvironmentConfig', () => {
   test('uses valid custom values', () => {
     expect(
       getEnvironmentConfig({
-        artifactsDirectory: './custom-artifacts',
         benchmarksDirectory: './custom-benchmarks',
         concurrency: '4',
         copilotToken: 'token',
@@ -34,7 +33,7 @@ describe('getEnvironmentConfig', () => {
         scenariosDirectory: './custom-scenarios',
       }),
     ).toEqual({
-      artifactsDirectory: path.resolve('custom-artifacts'),
+      artifactsDirectory: path.resolve('results/artifacts'),
       benchmarksDirectory: path.resolve('custom-benchmarks'),
       concurrency: 4,
       copilotToken: 'token',
@@ -66,19 +65,11 @@ describe('getEnvironmentConfig', () => {
   test('rejects output directory combinations with explicit output paths', () => {
     expect(() => {
       getEnvironmentConfig({
-        artifactsDirectory: './artifacts',
-        copilotToken: 'token',
-        outputDirectory: './results/run',
-      })
-    }).toThrow('--output-dir cannot be combined with --artifacts or --output')
-
-    expect(() => {
-      getEnvironmentConfig({
         copilotToken: 'token',
         outputDirectory: './results/run',
         outputPath: './output.json',
       })
-    }).toThrow('--output-dir cannot be combined with --artifacts or --output')
+    }).toThrow('--output-dir cannot be combined with --output')
   })
 
   test.each(['0', '-1', 'invalid', '1.5'])('falls back to one for invalid concurrency %s', concurrency => {

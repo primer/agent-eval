@@ -4,13 +4,19 @@ set -euo pipefail
 
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-if [[ $# -lt 1 || $# -gt 2 ]]; then
-  echo "Usage: $0 <experiment-name> [run|plan|shard|merge]" >&2
+if [[ $# -lt 1 ]]; then
+  echo "Usage: $0 <experiment-name> [run|plan|shard|merge] [agent-eval-options...]" >&2
   exit 1
 fi
 
 experiment_name="$1"
-mode="${2:-run}"
+shift
+mode="run"
+if [[ $# -gt 0 && "$1" != --* ]]; then
+  mode="$1"
+  shift
+fi
+
 run_date="${RUN_DATE:-$(date -u +%F)}"
 run_directory="$repository_root/results/experiments/$experiment_name/$run_date"
 plan_path="$run_directory/plan.json"
@@ -33,14 +39,16 @@ case "$mode" in
       --concurrency "${CONCURRENCY:-1}" \
       --docker-image "${DOCKER_IMAGE:-node:26.5.0-slim}" \
       --output-dir "$run_directory" \
-      --scenarios "$repository_root/scenarios"
+      --scenarios "$repository_root/scenarios" \
+      "$@"
     ;;
   plan)
     node "$repository_root/packages/agent-eval/bin/agent-eval" \
       --experiment "$experiment_name" \
       --experiments "$repository_root/experiments" \
       --plan "$plan_path" \
-      --scenarios "$repository_root/scenarios"
+      --scenarios "$repository_root/scenarios" \
+      "$@"
     ;;
   shard)
     if [[ ! "${SHARD:-}" =~ ^([1-9][0-9]*)/([1-9][0-9]*)$ ]]; then
@@ -55,12 +63,14 @@ case "$mode" in
       --from-plan "$plan_path" \
       --output-dir "$run_directory" \
       --scenarios "$repository_root/scenarios" \
-      --shard "$SHARD"
+      --shard "$SHARD" \
+      "$@"
     ;;
   merge)
     node "$repository_root/packages/agent-eval/bin/agent-eval" \
       --merge-results \
-      --output-dir "$run_directory"
+      --output-dir "$run_directory" \
+      "$@"
     rm -f "$run_directory"/output-*.json
     ;;
   *)

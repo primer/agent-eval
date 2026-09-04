@@ -25,10 +25,11 @@ describe('cli', () => {
     await expect(import('./cli')).rejects.toThrow('process.exit')
     expect(log).toHaveBeenCalledWith(expect.stringContaining('Usage: agent-eval [options]'))
     expect(log).toHaveBeenCalledWith(expect.stringContaining('--output-dir <dir>'))
+    expect(log).toHaveBeenCalledWith(expect.stringContaining('--from-plan [path]'))
   })
 
-  test('requires a Copilot token before running', async () => {
-    process.argv = ['node', 'agent-eval']
+  test('requires a Copilot token when running', async () => {
+    process.argv = ['node', 'agent-eval', '--benchmark', 'test']
     delete process.env.COPILOT_GITHUB_TOKEN
 
     await expect(import('./cli')).rejects.toThrow(
@@ -38,7 +39,7 @@ describe('cli', () => {
 
   test('displays help when no benchmark or experiment is selected', async () => {
     process.argv = ['node', 'agent-eval']
-    process.env.COPILOT_GITHUB_TOKEN = 'token'
+    delete process.env.COPILOT_GITHUB_TOKEN
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
 
     await import('./cli')
@@ -51,5 +52,19 @@ describe('cli', () => {
     process.env.COPILOT_GITHUB_TOKEN = 'token'
 
     await expect(import('./cli')).rejects.toThrow('--output-dir cannot be combined with --output')
+  })
+
+  test('does not require a Copilot token when creating a plan', async () => {
+    process.argv = ['node', 'agent-eval', '--benchmark', 'test', '--plan']
+    delete process.env.COPILOT_GITHUB_TOKEN
+
+    await expect(import('./cli')).rejects.toThrow('Benchmark "test" was not found')
+  })
+
+  test('does not require a Copilot token when merging shard outputs', async () => {
+    process.argv = ['node', 'agent-eval', '--merge-shards', '/missing-agent-eval-shards']
+    delete process.env.COPILOT_GITHUB_TOKEN
+
+    await expect(import('./cli')).rejects.toThrow('ENOENT')
   })
 })

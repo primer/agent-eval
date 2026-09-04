@@ -5,7 +5,13 @@ import type {EnvironmentConfig} from './environment'
 import {DefaultHost, type Host} from './host'
 import {logger} from './logger'
 import {getModelVariants, ModelVariantConfigSchema, ModelVariantSchema, type ModelVariant} from './model'
-import {create as createPlan, run as runPlan} from './plan'
+import {
+  create as createDurablePlan,
+  run as runPlan,
+  type BenchmarkPlan,
+  type BenchmarkPlanTrialReference,
+  type RuntimePlan,
+} from './plan'
 import {getScenario, ScenarioSchema, type Scenario} from './scenario'
 import {ControlTreatment, TreatmentSchema, TreatmentSetupSchema, type Treatment, type TreatmentSetup} from './treatment'
 import {
@@ -174,48 +180,153 @@ type BenchmarkTrialResult = TrialResult & {
 
 type BenchmarkRunResult = Array<BenchmarkTrialResult>
 
-async function run({
-  env,
-  host = DefaultHost,
-  id,
-}: {
-  env: EnvironmentConfig
-  host?: Host
-  id: string
-}): Promise<BenchmarkRunResult> {
-  const benchmark = await getBenchmark({
-    host,
-    benchmarksDirectory: env.benchmarksDirectory,
-    scenariosDirectory: env.scenariosDirectory,
-    id,
-  })
-  const trialCapabilities = new Map<string, Capability>()
-  const trials: Array<Trial> = benchmark.models.flatMap(model => {
+function createPlan(benchmark: Benchmark): BenchmarkPlan {
+  const capabilityIds = new Set<string>()
+
+  for (const capability of benchmark.capabilities) {
+    if (capabilityIds.has(capability.name)) {
+      throw new Error(`Benchmark "${benchmark.id}" contains duplicate capability id: ${capability.name}`)
+    }
+
+    capabilityIds.add(capability.name)
+  }
+
+  const trials: Array<BenchmarkPlanTrialReference> = benchmark.models.flatMap(model => {
     return benchmark.capabilities.flatMap(capability => {
-      const benchmarkTreatment = createBenchmarkTreatment(benchmark, capability)
       return capability.scenarios.flatMap(scenario => {
-        return [ControlTreatment, benchmarkTreatment].map(treatment => {
-          const trial = {
+        return [ControlTreatment.name, 'Benchmark'].map(treatmentId => {
+          return {
             id: randomUUID(),
-            scenario,
-            treatment,
+            scenarioId: scenario.id,
+            treatmentId,
             model,
+            capabilityId: capability.name,
           }
-          trialCapabilities.set(trial.id, capability)
-          return trial
         })
       })
     })
   })
-  const plan = await createPlan(trials)
+
+  return createDurablePlan({
+    source: {
+      kind: 'benchmark',
+      id: benchmark.id,
+    },
+    trials,
+  })
+}
+
+function resolvePlan(
+  benchmark: Benchmark,
+  plan: BenchmarkPlan,
+): {
+  plan: RuntimePlan
+  trialCapabilities: Map<string, Capability>
+} {
+  if (plan.source.kind !== 'benchmark') {
+    throw new Error(`Expected a benchmark plan, received: ${plan.source.kind}`)
+  }
+
+  if (plan.source.id !== benchmark.id) {
+    throw new Error(`Plan references benchmark "${plan.source.id}", but loaded benchmark "${benchmark.id}"`)
+  }
+
+  const capabilities = new Map<string, Capability>()
+  for (const capability of benchmark.capabilities) {
+    if (capabilities.has(capability.name)) {
+      throw new Error(`Benchmark "${benchmark.id}" contains duplicate capability id: ${capability.name}`)
+    }
+
+    capabilities.set(capability.name, capability)
+  }
+  const trialCapabilities = new Map<string, Capability>()
+  const trials: Array<Trial> = plan.trials.map(reference => {
+    const capability = capabilities.get(reference.capabilityId)
+    if (!capability) {
+      throw new Error(`Plan trial "${reference.id}" references missing benchmark capability: ${reference.capabilityId}`)
+    }
+
+    const scenario = capability.scenarios.find(candidate => candidate.id === reference.scenarioId)
+    if (!scenario) {
+      throw new Error(
+        `Plan trial "${reference.id}" references scenario "${reference.scenarioId}" outside capability "${reference.capabilityId}"`,
+      )
+    }
+
+    const model = benchmark.models.find(candidate => {
+      return candidate.name === reference.model.name && candidate.reasoningEffort === reference.model.reasoningEffort
+    })
+    if (!model) {
+      throw new Error(
+        `Plan trial "${reference.id}" references missing model variant: ${reference.model.name}/${reference.model.reasoningEffort}`,
+      )
+    }
+
+    let treatment
+    if (reference.treatmentId === ControlTreatment.name) {
+      treatment = ControlTreatment
+    } else if (reference.treatmentId === 'Benchmark') {
+      treatment = createBenchmarkTreatment(benchmark, capability)
+    } else {
+      throw new Error(`Plan trial "${reference.id}" references missing benchmark treatment: ${reference.treatmentId}`)
+    }
+
+    trialCapabilities.set(reference.id, capability)
+    return {
+      id: reference.id,
+      scenario,
+      treatment,
+      model,
+    }
+  })
+
+  return {
+    plan: {
+      trials,
+    },
+    trialCapabilities,
+  }
+}
+
+async function run({
+  env,
+  host = DefaultHost,
+  id,
+  plan,
+}: {
+  env: EnvironmentConfig
+  host?: Host
+  id?: string
+  plan?: BenchmarkPlan
+}): Promise<BenchmarkRunResult> {
+  if (id && plan) {
+    throw new Error('Benchmark run accepts either an id or a plan, not both')
+  }
+
+  if (!id && !plan) {
+    throw new Error('Benchmark run requires an id or a plan')
+  }
+
+  const benchmarkId = plan?.source.id ?? id
+  if (!benchmarkId) {
+    throw new Error('Benchmark run requires an id or a plan')
+  }
+
+  const benchmark = await getBenchmark({
+    host,
+    benchmarksDirectory: env.benchmarksDirectory,
+    scenariosDirectory: env.scenariosDirectory,
+    id: benchmarkId,
+  })
+  const resolved = resolvePlan(benchmark, plan ?? createPlan(benchmark))
   const results = await runPlan({
     env,
     host,
-    plan,
+    plan: resolved.plan,
   })
 
   return results.map(result => {
-    const capability = trialCapabilities.get(result.trial.id)
+    const capability = resolved.trialCapabilities.get(result.trial.id)
     if (!capability) {
       throw new Error(`Capability was not found for trial: ${result.trial.id}`)
     }
@@ -386,7 +497,67 @@ async function read(filepath: string, options: ResultFileOptions = {}): Promise<
   }
 }
 
-export {BenchmarkConfigSchema, defineConfig, getBenchmark, listBenchmarks, output, read, run, write}
+function merge(outputs: Array<BenchmarkOutput>): BenchmarkOutput {
+  const [first, ...remaining] = outputs
+  if (!first) {
+    throw new Error('At least one benchmark output is required to merge shards')
+  }
+
+  const result: BenchmarkOutput = {
+    benchmarkId: first.benchmarkId,
+    capabilities: new Map(first.capabilities),
+    scenarios: new Map(first.scenarios),
+    treatments: new Map(first.treatments),
+    trials: new Map(first.trials),
+  }
+
+  for (const shardOutput of remaining) {
+    if (shardOutput.benchmarkId !== result.benchmarkId) {
+      throw new Error(
+        `Cannot merge benchmark outputs for different sources: "${result.benchmarkId}" and "${shardOutput.benchmarkId}"`,
+      )
+    }
+
+    mergeMetadataMap(result.capabilities, shardOutput.capabilities, 'capability')
+    mergeMetadataMap(result.scenarios, shardOutput.scenarios, 'scenario')
+    mergeMetadataMap(result.treatments, shardOutput.treatments, 'treatment')
+
+    for (const [trialId, trial] of shardOutput.trials) {
+      if (result.trials.has(trialId)) {
+        throw new Error(`Cannot merge duplicate trial id: ${trialId}`)
+      }
+
+      result.trials.set(trialId, trial)
+    }
+  }
+
+  return result
+}
+
+function mergeMetadataMap<T>(target: Map<string, T>, source: Map<string, T>, type: string): void {
+  for (const [id, value] of source) {
+    const existing = target.get(id)
+    if (target.has(id) && JSON.stringify(existing) !== JSON.stringify(value)) {
+      throw new Error(`Cannot merge conflicting ${type} metadata for id: ${id}`)
+    }
+
+    target.set(id, value)
+  }
+}
+
+export {
+  BenchmarkConfigSchema,
+  createPlan,
+  defineConfig,
+  getBenchmark,
+  listBenchmarks,
+  merge,
+  output,
+  read,
+  resolvePlan,
+  run,
+  write,
+}
 export type {
   BenchmarkConfig,
   Benchmark,

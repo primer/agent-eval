@@ -11,7 +11,13 @@ import {
 } from './model'
 import {DefaultHost, type Host} from './host'
 import {logger} from './logger'
-import {create as createPlan, run as runPlan} from './plan'
+import {
+  create as createDurablePlan,
+  run as runPlan,
+  type ExperimentPlan,
+  type ExperimentPlanTrialReference,
+  type RuntimePlan,
+} from './plan'
 import {getScenario, loadScenario, ScenarioSchema, type Scenario} from './scenario'
 import {selectShard, type Shard} from './shard'
 import {ControlTreatment, TreatmentSchema, TreatmentSetupSchema, type Treatment, type TreatmentSetup} from './treatment'
@@ -23,7 +29,6 @@ import {
   WalkthroughSchema,
   writeTrialFiles,
   type ResultFileOptions,
-  type Trial,
   type TrialResult,
 } from './trial'
 import {TestResultsSchema} from './vitest'
@@ -179,50 +184,132 @@ async function getExperiment({
 
 type ExperimentRunResult = Array<TrialResult>
 
+function createPlan(experiment: Experiment): ExperimentPlan {
+  const treatmentIds = new Set<string>([ControlTreatment.name])
+
+  for (const treatment of experiment.treatments) {
+    if (treatmentIds.has(treatment.name)) {
+      throw new Error(`Experiment "${experiment.id}" contains duplicate treatment id: ${treatment.name}`)
+    }
+
+    treatmentIds.add(treatment.name)
+  }
+
+  const trials: Array<ExperimentPlanTrialReference> = experiment.models.flatMap(model => {
+    return experiment.scenarios.flatMap(scenario => {
+      return [ControlTreatment, ...experiment.treatments].map(treatment => {
+        return {
+          id: randomUUID(),
+          scenarioId: scenario.id,
+          treatmentId: treatment.name,
+          model,
+        }
+      })
+    })
+  })
+
+  return createDurablePlan({
+    source: {
+      kind: 'experiment',
+      id: experiment.id,
+    },
+    trials,
+  })
+}
+
+function resolvePlan(experiment: Experiment, plan: ExperimentPlan): RuntimePlan {
+  if (plan.source.kind !== 'experiment') {
+    throw new Error(`Expected an experiment plan, received: ${plan.source.kind}`)
+  }
+
+  if (plan.source.id !== experiment.id) {
+    throw new Error(`Plan references experiment "${plan.source.id}", but loaded experiment "${experiment.id}"`)
+  }
+
+  const treatments = new Map<string, Treatment>([[ControlTreatment.name, ControlTreatment]])
+  for (const treatment of experiment.treatments) {
+    if (treatments.has(treatment.name)) {
+      throw new Error(`Experiment "${experiment.id}" contains duplicate treatment id: ${treatment.name}`)
+    }
+
+    treatments.set(treatment.name, treatment)
+  }
+
+  return {
+    trials: plan.trials.map(reference => {
+      const scenario = experiment.scenarios.find(candidate => candidate.id === reference.scenarioId)
+      if (!scenario) {
+        throw new Error(`Plan trial "${reference.id}" references missing scenario: ${reference.scenarioId}`)
+      }
+
+      const treatment = treatments.get(reference.treatmentId)
+      if (!treatment) {
+        throw new Error(`Plan trial "${reference.id}" references missing treatment: ${reference.treatmentId}`)
+      }
+
+      const model = experiment.models.find(candidate => {
+        return candidate.name === reference.model.name && candidate.reasoningEffort === reference.model.reasoningEffort
+      })
+      if (!model) {
+        throw new Error(
+          `Plan trial "${reference.id}" references missing model variant: ${reference.model.name}/${reference.model.reasoningEffort}`,
+        )
+      }
+
+      return {
+        id: reference.id,
+        scenario,
+        treatment,
+        model,
+        setup: experiment.setup,
+      }
+    }),
+  }
+}
+
 async function run({
   env,
   host = DefaultHost,
   id,
+  plan,
   shard,
 }: {
   env: EnvironmentConfig
   host?: Host
-  id: string
+  id?: string
+  plan?: ExperimentPlan
   shard?: Shard
 }): Promise<ExperimentRunResult> {
+  if (id && plan) {
+    throw new Error('Experiment run accepts either an id or a plan, not both')
+  }
+
+  if (!id && !plan) {
+    throw new Error('Experiment run requires an id or a plan')
+  }
+
+  const experimentId = plan?.source.id ?? id
+  if (!experimentId) {
+    throw new Error('Experiment run requires an id or a plan')
+  }
+
   const experiment = await getExperiment({
     host,
     experimentsDirectory: env.experimentsDirectory,
     scenariosDirectory: env.scenariosDirectory,
-    id,
+    id: experimentId,
   })
-  const trials: Array<Trial> = experiment.models.flatMap(model => {
-    return experiment.scenarios.flatMap(scenario => {
-      return [
-        {
-          id: randomUUID(),
-          scenario,
-          treatment: ControlTreatment,
-          model,
-          setup: experiment.setup,
-        },
-        ...experiment.treatments.map(treatment => {
-          return {
-            id: randomUUID(),
-            scenario,
-            treatment,
-            model,
-            setup: experiment.setup,
-          }
-        }),
-      ]
-    })
-  })
-  const plan = await createPlan(shard ? selectShard(trials, shard) : trials)
+  const durablePlan = plan ?? createPlan(experiment)
+  const selectedPlan = shard
+    ? {
+        ...durablePlan,
+        trials: selectShard(durablePlan.trials, shard),
+      }
+    : durablePlan
   const results = await runPlan({
     env,
     host,
-    plan,
+    plan: resolvePlan(experiment, selectedPlan),
   })
 
   return results
@@ -351,7 +438,65 @@ async function read(filepath: string, options: ResultFileOptions = {}): Promise<
   }
 }
 
-export {ExperimentConfigSchema, defineConfig, getExperiment, listExperiments, output, read, run, write}
+function merge(outputs: Array<ExperimentOutput>): ExperimentOutput {
+  const [first, ...remaining] = outputs
+  if (!first) {
+    throw new Error('At least one experiment output is required to merge shards')
+  }
+
+  const result: ExperimentOutput = {
+    experimentId: first.experimentId,
+    scenarios: new Map(first.scenarios),
+    treatments: new Map(first.treatments),
+    trials: new Map(first.trials),
+  }
+
+  for (const shardOutput of remaining) {
+    if (shardOutput.experimentId !== result.experimentId) {
+      throw new Error(
+        `Cannot merge experiment outputs for different sources: "${result.experimentId}" and "${shardOutput.experimentId}"`,
+      )
+    }
+
+    mergeMetadataMap(result.scenarios, shardOutput.scenarios, 'scenario')
+    mergeMetadataMap(result.treatments, shardOutput.treatments, 'treatment')
+
+    for (const [trialId, trial] of shardOutput.trials) {
+      if (result.trials.has(trialId)) {
+        throw new Error(`Cannot merge duplicate trial id: ${trialId}`)
+      }
+
+      result.trials.set(trialId, trial)
+    }
+  }
+
+  return result
+}
+
+function mergeMetadataMap<T>(target: Map<string, T>, source: Map<string, T>, type: string): void {
+  for (const [id, value] of source) {
+    const existing = target.get(id)
+    if (target.has(id) && JSON.stringify(existing) !== JSON.stringify(value)) {
+      throw new Error(`Cannot merge conflicting ${type} metadata for id: ${id}`)
+    }
+
+    target.set(id, value)
+  }
+}
+
+export {
+  ExperimentConfigSchema,
+  createPlan,
+  defineConfig,
+  getExperiment,
+  listExperiments,
+  merge,
+  output,
+  read,
+  resolvePlan,
+  run,
+  write,
+}
 export type {
   ExperimentConfig,
   Experiment,

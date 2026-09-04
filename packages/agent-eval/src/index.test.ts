@@ -3,6 +3,7 @@ import {
   BenchmarkConfigSchema,
   ControlTreatment,
   ExperimentConfigSchema,
+  PlanSchema,
   ScenarioConfigSchema,
   TreatmentSchema,
   TrialResultSchema,
@@ -10,6 +11,8 @@ import {
   defineBenchmarkConfig,
   defineExperimentConfig,
   defineScenarioConfig,
+  deserializePlan,
+  serializePlan,
 } from './index'
 
 test('exports the public configuration helpers and schemas', () => {
@@ -22,4 +25,7 @@ test('exports the public configuration helpers and schemas', () => {
   expect(TreatmentSchema.parse(ControlTreatment)).toEqual(ControlTreatment)
   expect(TrialSchema).toBeDefined()
   expect(TrialResultSchema).toBeDefined()
+  expect(PlanSchema).toBeDefined()
+  expect(deserializePlan).toBeTypeOf('function')
+  expect(serializePlan).toBeTypeOf('function')
 })

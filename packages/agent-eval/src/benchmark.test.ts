@@ -1,16 +1,20 @@
 import {afterEach, expect, test, vi} from 'vitest'
 import {
+  createPlan,
   defineConfig,
   getBenchmark,
   listBenchmarks,
+  merge,
   output,
   read,
+  resolvePlan,
   run,
   write,
+  type Benchmark,
   type BenchmarkTrialResult,
 } from './benchmark'
 import {VirtualHost} from './host'
-import {run as runPlan} from './plan'
+import {deserialize as deserializePlan, isBenchmarkPlan, run as runPlan} from './plan'
 import {defineConfig as defineScenarioConfig} from './scenario'
 
 vi.mock('./plan', async importOriginal => {
@@ -440,4 +444,105 @@ test('writes and reads benchmark capability metadata', async () => {
     'utf-8',
   )
   await expect(read('/bundle/embedded-output.json', {host})).rejects.toThrow()
+
+  const secondOutput = output('test-benchmark', [
+    {
+      ...trialResult,
+      trial: {
+        ...trialResult.trial,
+        id: 'trial-two',
+      },
+    },
+  ])
+  const merged = merge([benchmarkOutput, secondOutput])
+
+  expect(merged.capabilities.get('Test capability')).toEqual({
+    name: 'Test capability',
+    scenarioIds: ['001-scenario'],
+  })
+  expect([...merged.trials.keys()]).toEqual(['trial', 'trial-two'])
+  expect(() => {
+    merge([benchmarkOutput, benchmarkOutput])
+  }).toThrow('Cannot merge duplicate trial id: trial')
+})
+
+test('resolves durable benchmark plans with capability metadata and setup functions', () => {
+  const setup = async () => {
+    return undefined
+  }
+  const benchmark: Benchmark = {
+    id: 'test-benchmark',
+    filepath: '/benchmarks/test-benchmark.ts',
+    name: 'Test benchmark',
+    description: 'Tests durable plans',
+    models: [
+      {
+        name: 'gpt-5.6-sol',
+        reasoningEffort: 'medium',
+      },
+    ],
+    setup,
+    capabilities: [
+      {
+        name: 'Test capability',
+        scenarios: [
+          {
+            id: '001-scenario',
+            directory: '/scenarios/001-scenario',
+            prompt: 'Complete the task',
+            tags: [],
+            testPath: '/scenarios/001-scenario/scenario.test.ts',
+          },
+        ],
+      },
+    ],
+  }
+
+  const plan = createPlan(benchmark)
+  const resolved = resolvePlan(benchmark, plan)
+  const benchmarkTrial = resolved.plan.trials.find(trial => trial.treatment.name === 'Benchmark')
+
+  expect(resolved.plan.trials.map(trial => trial.id)).toEqual(plan.trials.map(trial => trial.id))
+  expect(benchmarkTrial?.treatment.setup).toBe(setup)
+  expect(resolved.trialCapabilities.get(benchmarkTrial?.id ?? '')).toBe(benchmark.capabilities[0])
+})
+
+test('rejects benchmark plans with references missing from the current config', () => {
+  const benchmark: Benchmark = {
+    id: 'test-benchmark',
+    filepath: '/benchmarks/test-benchmark.ts',
+    name: 'Test benchmark',
+    description: 'Tests durable plans',
+    models: [
+      {
+        name: 'gpt-5.6-sol',
+        reasoningEffort: 'medium',
+      },
+    ],
+    capabilities: [],
+  }
+  const plan = deserializePlan({
+    version: 1,
+    source: {
+      kind: 'benchmark',
+      id: benchmark.id,
+    },
+    trials: [
+      {
+        id: 'trial',
+        scenarioId: '001-scenario',
+        treatmentId: 'Benchmark',
+        model: benchmark.models[0],
+        capabilityId: 'Missing capability',
+      },
+    ],
+  })
+
+  if (!isBenchmarkPlan(plan)) {
+    throw new Error('Expected benchmark plan')
+  }
+
+  expect(() => {
+    resolvePlan(benchmark, plan)
+  }).toThrow('Plan trial "trial" references missing benchmark capability: Missing capability')
 })

@@ -13,6 +13,7 @@ const config = defineConfig({
     cli: 'src/cli.ts',
     experiment: 'src/experiment.ts',
     index: 'src/index.ts',
+    plan: 'src/plan.ts',
     scenario: 'src/scenario.ts',
   },
   platform: 'node',

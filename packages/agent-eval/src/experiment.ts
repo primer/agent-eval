@@ -12,15 +12,17 @@ import {
 import {DefaultHost, type Host} from './host'
 import {logger} from './logger'
 import {create as createPlan, run as runPlan} from './plan'
-import {readTrialFiles, writeTrialFiles, type ResultFileOptions} from './result-files'
 import {getScenario, loadScenario, ScenarioSchema, type Scenario} from './scenario'
 import {selectShard, type Shard} from './shard'
 import {ControlTreatment, TreatmentSchema, TreatmentSetupSchema, type Treatment, type TreatmentSetup} from './treatment'
 import {
   getPortableTrialPaths,
+  readTrialFiles,
   TrialAgentSchema,
   TrialArtifactsSchema,
   WalkthroughSchema,
+  writeTrialFiles,
+  type ResultFileOptions,
   type Trial,
   type TrialResult,
 } from './trial'

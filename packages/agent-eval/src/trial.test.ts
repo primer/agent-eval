@@ -10,8 +10,7 @@ import {
   type CommandResult,
   type Sandbox,
 } from './sandbox'
-import {run} from './trial'
-import type {Trial} from './trial'
+import {readTrialFiles, run, writeTrialFiles, type Trial} from './trial'
 import type {ResultMessage} from './copilot-cli'
 
 async function setup(trial: Trial) {
@@ -176,6 +175,69 @@ function manageAgentBrowserSkill(host: Host): RunCommandMock {
     }
   }
 }
+
+type TrialFile = {
+  artifacts: {
+    directory: string
+  }
+  id: string
+}
+
+function parseTrialFile(): TrialFile {
+  return {
+    artifacts: {
+      directory: '/bundle/artifacts/trial',
+    },
+    id: 'trial',
+  }
+}
+
+test('writeTrialFiles rejects trial files outside the output directory', async () => {
+  const host = VirtualHost.create()
+  const trial: TrialFile = {
+    artifacts: {
+      directory: '/outside',
+    },
+    id: 'trial',
+  }
+
+  await expect(writeTrialFiles('/bundle/output.json', new Map([['trial', trial]]), {host})).rejects.toThrow(
+    'Trial file for "trial" "../outside/trial.json" must be within the output directory',
+  )
+  await expect(host.fs.stat('/outside/trial.json')).rejects.toThrow()
+})
+
+test.each([
+  {
+    reference: '../secret.json',
+    message: 'Trial reference for "trial" "../secret.json" must be within the output directory',
+  },
+  {
+    reference: '..\\secret.json',
+    message: 'Trial reference for "trial" "..\\secret.json" must be within the output directory',
+  },
+  {
+    reference: '/secret.json',
+    message: 'Trial reference for "trial" "/secret.json" must be relative to the output directory',
+  },
+  {
+    reference: 'C:\\secret.json',
+    message: 'Trial reference for "trial" "C:\\secret.json" must be relative to the output directory',
+  },
+])('readTrialFiles rejects trial reference $reference outside the output directory', async ({reference, message}) => {
+  const host = VirtualHost.create({
+    '/secret.json': JSON.stringify({
+      artifacts: {
+        directory: '/outside',
+      },
+      id: 'trial',
+    }),
+  })
+
+  await expect(readTrialFiles('/bundle/output.json', {trial: reference}, parseTrialFile, {host})).rejects.toThrow(
+    message,
+  )
+})
 
 describe('run', () => {
   test('collects output tokens from model messages without double counting assistant messages', async () => {

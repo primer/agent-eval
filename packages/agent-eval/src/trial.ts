@@ -68,6 +68,87 @@ type TrialResult = z.infer<typeof TrialResultSchema>
 
 type PortableTrialPaths = Pick<TrialResult, 'artifacts' | 'walkthrough'>
 
+type ResultFileOptions = {
+  host?: Host
+}
+
+function resolvePathWithinDirectory(directory: string, filepath: string, description: string): string {
+  const normalizedFilepath = filepath.split(path.win32.sep).join(path.posix.sep)
+  if (path.posix.isAbsolute(normalizedFilepath) || path.win32.isAbsolute(filepath)) {
+    throw new Error(`${description} "${filepath}" must be relative to the output directory`)
+  }
+
+  const resolvedDirectory = path.resolve(directory)
+  const resolvedFilepath = path.resolve(resolvedDirectory, ...normalizedFilepath.split(path.posix.sep))
+  const relativePath = path.relative(resolvedDirectory, resolvedFilepath)
+  if (relativePath === '..' || relativePath.startsWith(`..${path.sep}`) || path.isAbsolute(relativePath)) {
+    throw new Error(`${description} "${filepath}" must be within the output directory`)
+  }
+
+  return resolvedFilepath
+}
+
+async function writeTrialFiles<T extends {artifacts: {directory: string}; id: string}>(
+  outputPath: string,
+  trials: Map<string, T>,
+  options: ResultFileOptions = {},
+): Promise<Record<string, string>> {
+  const host = options.host ?? DefaultHost
+  const outputDirectory = path.dirname(outputPath)
+  const entries = await Promise.all(
+    [...trials].map(async ([trialId, trial]) => {
+      if (trial.id !== trialId) {
+        throw new Error(`Trial map key "${trialId}" does not match trial id "${trial.id}"`)
+      }
+
+      const artifactDirectory = path.isAbsolute(trial.artifacts.directory)
+        ? trial.artifacts.directory
+        : path.resolve(outputDirectory, trial.artifacts.directory)
+      const trialFilePath = resolvePathWithinDirectory(
+        outputDirectory,
+        path.relative(outputDirectory, path.join(artifactDirectory, `${trialId}.json`)),
+        `Trial file for "${trialId}"`,
+      )
+      await host.fs.mkdir(path.dirname(trialFilePath), {recursive: true})
+      await host.fs.writeFile(trialFilePath, JSON.stringify(trial), 'utf-8')
+      const reference = path.relative(outputDirectory, trialFilePath).split(path.sep).join(path.posix.sep)
+      return [trialId, reference] as const
+    }),
+  )
+
+  return Object.fromEntries(entries)
+}
+
+async function readTrialFiles<T>(
+  outputPath: string,
+  references: Record<string, string>,
+  parse: (input: unknown) => T,
+  options: ResultFileOptions = {},
+): Promise<Map<string, T>> {
+  const host = options.host ?? DefaultHost
+  const outputDirectory = path.dirname(outputPath)
+  const entries = await Promise.all(
+    Object.entries(references).map(async ([trialId, reference]) => {
+      const trialFilePath = resolvePathWithinDirectory(outputDirectory, reference, `Trial reference for "${trialId}"`)
+      const contents = await host.fs.readFile(trialFilePath, 'utf-8')
+      const trial = parse(JSON.parse(contents))
+      if (
+        typeof trial !== 'object' ||
+        trial === null ||
+        !('id' in trial) ||
+        typeof trial.id !== 'string' ||
+        trial.id !== trialId
+      ) {
+        throw new Error(`Trial file "${reference}" does not contain trial id "${trialId}"`)
+      }
+
+      return [trialId, trial] as const
+    }),
+  )
+
+  return new Map(entries)
+}
+
 function getPortableTrialPaths(result: TrialResult, baseDirectory: string): PortableTrialPaths {
   const toPortablePath = (filepath: string): string => {
     if (!path.isAbsolute(filepath)) {
@@ -567,5 +648,7 @@ export {
   run,
   compare,
   getPortableTrialPaths,
+  readTrialFiles,
+  writeTrialFiles,
 }
-export type {Trial, TrialResult}
+export type {ResultFileOptions, Trial, TrialResult}

@@ -3,7 +3,6 @@ import {output as getBenchmarkOutput, write as writeBenchmarkOutput, type Benchm
 import {output as getExperimentOutput, write as writeExperimentOutput, type ExperimentOutput} from './experiment'
 import {VirtualHost} from './host'
 import {mergeShardOutputs} from './output'
-import type {TrialResult} from './trial'
 
 async function writeBenchmarkShards(host: VirtualHost, outputs: Array<BenchmarkOutput>): Promise<Array<string>> {
   return Promise.all(
@@ -36,10 +35,10 @@ test('detects and merges benchmark shard outputs', async () => {
   expect(merged.kind).toBe('benchmark')
   expect(merged.output).toEqual({
     benchmarkId: 'benchmark',
-    capabilities: new Map(),
-    scenarios: new Map(),
-    treatments: new Map(),
-    trials: new Map(),
+    capabilities: {},
+    scenarios: {},
+    treatments: {},
+    trials: {},
   })
 })
 
@@ -54,9 +53,9 @@ test('detects and merges experiment shard outputs', async () => {
   expect(merged.kind).toBe('experiment')
   expect(merged.output).toEqual({
     experimentId: 'experiment',
-    scenarios: new Map(),
-    treatments: new Map(),
-    trials: new Map(),
+    scenarios: {},
+    treatments: {},
+    trials: {},
   })
 })
 
@@ -84,77 +83,56 @@ test('requires shard outputs from one source id', async () => {
   )
 })
 
-test('rebases portable artifact paths when the merged output uses a different directory', async () => {
-  const trialResult: TrialResult = {
-    artifacts: {
-      directory: '/bundle/shards/artifacts/trial',
-      copilotConfigDirectory: '/bundle/shards/artifacts/trial/.copilot',
-      skillsConfigDirectory: '/bundle/shards/artifacts/trial/.agents',
-      testResultsPath: '/bundle/shards/artifacts/trial/workspace/test-results.json',
-      workspaceDirectory: '/bundle/shards/artifacts/trial/workspace',
-    },
-    trial: {
-      id: 'trial',
-      scenario: {
-        id: 'scenario',
-        directory: '/scenarios/scenario',
-        prompt: 'Complete the task',
-        tags: [],
-        testPath: '/scenarios/scenario/scenario.test.ts',
-      },
-      treatment: {
-        name: 'Control',
-      },
-      model: {
-        name: 'gpt-5.6-sol',
-        reasoningEffort: 'medium',
-      },
-    },
-    agent: {
-      sessions: [],
-    },
-    testResults: {
-      numTotalTests: 0,
-      numPassedTests: 0,
-      numFailedTests: 0,
-      numPendingTests: 0,
-      numTodoTests: 0,
-      success: true,
-      testResults: [],
-    },
-    walkthrough: {
-      type: 'Screenshot',
-      filepath: '/bundle/shards/artifacts/trial/walkthrough/screenshot.png',
-    },
-  }
+test('combines trial file references without reading the trial files', async () => {
   const host = VirtualHost.create()
-  const filepath = '/bundle/shards/output-1.json'
-  await writeExperimentOutput(
-    filepath,
-    getExperimentOutput('experiment', [trialResult], {
-      baseDirectory: '/bundle/shards',
+  await host.fs.mkdir('/bundle', {recursive: true})
+  await host.fs.writeFile(
+    '/bundle/output-1.json',
+    JSON.stringify({
+      experimentId: 'experiment',
+      scenarios: {},
+      treatments: {},
+      trials: {
+        first: 'artifacts/first/first.json',
+      },
     }),
-    {host},
+    'utf-8',
+  )
+  await host.fs.writeFile(
+    '/bundle/output-2.json',
+    JSON.stringify({
+      experimentId: 'experiment',
+      scenarios: {},
+      treatments: {},
+      trials: {
+        second: 'artifacts/second/second.json',
+      },
+    }),
+    'utf-8',
   )
 
-  const merged = await mergeShardOutputs([filepath], {
+  const merged = await mergeShardOutputs(['/bundle/output-1.json', '/bundle/output-2.json'], {
     host,
-    targetDirectory: '/bundle',
   })
 
   if (merged.kind !== 'experiment') {
     throw new Error('Expected experiment output')
   }
 
-  expect(merged.output.trials.get('trial')).toEqual(
-    expect.objectContaining({
-      artifacts: expect.objectContaining({
-        directory: 'shards/artifacts/trial',
-      }),
-      walkthrough: {
-        type: 'Screenshot',
-        filepath: 'shards/artifacts/trial/walkthrough/screenshot.png',
-      },
+  expect(merged.output.trials).toEqual({
+    first: 'artifacts/first/first.json',
+    second: 'artifacts/second/second.json',
+  })
+})
+
+test('requires the merged output to stay beside the shard outputs', async () => {
+  const host = VirtualHost.create()
+  const filepaths = await writeExperimentShards(host, [getExperimentOutput('experiment', [])])
+
+  await expect(
+    mergeShardOutputs(filepaths, {
+      host,
+      targetDirectory: '/merged',
     }),
-  )
+  ).rejects.toThrow('Shard outputs and the merged output must use the same directory')
 })

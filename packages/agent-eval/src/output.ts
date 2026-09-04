@@ -1,17 +1,16 @@
 import path from 'node:path'
-import {merge as mergeBenchmarkOutputs, read as readBenchmarkOutput, type BenchmarkOutput} from './benchmark'
-import {merge as mergeExperimentOutputs, read as readExperimentOutput, type ExperimentOutput} from './experiment'
+import {parseOutputFile as parseBenchmarkOutputFile, type BenchmarkOutputFile} from './benchmark'
+import {parseOutputFile as parseExperimentOutputFile, type ExperimentOutputFile} from './experiment'
 import {DefaultHost, type Host} from './host'
-import type {TrialResult} from './trial'
 
 type MergedOutput =
   | {
       kind: 'benchmark'
-      output: BenchmarkOutput
+      output: BenchmarkOutputFile
     }
   | {
       kind: 'experiment'
-      output: ExperimentOutput
+      output: ExperimentOutputFile
     }
 
 type MergeShardOutputOptions = {
@@ -25,6 +24,13 @@ async function mergeShardOutputs(
 ): Promise<MergedOutput> {
   if (filepaths.length === 0) {
     throw new Error('No shard outputs were found to merge')
+  }
+
+  const targetDirectory = path.resolve(options.targetDirectory ?? path.dirname(filepaths[0]))
+  for (const filepath of filepaths) {
+    if (path.resolve(path.dirname(filepath)) !== targetDirectory) {
+      throw new Error('Shard outputs and the merged output must use the same directory')
+    }
   }
 
   const host = options.host ?? DefaultHost
@@ -42,41 +48,27 @@ async function mergeShardOutputs(
   ) {
     throw new Error('Cannot merge benchmark and experiment shard outputs together')
   }
+
   if (firstKind === 'benchmark') {
-    const outputs = await Promise.all(
-      filepaths.map(async filepath => {
-        const output = await readBenchmarkOutput(filepath, {host})
-        return rebaseBenchmarkOutput(output, path.dirname(filepath), options.targetDirectory)
-      }),
-    )
-    const output = mergeBenchmarkOutputs(outputs)
     return {
       kind: 'benchmark',
-      output,
+      output: mergeBenchmarkOutputFiles(manifests.map(parseBenchmarkOutputFile)),
     }
   }
 
-  const outputs = await Promise.all(
-    filepaths.map(async filepath => {
-      const output = await readExperimentOutput(filepath, {host})
-      return rebaseExperimentOutput(output, path.dirname(filepath), options.targetDirectory)
-    }),
-  )
-  const output = mergeExperimentOutputs(outputs)
   return {
     kind: 'experiment',
-    output,
+    output: mergeExperimentOutputFiles(manifests.map(parseExperimentOutputFile)),
   }
 }
 
 function getOutputKind(input: unknown): 'benchmark' | 'experiment' {
-  const parsed = typeof input === 'string' ? JSON.parse(input) : input
-  if (typeof parsed !== 'object' || parsed === null) {
+  if (typeof input !== 'object' || input === null) {
     throw new Error('Shard output must be a JSON object')
   }
 
-  const hasBenchmarkId = 'benchmarkId' in parsed
-  const hasExperimentId = 'experimentId' in parsed
+  const hasBenchmarkId = 'benchmarkId' in input
+  const hasExperimentId = 'experimentId' in input
   if (hasBenchmarkId === hasExperimentId) {
     throw new Error('Shard output must contain exactly one of benchmarkId or experimentId')
   }
@@ -84,90 +76,69 @@ function getOutputKind(input: unknown): 'benchmark' | 'experiment' {
   return hasBenchmarkId ? 'benchmark' : 'experiment'
 }
 
-function rebaseBenchmarkOutput(
-  output: BenchmarkOutput,
-  sourceDirectory: string,
-  targetDirectory?: string,
-): BenchmarkOutput {
-  if (!sourceDirectory || !targetDirectory) {
-    return output
+function mergeBenchmarkOutputFiles(outputs: Array<BenchmarkOutputFile>): BenchmarkOutputFile {
+  const [first, ...remaining] = outputs
+  if (!first) {
+    throw new Error('At least one benchmark output is required to merge shards')
   }
 
-  for (const [id, trial] of output.trials) {
-    output.trials.set(id, {
-      ...trial,
-      artifacts: rebaseArtifacts(trial.artifacts, sourceDirectory, targetDirectory),
-      walkthrough: rebaseWalkthrough(trial.walkthrough, sourceDirectory, targetDirectory),
-    })
-  }
-
-  return output
-}
-
-function rebaseExperimentOutput(
-  output: ExperimentOutput,
-  sourceDirectory: string,
-  targetDirectory?: string,
-): ExperimentOutput {
-  if (!sourceDirectory || !targetDirectory) {
-    return output
-  }
-
-  for (const [id, trial] of output.trials) {
-    output.trials.set(id, {
-      ...trial,
-      artifacts: rebaseArtifacts(trial.artifacts, sourceDirectory, targetDirectory),
-      walkthrough: rebaseWalkthrough(trial.walkthrough, sourceDirectory, targetDirectory),
-    })
-  }
-
-  return output
-}
-
-function rebaseArtifacts(
-  artifacts: TrialResult['artifacts'],
-  sourceDirectory: string,
-  targetDirectory: string,
-): TrialResult['artifacts'] {
-  return {
-    directory: rebasePath(artifacts.directory, sourceDirectory, targetDirectory),
-    copilotConfigDirectory: rebasePath(artifacts.copilotConfigDirectory, sourceDirectory, targetDirectory),
-    skillsConfigDirectory: rebasePath(artifacts.skillsConfigDirectory, sourceDirectory, targetDirectory),
-    testResultsPath: rebasePath(artifacts.testResultsPath, sourceDirectory, targetDirectory),
-    workspaceDirectory: rebasePath(artifacts.workspaceDirectory, sourceDirectory, targetDirectory),
-  }
-}
-
-function rebaseWalkthrough(
-  walkthrough: TrialResult['walkthrough'],
-  sourceDirectory: string,
-  targetDirectory: string,
-): TrialResult['walkthrough'] {
-  if (walkthrough.type === 'Screenshots') {
-    return {
-      ...walkthrough,
-      screenshots: walkthrough.screenshots.map(filepath => {
-        return rebasePath(filepath, sourceDirectory, targetDirectory)
-      }),
+  const result = structuredClone(first)
+  for (const output of remaining) {
+    if (output.benchmarkId !== result.benchmarkId) {
+      throw new Error(
+        `Cannot merge benchmark outputs for different sources: "${result.benchmarkId}" and "${output.benchmarkId}"`,
+      )
     }
+
+    mergeMetadataRecord(result.capabilities, output.capabilities, 'capability')
+    mergeMetadataRecord(result.scenarios, output.scenarios, 'scenario')
+    mergeMetadataRecord(result.treatments, output.treatments, 'treatment')
+    mergeTrialReferences(result.trials, output.trials)
   }
 
-  if (walkthrough.type === 'Screenshot' || walkthrough.type === 'Video') {
-    return {
-      ...walkthrough,
-      filepath: rebasePath(walkthrough.filepath, sourceDirectory, targetDirectory),
-    }
-  }
-
-  return walkthrough
+  return result
 }
 
-function rebasePath(filepath: string, sourceDirectory: string, targetDirectory: string): string {
-  if (path.isAbsolute(filepath)) {
-    return filepath
+function mergeExperimentOutputFiles(outputs: Array<ExperimentOutputFile>): ExperimentOutputFile {
+  const [first, ...remaining] = outputs
+  if (!first) {
+    throw new Error('At least one experiment output is required to merge shards')
   }
 
-  return path.relative(targetDirectory, path.resolve(sourceDirectory, filepath)).split(path.sep).join(path.posix.sep)
+  const result = structuredClone(first)
+  for (const output of remaining) {
+    if (output.experimentId !== result.experimentId) {
+      throw new Error(
+        `Cannot merge experiment outputs for different sources: "${result.experimentId}" and "${output.experimentId}"`,
+      )
+    }
+
+    mergeMetadataRecord(result.scenarios, output.scenarios, 'scenario')
+    mergeMetadataRecord(result.treatments, output.treatments, 'treatment')
+    mergeTrialReferences(result.trials, output.trials)
+  }
+
+  return result
+}
+
+function mergeMetadataRecord<T>(target: Record<string, T>, source: Record<string, T>, type: string): void {
+  for (const [id, value] of Object.entries(source)) {
+    if (id in target && JSON.stringify(target[id]) !== JSON.stringify(value)) {
+      throw new Error(`Cannot merge conflicting ${type} metadata for id: ${id}`)
+    }
+
+    target[id] = value
+  }
+}
+
+function mergeTrialReferences(target: Record<string, string>, source: Record<string, string>): void {
+  for (const [trialId, reference] of Object.entries(source)) {
+    if (trialId in target) {
+      throw new Error(`Cannot merge duplicate trial id: ${trialId}`)
+    }
+
+    target[trialId] = reference
+  }
 }
 
 export {mergeShardOutputs}

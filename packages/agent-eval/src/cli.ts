@@ -199,11 +199,7 @@ if (mode.kind === 'create-plan') {
 
   await ensureParentDirectory(env.outputPath)
   logger.info('Writing merged %s output to: %s', merged.kind, env.outputPath)
-  if (merged.kind === 'benchmark') {
-    await writeBenchmarkOutput(env.outputPath, merged.output)
-  } else {
-    await writeExperimentOutput(env.outputPath, merged.output)
-  }
+  await fs.writeFile(env.outputPath, JSON.stringify(merged.output), 'utf-8')
 } else if (mode.kind === 'benchmark') {
   requireCopilotToken(COPILOT_GITHUB_TOKEN)
   logger.info('Running benchmark: %s', mode.id)

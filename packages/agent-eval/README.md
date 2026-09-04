@@ -196,6 +196,9 @@ result:
 agent-eval --merge-shards run --output run/output.json
 ```
 
+The merged `output.json` must stay in the same directory as the shard manifests
+so their per-trial file references remain portable.
+
 `--plan` and `--from-plan` default to `plan.json` when their path is omitted.
 `--shard` is only valid with `--from-plan`. Shard merging does not require a
 Copilot token.

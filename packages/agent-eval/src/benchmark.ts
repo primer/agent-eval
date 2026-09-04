@@ -394,6 +394,8 @@ const BenchmarkOutputFileSchema = z.object({
   trials: z.record(z.string(), z.string()),
 })
 
+type BenchmarkOutputFile = z.infer<typeof BenchmarkOutputFileSchema>
+
 type BenchmarkOutput = {
   benchmarkId: string
   capabilities: Map<string, z.infer<typeof CapabilityOutputSchema>>
@@ -497,6 +499,11 @@ async function read(filepath: string, options: ResultFileOptions = {}): Promise<
   }
 }
 
+function parseOutputFile(input: unknown): BenchmarkOutputFile {
+  const parsed = typeof input === 'string' ? JSON.parse(input) : input
+  return BenchmarkOutputFileSchema.parse(parsed, {reportInput: true})
+}
+
 function merge(outputs: Array<BenchmarkOutput>): BenchmarkOutput {
   const [first, ...remaining] = outputs
   if (!first) {
@@ -553,6 +560,7 @@ export {
   listBenchmarks,
   merge,
   output,
+  parseOutputFile,
   read,
   resolvePlan,
   run,
@@ -562,6 +570,7 @@ export type {
   BenchmarkConfig,
   Benchmark,
   BenchmarkOutput,
+  BenchmarkOutputFile,
   BenchmarkOutputOptions,
   BenchmarkRunResult,
   BenchmarkTrialResult,

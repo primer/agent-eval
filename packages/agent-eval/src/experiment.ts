@@ -358,6 +358,8 @@ const ExperimentOutputFileSchema = z.object({
   trials: z.record(z.string(), z.string()),
 })
 
+type ExperimentOutputFile = z.infer<typeof ExperimentOutputFileSchema>
+
 function output(
   experimentId: string,
   trialResults: ExperimentRunResult,
@@ -438,6 +440,11 @@ async function read(filepath: string, options: ResultFileOptions = {}): Promise<
   }
 }
 
+function parseOutputFile(input: unknown): ExperimentOutputFile {
+  const parsed = typeof input === 'string' ? JSON.parse(input) : input
+  return ExperimentOutputFileSchema.parse(parsed, {reportInput: true})
+}
+
 function merge(outputs: Array<ExperimentOutput>): ExperimentOutput {
   const [first, ...remaining] = outputs
   if (!first) {
@@ -492,6 +499,7 @@ export {
   listExperiments,
   merge,
   output,
+  parseOutputFile,
   read,
   resolvePlan,
   run,
@@ -501,6 +509,7 @@ export type {
   ExperimentConfig,
   Experiment,
   ExperimentOutput,
+  ExperimentOutputFile,
   ExperimentOutputOptions,
   ExperimentScenarioConfig,
   InlineScenarioConfig,

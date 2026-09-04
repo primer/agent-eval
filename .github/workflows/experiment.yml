@@ -27,7 +27,92 @@ permissions:
   contents: read
 
 jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      run-date: ${{ steps.run-date.outputs.value }}
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: set up pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - name: set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+      - name: install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: build project
+        run: pnpm run build
+      - name: set run date
+        id: run-date
+        run: echo "value=$(date -u +%F)" >> "$GITHUB_OUTPUT"
+      - name: create experiment plan
+        env:
+          RUN_DATE: ${{ steps.run-date.outputs.value }}
+        run: script/run-experiment.sh "${{ inputs.experiment }}" plan
+      - name: upload experiment plan
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: experiment-plan-${{ github.run_id }}
+          path: results
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 9
+
   run:
+    needs: plan
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: set up pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - name: set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+      - name: install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: build project
+        run: pnpm run build
+      - name: download experiment plan
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: experiment-plan-${{ github.run_id }}
+      - name: run experiment shard
+        env:
+          CONCURRENCY: ${{ inputs.concurrency }}
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          DOCKER_IMAGE: ${{ inputs.docker-image || 'node:26.5.0-slim' }}
+          RUN_DATE: ${{ needs.plan.outputs.run-date }}
+          SHARD: ${{ matrix.shard }}/${{ strategy.job-total }}
+        run: script/run-experiment.sh "${{ inputs.experiment }}" shard
+      - name: prepare experiment shard artifact
+        if: ${{ always() }}
+        run: |
+          mkdir -p workflow-artifact
+          if [[ -d results ]]; then
+            mv results workflow-artifact/results
+          fi
+      - name: upload experiment shard
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: experiment-shard-${{ github.run_id }}-${{ matrix.shard }}
+          path: workflow-artifact
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 9
+
+  merge:
+    needs: [plan, run]
     runs-on: ubuntu-latest
     steps:
       - name: checkout repository
@@ -43,21 +128,20 @@ jobs:
           node-version-file: '.nvmrc'
       - name: build project
         run: pnpm run build
-      - name: run experiment
+      - name: download experiment shards
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: experiment-shard-${{ github.run_id }}-*
+          merge-multiple: true
+      - name: merge experiment shards
         env:
-          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
-          CONCURRENCY: ${{ inputs.concurrency }}
-          DOCKER_IMAGE: ${{ inputs.docker-image || 'node:26.5.0-slim' }}
-        run: script/run-experiment.sh "${{ inputs.experiment }}"
+          RUN_DATE: ${{ needs.plan.outputs.run-date }}
+        run: script/run-experiment.sh "${{ inputs.experiment }}" merge
       - name: prepare experiment artifact
-        if: ${{ always() }}
         run: |
           mkdir -p workflow-artifact
-          if [[ -d results ]]; then
-            mv results workflow-artifact/results
-          fi
+          mv results workflow-artifact/results
       - name: upload experiment results
-        if: ${{ always() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: experiment-${{ github.run_id }}

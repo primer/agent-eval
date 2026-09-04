@@ -62,6 +62,28 @@ describe('getEnvironmentConfig', () => {
     })
   })
 
+  test('derives the output filename from the shard within an output directory', () => {
+    expect(
+      getEnvironmentConfig({
+        copilotToken: 'token',
+        outputDirectory: './results/run',
+        shard: {
+          order: 2,
+          total: 4,
+        },
+      }),
+    ).toEqual({
+      artifactsDirectory: path.resolve('results/run/artifacts'),
+      benchmarksDirectory: path.resolve('benchmarks'),
+      concurrency: 1,
+      copilotToken: 'token',
+      dockerImage: DEFAULT_DOCKER_IMAGE,
+      experimentsDirectory: path.resolve('experiments'),
+      outputPath: path.resolve('results/run/output-2.json'),
+      scenariosDirectory: path.resolve('scenarios'),
+    })
+  })
+
   test('rejects output directory combinations with explicit output paths', () => {
     expect(() => {
       getEnvironmentConfig({

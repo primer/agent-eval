@@ -164,6 +164,44 @@ directory to preserve those references. `--output-dir` creates `output.json`
 and `artifacts/` within the selected directory. When using `--output`, artifacts
 are written to an `artifacts/` directory beside the selected file.
 
+### Plans and sharding
+
+Create a durable, randomized trial plan before running an experiment or
+benchmark:
+
+```sh
+agent-eval --experiment example --plan plan.json
+```
+
+Plan creation does not require a Copilot token. The plan stores the ordered
+trial IDs and references needed to reload the experiment or benchmark. Keep the
+same experiment, benchmark, and scenario configuration available when running
+the plan.
+
+Run deterministic shards from the shared plan, writing a distinct output file
+for each shard:
+
+```sh
+COPILOT_GITHUB_TOKEN=... agent-eval \
+  --from-plan plan.json \
+  --shard 1/4 \
+  --output-dir run
+```
+
+After all shards finish, merge the `output-*.json` files into one portable
+result:
+
+```sh
+agent-eval --merge-results --output-dir run
+```
+
+The merged `output.json` must stay in the same directory as the shard manifests
+so their per-trial file references remain portable.
+
+`--plan` and `--from-plan` default to `plan.json` when their path is omitted.
+With `--output-dir`, `--shard 1/4` writes `output-1.json`. `--shard` is only
+valid with `--from-plan`. Shard merging does not require a Copilot token.
+
 ## Scenario config authoring
 
 Use `defineConfig` from `@primer/agent-eval/scenario` in each

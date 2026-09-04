@@ -1,8 +1,20 @@
 import path from 'node:path'
 import {expect, test} from 'vitest'
-import {defineConfig, getExperiment, listExperiments, output, read, write} from './experiment'
+import {
+  createPlan,
+  defineConfig,
+  getExperiment,
+  listExperiments,
+  merge,
+  output,
+  read,
+  resolvePlan,
+  write,
+  type Experiment,
+} from './experiment'
 import {VirtualHost} from './host'
 import type {TrialResult} from './trial'
+import {deserialize as deserializePlan, isBenchmarkPlan} from './plan'
 
 const config = defineConfig({
   name: 'Test experiment',
@@ -404,4 +416,166 @@ test('creates portable artifact paths relative to the output directory', async (
   await expect(write('/bundle/output.json', portableOutput, {host})).rejects.toThrow(
     'must not resolve outside the output directory',
   )
+
+  const secondOutput = output('baseline', [
+    {
+      ...trialResult,
+      trial: {
+        ...trialResult.trial,
+        id: 'trial-two',
+      },
+    },
+  ])
+  const merged = merge([portableOutput, secondOutput])
+
+  expect([...merged.trials.keys()]).toEqual(['trial', 'trial-two'])
+  expect(() => {
+    merge([portableOutput, portableOutput])
+  }).toThrow('Cannot merge duplicate trial id: trial')
+  expect(() => {
+    merge([portableOutput, output('different', [])])
+  }).toThrow('Cannot merge experiment outputs for different sources')
+})
+
+test('resolves durable experiment plans with experiment and treatment setup functions', () => {
+  const experimentSetup = async () => {
+    return undefined
+  }
+  const treatmentSetup = async () => {
+    return undefined
+  }
+  const experiment: Experiment = {
+    id: 'test-experiment',
+    filepath: '/experiments/test-experiment.ts',
+    name: 'Test experiment',
+    description: 'Tests durable plans',
+    models: [
+      {
+        name: 'gpt-5.6-sol',
+        reasoningEffort: 'medium',
+      },
+    ],
+    scenarios: [
+      {
+        id: '001-scenario',
+        directory: '/scenarios/001-scenario',
+        prompt: 'Complete the task',
+        tags: [],
+        testPath: '/scenarios/001-scenario/scenario.test.ts',
+      },
+    ],
+    setup: experimentSetup,
+    treatments: [
+      {
+        name: 'Treatment',
+        setup: treatmentSetup,
+      },
+    ],
+  }
+
+  const plan = createPlan(experiment)
+  const resolved = resolvePlan(experiment, plan)
+  const treatmentTrial = resolved.trials.find(trial => trial.treatment.name === 'Treatment')
+
+  expect(resolved.trials.map(trial => trial.id)).toEqual(plan.trials.map(trial => trial.id))
+  expect(treatmentTrial?.setup).toBe(experimentSetup)
+  expect(treatmentTrial?.treatment.setup).toBe(treatmentSetup)
+})
+
+test('rejects experiment plans with references missing from the current config', () => {
+  const scenario = {
+    id: '001-scenario',
+    directory: '/scenarios/001-scenario',
+    prompt: 'Complete the task',
+    tags: [],
+    testPath: '/scenarios/001-scenario/scenario.test.ts',
+  }
+  const experiment: Experiment = {
+    id: 'test-experiment',
+    filepath: '/experiments/test-experiment.ts',
+    name: 'Test experiment',
+    description: 'Tests durable plans',
+    models: [
+      {
+        name: 'gpt-5.6-sol',
+        reasoningEffort: 'medium',
+      },
+    ],
+    scenarios: [scenario],
+    treatments: [],
+  }
+  const missingScenarioPlan = deserializePlan({
+    version: 1,
+    source: {
+      kind: 'experiment',
+      id: experiment.id,
+    },
+    trials: [
+      {
+        id: 'trial',
+        scenarioId: 'missing-scenario',
+        treatmentId: 'Control',
+        model: experiment.models[0],
+      },
+    ],
+  })
+
+  if (isBenchmarkPlan(missingScenarioPlan)) {
+    throw new Error('Expected experiment plan')
+  }
+
+  expect(() => {
+    resolvePlan(experiment, missingScenarioPlan)
+  }).toThrow('Plan trial "trial" references missing scenario: missing-scenario')
+
+  const missingTreatmentPlan = deserializePlan({
+    version: 1,
+    source: {
+      kind: 'experiment',
+      id: experiment.id,
+    },
+    trials: [
+      {
+        id: 'trial',
+        scenarioId: scenario.id,
+        treatmentId: 'Missing treatment',
+        model: experiment.models[0],
+      },
+    ],
+  })
+
+  if (isBenchmarkPlan(missingTreatmentPlan)) {
+    throw new Error('Expected experiment plan')
+  }
+
+  expect(() => {
+    resolvePlan(experiment, missingTreatmentPlan)
+  }).toThrow('Plan trial "trial" references missing treatment: Missing treatment')
+
+  const missingModelPlan = deserializePlan({
+    version: 1,
+    source: {
+      kind: 'experiment',
+      id: experiment.id,
+    },
+    trials: [
+      {
+        id: 'trial',
+        scenarioId: scenario.id,
+        treatmentId: 'Control',
+        model: {
+          name: 'gpt-5.6-sol',
+          reasoningEffort: 'high',
+        },
+      },
+    ],
+  })
+
+  if (isBenchmarkPlan(missingModelPlan)) {
+    throw new Error('Expected experiment plan')
+  }
+
+  expect(() => {
+    resolvePlan(experiment, missingModelPlan)
+  }).toThrow('Plan trial "trial" references missing model variant: gpt-5.6-sol/high')
 })

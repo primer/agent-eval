@@ -1,5 +1,6 @@
 import {existsSync} from 'node:fs'
 import fs from 'node:fs/promises'
+import {pathToFileURL} from 'node:url'
 import {memfs, Volume, type NestedDirectoryJSON} from 'memfs'
 import {SystemSandbox, VirtualSandbox, type Sandbox, type SandboxCreateOptions} from './sandbox'
 
@@ -26,7 +27,9 @@ class SystemHost implements Host {
   }
 
   loadModule<T = unknown>(filepath: string): Promise<T> {
-    return import(filepath)
+    const specifier =
+      filepath.startsWith('file:') || filepath.startsWith('data:') ? filepath : pathToFileURL(filepath).href
+    return import(specifier)
   }
 
   createSandbox(options?: SandboxCreateOptions): Promise<Sandbox> {

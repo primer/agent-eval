@@ -18,6 +18,9 @@ test('SystemHost provides access to the system filesystem and module loader', as
 
     expect(host.existsSync(textFilepath)).toBe(true)
     await expect(host.fs.readFile(textFilepath, 'utf8')).resolves.toBe('example')
+    await expect(host.loadModule<{value: string}>(moduleFilepath)).resolves.toMatchObject({
+      value: 'loaded',
+    })
     await expect(host.loadModule<{value: string}>(pathToFileURL(moduleFilepath).href)).resolves.toMatchObject({
       value: 'loaded',
     })

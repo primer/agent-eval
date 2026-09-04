@@ -221,14 +221,24 @@ export const benchmark = defineConfig({
   name: 'Design system',
   description: 'Measure agent performance across design system tasks',
   models: ['gpt-5.6-sol'],
+  async setup({sandbox}) {
+    await sandbox.addAgentSkill('design-system', 'Uses the design system', 'Follow the design system guidance.')
+  },
   capabilities: [
     {
       name: 'Uses components',
       scenarios: ['001-agent-uses-button-from-primer'],
+      async setup({sandbox}) {
+        await sandbox.writeFile('/root/.copilot/component-guidance.md', 'Prefer existing components.')
+      },
     },
   ],
 })
 ```
+
+The top-level setup runs first for every benchmark treatment trial. A
+capability setup runs next for treatment trials in that capability. Control
+trials do not run either setup.
 
 Treatment setup can add custom Copilot sub-agents to `~/.copilot/agents`:
 

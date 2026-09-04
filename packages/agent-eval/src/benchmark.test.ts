@@ -1,4 +1,4 @@
-import {expect, test} from 'vitest'
+import {afterEach, expect, test, vi} from 'vitest'
 import {
   defineConfig,
   deserialize,
@@ -10,7 +10,21 @@ import {
   type BenchmarkTrialResult,
 } from './benchmark'
 import {VirtualHost} from './host'
+import {run as runPlan} from './plan'
 import {defineConfig as defineScenarioConfig} from './scenario'
+
+vi.mock('./plan', async importOriginal => {
+  const original = await importOriginal<typeof import('./plan')>()
+  return {
+    ...original,
+    run: vi.fn(original.run),
+  }
+})
+
+afterEach(() => {
+  vi.clearAllMocks()
+  vi.restoreAllMocks()
+})
 
 const config = defineConfig({
   name: 'Test benchmark',
@@ -229,6 +243,75 @@ test('run returns an empty result when the benchmark has no trials', async () =>
       id: 'empty',
     }),
   ).resolves.toEqual([])
+})
+
+test('run applies global and capability setup to benchmark treatment trials', async () => {
+  const setupOrder: Array<string> = []
+  const benchmarkConfig = defineConfig({
+    name: 'Benchmark with setup',
+    description: 'Runs global and capability setup',
+    models: ['gpt-5.6-sol'],
+    async setup() {
+      setupOrder.push('global')
+    },
+    capabilities: [
+      {
+        name: 'Capability with setup',
+        scenarios: ['001-scenario'],
+        async setup() {
+          setupOrder.push('capability')
+        },
+      },
+    ],
+  })
+  const host = createHost({
+    'with-setup.ts': '',
+  })
+  const loadModule = host.loadModule.bind(host)
+  vi.spyOn(host, 'loadModule').mockImplementation(async filepath => {
+    if (filepath === '/benchmarks/with-setup.ts') {
+      return {
+        benchmark: benchmarkConfig,
+      }
+    }
+
+    return loadModule(filepath)
+  })
+  vi.mocked(runPlan).mockImplementationOnce(async ({plan}) => {
+    const controlTrial = plan.trials.find(trial => {
+      return trial.treatment.name === 'Control'
+    })
+    const benchmarkTrial = plan.trials.find(trial => {
+      return trial.treatment.name === 'Benchmark'
+    })
+
+    expect(controlTrial?.treatment.setup).toBeUndefined()
+    expect(benchmarkTrial?.treatment.setup).toBeDefined()
+
+    const sandbox = await host.createSandbox()
+    await benchmarkTrial?.treatment.setup?.({sandbox})
+
+    return []
+  })
+
+  await expect(
+    run({
+      env: {
+        artifactsDirectory: '/artifacts',
+        benchmarksDirectory: '/benchmarks',
+        concurrency: 1,
+        copilotToken: 'token',
+        dockerImage: 'node:26-slim',
+        experimentsDirectory: '/experiments',
+        outputPath: '/output.json',
+        scenariosDirectory: '/scenarios',
+      },
+      host,
+      id: 'with-setup',
+    }),
+  ).resolves.toEqual([])
+
+  expect(setupOrder).toEqual(['global', 'capability'])
 })
 
 test('output serializes and deserializes benchmark capability metadata', () => {

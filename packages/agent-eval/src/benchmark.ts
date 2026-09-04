@@ -7,7 +7,7 @@ import {logger} from './logger'
 import {getModelVariants, ModelVariantConfigSchema, ModelVariantSchema, type ModelVariant} from './model'
 import {create as createPlan, run as runPlan} from './plan'
 import {getScenario, ScenarioSchema, type Scenario} from './scenario'
-import {ControlTreatment, TreatmentSchema, TreatmentSetupSchema, type TreatmentSetup} from './treatment'
+import {ControlTreatment, TreatmentSchema, TreatmentSetupSchema, type Treatment, type TreatmentSetup} from './treatment'
 import {
   getPortableTrialPaths,
   TrialAgentSchema,
@@ -21,6 +21,7 @@ import {TestResultsSchema} from './vitest'
 const CapabilityConfigSchema = z.object({
   name: z.string(),
   scenarios: z.array(z.string()),
+  setup: z.optional(TreatmentSetupSchema),
 })
 
 const BenchmarkConfigSchema = z.object({
@@ -40,6 +41,7 @@ function defineConfig<const Config extends BenchmarkConfig>(config: Config): Con
 type Capability = {
   name: string
   scenarios: Array<Scenario>
+  setup?: TreatmentSetup
 }
 
 type Benchmark = {
@@ -112,6 +114,7 @@ async function listBenchmarks({
         return {
           name: capability.name,
           scenarios,
+          setup: capability.setup,
         }
       }),
     )
@@ -183,13 +186,10 @@ async function run({
     scenariosDirectory: env.scenariosDirectory,
     id,
   })
-  const benchmarkTreatment = {
-    name: 'Benchmark',
-    setup: benchmark.setup,
-  }
   const trialCapabilities = new Map<string, Capability>()
   const trials: Array<Trial> = benchmark.models.flatMap(model => {
     return benchmark.capabilities.flatMap(capability => {
+      const benchmarkTreatment = createBenchmarkTreatment(benchmark, capability)
       return capability.scenarios.flatMap(scenario => {
         return [ControlTreatment, benchmarkTreatment].map(treatment => {
           const trial = {
@@ -222,6 +222,21 @@ async function run({
       capability,
     }
   })
+}
+
+function createBenchmarkTreatment(benchmark: Benchmark, capability: Capability): Treatment {
+  const setup =
+    benchmark.setup || capability.setup
+      ? async ({sandbox}: Parameters<TreatmentSetup>[0]) => {
+          await benchmark.setup?.({sandbox})
+          await capability.setup?.({sandbox})
+        }
+      : undefined
+
+  return {
+    name: 'Benchmark',
+    setup,
+  }
 }
 
 const CapabilityOutputSchema = z.object({

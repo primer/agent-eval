@@ -74,7 +74,6 @@ jobs:
             --experiment "$EXPERIMENT_NAME" \
             --experiments experiments \
             --scenarios scenarios \
-            --artifacts "$run_directory/artifacts" \
             --output "$run_directory/output-${{ matrix.order }}.json" \
             --shard "$SHARD"
       - name: Prepare experiment artifact

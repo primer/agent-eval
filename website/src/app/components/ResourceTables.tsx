@@ -2,6 +2,7 @@
 
 import {Stack} from '@primer/react'
 import {DataTable, Table} from '@primer/react/experimental'
+import type {Benchmark} from '../../benchmarks'
 import type {Experiment} from '../../experiments'
 import {Link} from '../../components/Link'
 import type {ScenarioSummary} from '../../scenarios'
@@ -96,6 +97,64 @@ export function ExperimentsTable({
             description: experiment.description,
             models: experiment.models.length,
             scenarios: experiment.scenarios.length,
+          }))}
+        />
+      </Table.Container>
+    </section>,
+    standalone,
+  )
+}
+
+export function BenchmarksTable({
+  benchmarks,
+  headingLevel = 'h2',
+  showViewAll = false,
+  standalone = false,
+}: ResourceTableProps & {
+  benchmarks: Array<Benchmark>
+}) {
+  return withStandaloneLayout(
+    <section>
+      <Table.Container>
+        <Table.Title as={headingLevel} id="benchmarks-heading">
+          Benchmarks
+        </Table.Title>
+        {showViewAll ? (
+          <Table.Actions>
+            <Link href="/benchmarks">View all</Link>
+          </Table.Actions>
+        ) : null}
+        <DataTable
+          aria-labelledby="benchmarks-heading"
+          columns={[
+            {
+              id: 'name',
+              header: 'Name',
+              field: 'name',
+              rowHeader: true,
+              maxWidth: '40ch',
+              renderCell: row => {
+                return <Link href={`/benchmarks/${row.id}`}>{row.name}</Link>
+              },
+            },
+            {id: 'description', header: 'Description', field: 'description', maxWidth: '60ch'},
+            {id: 'models', header: 'Models', field: 'models', align: 'end'},
+            {id: 'capabilities', header: 'Capabilities', field: 'capabilities', align: 'end'},
+            {id: 'scenarios', header: 'Scenarios', field: 'scenarios', align: 'end'},
+          ]}
+          data={benchmarks.map(benchmark => ({
+            id: benchmark.id,
+            name: benchmark.name,
+            description: benchmark.description,
+            models: benchmark.models.length,
+            capabilities: benchmark.capabilities.length,
+            scenarios: new Set(
+              benchmark.capabilities.flatMap(capability => {
+                return capability.scenarios.map(scenario => {
+                  return scenario.id
+                })
+              }),
+            ).size,
           }))}
         />
       </Table.Container>

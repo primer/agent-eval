@@ -1,19 +1,39 @@
-export {findExperiment, listExperiments, loadExperimentConfigs} from './experiments'
-export type {ExperimentSourceOptions, LoadExperimentOptions} from './experiments'
-export {findScenario, listScenarios} from './scenarios'
-export type {ResolvedScenario, ScenarioSourceOptions} from './scenarios'
-export {run} from './run'
-export type {Treatment, TreatmentResult} from './treatment'
-export {defineConfig} from './experiment'
-export {models} from './model'
+export {
+  BenchmarkConfigSchema,
+  defineConfig as defineBenchmarkConfig,
+  deserialize as deserializeBenchmarkOutput,
+  getBenchmark,
+  listBenchmarks,
+  output as getBenchmarkOutput,
+  run as runBenchmark,
+  serialize as serializeBenchmarkOutput,
+} from './benchmark'
 export type {
-  ExperimentConfig,
-  ExperimentModelConfig,
-  Model,
-  ModelConfig,
-  ModelInfo,
-  ReasoningEffort,
-  TreatmentConfig,
+  BenchmarkConfig,
+  Benchmark,
+  BenchmarkOutput,
+  BenchmarkRunResult,
+  BenchmarkTrialResult,
+  Capability,
+} from './benchmark'
+
+export {
+  ExperimentConfigSchema,
+  defineConfig as defineExperimentConfig,
+  deserialize as deserializeExperimentOutput,
+  getExperiment,
+  listExperiments,
+  output as getExperimentOutput,
+  run as runExperiment,
+  serialize as serializeExperimentOutput,
 } from './experiment'
-export {createAgentEvalOutput, parseAgentEvalOutput} from './output'
-export type {AgentEvalOutput, AgentEvalOutputResult} from './output'
+export type {ExperimentConfig, Experiment, ExperimentOutput} from './experiment'
+
+export {defineConfig as defineScenarioConfig, getScenario, listScenarios, ScenarioConfigSchema} from './scenario'
+export type {ScenarioConfig, Scenario, ScenarioSourceOptions} from './scenario'
+
+export {TreatmentSchema, ControlTreatment} from './treatment'
+export type {Treatment} from './treatment'
+
+export {TrialSchema, TrialResultSchema, run as runTrial, compare as compareTrial} from './trial'
+export type {Trial, TrialResult} from './trial'

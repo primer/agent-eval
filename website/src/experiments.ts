@@ -1,50 +1,50 @@
 import path from 'node:path'
-import type {ExperimentConfig} from '@primer/agent-eval/experiment'
+import type {Experiment as AgentEvalExperiment} from '@primer/agent-eval/experiment'
 
-const {listExperiments, findExperiment} = await import(
+const {listExperiments, getExperiment} = await import(
   /* turbopackIgnore: true */
-  '@primer/agent-eval/experiments'
+  '@primer/agent-eval/experiment'
 )
 
 const EXPERIMENTS_DIR = path.resolve(process.cwd(), '..', 'experiments')
+const SCENARIOS_DIR = path.resolve(process.cwd(), '..', 'scenarios')
 
-export type Experiment = Pick<ExperimentConfig, 'name' | 'description' | 'models' | 'scenarios'> & {
-  id: string
+export type Experiment = Pick<AgentEvalExperiment, 'id' | 'name' | 'description' | 'models'> & {
+  scenarios: Array<{id: string}>
   treatments: Array<{name: string}>
 }
 
 export async function list(): Promise<Array<Experiment>> {
   const experiments = await listExperiments({
-    directory: EXPERIMENTS_DIR,
+    experimentsDirectory: EXPERIMENTS_DIR,
+    scenariosDirectory: SCENARIOS_DIR,
   })
 
-  return experiments.map(([id, experiment]) => {
+  return experiments.map(experiment => {
     return {
-      id,
+      id: experiment.id,
       name: experiment.name,
       description: experiment.description,
       models: experiment.models,
-      scenarios: experiment.scenarios,
+      scenarios: experiment.scenarios.map(scenario => ({id: scenario.id})),
       treatments: experiment.treatments.map(t => ({name: t.name})),
     }
   })
 }
 
 export async function get(id: string): Promise<Experiment> {
-  const experiment = await findExperiment(id, {
-    directory: EXPERIMENTS_DIR,
+  const experiment = await getExperiment({
+    experimentsDirectory: EXPERIMENTS_DIR,
+    scenariosDirectory: SCENARIOS_DIR,
+    id,
   })
 
-  if (!experiment) {
-    throw new Error(`Experiment "${id}" was not found in: ${EXPERIMENTS_DIR}`)
-  }
-
   return {
-    id,
+    id: experiment.id,
     name: experiment.name,
     description: experiment.description,
     models: experiment.models,
-    scenarios: experiment.scenarios,
+    scenarios: experiment.scenarios.map(scenario => ({id: scenario.id})),
     treatments: experiment.treatments.map(t => ({name: t.name})),
   }
 }
@@ -52,13 +52,5 @@ export async function get(id: string): Promise<Experiment> {
 export async function listForScenario(id: string): Promise<Array<Experiment>> {
   const experiments = await list()
 
-  return experiments.filter(experiment =>
-    experiment.scenarios.some(scenario => {
-      if (typeof scenario === 'string') {
-        return scenario === id
-      }
-
-      return (scenario.name ?? path.basename(path.resolve(scenario.path))) === id
-    }),
-  )
+  return experiments.filter(experiment => experiment.scenarios.some(scenario => scenario.id === id))
 }

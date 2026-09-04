@@ -2,16 +2,103 @@ import fs from 'node:fs/promises'
 import {existsSync, type Dirent} from 'node:fs'
 import path from 'node:path'
 
-import {parseAgentEvalOutput, type AgentEvalOutput} from '@primer/agent-eval/output'
+import type {ExperimentOutput} from '@primer/agent-eval/experiment'
 
-const RESULTS_DIR = path.resolve(process.cwd(), '..', 'results')
+const {deserialize} = await import(
+  /* turbopackIgnore: true */
+  '@primer/agent-eval/experiment'
+)
+
+const RESULTS_DIR = path.resolve(process.cwd(), '..', 'results', 'experiments')
+
+type ExperimentOutputTrial = ExperimentOutput['trials'] extends Map<string, infer Trial> ? Trial : never
+
+type RunOutputResult = {
+  id: string
+  treatmentId: string
+  model: ExperimentOutputTrial['model']['name']
+  reasoningEffort: ExperimentOutputTrial['model']['reasoningEffort']
+  scenarioId: string
+  assistant: {
+    logs: ExperimentOutputTrial['agent']['sessions'][number]['messages']
+    turns: number
+    outputTokens: number
+    premiumRequests: number
+    totalApiDurationMs: number
+    sessionDurationMs: number
+    tools: Record<string, number>
+  }
+  testResults: ExperimentOutputTrial['testResults'] & {
+    tests: Array<{
+      title: string
+      fullName: string
+      status: string
+      description?: string
+    }>
+  }
+  walkthrough: ExperimentOutputTrial['walkthrough']
+}
+
+type RunOutput = {
+  experiment: {
+    id: string
+    models: Array<{
+      name: ExperimentOutputTrial['model']['name']
+      reasoningEfforts: Array<ExperimentOutputTrial['model']['reasoningEffort']>
+    }>
+  }
+  scenarios: Array<ExperimentOutput['scenarios'] extends Map<string, infer Scenario> ? Scenario : never>
+  treatments: Array<{
+    id: string
+    config: {
+      name: string
+    }
+  }>
+  results: Array<RunOutputResult>
+}
 
 type Run = {
   id: string
   name: string
   directory: string
   date: Date
-  output: AgentEvalOutput
+  output: RunOutput
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (typeof value !== 'object' || value === null) {
+    return null
+  }
+
+  return value as Record<string, unknown>
+}
+
+function isLegacyRunOutput(value: unknown): value is RunOutput {
+  const output = asRecord(value)
+  const experiment = asRecord(output?.experiment)
+
+  return (
+    typeof experiment?.id === 'string' &&
+    Array.isArray(experiment.models) &&
+    Array.isArray(output?.scenarios) &&
+    Array.isArray(output.treatments) &&
+    Array.isArray(output.results)
+  )
+}
+
+function parseOutput(contents: string): RunOutput {
+  const parsed: unknown = JSON.parse(contents)
+  const output = asRecord(parsed)
+
+  if (typeof output?.experimentId === 'string') {
+    return normalizeOutput(deserialize(parsed))
+  }
+
+  if (isLegacyRunOutput(parsed)) {
+    return parsed
+  }
+
+  throw new Error('Result output does not match a supported experiment output format')
 }
 
 function isRunName(name: string): boolean {
@@ -23,10 +110,12 @@ function isRunName(name: string): boolean {
   return !Number.isNaN(date.getTime()) && date.toISOString().startsWith(name)
 }
 
-async function listResultDirectories(): Promise<Array<Dirent>> {
+async function listExperimentDirectories(): Promise<Array<Dirent>> {
   try {
     const entries = await fs.readdir(RESULTS_DIR, {withFileTypes: true})
-    return entries.filter(entry => entry.isDirectory() && isRunName(entry.name))
+    return entries.filter(entry => {
+      return entry.isDirectory()
+    })
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
       return []
@@ -36,51 +125,57 @@ async function listResultDirectories(): Promise<Array<Dirent>> {
   }
 }
 
-async function list(): Promise<Array<Run>> {
-  const results = await listResultDirectories().then(entries => {
-    return Promise.all(
-      entries.map(async entry => {
-        const directory = path.join(RESULTS_DIR, entry.name)
-        const outputFile = path.join(directory, 'output.json')
-        const contents = await fs.readFile(outputFile, 'utf-8')
-        const output = parseAgentEvalOutput(contents)
-        return [directory, entry.name, output] as const
-      }),
-    )
-  })
-
-  return results
-    .map(([directory, name, output]) => {
-      const date = new Date(`${name}T00:00:00.000Z`)
-      return {id: output.id, name, directory, date, output}
+async function listRunDirectories(experimentId: string): Promise<Array<Dirent>> {
+  const experimentDirectory = path.join(RESULTS_DIR, experimentId)
+  try {
+    const entries = await fs.readdir(experimentDirectory, {withFileTypes: true})
+    return entries.filter(entry => {
+      return entry.isDirectory() && isRunName(entry.name)
     })
-    .toSorted((a, b) => b.date.getTime() - a.date.getTime())
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return []
+    }
+
+    throw error
+  }
 }
 
 async function listForExperiment(experimentId: string): Promise<Array<Run>> {
-  const runs = await list()
-  return runs.filter(run => run.output.experiment.id === experimentId)
+  const entries = await listRunDirectories(experimentId)
+  const runs = await Promise.all(
+    entries.map(entry => {
+      return find(experimentId, entry.name)
+    }),
+  )
+
+  return runs
+    .filter((run): run is Run => {
+      return run !== null
+    })
+    .toSorted((a, b) => {
+      return b.date.getTime() - a.date.getTime()
+    })
 }
 
-async function latest(): Promise<Run | null> {
-  const runs = await listResultDirectories().then(entries => {
-    return entries.map(entry => [new Date(`${entry.name}T00:00:00.000Z`), entry.name] as const)
+async function list(): Promise<Array<Run>> {
+  const experiments = await listExperimentDirectories()
+  const runs = await Promise.all(
+    experiments.map(experiment => {
+      return listForExperiment(experiment.name)
+    }),
+  )
+  return runs.flat().toSorted((a, b) => {
+    return b.date.getTime() - a.date.getTime()
   })
-  if (runs.length === 0) {
-    return null
-  }
-
-  const sorted = runs.toSorted((a, b) => b[0].getTime() - a[0].getTime())
-  const run = await find(sorted[0][1])
-  return run
 }
 
-async function find(name: string): Promise<Run | null> {
+async function find(experimentId: string, name: string): Promise<Run | null> {
   if (!isRunName(name)) {
     return null
   }
 
-  const directory = path.join(RESULTS_DIR, name)
+  const directory = path.join(RESULTS_DIR, experimentId, name)
   if (!existsSync(directory)) {
     return null
   }
@@ -96,9 +191,13 @@ async function find(name: string): Promise<Run | null> {
 
   const outputFile = path.join(directory, 'output.json')
   const contents = await fs.readFile(outputFile, 'utf-8')
-  const output = parseAgentEvalOutput(contents)
+  const output = parseOutput(contents)
+  if (output.experiment.id !== experimentId) {
+    return null
+  }
+
   return {
-    id: output.id,
+    id: name,
     name,
     directory,
     date: new Date(`${name}T00:00:00.000Z`),
@@ -106,14 +205,87 @@ async function find(name: string): Promise<Run | null> {
   }
 }
 
-async function get(name: string): Promise<Run> {
-  const run = await find(name)
+async function get(experimentId: string, name: string): Promise<Run> {
+  const run = await find(experimentId, name)
   if (!run) {
-    throw new Error(`Run "${name}" was not found in: ${RESULTS_DIR}`)
+    throw new Error(`Run "${name}" for experiment "${experimentId}" was not found in: ${RESULTS_DIR}`)
   }
 
   return run
 }
 
-export {list, listForExperiment, latest, get}
-export type {Run}
+function normalizeOutput(output: ExperimentOutput): RunOutput {
+  const modelReasoningEfforts = new Map<
+    ExperimentOutputTrial['model']['name'],
+    Set<ExperimentOutputTrial['model']['reasoningEffort']>
+  >()
+
+  const results = [...output.trials.values()].map(trial => {
+    const reasoningEfforts = modelReasoningEfforts.get(trial.model.name) ?? new Set()
+    reasoningEfforts.add(trial.model.reasoningEffort)
+    modelReasoningEfforts.set(trial.model.name, reasoningEfforts)
+
+    const tools: Record<string, number> = {}
+    for (const session of trial.agent.sessions) {
+      for (const [name, count] of Object.entries(session.tools)) {
+        tools[name] = (tools[name] ?? 0) + count
+      }
+    }
+
+    return {
+      id: trial.id,
+      treatmentId: trial.treatmentId,
+      model: trial.model.name,
+      reasoningEffort: trial.model.reasoningEffort,
+      scenarioId: trial.scenarioId,
+      assistant: {
+        logs: trial.agent.sessions.flatMap(session => session.messages),
+        turns: trial.agent.sessions.reduce((total, session) => total + session.turns, 0),
+        outputTokens: trial.agent.sessions.reduce((total, session) => total + session.outputTokens, 0),
+        premiumRequests: trial.agent.sessions.reduce((total, session) => total + session.premiumRequests, 0),
+        totalApiDurationMs: trial.agent.sessions.reduce((total, session) => total + session.totalApiDurationMs, 0),
+        sessionDurationMs: trial.agent.sessions.reduce((total, session) => total + session.sessionDurationMs, 0),
+        tools,
+      },
+      testResults: {
+        ...trial.testResults,
+        tests: trial.testResults.testResults.flatMap(testResult => {
+          return testResult.assertionResults.map(assertion => {
+            return {
+              title: assertion.title,
+              fullName: assertion.fullName,
+              status: assertion.status,
+              description: assertion.meta.description,
+            }
+          })
+        }),
+      },
+      walkthrough: trial.walkthrough,
+    }
+  })
+
+  return {
+    experiment: {
+      id: output.experimentId,
+      models: [...modelReasoningEfforts].map(([name, reasoningEfforts]) => {
+        return {
+          name,
+          reasoningEfforts: [...reasoningEfforts],
+        }
+      }),
+    },
+    scenarios: [...output.scenarios.values()],
+    treatments: [...output.treatments].map(([id, treatment]) => {
+      return {
+        id,
+        config: {
+          name: treatment.name,
+        },
+      }
+    }),
+    results,
+  }
+}
+
+export {list, listForExperiment, get}
+export type {Run, RunOutput, RunOutputResult}

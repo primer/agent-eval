@@ -1,5 +1,5 @@
-import {defineScenario} from '@primer/agent-eval/scenario'
+import {defineConfig} from '@primer/agent-eval/scenario'
 
-export default defineScenario({
+export default defineConfig({
   prompt: `Example prompt`,
 })

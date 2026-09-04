@@ -1,0 +1,65 @@
+name: benchmark
+on:
+  schedule:
+    - cron: '0 0 * * 1'
+  workflow_dispatch:
+    inputs:
+      concurrency:
+        description: Number of trials to run in parallel
+        required: false
+        default: '1'
+        type: string
+      docker-image:
+        description: >-
+          Docker container image to use for running trials.
+          Must be a Debian-based Node image with apt-get and a node user (e.g. node:26.5.0-slim).
+        required: false
+        default: 'node:26.5.0-slim'
+        type: string
+
+concurrency:
+  group: weekly-design-system-benchmark
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: set up pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - name: set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+      - name: install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: build project
+        run: pnpm run build
+      - name: run benchmark
+        env:
+          CONCURRENCY: ${{ inputs.concurrency }}
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          DOCKER_IMAGE: ${{ inputs.docker-image || 'node:26.5.0-slim' }}
+        run: script/run-benchmark.sh
+      - name: prepare benchmark artifact
+        if: ${{ always() }}
+        run: |
+          mkdir -p workflow-artifact
+          if [[ -d results ]]; then
+            mv results workflow-artifact/results
+          fi
+      - name: upload benchmark results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: benchmark-${{ github.run_id }}
+          path: workflow-artifact
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 9

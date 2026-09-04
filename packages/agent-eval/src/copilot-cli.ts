@@ -46,6 +46,7 @@ const EventFieldsSchema = {
   id: z.string(),
   timestamp: z.string(),
   parentId: z.string(),
+  agentId: z.optional(z.string()),
 }
 
 const EphemeralEventFieldsSchema = {
@@ -95,16 +96,30 @@ const ModelCallStartMessageSchema = z.object({
   }),
 })
 
+const ModelMessageSchema = z.looseObject({
+  type: z.literal('model.message'),
+  ...EphemeralEventFieldsSchema,
+  data: z.looseObject({
+    message: z.looseObject({
+      role: z.string(),
+      outputTokens: z.optional(z.number()),
+    }),
+  }),
+})
+
 const UserMessageSchema = z.object({
   type: z.literal('user.message'),
   ...EventFieldsSchema,
   data: z.object({
     content: z.string(),
     transformedContent: z.string(),
-    attachments: z.array(z.unknown()),
+    attachments: z.optional(z.array(z.unknown())),
     supportedNativeDocumentMimeTypes: z.array(z.string()),
-    agentMode: z.string(),
+    agentMode: z.optional(z.string()),
+    source: z.optional(z.string()),
+    delivery: z.optional(z.string()),
     interactionId: z.string(),
+    turnId: z.optional(z.string()),
     parentAgentTaskId: z.string(),
   }),
 })
@@ -149,7 +164,7 @@ const AssistantMessageSchema = z.object({
     encryptedContent: z.optional(z.string()),
     phase: z.optional(z.string()),
     outputTokens: z.optional(z.number()),
-    requestId: z.string(),
+    requestId: z.optional(z.string()),
   }),
 })
 
@@ -298,12 +313,15 @@ const ResultMessageSchema = z.object({
   }),
 })
 
+type ResultMessage = z.infer<typeof ResultMessageSchema>
+
 const KnownMessageSchema = z.discriminatedUnion('type', [
   SessionMcpServerStatusChangedMessageSchema,
   SessionMcpServersLoadedMessageSchema,
   SessionSkillsLoadedMessageSchema,
   SessionToolsUpdatedMessageSchema,
   ModelCallStartMessageSchema,
+  ModelMessageSchema,
   UserMessageSchema,
   AssistantTurnStartMessageSchema,
   AssistantMessageStartMessageSchema,
@@ -330,6 +348,7 @@ const KNOWN_MESSAGE_TYPES = new Set([
   'session.skills_loaded',
   'session.tools_updated',
   'model.call_start',
+  'model.message',
   'user.message',
   'assistant.turn_start',
   'assistant.message_start',
@@ -390,4 +409,4 @@ export {
   isMessageType,
   parseMessage,
 }
-export type {KnownMessage, Message, UnknownMessage, UnknownMessageType}
+export type {KnownMessage, Message, ResultMessage, UnknownMessage, UnknownMessageType}

@@ -9,10 +9,7 @@ corepack install
 # Install dependencies
 pnpm install --frozen-lockfile
 
-# Baseline workspaces are not needed after their merged results are produced.
-rm -rf "$repository_root/artifacts"
-
-# Download results from the 10 most recent retained baseline artifacts
+# Download the 10 most recent retained benchmark result bundles.
 artifact_ids="$(
   gh api \
     --paginate \
@@ -20,7 +17,7 @@ artifact_ids="$(
     "/repos/primer/agent-eval/actions/artifacts?per_page=100" |
     jq --raw-output '
       [.[].artifacts[]
-        | select(.expired == false and (.name | test("^baseline-[0-9]+$")))
+        | select(.expired == false and (.name | test("^benchmark-[0-9]+$")))
       ]
       | sort_by(.created_at)
       | .[-10:][].id

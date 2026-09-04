@@ -10,5 +10,15 @@ export const experiment = defineConfig({
     },
   ],
   scenarios: ['001-agent-uses-button-from-primer'],
-  treatments: [],
+  async setup() {
+    console.log('global setup')
+  },
+  treatments: [
+    {
+      name: 'noop',
+      async setup() {
+        console.log('local setup')
+      },
+    },
+  ],
 })

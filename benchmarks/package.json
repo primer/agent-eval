@@ -1,0 +1,13 @@
+{
+  "name": "@primer/benchmarks",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "type-check": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@primer/agent-eval": "workspace:*",
+    "@types/node": "^26.1.2",
+    "typescript": "^6.0.3"
+  }
+}

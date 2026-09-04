@@ -1,17 +1,15 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import type {ResolvedScenario} from '@primer/agent-eval/scenarios'
+import type {Scenario as AgentEvalScenario} from '@primer/agent-eval/scenario'
 
-const {listScenarios, findScenario} = await import(
+const {listScenarios, getScenario} = await import(
   /* turbopackIgnore: true */
-  '@primer/agent-eval/scenarios'
+  '@primer/agent-eval/scenario'
 )
 
 const SCENARIOS_DIR = path.resolve(process.cwd(), '..', 'scenarios')
 
-export type ScenarioSummary = Pick<ResolvedScenario['config'], 'prompt'> & {
-  id: string
-}
+export type ScenarioSummary = Pick<AgentEvalScenario, 'id' | 'prompt'>
 
 export type Scenario = ScenarioSummary & {
   test: string
@@ -22,28 +20,23 @@ export async function list(): Promise<Array<ScenarioSummary>> {
     directory: SCENARIOS_DIR,
   })
 
-  return scenarios
-    .filter(scenario => !scenario.id.startsWith('000-'))
-    .map(scenario => {
-      return {
-        id: scenario.id,
-        prompt: scenario.config.prompt,
-      }
-    })
+  return scenarios.map(scenario => {
+    return {
+      id: scenario.id,
+      prompt: scenario.prompt,
+    }
+  })
 }
 
 export async function get(id: string): Promise<Scenario> {
-  const scenario = await findScenario(id, {
+  const scenario = await getScenario({
     directory: SCENARIOS_DIR,
+    id,
   })
-
-  if (!scenario) {
-    throw new Error(`Scenario "${id}" was not found in: ${SCENARIOS_DIR}`)
-  }
 
   return {
     id: scenario.id,
-    prompt: scenario.config.prompt,
+    prompt: scenario.prompt,
     test: await fs.readFile(scenario.testPath, 'utf8'),
   }
 }

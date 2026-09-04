@@ -1,7 +1,7 @@
 # @primer/agent-eval
 
-A library and cli tool for creating and running experiments in order to evaluate
-agent behavior across different scenarios.
+A library and CLI tool for creating and running experiments and benchmarks that
+evaluate agent behavior across different scenarios.
 
 ## Getting started
 
@@ -12,7 +12,7 @@ command using [npm](https://www.npmjs.com/):
 npm install -S @primer/agent-eval
 ```
 
-This will provide both the cli and library for creating and running experiments.
+This provides the `agent-eval` executable and the package's programmatic APIs.
 Typically, you'll first create an experiment:
 
 ```tsx
@@ -71,9 +71,9 @@ against:
 ```tsx
 // scenarios/uses-button-from-primer/scenario.config.ts
 
-import {defineScenario} from '@primer/agent-eval/scenario'
+import {defineConfig} from '@primer/agent-eval/scenario'
 
-export default defineScenario({
+export default defineConfig({
   description: 'Evaluate whether the agent completes the example task',
   prompt: `Example scenario prompt that will instruct the agent to perform a task`,
   tags: ['baseline', 'button', 'primer'],
@@ -96,13 +96,12 @@ agent sees the prompt for the scenario.
 
 ### Browser tests
 
-Add an optional `scenario.browser.test.ts` file when a scenario needs tests in a
-real browser. Agent eval installs Vitest, Playwright, Vitest's Playwright browser
-provider, Chromium, and its system dependencies, then runs the browser test in
-Vitest browser mode after the required `scenario.test.ts` file. Results from
-both files are combined in the scenario score and test-results artifact.
+Add an optional `browser.test.ts` file when a scenario needs tests in a real
+browser. The legacy `scenario.browser.test.ts` filename remains supported.
+Agent eval runs browser tests with Playwright after `scenario.test.ts` and
+combines both results in the scenario score and test-results artifact.
 
-With everything in place, you can now use the `@primer/agent-eval` cli to run
+With everything in place, you can now use the `agent-eval` executable to run
 the experiment:
 
 ```bash
@@ -123,20 +122,52 @@ COPILOT_GITHUB_TOKEN=... agent-eval \
 
 Use `--experiments` to load experiment files from a local directory. Experiment
 files may export an `experiment` named export or a default export. `--experiment`
-may also be a path to a local experiment file when you only want to run one
-experiment. The experiments directory defaults to `./experiments`. Use
-`--scenarios` to set the directory containing scenario directories; it defaults
-to `./scenarios`.
+selects an experiment by its filename without the extension. The experiments
+directory defaults to `./experiments`. Use `--scenarios` to set the directory
+containing scenario directories; it defaults to `./scenarios`.
+
+Use `--benchmark` to select a benchmark by filename and `--benchmarks` to set
+the benchmark directory:
+
+```sh
+COPILOT_GITHUB_TOKEN=... agent-eval \
+  --benchmarks ./benchmarks \
+  --scenarios ./scenarios \
+  --benchmark design-system
+```
+
+### Result bundles
+
+Keep the output file and artifacts in one directory so results can be moved
+between machines without rewriting paths:
+
+```text
+run/
+├── output.json
+└── artifacts/
+```
+
+```sh
+agent-eval \
+  --experiment example \
+  --output-dir run
+```
+
+Artifact and walkthrough references written by the CLI are relative to the
+directory containing `output.json`. Upload or download the complete `run`
+directory to preserve those references. `--output-dir` creates `output.json`
+and `artifacts/` within the selected directory. When using `--output`, artifacts
+are written to an `artifacts/` directory beside the selected file.
 
 ## Scenario config authoring
 
-Use `defineScenario` from `@primer/agent-eval/scenario` in each
+Use `defineConfig` from `@primer/agent-eval/scenario` in each
 `scenario.config.ts` file:
 
 ```ts
-import {defineScenario} from '@primer/agent-eval/scenario'
+import {defineConfig} from '@primer/agent-eval/scenario'
 
-export default defineScenario({
+export default defineConfig({
   description: 'Evaluate whether the agent uses a Primer button correctly',
   prompt: 'Update the index page to use a primary button',
   tags: ['baseline', 'button', 'primer'],
@@ -144,8 +175,7 @@ export default defineScenario({
 ```
 
 Scenario descriptions and tags are optional. Use `description` to explain what
-the scenario tests. Pass `tags` to `listScenarios` to return only scenarios that
-include every requested tag.
+the scenario tests.
 
 ## Experiment config authoring
 
@@ -164,10 +194,51 @@ export const experiment = defineConfig({
 })
 ```
 
-Each model config has a `name` and a `reasoningEfforts` array. The experiment
-runs once for each configured effort. Model information, including each model's
-supported reasoning efforts, is exported as `models` from
-`@primer/agent-eval`.
+Models can be specified by name to use the default `medium` reasoning effort or
+with a `name` and `reasoningEfforts` array to run multiple variants.
+
+Scenarios can be selected by ID or loaded directly from a path:
+
+```ts
+scenarios: [
+  '001-agent-uses-button-from-primer',
+  {
+    name: 'local-button',
+    path: './scenarios/local-button-scenario',
+  },
+]
+```
+
+## Benchmark config authoring
+
+Use `defineConfig` from `@primer/agent-eval/benchmark` to group scenarios into
+capabilities:
+
+```ts
+import {defineConfig} from '@primer/agent-eval/benchmark'
+
+export const benchmark = defineConfig({
+  name: 'Design system',
+  description: 'Measure agent performance across design system tasks',
+  models: ['gpt-5.6-sol'],
+  async setup({sandbox}) {
+    await sandbox.addAgentSkill('design-system', 'Uses the design system', 'Follow the design system guidance.')
+  },
+  capabilities: [
+    {
+      name: 'Uses components',
+      scenarios: ['001-agent-uses-button-from-primer'],
+      async setup({sandbox}) {
+        await sandbox.writeFile('/root/.copilot/component-guidance.md', 'Prefer existing components.')
+      },
+    },
+  ],
+})
+```
+
+The top-level setup runs first for every benchmark treatment trial. A
+capability setup runs next for treatment trials in that capability. Control
+trials do not run either setup.
 
 Treatment setup can add custom Copilot sub-agents to `~/.copilot/agents`:
 
@@ -224,3 +295,18 @@ await sandbox.addCopilotPlugin({
 
 Use `{type: 'local', sourcePath: './plugins/local-marketplace'}` as the
 marketplace `source` to install from a local marketplace.
+
+## Programmatic APIs
+
+The package root exports explicitly named benchmark, experiment, scenario,
+treatment, and trial APIs. Domain entry points are available from
+`@primer/agent-eval/benchmark`, `@primer/agent-eval/experiment`,
+`@primer/agent-eval/scenario`, and `@primer/agent-eval/sandbox`.
+
+Use the benchmark and experiment entry points for configuration, discovery,
+execution, output creation, serialization, and deserialization. Use the
+sandbox entry point for `Sandbox`, `SystemSandbox`, `VirtualSandbox`, plugin and
+MCP configuration types, and sandbox constants.
+
+The CLI is available through the `agent-eval` executable rather than a
+`@primer/agent-eval/cli` package entry point.

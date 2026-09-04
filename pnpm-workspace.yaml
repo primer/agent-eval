@@ -7,7 +7,8 @@ allowBuilds:
 minimumReleaseAge: 10080
 
 packages:
-  - 'scenarios/*'
+  - 'benchmarks'
   - 'experiments'
   - 'packages/*'
+  - 'scenarios/*'
   - 'website'

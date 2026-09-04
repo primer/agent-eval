@@ -77,7 +77,7 @@ async function listBenchmarks({
     throw new Error(`Benchmarks path is not a directory: ${benchmarksDirectory}`)
   }
 
-  const filenames = await host.fs.readdir(benchmarksDirectory)
+  const filenames = (await host.fs.readdir(benchmarksDirectory)).sort()
   const benchmarks: Array<Benchmark> = []
 
   for (const filename of filenames) {

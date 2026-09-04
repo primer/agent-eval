@@ -95,7 +95,7 @@ async function listExperiments({
     throw new Error(`Experiments path is not a directory: ${experimentsDirectory}`)
   }
 
-  const filenames = await host.fs.readdir(experimentsDirectory)
+  const filenames = (await host.fs.readdir(experimentsDirectory)).sort()
   const experiments: Array<Experiment> = []
 
   for (const filename of filenames) {

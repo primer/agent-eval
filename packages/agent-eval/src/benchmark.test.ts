@@ -122,6 +122,26 @@ test('listBenchmarks prefers the named benchmark export', async () => {
   ])
 })
 
+test('listBenchmarks sorts benchmarks by filename', async () => {
+  const serializedConfig = JSON.stringify(config)
+  const host = createHost({
+    'z-last.ts': `export const benchmark = ${serializedConfig}`,
+    'a-first.ts': `export const benchmark = ${serializedConfig}`,
+  })
+
+  const benchmarks = await listBenchmarks({
+    host,
+    benchmarksDirectory: '/benchmarks',
+    scenariosDirectory: '/scenarios',
+  })
+
+  expect(
+    benchmarks.map(benchmark => {
+      return benchmark.id
+    }),
+  ).toEqual(['a-first', 'z-last'])
+})
+
 test('listBenchmarks validates the benchmarks directory', async () => {
   const host = VirtualHost.create()
 

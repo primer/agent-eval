@@ -86,6 +86,36 @@ test('listScenarios includes optional metadata and browser tests', async () => {
   ])
 })
 
+test('listScenarios sorts scenarios by directory name', async () => {
+  const config = JSON.stringify(
+    defineConfig({
+      prompt: 'test',
+    }),
+  )
+  const host = VirtualHost.create({
+    '/scenarios': {
+      '002-last': {
+        'package.json': '{}',
+        'scenario.config.ts': `export default ${config}`,
+        'scenario.test.ts': '',
+      },
+      '001-first': {
+        'package.json': '{}',
+        'scenario.config.ts': `export default ${config}`,
+        'scenario.test.ts': '',
+      },
+    },
+  })
+
+  const scenarios = await listScenarios(host, '/scenarios')
+
+  expect(
+    scenarios.map(scenario => {
+      return scenario.id
+    }),
+  ).toEqual(['001-first', '002-last'])
+})
+
 test('listScenarios ignores configs without a default export', async () => {
   const config = JSON.stringify(
     defineConfig({

@@ -111,8 +111,12 @@ async function listScenarios(
     throw new Error('Expected scenarios path to be a directory')
   }
 
-  const entries = await host.fs.readdir(directory, {
-    withFileTypes: true,
+  const entries = (
+    await host.fs.readdir(directory, {
+      withFileTypes: true,
+    })
+  ).sort((a, b) => {
+    return a.name.localeCompare(b.name)
   })
   const candidates = entries.filter(entry => {
     if (!entry.isDirectory()) {

@@ -3,7 +3,7 @@
 set -euo pipefail
 
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-benchmark_name='design-system'
+benchmark_name="${BENCHMARK_NAME:-design-system}"
 run_date="${RUN_DATE:-$(date -u +%F)}"
 run_directory="$repository_root/results/benchmarks/$benchmark_name/$run_date"
 

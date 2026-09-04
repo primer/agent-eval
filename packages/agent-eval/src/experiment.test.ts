@@ -106,6 +106,28 @@ test('listExperiments prefers the named experiment export', async () => {
   ])
 })
 
+test('listExperiments sorts experiments by filename', async () => {
+  const serializedConfig = JSON.stringify(config)
+  const host = VirtualHost.create({
+    '/experiments': {
+      'z-last.ts': `export const experiment = ${serializedConfig}`,
+      'a-first.ts': `export const experiment = ${serializedConfig}`,
+    },
+  })
+
+  const experiments = await listExperiments({
+    host,
+    experimentsDirectory: '/experiments',
+    scenariosDirectory: '/scenarios',
+  })
+
+  expect(
+    experiments.map(experiment => {
+      return experiment.id
+    }),
+  ).toEqual(['a-first', 'z-last'])
+})
+
 test('listExperiments resolves inline scenario paths with optional names', async () => {
   const unnamedDirectory = path.resolve('/fixtures/unnamed-scenario')
   const namedDirectory = path.resolve('/fixtures/named-scenario')

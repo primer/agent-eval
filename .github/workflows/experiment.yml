@@ -44,7 +44,7 @@ jobs:
         with:
           node-version-file: '.nvmrc'
       - name: build project
-        run: pnpm run build
+        run: pnpm exec turbo run build --filter=@primer/agent-eval
       - name: set run date
         id: run-date
         run: echo "value=$(date -u +%F)" >> "$GITHUB_OUTPUT"
@@ -81,7 +81,7 @@ jobs:
         with:
           node-version-file: '.nvmrc'
       - name: build project
-        run: pnpm run build
+        run: pnpm exec turbo run build --filter=@primer/agent-eval
       - name: download experiment plan
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
@@ -127,7 +127,7 @@ jobs:
         with:
           node-version-file: '.nvmrc'
       - name: build project
-        run: pnpm run build
+        run: pnpm exec turbo run build --filter=@primer/agent-eval
       - name: download experiment shards
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:

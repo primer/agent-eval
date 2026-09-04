@@ -64,7 +64,7 @@ jobs:
         id: pages
         uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
       - name: build project
-        run: pnpm run build
+        run: pnpm exec turbo run build --filter=@primer/agent-eval-website...
         env:
           PAGES_BASE_PATH: ${{ steps.pages.outputs.base_path }}
       - name: upload GitHub Pages artifact

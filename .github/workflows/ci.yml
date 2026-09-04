@@ -157,7 +157,5 @@ jobs:
           key: turbo-${{ runner.os }}-${{ github.job }}-${{ github.sha }}
           restore-keys: |
             turbo-${{ runner.os }}-${{ github.job }}-
-      - name: Build generated files
-        run: pnpm run build
       - name: Type check
         run: pnpm exec turbo run type-check

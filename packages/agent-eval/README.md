@@ -185,7 +185,6 @@ for each shard:
 COPILOT_GITHUB_TOKEN=... agent-eval \
   --from-plan plan.json \
   --shard 1/4 \
-  --artifacts run/artifacts \
   --output run/output-1.json
 ```
 

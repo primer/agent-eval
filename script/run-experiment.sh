@@ -50,7 +50,6 @@ case "$mode" in
 
     shard_order="${BASH_REMATCH[1]}"
     node "$repository_root/packages/agent-eval/bin/agent-eval" \
-      --artifacts "$run_directory/artifacts" \
       --concurrency "${CONCURRENCY:-1}" \
       --docker-image "${DOCKER_IMAGE:-node:26.5.0-slim}" \
       --experiments "$repository_root/experiments" \

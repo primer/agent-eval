@@ -187,6 +187,7 @@ class SystemSandbox implements Sandbox {
   }
 
   async runCommand(command: string, args: Array<string> = [], options?: RunOptions): Promise<CommandResult> {
+    logger.debug('[sandbox] Running command: %s %s', command, args.join(' '))
     return execCommand(this.#docker, this.#container, command, args, {
       env: {
         HOME: options?.user === 'root' ? '/root' : '/home/node',

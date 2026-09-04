@@ -9,7 +9,6 @@ if [[ $# -ne 1 ]]; then
   exit 1
 fi
 benchmark_name="$1"
-benchmark_name="$1"
 run_date="${RUN_DATE:-$(date -u +%F)}"
 run_directory="$repository_root/results/benchmarks/$benchmark_name/$run_date"
 

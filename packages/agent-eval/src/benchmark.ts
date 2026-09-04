@@ -416,7 +416,12 @@ async function write(
 async function read(filepath: string, options: ResultFileOptions = {}): Promise<BenchmarkOutput> {
   const host = options.host ?? DefaultHost
   const contents = await host.fs.readFile(filepath, 'utf-8')
-  const result = BenchmarkOutputFileSchema.parse(JSON.parse(contents), {reportInput: true})
+  const parsed: unknown = JSON.parse(contents)
+  const parseResult = BenchmarkOutputFileSchema.safeParse(parsed)
+  if (!parseResult.success) {
+    return deserialize(parsed)
+  }
+  const result = parseResult.data
 
   return {
     benchmarkId: result.benchmarkId,

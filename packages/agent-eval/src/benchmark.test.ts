@@ -431,4 +431,7 @@ test('output serializes and deserializes benchmark capability metadata', async (
     benchmarkOutput.trials.get('trial'),
   )
   await expect(read('/bundle/output.json', {host})).resolves.toEqual(benchmarkOutput)
+
+  await host.fs.writeFile('/bundle/embedded-output.json', serialize(benchmarkOutput), 'utf-8')
+  await expect(read('/bundle/embedded-output.json', {host})).resolves.toEqual(benchmarkOutput)
 })

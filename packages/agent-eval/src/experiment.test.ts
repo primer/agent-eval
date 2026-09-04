@@ -392,4 +392,14 @@ test('creates portable artifact paths relative to the output directory', async (
     portableOutput.trials.get('trial'),
   )
   await expect(read('/bundle/output.json', {host})).resolves.toEqual(portableOutput)
+
+  await host.fs.writeFile('/bundle/embedded-output.json', serialize(portableOutput), 'utf-8')
+  await expect(read('/bundle/embedded-output.json', {host})).resolves.toEqual(portableOutput)
+
+  host.vol.renameSync('/bundle/artifacts', '/outside')
+  host.vol.symlinkSync('/outside', '/bundle/artifacts')
+  await expect(read('/bundle/output.json', {host})).rejects.toThrow('must not resolve outside the output directory')
+  await expect(write('/bundle/output.json', portableOutput, {host})).rejects.toThrow(
+    'must not resolve outside the output directory',
+  )
 })

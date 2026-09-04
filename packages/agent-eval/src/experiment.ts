@@ -363,7 +363,12 @@ async function write(
 async function read(filepath: string, options: ResultFileOptions = {}): Promise<ExperimentOutput> {
   const host = options.host ?? DefaultHost
   const contents = await host.fs.readFile(filepath, 'utf-8')
-  const result = ExperimentOutputFileSchema.parse(JSON.parse(contents), {reportInput: true})
+  const parsed: unknown = JSON.parse(contents)
+  const parseResult = ExperimentOutputFileSchema.safeParse(parsed)
+  if (!parseResult.success) {
+    return deserialize(parsed)
+  }
+  const result = parseResult.data
 
   return {
     experimentId: result.experimentId,

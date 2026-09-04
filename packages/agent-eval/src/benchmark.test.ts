@@ -5,8 +5,10 @@ import {
   getBenchmark,
   listBenchmarks,
   output,
+  read,
   run,
   serialize,
+  write,
   type BenchmarkTrialResult,
 } from './benchmark'
 import {VirtualHost} from './host'
@@ -314,7 +316,7 @@ test('run applies global and capability setup to benchmark treatment trials', as
   expect(setupOrder).toEqual(['global', 'capability'])
 })
 
-test('output serializes and deserializes benchmark capability metadata', () => {
+test('output serializes and deserializes benchmark capability metadata', async () => {
   const capability = {
     name: 'Test capability',
     scenarios: [
@@ -399,4 +401,34 @@ test('output serializes and deserializes benchmark capability metadata', () => {
     }),
   )
   expect(deserialize(serialize(benchmarkOutput))).toEqual(benchmarkOutput)
+
+  const host = VirtualHost.create()
+  await write('/bundle/output.json', benchmarkOutput, {host})
+
+  expect(JSON.parse(await host.fs.readFile('/bundle/output.json', 'utf-8'))).toEqual({
+    benchmarkId: 'test-benchmark',
+    capabilities: {
+      'Test capability': {
+        name: 'Test capability',
+        scenarioIds: ['001-scenario'],
+      },
+    },
+    scenarios: {
+      '001-scenario': expect.objectContaining({
+        id: '001-scenario',
+      }),
+    },
+    treatments: {
+      Benchmark: {
+        name: 'Benchmark',
+      },
+    },
+    trials: {
+      trial: 'artifacts/trial.json',
+    },
+  })
+  expect(JSON.parse(await host.fs.readFile('/bundle/artifacts/trial.json', 'utf-8'))).toEqual(
+    benchmarkOutput.trials.get('trial'),
+  )
+  await expect(read('/bundle/output.json', {host})).resolves.toEqual(benchmarkOutput)
 })

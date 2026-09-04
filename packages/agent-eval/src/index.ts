@@ -5,8 +5,10 @@ export {
   getBenchmark,
   listBenchmarks,
   output as getBenchmarkOutput,
+  read as readBenchmarkOutput,
   run as runBenchmark,
   serialize as serializeBenchmarkOutput,
+  write as writeBenchmarkOutput,
 } from './benchmark'
 export type {
   BenchmarkConfig,
@@ -15,6 +17,7 @@ export type {
   BenchmarkRunResult,
   BenchmarkTrialResult,
   Capability,
+  ResultFileOptions,
 } from './benchmark'
 
 export {
@@ -24,8 +27,10 @@ export {
   getExperiment,
   listExperiments,
   output as getExperimentOutput,
+  read as readExperimentOutput,
   run as runExperiment,
   serialize as serializeExperimentOutput,
+  write as writeExperimentOutput,
 } from './experiment'
 export type {ExperimentConfig, Experiment, ExperimentOutput} from './experiment'
 

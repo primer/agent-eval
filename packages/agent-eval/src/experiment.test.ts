@@ -1,6 +1,6 @@
 import path from 'node:path'
 import {expect, test} from 'vitest'
-import {defineConfig, deserialize, getExperiment, listExperiments, output, serialize} from './experiment'
+import {defineConfig, deserialize, getExperiment, listExperiments, output, read, serialize, write} from './experiment'
 import {VirtualHost} from './host'
 import type {TrialResult} from './trial'
 
@@ -305,7 +305,7 @@ test('serializes and deserializes experiment identity and result maps', () => {
   })
 })
 
-test('creates portable artifact paths relative to the output directory', () => {
+test('creates portable artifact paths relative to the output directory', async () => {
   const trialResult: TrialResult = {
     artifacts: {
       directory: '/bundle/artifacts/trial',
@@ -368,4 +368,28 @@ test('creates portable artifact paths relative to the output directory', () => {
       },
     }),
   )
+
+  const host = VirtualHost.create()
+  await write('/bundle/output.json', portableOutput, {host})
+
+  expect(JSON.parse(await host.fs.readFile('/bundle/output.json', 'utf-8'))).toEqual({
+    experimentId: 'baseline',
+    scenarios: {
+      scenario: expect.objectContaining({
+        id: 'scenario',
+      }),
+    },
+    treatments: {
+      Control: {
+        name: 'Control',
+      },
+    },
+    trials: {
+      trial: 'artifacts/trial.json',
+    },
+  })
+  expect(JSON.parse(await host.fs.readFile('/bundle/artifacts/trial.json', 'utf-8'))).toEqual(
+    portableOutput.trials.get('trial'),
+  )
+  await expect(read('/bundle/output.json', {host})).resolves.toEqual(portableOutput)
 })

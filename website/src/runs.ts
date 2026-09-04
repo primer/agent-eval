@@ -4,7 +4,7 @@ import path from 'node:path'
 
 import type {ExperimentOutput} from '@primer/agent-eval/experiment'
 
-const {deserialize} = await import(
+const {read} = await import(
   /* turbopackIgnore: true */
   '@primer/agent-eval/experiment'
 )
@@ -63,42 +63,6 @@ type Run = {
   directory: string
   date: Date
   output: RunOutput
-}
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  if (typeof value !== 'object' || value === null) {
-    return null
-  }
-
-  return value as Record<string, unknown>
-}
-
-function isLegacyRunOutput(value: unknown): value is RunOutput {
-  const output = asRecord(value)
-  const experiment = asRecord(output?.experiment)
-
-  return (
-    typeof experiment?.id === 'string' &&
-    Array.isArray(experiment.models) &&
-    Array.isArray(output?.scenarios) &&
-    Array.isArray(output.treatments) &&
-    Array.isArray(output.results)
-  )
-}
-
-function parseOutput(contents: string): RunOutput {
-  const parsed: unknown = JSON.parse(contents)
-  const output = asRecord(parsed)
-
-  if (typeof output?.experimentId === 'string') {
-    return normalizeOutput(deserialize(parsed))
-  }
-
-  if (isLegacyRunOutput(parsed)) {
-    return parsed
-  }
-
-  throw new Error('Result output does not match a supported experiment output format')
 }
 
 function isRunName(name: string): boolean {
@@ -190,8 +154,7 @@ async function find(experimentId: string, name: string): Promise<Run | null> {
   }
 
   const outputFile = path.join(directory, 'output.json')
-  const contents = await fs.readFile(outputFile, 'utf-8')
-  const output = parseOutput(contents)
+  const output = normalizeOutput(await read(outputFile))
   if (output.experiment.id !== experimentId) {
     return null
   }

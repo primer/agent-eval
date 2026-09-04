@@ -12,6 +12,7 @@ import {
 import {DefaultHost, type Host} from './host'
 import {logger} from './logger'
 import {create as createPlan, run as runPlan} from './plan'
+import {readTrialFiles, writeTrialFiles, type ResultFileOptions} from './result-files'
 import {getScenario, loadScenario, ScenarioSchema, type Scenario} from './scenario'
 import {selectShard, type Shard} from './shard'
 import {ControlTreatment, TreatmentSchema, TreatmentSetupSchema, type Treatment, type TreatmentSetup} from './treatment'
@@ -268,6 +269,13 @@ const SerializedExperimentOutputSchema = z.object({
   trials: z.record(z.string(), ExperimentOutputTrialSchema),
 })
 
+const ExperimentOutputFileSchema = z.object({
+  experimentId: z.string(),
+  scenarios: z.record(z.string(), ExperimentOutputScenarioSchema),
+  treatments: z.record(z.string(), ExperimentOutputTreatmentSchema),
+  trials: z.record(z.string(), z.string()),
+})
+
 function output(
   experimentId: string,
   trialResults: ExperimentRunResult,
@@ -330,7 +338,58 @@ function deserialize(input: unknown): ExperimentOutput {
   }
 }
 
-export {ExperimentConfigSchema, defineConfig, deserialize, getExperiment, listExperiments, output, run, serialize}
+async function write(
+  filepath: string,
+  experimentOutput: ExperimentOutput,
+  options: ResultFileOptions = {},
+): Promise<void> {
+  const host = options.host ?? DefaultHost
+  const trials = await writeTrialFiles(filepath, experimentOutput.trials, options)
+  await host.fs.mkdir(path.dirname(filepath), {recursive: true})
+  await host.fs.writeFile(
+    filepath,
+    JSON.stringify({
+      experimentId: experimentOutput.experimentId,
+      scenarios: Object.fromEntries(experimentOutput.scenarios),
+      treatments: Object.fromEntries(experimentOutput.treatments),
+      trials,
+    }),
+    'utf-8',
+  )
+}
+
+async function read(filepath: string, options: ResultFileOptions = {}): Promise<ExperimentOutput> {
+  const host = options.host ?? DefaultHost
+  const contents = await host.fs.readFile(filepath, 'utf-8')
+  const result = ExperimentOutputFileSchema.parse(JSON.parse(contents), {reportInput: true})
+
+  return {
+    experimentId: result.experimentId,
+    scenarios: new Map(Object.entries(result.scenarios)),
+    treatments: new Map(Object.entries(result.treatments)),
+    trials: await readTrialFiles(
+      filepath,
+      result.trials,
+      input => {
+        return ExperimentOutputTrialSchema.parse(input, {reportInput: true})
+      },
+      options,
+    ),
+  }
+}
+
+export {
+  ExperimentConfigSchema,
+  defineConfig,
+  deserialize,
+  getExperiment,
+  listExperiments,
+  output,
+  read,
+  run,
+  serialize,
+  write,
+}
 export type {
   ExperimentConfig,
   Experiment,
@@ -338,4 +397,5 @@ export type {
   ExperimentOutputOptions,
   ExperimentScenarioConfig,
   InlineScenarioConfig,
+  ResultFileOptions,
 }

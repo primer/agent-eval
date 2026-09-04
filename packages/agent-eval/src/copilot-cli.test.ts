@@ -263,6 +263,29 @@ describe(parseMessage, () => {
     expect(parseMessage(message)).toEqual(message)
   })
 
+  test('parses sub-agent user messages without an agent mode', () => {
+    const message = {
+      type: 'user.message',
+      data: {
+        content: 'Run the build command `npm run build` to see if it succeeds.',
+        transformedContent:
+          '<current_datetime>2026-09-04T00:43:56.551+00:00</current_datetime>\n\nRun the build command `npm run build` to see if it succeeds.',
+        source: 'agent-f13fa250-5bee-4bfc-8356-5b91a7f72f05',
+        supportedNativeDocumentMimeTypes: [],
+        delivery: 'idle',
+        interactionId: '0c57cce9-3187-4397-b4ae-d6131b882626',
+        turnId: '0',
+        parentAgentTaskId: '5bbe4674-f7e7-4ef2-a532-29eaef862529',
+      },
+      agentId: 'f55e8634-e6a7-4b8c-a002-8fa22e9a55cd',
+      id: 'b8d674d7-f16c-455c-83f5-a7366407445a',
+      timestamp: '2026-09-04T00:43:56.551Z',
+      parentId: 'b390bc41-c964-4e13-b3a3-12fb8f2e6303',
+    }
+
+    expect(parseMessage(message)).toMatchObject(message)
+  })
+
   test('does not treat malformed known messages as unrecognized', () => {
     expect(() => parseMessage({type: 'assistant.turn_start', data: {}})).toThrow()
   })

@@ -46,6 +46,7 @@ const EventFieldsSchema = {
   id: z.string(),
   timestamp: z.string(),
   parentId: z.string(),
+  agentId: z.optional(z.string()),
 }
 
 const EphemeralEventFieldsSchema = {
@@ -103,8 +104,11 @@ const UserMessageSchema = z.object({
     transformedContent: z.string(),
     attachments: z.optional(z.array(z.unknown())),
     supportedNativeDocumentMimeTypes: z.array(z.string()),
-    agentMode: z.string(),
+    agentMode: z.optional(z.string()),
+    source: z.optional(z.string()),
+    delivery: z.optional(z.string()),
     interactionId: z.string(),
+    turnId: z.optional(z.string()),
     parentAgentTaskId: z.string(),
   }),
 })

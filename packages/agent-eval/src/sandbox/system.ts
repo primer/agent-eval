@@ -108,7 +108,7 @@ class SystemSandbox implements Sandbox {
   }
 
   async [Symbol.asyncDispose]() {
-    await this.#container.remove({force: true})
+    await removeContainer(this.#container)
   }
 
   async copy(sourcePath: string, destinationPath: string, options: CopyOptions = {}): Promise<void> {
@@ -354,7 +354,22 @@ class SystemSandbox implements Sandbox {
 const INITIALIZED_CONTAINER: unique symbol = Symbol('InitializedContainer')
 
 const DEFAULT_DOCKER_IMAGE = 'node:26.5.0-slim'
+const activeContainers = new Set<Docker.Container>()
+const containerRemovals = new WeakMap<Docker.Container, Promise<void>>()
+const removedContainers = new WeakSet<Docker.Container>()
 const dockerImageBuilds = new Map<string, Promise<string>>()
+let terminationCleanup: Promise<void> | undefined
+
+type TerminationSignal = 'SIGINT' | 'SIGTERM'
+
+const terminationHandlers: Record<TerminationSignal, () => void> = {
+  SIGINT() {
+    handleTermination('SIGINT')
+  },
+  SIGTERM() {
+    handleTermination('SIGTERM')
+  },
+}
 
 type InitializedContainer = Docker.Container & {
   readonly [INITIALIZED_CONTAINER]?: true
@@ -439,6 +454,7 @@ async function createContainer(docker: Docker, dockerImage: string): Promise<Ini
 
   try {
     await container.start()
+    trackContainer(container)
     return container as InitializedContainer
   } catch (error) {
     try {
@@ -450,6 +466,69 @@ async function createContainer(docker: Docker, dockerImage: string): Promise<Ini
     }
     throw error
   }
+}
+
+function trackContainer(container: Docker.Container): void {
+  activeContainers.add(container)
+  if (activeContainers.size !== 1) {
+    return
+  }
+
+  process.once('SIGINT', terminationHandlers.SIGINT)
+  process.once('SIGTERM', terminationHandlers.SIGTERM)
+}
+
+async function removeContainer(container: Docker.Container): Promise<void> {
+  if (removedContainers.has(container)) {
+    return
+  }
+
+  const activeRemoval = containerRemovals.get(container)
+  if (activeRemoval) {
+    return activeRemoval
+  }
+
+  const removal = container
+    .remove({force: true})
+    .then(() => {
+      removedContainers.add(container)
+      activeContainers.delete(container)
+
+      if (activeContainers.size === 0) {
+        process.off('SIGINT', terminationHandlers.SIGINT)
+        process.off('SIGTERM', terminationHandlers.SIGTERM)
+      }
+    })
+    .finally(() => {
+      containerRemovals.delete(container)
+    })
+  containerRemovals.set(container, removal)
+  return removal
+}
+
+async function cleanupActiveContainers(): Promise<void> {
+  const results = await Promise.allSettled(Array.from(activeContainers, container => removeContainer(container)))
+  const errors = results.flatMap(result => {
+    if (result.status === 'rejected') {
+      return [result.reason]
+    }
+
+    return []
+  })
+
+  if (errors.length > 0) {
+    throw new AggregateError(errors, 'Failed to remove active sandbox containers')
+  }
+}
+
+function handleTermination(signal: TerminationSignal): void {
+  terminationCleanup ??= cleanupActiveContainers()
+    .catch(error => {
+      logger.error({error}, 'Failed to clean up sandbox containers during termination')
+    })
+    .then(() => {
+      process.exit(signal === 'SIGINT' ? 130 : 143)
+    })
 }
 
 function mapCopiedHeader(header: Headers, sourceName: string, destinationName: string): Headers {
@@ -692,4 +771,4 @@ const SandboxSchema = z.custom<Sandbox>(value => {
   return value instanceof SystemSandbox || value instanceof VirtualSandbox
 })
 
-export {SandboxSchema, SystemSandbox, DEFAULT_DOCKER_IMAGE, buildDockerImage, createContainer}
+export {SandboxSchema, SystemSandbox, DEFAULT_DOCKER_IMAGE, buildDockerImage, cleanupActiveContainers, createContainer}

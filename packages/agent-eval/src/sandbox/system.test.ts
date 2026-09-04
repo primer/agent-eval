@@ -2,10 +2,10 @@ import Docker from 'dockerode'
 import {beforeEach, describe, expect, test, vi} from 'vitest'
 import {VirtualHost} from '../host'
 import {MCP_CONFIG_PATH, NODE_USER, SKILLS_DIR} from './constants'
-import {buildDockerImage, createContainer, SandboxSchema, SystemSandbox} from './system'
+import {buildDockerImage, cleanupActiveContainers, createContainer, SandboxSchema, SystemSandbox} from './system'
 import {VirtualSandbox} from './virtual'
 
-function createSandbox(container = {remove: vi.fn()}) {
+function createSandbox(container = {remove: vi.fn().mockResolvedValue(undefined)}) {
   // @ts-expect-error This test only exercises methods whose container operations are mocked.
   return new SystemSandbox(VirtualHost.create(), new Docker(), container)
 }
@@ -57,7 +57,7 @@ describe('SystemSandbox lifecycle', () => {
 
   test('force removes the container when disposed', async () => {
     const container = {
-      remove: vi.fn(),
+      remove: vi.fn().mockResolvedValue(undefined),
     }
     const sandbox = createSandbox(container)
 
@@ -79,6 +79,35 @@ describe('SystemSandbox lifecycle', () => {
     // @ts-expect-error This test only exercises the Docker methods used before container initialization.
     await expect(createContainer(docker, 'test-image')).rejects.toBe(initializationError)
     expect(container.remove).toHaveBeenCalledWith({force: true})
+  })
+
+  test('removes active containers when the process is terminated', async () => {
+    const container = {
+      start: vi.fn(),
+      remove: vi.fn().mockResolvedValue(undefined),
+    }
+    const docker = {
+      createContainer: vi.fn().mockResolvedValue(container),
+    }
+    const once = vi.spyOn(process, 'once')
+    const off = vi.spyOn(process, 'off')
+
+    // @ts-expect-error This test only exercises the Docker methods used to create and remove the container.
+    const initializedContainer = await createContainer(docker, 'test-image')
+
+    expect(once).toHaveBeenCalledWith('SIGINT', expect.any(Function))
+    expect(once).toHaveBeenCalledWith('SIGTERM', expect.any(Function))
+
+    await cleanupActiveContainers()
+
+    expect(container.remove).toHaveBeenCalledWith({force: true})
+    expect(off).toHaveBeenCalledWith('SIGINT', expect.any(Function))
+    expect(off).toHaveBeenCalledWith('SIGTERM', expect.any(Function))
+
+    const sandbox = new SystemSandbox(VirtualHost.create(), new Docker(), initializedContainer)
+    await sandbox[Symbol.asyncDispose]()
+
+    expect(container.remove).toHaveBeenCalledTimes(1)
   })
 })
 

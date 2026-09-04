@@ -339,13 +339,13 @@ async function run({
 }
 
 function createBenchmarkTreatment(benchmark: Benchmark, capability: Capability): Treatment {
-  const setup =
-    benchmark.setup || capability.setup
-      ? async ({sandbox}: Parameters<TreatmentSetup>[0]) => {
-          await benchmark.setup?.({sandbox})
-          await capability.setup?.({sandbox})
-        }
-      : undefined
+  let setup = benchmark.setup ?? capability.setup
+  if (benchmark.setup && capability.setup) {
+    setup = async ({sandbox}: Parameters<TreatmentSetup>[0]) => {
+      await benchmark.setup?.({sandbox})
+      await capability.setup?.({sandbox})
+    }
+  }
 
   return {
     name: 'Benchmark',

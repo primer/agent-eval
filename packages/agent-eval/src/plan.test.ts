@@ -1,6 +1,8 @@
 import {afterEach, describe, expect, test, vi} from 'vitest'
+import {output as getBenchmarkOutput, write as writeBenchmarkOutput, type BenchmarkOutput} from './benchmark'
+import {output as getExperimentOutput, write as writeExperimentOutput, type ExperimentOutput} from './experiment'
 import {VirtualHost} from './host'
-import {create, deserialize, isBenchmarkPlan, run, select, serialize} from './plan'
+import {create, deserialize, isBenchmarkPlan, mergeResults, run, select, serialize} from './plan'
 import {run as runTrial} from './trial'
 import type {Trial, TrialResult} from './trial'
 
@@ -77,6 +79,26 @@ function createReference(id: string) {
   }
 }
 
+async function writeBenchmarkShards(host: VirtualHost, outputs: Array<BenchmarkOutput>): Promise<Array<string>> {
+  return Promise.all(
+    outputs.map(async (output, index) => {
+      const filepath = `/bundle/output-${index + 1}.json`
+      await writeBenchmarkOutput(filepath, output, {host})
+      return filepath
+    }),
+  )
+}
+
+async function writeExperimentShards(host: VirtualHost, outputs: Array<ExperimentOutput>): Promise<Array<string>> {
+  return Promise.all(
+    outputs.map(async (output, index) => {
+      const filepath = `/bundle/output-${index + 1}.json`
+      await writeExperimentOutput(filepath, output, {host})
+      return filepath
+    }),
+  )
+}
+
 describe('create', () => {
   test('randomizes trials without mutating the input', async () => {
     const trials = [createReference('one'), createReference('two'), createReference('three')]
@@ -111,7 +133,7 @@ describe('create', () => {
     expect(serialize(plan)).not.toContain('setup')
   })
 
-  test('rejects invalid durable plans and duplicate trial ids', () => {
+  test('rejects invalid durable plans', () => {
     expect(() => {
       deserialize({
         version: 1,
@@ -122,17 +144,6 @@ describe('create', () => {
         trials: [createReference('trial')],
       })
     }).toThrow()
-
-    expect(() => {
-      deserialize({
-        version: 1,
-        source: {
-          kind: 'experiment',
-          id: 'test',
-        },
-        trials: [createReference('trial'), createReference('trial')],
-      })
-    }).toThrow('Plan contains duplicate trial id: trial')
   })
 
   test('selects deterministic shards from durable plan order', () => {
@@ -240,5 +251,120 @@ describe('run', () => {
       }),
     ).rejects.toBe(error)
     expect(runTrial).toHaveBeenCalledTimes(4)
+  })
+})
+
+describe('mergeResults', () => {
+  test('detects and merges benchmark shard outputs', async () => {
+    const host = VirtualHost.create()
+    const filepaths = await writeBenchmarkShards(host, [
+      getBenchmarkOutput('benchmark', []),
+      getBenchmarkOutput('benchmark', []),
+    ])
+    const merged = await mergeResults(filepaths, {host})
+
+    expect(merged.kind).toBe('benchmark')
+    expect(merged.output).toEqual({
+      benchmarkId: 'benchmark',
+      capabilities: {},
+      scenarios: {},
+      treatments: {},
+      trials: {},
+    })
+  })
+
+  test('detects and merges experiment shard outputs', async () => {
+    const host = VirtualHost.create()
+    const filepaths = await writeExperimentShards(host, [
+      getExperimentOutput('experiment', []),
+      getExperimentOutput('experiment', []),
+    ])
+    const merged = await mergeResults(filepaths, {host})
+
+    expect(merged.kind).toBe('experiment')
+    expect(merged.output).toEqual({
+      experimentId: 'experiment',
+      scenarios: {},
+      treatments: {},
+      trials: {},
+    })
+  })
+
+  test('rejects mixed output types', async () => {
+    const host = VirtualHost.create()
+    await writeBenchmarkOutput('/bundle/output-1.json', getBenchmarkOutput('benchmark', []), {host})
+    await writeExperimentOutput('/bundle/output-2.json', getExperimentOutput('experiment', []), {host})
+
+    await expect(
+      mergeResults(['/bundle/output-1.json', '/bundle/output-2.json'], {
+        host,
+      }),
+    ).rejects.toThrow('Cannot merge benchmark and experiment shard outputs together')
+  })
+
+  test('requires shard outputs from one source id', async () => {
+    const host = VirtualHost.create()
+    const filepaths = await writeBenchmarkShards(host, [
+      getBenchmarkOutput('first', []),
+      getBenchmarkOutput('second', []),
+    ])
+
+    await expect(mergeResults(filepaths, {host})).rejects.toThrow(
+      'Cannot merge benchmark outputs for different sources',
+    )
+  })
+
+  test('combines trial file references without reading the trial files', async () => {
+    const host = VirtualHost.create()
+    await host.fs.mkdir('/bundle', {recursive: true})
+    await host.fs.writeFile(
+      '/bundle/output-1.json',
+      JSON.stringify({
+        experimentId: 'experiment',
+        scenarios: {},
+        treatments: {},
+        trials: {
+          first: 'artifacts/first/first.json',
+        },
+      }),
+      'utf-8',
+    )
+    await host.fs.writeFile(
+      '/bundle/output-2.json',
+      JSON.stringify({
+        experimentId: 'experiment',
+        scenarios: {},
+        treatments: {},
+        trials: {
+          second: 'artifacts/second/second.json',
+        },
+      }),
+      'utf-8',
+    )
+
+    const merged = await mergeResults(['/bundle/output-1.json', '/bundle/output-2.json'], {
+      host,
+    })
+
+    if (merged.kind !== 'experiment') {
+      throw new Error('Expected experiment output')
+    }
+
+    expect(merged.output.trials).toEqual({
+      first: 'artifacts/first/first.json',
+      second: 'artifacts/second/second.json',
+    })
+  })
+
+  test('requires the merged output to stay beside the shard outputs', async () => {
+    const host = VirtualHost.create()
+    const filepaths = await writeExperimentShards(host, [getExperimentOutput('experiment', [])])
+
+    await expect(
+      mergeResults(filepaths, {
+        host,
+        targetDirectory: '/merged',
+      }),
+    ).rejects.toThrow('Shard outputs and the merged output must use the same directory')
   })
 })

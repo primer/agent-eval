@@ -13,7 +13,6 @@ describe('normalizeOptionalPathArguments', () => {
       '--shard',
       '2/3',
     ])
-    expect(normalizeOptionalPathArguments(['--merge-shards'])).toEqual(['--merge-shards='])
   })
 
   test('preserves explicit optional paths', () => {
@@ -67,6 +66,13 @@ describe('getCliMode', () => {
         shard: '1/2',
       })
     }).toThrow('--shard is only valid with --from-plan')
+
+    expect(() => {
+      getCliMode({
+        experiment: 'experiment',
+        'merge-results': true,
+      })
+    }).toThrow('--merge-results cannot be combined')
 
     expect(() => {
       getCliMode({

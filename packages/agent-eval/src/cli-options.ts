@@ -3,7 +3,6 @@ const DEFAULT_PLAN_PATH = 'plan.json'
 const optionalPathDefaults = new Map<string, string>([
   ['--plan', DEFAULT_PLAN_PATH],
   ['--from-plan', DEFAULT_PLAN_PATH],
-  ['--merge-shards', ''],
 ])
 
 type CliModeOptions = {
@@ -11,7 +10,7 @@ type CliModeOptions = {
   experiment?: string
   plan?: string
   'from-plan'?: string
-  'merge-shards'?: string
+  'merge-results'?: boolean
   shard?: string
 }
 
@@ -39,8 +38,7 @@ type CliMode =
       shard?: string
     }
   | {
-      kind: 'merge-shards'
-      directory?: string
+      kind: 'merge-results'
     }
 
 function normalizeOptionalPathArguments(args: Array<string>): Array<string> {
@@ -73,13 +71,8 @@ function getCliMode(options: CliModeOptions): CliMode {
   }
 
   if (options['from-plan']) {
-    if (
-      options.benchmark ||
-      options.experiment ||
-      options.plan !== undefined ||
-      options['merge-shards'] !== undefined
-    ) {
-      throw new Error('--from-plan cannot be combined with --benchmark, --experiment, --plan, or --merge-shards')
+    if (options.benchmark || options.experiment || options.plan !== undefined || options['merge-results']) {
+      throw new Error('--from-plan cannot be combined with --benchmark, --experiment, --plan, or --merge-results')
     }
 
     return {
@@ -89,9 +82,9 @@ function getCliMode(options: CliModeOptions): CliMode {
     }
   }
 
-  if (options['merge-shards'] !== undefined) {
+  if (options['merge-results']) {
     if (options.benchmark || options.experiment || options.plan !== undefined) {
-      throw new Error('--merge-shards cannot be combined with --benchmark, --experiment, or --plan')
+      throw new Error('--merge-results cannot be combined with --benchmark, --experiment, or --plan')
     }
 
     if (options.shard) {
@@ -99,8 +92,7 @@ function getCliMode(options: CliModeOptions): CliMode {
     }
 
     return {
-      kind: 'merge-shards',
-      directory: options['merge-shards'] || undefined,
+      kind: 'merge-results',
     }
   }
 

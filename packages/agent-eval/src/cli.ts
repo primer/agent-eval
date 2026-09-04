@@ -20,10 +20,10 @@ import {
   write as writeExperimentOutput,
 } from './experiment'
 import {logger} from './logger'
-import {mergeShardOutputs} from './output'
 import {
   deserialize as deserializePlan,
   isBenchmarkPlan,
+  mergeResults,
   select as selectPlan,
   serialize as serializePlan,
   type BenchmarkPlan,
@@ -94,8 +94,8 @@ const {values} = parseArgs({
       type: 'string',
       description: 'Run trials from a durable plan',
     },
-    'merge-shards': {
-      type: 'string',
+    'merge-results': {
+      type: 'boolean',
       description: 'Merge output-*.json shard outputs from a directory',
     },
     shard: {
@@ -122,7 +122,7 @@ Options:
       --output-dir <dir>     The directory containing output.json and its artifacts
       --plan [path]          Create a durable plan without running it (default: plan.json)
       --from-plan [path]     Run trials from a durable plan (default: plan.json)
-      --merge-shards [dir]   Merge output-*.json files (default: output file directory)
+      --merge-results        Merge output-*.json files in --output-dir
       --scenarios <dir>      The directory containing scenario directories (default: ./scenarios)
       --shard <order/total>  Select a deterministic shard from --from-plan
 `)
@@ -140,6 +140,7 @@ if (values['log-level']) {
 const COPILOT_GITHUB_TOKEN = process.env.COPILOT_GITHUB_TOKEN
 const GITHUB_STEP_SUMMARY = process.env.GITHUB_STEP_SUMMARY
 const mode = getCliMode(values)
+const shard = mode.kind === 'from-plan' && mode.shard ? parseShard(mode.shard) : undefined
 
 const env = getEnvironmentConfig({
   benchmarksDirectory: values.benchmarks,
@@ -150,6 +151,7 @@ const env = getEnvironmentConfig({
   outputDirectory: values['output-dir'],
   outputPath: values.output,
   scenariosDirectory: values.scenarios,
+  shard,
 })
 
 logger.debug('Environment configuration: %o', env)
@@ -177,8 +179,8 @@ if (mode.kind === 'create-plan') {
   await ensureParentDirectory(planPath)
   logger.info('Writing plan to: %s', planPath)
   await fs.writeFile(planPath, serializePlan(plan), 'utf-8')
-} else if (mode.kind === 'merge-shards') {
-  const directory = path.resolve(mode.directory ?? path.dirname(env.outputPath))
+} else if (mode.kind === 'merge-results') {
+  const directory = path.dirname(env.outputPath)
   const entries = await fs.readdir(directory, {
     withFileTypes: true,
   })
@@ -193,7 +195,7 @@ if (mode.kind === 'create-plan') {
   const inputs = filenames.map(filename => {
     return path.join(directory, filename)
   })
-  const merged = await mergeShardOutputs(inputs, {
+  const merged = await mergeResults(inputs, {
     targetDirectory: path.dirname(env.outputPath),
   })
 
@@ -262,7 +264,7 @@ if (mode.kind === 'create-plan') {
   requireCopilotToken(COPILOT_GITHUB_TOKEN)
   const planPath = path.resolve(mode.path)
   const durablePlan = deserializePlan(await fs.readFile(planPath, 'utf-8'))
-  const plan = mode.shard ? selectDurablePlan(durablePlan, mode.shard) : durablePlan
+  const plan = shard ? selectDurablePlan(durablePlan, shard) : durablePlan
 
   if (isBenchmarkPlan(plan)) {
     await runBenchmarkFromPlan(plan)
@@ -279,13 +281,12 @@ function requireCopilotToken(token: string | undefined): asserts token is string
   }
 }
 
-function selectDurablePlan(plan: Plan, shardValue: string): Plan {
-  const shard = parseShard(shardValue)
+function selectDurablePlan(plan: Plan, selectedShard: ReturnType<typeof parseShard>): Plan {
   if (isBenchmarkPlan(plan)) {
-    return selectPlan(plan, shard)
+    return selectPlan(plan, selectedShard)
   }
 
-  return selectPlan(plan, shard)
+  return selectPlan(plan, selectedShard)
 }
 
 async function ensureParentDirectory(filepath: string): Promise<void> {

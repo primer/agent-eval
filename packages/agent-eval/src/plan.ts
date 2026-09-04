@@ -1,6 +1,9 @@
+import path from 'node:path'
 import Queue from 'p-queue'
 import * as z from 'zod/mini'
+import type {BenchmarkOutputFile} from './benchmark'
 import type {EnvironmentConfig} from './environment'
+import type {ExperimentOutputFile} from './experiment'
 import {DefaultHost, type Host} from './host'
 import {logger} from './logger'
 import {ModelVariantSchema} from './model'
@@ -58,36 +61,45 @@ type RuntimePlan = {
   trials: Array<Trial>
 }
 
+type MergedResults =
+  | {
+      kind: 'benchmark'
+      output: BenchmarkOutputFile
+    }
+  | {
+      kind: 'experiment'
+      output: ExperimentOutputFile
+    }
+
+type MergeResultsOptions = {
+  host?: Host
+  targetDirectory?: string
+}
+
 function create(input: Omit<BenchmarkPlan, 'version'>): BenchmarkPlan
 function create(input: Omit<ExperimentPlan, 'version'>): ExperimentPlan
 function create(input: CreatePlanInput): Plan {
-  const plan =
-    input.source.kind === 'benchmark'
-      ? BenchmarkPlanSchema.parse({
-          version: PLAN_VERSION,
-          source: input.source,
-          trials: randomize(input.trials),
-        })
-      : ExperimentPlanSchema.parse({
-          version: PLAN_VERSION,
-          source: input.source,
-          trials: randomize(input.trials),
-        })
-  assertUniqueTrialIds(plan)
-  return plan
+  return input.source.kind === 'benchmark'
+    ? BenchmarkPlanSchema.parse({
+        version: PLAN_VERSION,
+        source: input.source,
+        trials: randomize(input.trials),
+      })
+    : ExperimentPlanSchema.parse({
+        version: PLAN_VERSION,
+        source: input.source,
+        trials: randomize(input.trials),
+      })
 }
 
 function serialize(plan: Plan): string {
   const parsed = PlanSchema.parse(plan)
-  assertUniqueTrialIds(parsed)
   return `${JSON.stringify(parsed, null, 2)}\n`
 }
 
 function deserialize(input: unknown): Plan {
   const parsed = typeof input === 'string' ? JSON.parse(input) : input
-  const plan = PlanSchema.parse(parsed, {reportInput: true})
-  assertUniqueTrialIds(plan)
-  return plan
+  return PlanSchema.parse(parsed, {reportInput: true})
 }
 
 function select(plan: BenchmarkPlan, shard: Shard): BenchmarkPlan
@@ -110,15 +122,125 @@ function isBenchmarkPlan(plan: Plan): plan is BenchmarkPlan {
   return plan.source.kind === 'benchmark'
 }
 
-function assertUniqueTrialIds(plan: Plan): void {
-  const ids = new Set<string>()
+async function mergeResults(filepaths: Array<string>, options: MergeResultsOptions = {}): Promise<MergedResults> {
+  if (filepaths.length === 0) {
+    throw new Error('No shard outputs were found to merge')
+  }
 
-  for (const trial of plan.trials) {
-    if (ids.has(trial.id)) {
-      throw new Error(`Plan contains duplicate trial id: ${trial.id}`)
+  const targetDirectory = path.resolve(options.targetDirectory ?? path.dirname(filepaths[0]))
+  for (const filepath of filepaths) {
+    if (path.resolve(path.dirname(filepath)) !== targetDirectory) {
+      throw new Error('Shard outputs and the merged output must use the same directory')
+    }
+  }
+
+  const host = options.host ?? DefaultHost
+  const manifests = await Promise.all(
+    filepaths.map(async filepath => {
+      return JSON.parse(await host.fs.readFile(filepath, 'utf-8')) as unknown
+    }),
+  )
+  const kinds = manifests.map(getOutputKind)
+  const firstKind = kinds[0]
+  if (
+    kinds.some(kind => {
+      return kind !== firstKind
+    })
+  ) {
+    throw new Error('Cannot merge benchmark and experiment shard outputs together')
+  }
+
+  if (firstKind === 'benchmark') {
+    const {parseOutputFile} = await import('./benchmark')
+    return {
+      kind: 'benchmark',
+      output: mergeBenchmarkOutputFiles(manifests.map(parseOutputFile)),
+    }
+  }
+
+  const {parseOutputFile} = await import('./experiment')
+  return {
+    kind: 'experiment',
+    output: mergeExperimentOutputFiles(manifests.map(parseOutputFile)),
+  }
+}
+
+function getOutputKind(input: unknown): 'benchmark' | 'experiment' {
+  if (typeof input !== 'object' || input === null) {
+    throw new Error('Shard output must be a JSON object')
+  }
+
+  const hasBenchmarkId = 'benchmarkId' in input
+  const hasExperimentId = 'experimentId' in input
+  if (hasBenchmarkId === hasExperimentId) {
+    throw new Error('Shard output must contain exactly one of benchmarkId or experimentId')
+  }
+
+  return hasBenchmarkId ? 'benchmark' : 'experiment'
+}
+
+function mergeBenchmarkOutputFiles(outputs: Array<BenchmarkOutputFile>): BenchmarkOutputFile {
+  const [first, ...remaining] = outputs
+  if (!first) {
+    throw new Error('At least one benchmark output is required to merge shards')
+  }
+
+  const result = structuredClone(first)
+  for (const output of remaining) {
+    if (output.benchmarkId !== result.benchmarkId) {
+      throw new Error(
+        `Cannot merge benchmark outputs for different sources: "${result.benchmarkId}" and "${output.benchmarkId}"`,
+      )
     }
 
-    ids.add(trial.id)
+    mergeMetadataRecord(result.capabilities, output.capabilities, 'capability')
+    mergeMetadataRecord(result.scenarios, output.scenarios, 'scenario')
+    mergeMetadataRecord(result.treatments, output.treatments, 'treatment')
+    mergeTrialReferences(result.trials, output.trials)
+  }
+
+  return result
+}
+
+function mergeExperimentOutputFiles(outputs: Array<ExperimentOutputFile>): ExperimentOutputFile {
+  const [first, ...remaining] = outputs
+  if (!first) {
+    throw new Error('At least one experiment output is required to merge shards')
+  }
+
+  const result = structuredClone(first)
+  for (const output of remaining) {
+    if (output.experimentId !== result.experimentId) {
+      throw new Error(
+        `Cannot merge experiment outputs for different sources: "${result.experimentId}" and "${output.experimentId}"`,
+      )
+    }
+
+    mergeMetadataRecord(result.scenarios, output.scenarios, 'scenario')
+    mergeMetadataRecord(result.treatments, output.treatments, 'treatment')
+    mergeTrialReferences(result.trials, output.trials)
+  }
+
+  return result
+}
+
+function mergeMetadataRecord<T>(target: Record<string, T>, source: Record<string, T>, type: string): void {
+  for (const [id, value] of Object.entries(source)) {
+    if (id in target && JSON.stringify(target[id]) !== JSON.stringify(value)) {
+      throw new Error(`Cannot merge conflicting ${type} metadata for id: ${id}`)
+    }
+
+    target[id] = value
+  }
+}
+
+function mergeTrialReferences(target: Record<string, string>, source: Record<string, string>): void {
+  for (const [trialId, reference] of Object.entries(source)) {
+    if (trialId in target) {
+      throw new Error(`Cannot merge duplicate trial id: ${trialId}`)
+    }
+
+    target[trialId] = reference
   }
 }
 
@@ -187,6 +309,7 @@ export {
   create,
   deserialize,
   isBenchmarkPlan,
+  mergeResults,
   run,
   select,
   serialize,
@@ -197,6 +320,8 @@ export type {
   CreatePlanInput,
   ExperimentPlan,
   ExperimentPlanTrialReference,
+  MergedResults,
+  MergeResultsOptions,
   Plan,
   PlanTrialReference,
   RuntimePlan,

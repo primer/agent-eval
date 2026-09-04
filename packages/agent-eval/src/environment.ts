@@ -1,5 +1,6 @@
 import path from 'node:path'
 import {DEFAULT_DOCKER_IMAGE} from './sandbox'
+import type {Shard} from './shard'
 
 type EnvironmentConfig = {
   artifactsDirectory: string
@@ -21,6 +22,7 @@ type EnvironmentOptions = {
   outputDirectory?: string
   outputPath?: string
   scenariosDirectory?: string
+  shard?: Shard
 }
 
 function getEnvironmentConfig(options: EnvironmentOptions): EnvironmentConfig {
@@ -37,7 +39,7 @@ function getEnvironmentConfig(options: EnvironmentOptions): EnvironmentConfig {
       : 1
   const experimentsDirectory = path.resolve(options.experimentsDirectory ?? 'experiments')
   const outputPath = outputDirectory
-    ? path.join(outputDirectory, 'output.json')
+    ? path.join(outputDirectory, options.shard ? `output-${options.shard.order}.json` : 'output.json')
     : path.resolve(options.outputPath ?? 'output.json')
   const artifactsDirectory = path.join(path.dirname(outputPath), 'artifacts')
   const scenariosDirectory = path.resolve(options.scenariosDirectory ?? 'scenarios')

@@ -26,6 +26,7 @@ describe('cli', () => {
     expect(log).toHaveBeenCalledWith(expect.stringContaining('Usage: agent-eval [options]'))
     expect(log).toHaveBeenCalledWith(expect.stringContaining('--output-dir <dir>'))
     expect(log).toHaveBeenCalledWith(expect.stringContaining('--from-plan [path]'))
+    expect(log).toHaveBeenCalledWith(expect.stringContaining('--merge-results'))
   })
 
   test('requires a Copilot token when running', async () => {
@@ -62,7 +63,7 @@ describe('cli', () => {
   })
 
   test('does not require a Copilot token when merging shard outputs', async () => {
-    process.argv = ['node', 'agent-eval', '--merge-shards', '/missing-agent-eval-shards']
+    process.argv = ['node', 'agent-eval', '--merge-results', '--output-dir', '/missing-agent-eval-shards']
     delete process.env.COPILOT_GITHUB_TOKEN
 
     await expect(import('./cli')).rejects.toThrow('ENOENT')

@@ -53,6 +53,7 @@ export {
   create as createPlan,
   deserialize as deserializePlan,
   isBenchmarkPlan,
+  mergeResults as mergePlanResults,
   select as selectPlan,
   serialize as serializePlan,
 } from './plan'
@@ -62,6 +63,8 @@ export type {
   CreatePlanInput,
   ExperimentPlan,
   ExperimentPlanTrialReference,
+  MergedResults,
+  MergeResultsOptions,
   Plan,
   PlanTrialReference,
   RuntimePlan,

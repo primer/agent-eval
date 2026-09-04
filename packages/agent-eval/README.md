@@ -185,22 +185,22 @@ for each shard:
 COPILOT_GITHUB_TOKEN=... agent-eval \
   --from-plan plan.json \
   --shard 1/4 \
-  --output run/output-1.json
+  --output-dir run
 ```
 
 After all shards finish, merge the `output-*.json` files into one portable
 result:
 
 ```sh
-agent-eval --merge-shards run --output run/output.json
+agent-eval --merge-results --output-dir run
 ```
 
 The merged `output.json` must stay in the same directory as the shard manifests
 so their per-trial file references remain portable.
 
 `--plan` and `--from-plan` default to `plan.json` when their path is omitted.
-`--shard` is only valid with `--from-plan`. Shard merging does not require a
-Copilot token.
+With `--output-dir`, `--shard 1/4` writes `output-1.json`. `--shard` is only
+valid with `--from-plan`. Shard merging does not require a Copilot token.
 
 ## Scenario config authoring
 

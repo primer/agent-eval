@@ -47,20 +47,19 @@ case "$mode" in
       exit 1
     fi
 
-    shard_order="${BASH_REMATCH[1]}"
     node "$repository_root/packages/agent-eval/bin/agent-eval" \
       --benchmarks "$repository_root/benchmarks" \
       --concurrency "${CONCURRENCY:-1}" \
       --docker-image "${DOCKER_IMAGE:-node:26.5.0-slim}" \
       --from-plan "$plan_path" \
-      --output "$run_directory/output-$shard_order.json" \
+      --output-dir "$run_directory" \
       --scenarios "$repository_root/scenarios" \
       --shard "$SHARD"
     ;;
   merge)
     node "$repository_root/packages/agent-eval/bin/agent-eval" \
-      --merge-shards "$run_directory" \
-      --output "$run_directory/output.json"
+      --merge-results \
+      --output-dir "$run_directory"
     rm -f "$run_directory"/output-*.json
     ;;
   *)

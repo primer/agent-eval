@@ -2,10 +2,17 @@ import Docker from 'dockerode'
 import {beforeEach, describe, expect, test, vi} from 'vitest'
 import {VirtualHost} from '../host'
 import {MCP_CONFIG_PATH, NODE_USER, SKILLS_DIR} from './constants'
-import {createContainer, SandboxSchema, SystemSandbox} from './system'
+import {
+  buildDockerImage,
+  cleanupActiveContainers,
+  createContainer,
+  getDockerImageName,
+  SandboxSchema,
+  SystemSandbox,
+} from './system'
 import {VirtualSandbox} from './virtual'
 
-function createSandbox(container = {remove: vi.fn()}) {
+function createSandbox(container = {remove: vi.fn().mockResolvedValue(undefined)}) {
   // @ts-expect-error This test only exercises methods whose container operations are mocked.
   return new SystemSandbox(VirtualHost.create(), new Docker(), container)
 }
@@ -24,9 +31,47 @@ describe('SandboxSchema', () => {
 })
 
 describe('SystemSandbox lifecycle', () => {
+  test('builds the local sandbox image', async () => {
+    const stream = {}
+    const docker = {
+      buildImage: vi.fn().mockResolvedValue(stream),
+      modem: {
+        followProgress: vi.fn((_stream: unknown, onFinished: (error: Error | null) => void) => {
+          onFinished(null)
+        }),
+      },
+    }
+
+    // @ts-expect-error This test only exercises the Docker methods used to build the image.
+    const image = await buildDockerImage(docker, 'custom-node:local')
+
+    expect(docker.buildImage).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        buildargs: {
+          BASE_IMAGE: 'custom-node:local',
+          COPILOT_CLI_VERSION: '1.0.82',
+          NPM_VERSION: '12.0.2',
+        },
+        dockerfile: 'Dockerfile',
+        t: expect.stringMatching(/^agent-eval-sandbox:[a-f0-9]{16}$/),
+        target: 'sandbox',
+      }),
+    )
+    expect(docker.modem.followProgress).toHaveBeenCalledWith(stream, expect.any(Function))
+    expect(image).toMatch(/^agent-eval-sandbox:[a-f0-9]{16}$/)
+  })
+
+  test('includes the Dockerfile contents in the local image tag', () => {
+    const firstImage = getDockerImageName('custom-node:local', 'FROM custom-node:local\nRUN echo first')
+    const secondImage = getDockerImageName('custom-node:local', 'FROM custom-node:local\nRUN echo second')
+
+    expect(firstImage).not.toBe(secondImage)
+  })
+
   test('force removes the container when disposed', async () => {
     const container = {
-      remove: vi.fn(),
+      remove: vi.fn().mockResolvedValue(undefined),
     }
     const sandbox = createSandbox(container)
 
@@ -43,19 +88,62 @@ describe('SystemSandbox lifecycle', () => {
     }
     const docker = {
       createContainer: vi.fn().mockResolvedValue(container),
-      pull: vi.fn((_name: string, callback: (error: Error | null, stream: NodeJS.ReadableStream) => void) => {
-        callback(null, {} as NodeJS.ReadableStream)
-      }),
-      modem: {
-        followProgress: vi.fn((_stream: NodeJS.ReadableStream, onFinished: (error: Error | null) => void) => {
-          onFinished(null)
-        }),
-      },
     }
 
     // @ts-expect-error This test only exercises the Docker methods used before container initialization.
     await expect(createContainer(docker, 'test-image')).rejects.toBe(initializationError)
     expect(container.remove).toHaveBeenCalledWith({force: true})
+  })
+
+  test('removes active containers when the process is terminated', async () => {
+    const container = {
+      start: vi.fn(),
+      remove: vi.fn().mockResolvedValue(undefined),
+    }
+    const docker = {
+      createContainer: vi.fn().mockResolvedValue(container),
+    }
+    const once = vi.spyOn(process, 'once')
+    const off = vi.spyOn(process, 'off')
+
+    // @ts-expect-error This test only exercises the Docker methods used to create and remove the container.
+    const initializedContainer = await createContainer(docker, 'test-image')
+
+    expect(once).toHaveBeenCalledWith('SIGINT', expect.any(Function))
+    expect(once).toHaveBeenCalledWith('SIGTERM', expect.any(Function))
+
+    await cleanupActiveContainers()
+
+    expect(container.remove).toHaveBeenCalledWith({force: true})
+    expect(off).toHaveBeenCalledWith('SIGINT', expect.any(Function))
+    expect(off).toHaveBeenCalledWith('SIGTERM', expect.any(Function))
+
+    const sandbox = new SystemSandbox(VirtualHost.create(), new Docker(), initializedContainer)
+    await sandbox[Symbol.asyncDispose]()
+
+    expect(container.remove).toHaveBeenCalledTimes(1)
+  })
+
+  test('untracks containers that Docker already removed', async () => {
+    const notFoundError = Object.assign(new Error('No such container'), {statusCode: 404})
+    const container = {
+      start: vi.fn(),
+      remove: vi.fn().mockRejectedValue(notFoundError),
+    }
+    const docker = {
+      createContainer: vi.fn().mockResolvedValue(container),
+    }
+    const off = vi.spyOn(process, 'off')
+
+    // @ts-expect-error This test only exercises the Docker methods used to create and remove the container.
+    const initializedContainer = await createContainer(docker, 'test-image')
+    const sandbox = new SystemSandbox(VirtualHost.create(), new Docker(), initializedContainer)
+
+    await expect(sandbox[Symbol.asyncDispose]()).resolves.toBeUndefined()
+
+    expect(off).toHaveBeenCalledWith('SIGINT', expect.any(Function))
+    expect(off).toHaveBeenCalledWith('SIGTERM', expect.any(Function))
+    await expect(cleanupActiveContainers()).resolves.toBeUndefined()
   })
 })
 

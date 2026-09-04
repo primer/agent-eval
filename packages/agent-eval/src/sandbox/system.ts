@@ -1,4 +1,4 @@
-import {randomUUID} from 'node:crypto'
+import {createHash, randomUUID} from 'node:crypto'
 import path from 'node:path'
 import {pipeline} from 'node:stream/promises'
 import Docker from 'dockerode'
@@ -10,9 +10,7 @@ import {McpConfigFileSchema} from '../mcp-config'
 import type {McpConfigFile} from '../mcp-config'
 import {
   AGENT_INSTRUCTIONS_PATH,
-  AGENTS_DIR,
   CONTAINER_WORKDIR,
-  COPILOT_DIR,
   COPILOT_PLUGIN_SOURCES_DIR,
   CUSTOM_AGENTS_DIR,
   MCP_CONFIG_PATH,
@@ -47,6 +45,44 @@ import {createCapturedStream} from './captured-stream'
 
 const COPILOT_CLI_VERSION = '1.0.82'
 const NPM_VERSION = '12.0.2'
+const DOCKERFILE = `ARG BASE_IMAGE=node:26.5.0-slim
+
+FROM \${BASE_IMAGE} AS base
+
+ARG NPM_VERSION
+ARG COPILOT_CLI_VERSION
+
+RUN apt-get update \\
+  && apt-get install -y --no-install-recommends ca-certificates chromium curl \\
+  && rm -rf /var/lib/apt/lists/*
+
+RUN npm install --global "npm@\${NPM_VERSION}"
+
+RUN mkdir -p \\
+    /home/sandbox/workspace \\
+    /home/node/.npm-global \\
+    /home/node/.copilot/agents \\
+    /home/node/.agents/skills \\
+  && chown -R node:node \\
+    /home/sandbox \\
+    /home/node/.npm-global \\
+    /home/node/.copilot \\
+    /home/node/.agents
+
+USER node
+
+RUN npm config set prefix /home/node/.npm-global \\
+  && npm install --global "@github/copilot@\${COPILOT_CLI_VERSION}" \\
+  && printf '%s\\n' '{"mcpServers":{}}' > /home/node/.copilot/mcp-config.json
+
+ENV PATH="/home/node/.npm-global/bin:\${PATH}"
+
+FROM base AS sandbox
+
+WORKDIR /home/sandbox/workspace
+
+CMD ["sleep", "infinity"]
+`
 
 const DEFAULT_MCP_CONFIG: McpConfigFile = {
   mcpServers: {},
@@ -55,7 +91,8 @@ const DEFAULT_MCP_CONFIG: McpConfigFile = {
 class SystemSandbox implements Sandbox {
   static async create(options: SandboxCreateOptions = {}) {
     const docker = new Docker()
-    const dockerImage = options.dockerImage?.trim() || DEFAULT_DOCKER_IMAGE
+    const baseDockerImage = options.dockerImage?.trim() || DEFAULT_DOCKER_IMAGE
+    const dockerImage = await ensureDockerImage(docker, baseDockerImage)
     const container = await createContainer(docker, dockerImage)
     return new SystemSandbox(options.host ?? DefaultHost, docker, container)
   }
@@ -71,7 +108,7 @@ class SystemSandbox implements Sandbox {
   }
 
   async [Symbol.asyncDispose]() {
-    await this.#container.remove({force: true})
+    await removeContainer(this.#container)
   }
 
   async copy(sourcePath: string, destinationPath: string, options: CopyOptions = {}): Promise<void> {
@@ -317,14 +354,96 @@ class SystemSandbox implements Sandbox {
 const INITIALIZED_CONTAINER: unique symbol = Symbol('InitializedContainer')
 
 const DEFAULT_DOCKER_IMAGE = 'node:26.5.0-slim'
+const activeContainers = new Set<Docker.Container>()
+const containerRemovals = new WeakMap<Docker.Container, Promise<void>>()
+const removedContainers = new WeakSet<Docker.Container>()
+const dockerImageBuilds = new Map<string, Promise<string>>()
+let terminationCleanup: Promise<void> | undefined
+
+type TerminationSignal = 'SIGINT' | 'SIGTERM'
+
+const terminationHandlers: Record<TerminationSignal, () => void> = {
+  SIGINT() {
+    handleTermination('SIGINT')
+  },
+  SIGTERM() {
+    handleTermination('SIGTERM')
+  },
+}
 
 type InitializedContainer = Docker.Container & {
   readonly [INITIALIZED_CONTAINER]?: true
 }
 
-async function createContainer(docker: Docker, dockerImage: string): Promise<InitializedContainer> {
-  await pullImage(docker, dockerImage)
+async function ensureDockerImage(docker: Docker, baseDockerImage: string): Promise<string> {
+  let build = dockerImageBuilds.get(baseDockerImage)
+  if (!build) {
+    build = buildDockerImage(docker, baseDockerImage).catch(error => {
+      dockerImageBuilds.delete(baseDockerImage)
+      throw error
+    })
+    dockerImageBuilds.set(baseDockerImage, build)
+  }
 
+  return build
+}
+
+async function buildDockerImage(docker: Docker, baseDockerImage: string): Promise<string> {
+  const dockerImage = getDockerImageName(baseDockerImage)
+  logger.debug('Building sandbox image %s from %s...', dockerImage, baseDockerImage)
+
+  const dockerfile = Buffer.from(DOCKERFILE)
+  const context = tarStream.pack()
+  context.entry(
+    {
+      name: 'Dockerfile',
+      size: dockerfile.byteLength,
+    },
+    dockerfile,
+  )
+  context.finalize()
+
+  const stream = await docker.buildImage(context, {
+    buildargs: {
+      BASE_IMAGE: baseDockerImage,
+      COPILOT_CLI_VERSION,
+      NPM_VERSION,
+    },
+    dockerfile: 'Dockerfile',
+    t: dockerImage,
+    target: 'sandbox',
+  })
+
+  await new Promise<void>((resolve, reject) => {
+    docker.modem.followProgress(stream, error => {
+      if (error) {
+        reject(error)
+        return
+      }
+
+      resolve()
+    })
+  })
+
+  return dockerImage
+}
+
+function getDockerImageName(baseDockerImage: string, dockerfile = DOCKERFILE): string {
+  const digest = createHash('sha256')
+    .update(baseDockerImage)
+    .update('\0')
+    .update(dockerfile)
+    .update('\0')
+    .update(NPM_VERSION)
+    .update('\0')
+    .update(COPILOT_CLI_VERSION)
+    .digest('hex')
+    .slice(0, 16)
+
+  return `agent-eval-sandbox:${digest}`
+}
+
+async function createContainer(docker: Docker, dockerImage: string): Promise<InitializedContainer> {
   const container = await docker.createContainer({
     Image: dockerImage,
     Cmd: ['sleep', 'infinity'],
@@ -337,88 +456,7 @@ async function createContainer(docker: Docker, dockerImage: string): Promise<Ini
 
   try {
     await container.start()
-
-    logger.debug('Creating workspace directory...')
-    await execCommand(docker, container, 'mkdir', ['-p', CONTAINER_WORKDIR], {
-      user: 'root',
-    })
-    await execCommand(docker, container, 'chown', ['-R', NODE_USER, CONTAINER_WORKDIR], {
-      user: 'root',
-    })
-
-    logger.debug('Installing CA certificates...')
-    await execCommand(docker, container, 'apt-get', ['update'], {
-      user: 'root',
-    })
-    await execCommand(
-      docker,
-      container,
-      'apt-get',
-      ['install', '-y', '--no-install-recommends', 'ca-certificates', 'curl'],
-      {
-        user: 'root',
-      },
-    )
-    await execCommand(docker, container, 'test', ['-d', '/etc/ssl/certs'], {
-      user: 'root',
-    })
-
-    logger.debug('Installing npm...')
-    await execCommand(docker, container, 'npm', ['install', '--global', `npm@${NPM_VERSION}`], {
-      user: 'root',
-    })
-    const npmVersion = await execCommand(docker, container, 'npm', ['--version'], {
-      user: 'root',
-    })
-    if (npmVersion.stdout.trim() !== NPM_VERSION) {
-      throw new Error(`Expected npm ${NPM_VERSION}, received ${npmVersion.stdout.trim()}`)
-    }
-
-    logger.debug('Setting up npm for non-root global installs')
-    await execCommand(docker, container, 'mkdir', ['-p', NPM_GLOBAL_DIR], {
-      user: 'root',
-    })
-    await execCommand(docker, container, 'chown', ['-R', NODE_USER, NPM_GLOBAL_DIR], {
-      user: 'root',
-    })
-    await execCommand(docker, container, 'npm', ['config', 'set', 'prefix', NPM_GLOBAL_DIR], {
-      user: NODE_USER,
-    })
-
-    logger.debug('Setting up copilot...')
-    await execCommand(docker, container, 'mkdir', ['-p', COPILOT_DIR], {
-      user: 'root',
-    })
-    await execCommand(docker, container, 'chown', ['-R', NODE_USER, COPILOT_DIR], {
-      user: 'root',
-    })
-    await execCommand(docker, container, 'npm', ['install', '-g', `@github/copilot@${COPILOT_CLI_VERSION}`], {
-      user: NODE_USER,
-    })
-    await execCommand(docker, container, 'touch', [path.join(COPILOT_DIR, 'mcp-config.json')], {
-      user: NODE_USER,
-    })
-    await execCommand(
-      docker,
-      container,
-      'bash',
-      ['-c', `echo '${JSON.stringify(DEFAULT_MCP_CONFIG)}' > ${MCP_CONFIG_PATH}`],
-      {
-        user: NODE_USER,
-      },
-    )
-    await execCommand(docker, container, 'mkdir', ['-p', CUSTOM_AGENTS_DIR], {
-      user: NODE_USER,
-    })
-
-    logger.debug('Setting up agents config...')
-    await execCommand(docker, container, 'mkdir', ['-p', AGENTS_DIR], {
-      user: 'root',
-    })
-    await execCommand(docker, container, 'chown', ['-R', NODE_USER, AGENTS_DIR], {
-      user: 'root',
-    })
-
+    trackContainer(container)
     return container as InitializedContainer
   } catch (error) {
     try {
@@ -430,6 +468,78 @@ async function createContainer(docker: Docker, dockerImage: string): Promise<Ini
     }
     throw error
   }
+}
+
+function trackContainer(container: Docker.Container): void {
+  activeContainers.add(container)
+  if (activeContainers.size !== 1) {
+    return
+  }
+
+  process.once('SIGINT', terminationHandlers.SIGINT)
+  process.once('SIGTERM', terminationHandlers.SIGTERM)
+}
+
+async function removeContainer(container: Docker.Container): Promise<void> {
+  if (removedContainers.has(container)) {
+    return
+  }
+
+  const activeRemoval = containerRemovals.get(container)
+  if (activeRemoval) {
+    return activeRemoval
+  }
+
+  const removal = (async () => {
+    try {
+      await container.remove({force: true})
+    } catch (error) {
+      if (!isDockerNotFoundError(error)) {
+        throw error
+      }
+    }
+
+    removedContainers.add(container)
+    activeContainers.delete(container)
+
+    if (activeContainers.size === 0) {
+      process.off('SIGINT', terminationHandlers.SIGINT)
+      process.off('SIGTERM', terminationHandlers.SIGTERM)
+    }
+  })().finally(() => {
+    containerRemovals.delete(container)
+  })
+  containerRemovals.set(container, removal)
+  return removal
+}
+
+function isDockerNotFoundError(error: unknown): boolean {
+  return error instanceof Error && 'statusCode' in error && error.statusCode === 404
+}
+
+async function cleanupActiveContainers(): Promise<void> {
+  const results = await Promise.allSettled(Array.from(activeContainers, container => removeContainer(container)))
+  const errors = results.flatMap(result => {
+    if (result.status === 'rejected') {
+      return [result.reason]
+    }
+
+    return []
+  })
+
+  if (errors.length > 0) {
+    throw new AggregateError(errors, 'Failed to remove active sandbox containers')
+  }
+}
+
+function handleTermination(signal: TerminationSignal): void {
+  terminationCleanup ??= cleanupActiveContainers()
+    .catch(error => {
+      logger.error({error}, 'Failed to clean up sandbox containers during termination')
+    })
+    .then(() => {
+      process.exit(signal === 'SIGINT' ? 130 : 143)
+    })
 }
 
 function mapCopiedHeader(header: Headers, sourceName: string, destinationName: string): Headers {
@@ -592,30 +702,6 @@ async function readFileFromArchive(archive: NodeJS.ReadableStream): Promise<Buff
   })
 }
 
-function pullImage(docker: Docker, name: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    docker.pull(name, (error: Error | null, stream: NodeJS.ReadableStream) => {
-      if (error) {
-        reject(error)
-        return
-      }
-
-      // Follow the pull progress
-      docker.modem.followProgress(
-        stream,
-        (progressError: Error | null) => {
-          if (progressError) {
-            reject(progressError)
-          } else {
-            resolve()
-          }
-        },
-        () => {},
-      )
-    })
-  })
-}
-
 class CommandError extends Error {
   command: ReadonlyArray<string>
   result: CommandResult
@@ -696,4 +782,12 @@ const SandboxSchema = z.custom<Sandbox>(value => {
   return value instanceof SystemSandbox || value instanceof VirtualSandbox
 })
 
-export {SandboxSchema, SystemSandbox, DEFAULT_DOCKER_IMAGE, createContainer}
+export {
+  SandboxSchema,
+  SystemSandbox,
+  DEFAULT_DOCKER_IMAGE,
+  buildDockerImage,
+  cleanupActiveContainers,
+  createContainer,
+  getDockerImageName,
+}

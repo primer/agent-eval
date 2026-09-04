@@ -21,5 +21,6 @@ node "$repository_root/packages/agent-eval/bin/agent-eval" \
   --benchmark "$benchmark_name" \
   --benchmarks "$repository_root/benchmarks" \
   --concurrency "${CONCURRENCY:-1}" \
+  --docker-image "${DOCKER_IMAGE:-node:26.5.0-slim}" \
   --output-dir "$run_directory" \
   --scenarios "$repository_root/scenarios"

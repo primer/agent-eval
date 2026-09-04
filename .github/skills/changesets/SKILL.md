@@ -22,9 +22,11 @@ repository tooling that do not affect consumers of `@primer/agent-eval`.
 2. Select `@primer/agent-eval`.
 3. Choose the version bump based on consumer impact:
    - `patch` for a backwards-compatible fix to existing behavior.
-   - `minor` for a backwards-compatible public API addition or enhancement.
-   - `major` for a breaking public API change that requires consumers to update
-     their code or configuration.
+   - `minor` for a public API addition, enhancement, or breaking change that
+     requires consumers to update their code or configuration.
+
+   Do not use a `major` changeset while `@primer/agent-eval` is pre-1.0.
+
 4. Write a concise summary from the consumer's perspective.
 
 Describe the public API or behavior that was added, changed, fixed, or removed.

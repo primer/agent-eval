@@ -290,10 +290,7 @@ function selectDurablePlan(plan: Plan, selectedShard: ReturnType<typeof parseSha
 }
 
 async function ensureParentDirectory(filepath: string): Promise<void> {
-  const directory = path.dirname(filepath)
-  if (!existsSync(directory)) {
-    await fs.mkdir(directory, {recursive: true})
-  }
+  await fs.mkdir(path.dirname(filepath), {recursive: true})
 }
 
 async function runBenchmarkFromPlan(plan: BenchmarkPlan): Promise<void> {

@@ -17,7 +17,7 @@
   },
   "devDependencies": {
     "@primer/agent-eval": "workspace:*",
-    "@types/node": "^26.2.0",
+    "@types/node": "^26.4.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "rimraf": "^6.1.3",

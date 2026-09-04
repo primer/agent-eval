@@ -1,6 +1,6 @@
 import path from 'node:path'
 import {expect, test} from 'vitest'
-import {defineConfig, deserialize, getExperiment, listExperiments, output, serialize} from './experiment'
+import {defineConfig, getExperiment, listExperiments, output, read, write} from './experiment'
 import {VirtualHost} from './host'
 import type {TrialResult} from './trial'
 
@@ -287,17 +287,10 @@ test('getExperiment throws when the experiment is not found', async () => {
   ).rejects.toThrow('Experiment "missing" was not found in: /experiments')
 })
 
-test('serializes and deserializes experiment identity and result maps', () => {
+test('creates experiment identity and result maps', () => {
   const experimentOutput = output('baseline', [])
-  const serialized = serialize(experimentOutput)
 
-  expect(JSON.parse(serialized)).toEqual({
-    experimentId: 'baseline',
-    scenarios: {},
-    treatments: {},
-    trials: {},
-  })
-  expect(deserialize(serialized)).toEqual({
+  expect(experimentOutput).toEqual({
     experimentId: 'baseline',
     scenarios: new Map(),
     treatments: new Map(),
@@ -305,7 +298,7 @@ test('serializes and deserializes experiment identity and result maps', () => {
   })
 })
 
-test('creates portable artifact paths relative to the output directory', () => {
+test('creates portable artifact paths relative to the output directory', async () => {
   const trialResult: TrialResult = {
     artifacts: {
       directory: '/bundle/artifacts/trial',
@@ -367,5 +360,48 @@ test('creates portable artifact paths relative to the output directory', () => {
         filepath: 'artifacts/trial/walkthrough/screenshot.png',
       },
     }),
+  )
+
+  const host = VirtualHost.create()
+  await write('/bundle/output.json', portableOutput, {host})
+
+  expect(JSON.parse(await host.fs.readFile('/bundle/output.json', 'utf-8'))).toEqual({
+    experimentId: 'baseline',
+    scenarios: {
+      scenario: expect.objectContaining({
+        id: 'scenario',
+      }),
+    },
+    treatments: {
+      Control: {
+        name: 'Control',
+      },
+    },
+    trials: {
+      trial: 'artifacts/trial/trial.json',
+    },
+  })
+  expect(JSON.parse(await host.fs.readFile('/bundle/artifacts/trial/trial.json', 'utf-8'))).toEqual(
+    portableOutput.trials.get('trial'),
+  )
+  await expect(read('/bundle/output.json', {host})).resolves.toEqual(portableOutput)
+
+  await host.fs.writeFile(
+    '/bundle/embedded-output.json',
+    JSON.stringify({
+      experimentId: portableOutput.experimentId,
+      scenarios: Object.fromEntries(portableOutput.scenarios),
+      treatments: Object.fromEntries(portableOutput.treatments),
+      trials: Object.fromEntries(portableOutput.trials),
+    }),
+    'utf-8',
+  )
+  await expect(read('/bundle/embedded-output.json', {host})).rejects.toThrow()
+
+  host.vol.renameSync('/bundle/artifacts', '/outside')
+  host.vol.symlinkSync('/outside', '/bundle/artifacts')
+  await expect(read('/bundle/output.json', {host})).rejects.toThrow('must not resolve outside the output directory')
+  await expect(write('/bundle/output.json', portableOutput, {host})).rejects.toThrow(
+    'must not resolve outside the output directory',
   )
 })

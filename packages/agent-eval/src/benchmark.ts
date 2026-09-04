@@ -10,9 +10,12 @@ import {getScenario, ScenarioSchema, type Scenario} from './scenario'
 import {ControlTreatment, TreatmentSchema, TreatmentSetupSchema, type Treatment, type TreatmentSetup} from './treatment'
 import {
   getPortableTrialPaths,
+  readTrialFiles,
   TrialAgentSchema,
   TrialArtifactsSchema,
   WalkthroughSchema,
+  writeTrialFiles,
+  type ResultFileOptions,
   type Trial,
   type TrialResult,
 } from './trial'
@@ -256,7 +259,7 @@ const BenchmarkTrialOutputSchema = z.object({
   walkthrough: WalkthroughSchema,
 })
 
-const SerializedBenchmarkOutputSchema = z.object({
+const BenchmarkOutputFileSchema = z.object({
   benchmarkId: z.string(),
   capabilities: z.record(z.string(), CapabilityOutputSchema),
   scenarios: z.record(
@@ -277,7 +280,7 @@ const SerializedBenchmarkOutputSchema = z.object({
       name: true,
     }),
   ),
-  trials: z.record(z.string(), BenchmarkTrialOutputSchema),
+  trials: z.record(z.string(), z.string()),
 })
 
 type BenchmarkOutput = {
@@ -342,30 +345,48 @@ function output(
   return result
 }
 
-function serialize(benchmarkOutput: BenchmarkOutput): string {
-  return JSON.stringify({
-    benchmarkId: benchmarkOutput.benchmarkId,
-    capabilities: Object.fromEntries(benchmarkOutput.capabilities),
-    scenarios: Object.fromEntries(benchmarkOutput.scenarios),
-    treatments: Object.fromEntries(benchmarkOutput.treatments),
-    trials: Object.fromEntries(benchmarkOutput.trials),
-  })
+async function write(
+  filepath: string,
+  benchmarkOutput: BenchmarkOutput,
+  options: ResultFileOptions = {},
+): Promise<void> {
+  const host = options.host ?? DefaultHost
+  const trials = await writeTrialFiles(filepath, benchmarkOutput.trials, options)
+  await host.fs.writeFile(
+    filepath,
+    JSON.stringify({
+      benchmarkId: benchmarkOutput.benchmarkId,
+      capabilities: Object.fromEntries(benchmarkOutput.capabilities),
+      scenarios: Object.fromEntries(benchmarkOutput.scenarios),
+      treatments: Object.fromEntries(benchmarkOutput.treatments),
+      trials,
+    }),
+    'utf-8',
+  )
 }
 
-function deserialize(input: unknown): BenchmarkOutput {
-  const parsed = typeof input === 'string' ? JSON.parse(input) : input
-  const result = SerializedBenchmarkOutputSchema.parse(parsed, {reportInput: true})
+async function read(filepath: string, options: ResultFileOptions = {}): Promise<BenchmarkOutput> {
+  const host = options.host ?? DefaultHost
+  const contents = await host.fs.readFile(filepath, 'utf-8')
+  const result = BenchmarkOutputFileSchema.parse(JSON.parse(contents), {reportInput: true})
 
   return {
     benchmarkId: result.benchmarkId,
     capabilities: new Map(Object.entries(result.capabilities)),
     scenarios: new Map(Object.entries(result.scenarios)),
     treatments: new Map(Object.entries(result.treatments)),
-    trials: new Map(Object.entries(result.trials)),
+    trials: await readTrialFiles(
+      filepath,
+      result.trials,
+      input => {
+        return BenchmarkTrialOutputSchema.parse(input, {reportInput: true})
+      },
+      options,
+    ),
   }
 }
 
-export {BenchmarkConfigSchema, defineConfig, deserialize, getBenchmark, listBenchmarks, output, run, serialize}
+export {BenchmarkConfigSchema, defineConfig, getBenchmark, listBenchmarks, output, read, run, write}
 export type {
   BenchmarkConfig,
   Benchmark,
@@ -374,4 +395,5 @@ export type {
   BenchmarkRunResult,
   BenchmarkTrialResult,
   Capability,
+  ResultFileOptions,
 }

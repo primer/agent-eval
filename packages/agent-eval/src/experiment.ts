@@ -17,9 +17,12 @@ import {selectShard, type Shard} from './shard'
 import {ControlTreatment, TreatmentSchema, TreatmentSetupSchema, type Treatment, type TreatmentSetup} from './treatment'
 import {
   getPortableTrialPaths,
+  readTrialFiles,
   TrialAgentSchema,
   TrialArtifactsSchema,
   WalkthroughSchema,
+  writeTrialFiles,
+  type ResultFileOptions,
   type Trial,
   type TrialResult,
 } from './trial'
@@ -261,11 +264,11 @@ type ExperimentOutputOptions = {
   baseDirectory?: string
 }
 
-const SerializedExperimentOutputSchema = z.object({
+const ExperimentOutputFileSchema = z.object({
   experimentId: z.string(),
   scenarios: z.record(z.string(), ExperimentOutputScenarioSchema),
   treatments: z.record(z.string(), ExperimentOutputTreatmentSchema),
-  trials: z.record(z.string(), ExperimentOutputTrialSchema),
+  trials: z.record(z.string(), z.string()),
 })
 
 function output(
@@ -309,28 +312,46 @@ function output(
   return result
 }
 
-function serialize(experimentOutput: ExperimentOutput): string {
-  return JSON.stringify({
-    experimentId: experimentOutput.experimentId,
-    scenarios: Object.fromEntries(experimentOutput.scenarios),
-    treatments: Object.fromEntries(experimentOutput.treatments),
-    trials: Object.fromEntries(experimentOutput.trials),
-  })
+async function write(
+  filepath: string,
+  experimentOutput: ExperimentOutput,
+  options: ResultFileOptions = {},
+): Promise<void> {
+  const host = options.host ?? DefaultHost
+  const trials = await writeTrialFiles(filepath, experimentOutput.trials, options)
+  await host.fs.writeFile(
+    filepath,
+    JSON.stringify({
+      experimentId: experimentOutput.experimentId,
+      scenarios: Object.fromEntries(experimentOutput.scenarios),
+      treatments: Object.fromEntries(experimentOutput.treatments),
+      trials,
+    }),
+    'utf-8',
+  )
 }
 
-function deserialize(input: unknown): ExperimentOutput {
-  const parsed = typeof input === 'string' ? JSON.parse(input) : input
-  const result = SerializedExperimentOutputSchema.parse(parsed, {reportInput: true})
+async function read(filepath: string, options: ResultFileOptions = {}): Promise<ExperimentOutput> {
+  const host = options.host ?? DefaultHost
+  const contents = await host.fs.readFile(filepath, 'utf-8')
+  const result = ExperimentOutputFileSchema.parse(JSON.parse(contents), {reportInput: true})
 
   return {
     experimentId: result.experimentId,
     scenarios: new Map(Object.entries(result.scenarios)),
     treatments: new Map(Object.entries(result.treatments)),
-    trials: new Map(Object.entries(result.trials)),
+    trials: await readTrialFiles(
+      filepath,
+      result.trials,
+      input => {
+        return ExperimentOutputTrialSchema.parse(input, {reportInput: true})
+      },
+      options,
+    ),
   }
 }
 
-export {ExperimentConfigSchema, defineConfig, deserialize, getExperiment, listExperiments, output, run, serialize}
+export {ExperimentConfigSchema, defineConfig, getExperiment, listExperiments, output, read, run, write}
 export type {
   ExperimentConfig,
   Experiment,
@@ -338,4 +359,5 @@ export type {
   ExperimentOutputOptions,
   ExperimentScenarioConfig,
   InlineScenarioConfig,
+  ResultFileOptions,
 }

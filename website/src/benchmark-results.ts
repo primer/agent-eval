@@ -3,7 +3,7 @@ import path from 'node:path'
 import type {BenchmarkOutput} from '@primer/agent-eval/benchmark'
 import type {Benchmark} from './benchmarks'
 
-const {deserialize} = await import(
+const {read} = await import(
   /* turbopackIgnore: true */
   '@primer/agent-eval/benchmark'
 )
@@ -147,9 +147,7 @@ async function getDatedCandidates(benchmarkId: string): Promise<Array<OutputCand
 }
 
 async function readBenchmarkOutput(candidate: OutputCandidate, benchmarkId: string): Promise<BenchmarkOutput | null> {
-  const contents = await fs.readFile(candidate.filepath, 'utf-8')
-  const parsed: unknown = JSON.parse(contents)
-  const output = deserialize(parsed)
+  const output = await read(candidate.filepath)
   return output.benchmarkId === benchmarkId ? output : null
 }
 

@@ -1,12 +1,12 @@
 export {
   BenchmarkConfigSchema,
   defineConfig as defineBenchmarkConfig,
-  deserialize as deserializeBenchmarkOutput,
   getBenchmark,
   listBenchmarks,
   output as getBenchmarkOutput,
+  read as readBenchmarkOutput,
   run as runBenchmark,
-  serialize as serializeBenchmarkOutput,
+  write as writeBenchmarkOutput,
 } from './benchmark'
 export type {
   BenchmarkConfig,
@@ -15,17 +15,18 @@ export type {
   BenchmarkRunResult,
   BenchmarkTrialResult,
   Capability,
+  ResultFileOptions,
 } from './benchmark'
 
 export {
   ExperimentConfigSchema,
   defineConfig as defineExperimentConfig,
-  deserialize as deserializeExperimentOutput,
   getExperiment,
   listExperiments,
   output as getExperimentOutput,
+  read as readExperimentOutput,
   run as runExperiment,
-  serialize as serializeExperimentOutput,
+  write as writeExperimentOutput,
 } from './experiment'
 export type {ExperimentConfig, Experiment, ExperimentOutput} from './experiment'
 

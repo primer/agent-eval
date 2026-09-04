@@ -145,6 +145,8 @@ between machines without rewriting paths:
 run/
 ├── output.json
 └── artifacts/
+    └── <trial-id>/
+        ├── <trial-id>.json
 ```
 
 ```sh
@@ -153,7 +155,10 @@ agent-eval \
   --output-dir run
 ```
 
-Artifact and walkthrough references written by the CLI are relative to the
+`output.json` stores run metadata and maps each trial ID to its JSON file inside
+that trial's artifact directory. Each trial file contains the agent, model,
+test result, artifact, and walkthrough data that was previously embedded in
+`output.json`. Artifact and walkthrough references are relative to the
 directory containing `output.json`. Upload or download the complete `run`
 directory to preserve those references. `--output-dir` creates `output.json`
 and `artifacts/` within the selected directory. When using `--output`, artifacts

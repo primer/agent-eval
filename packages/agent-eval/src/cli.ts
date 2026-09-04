@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 
-import {existsSync} from 'node:fs'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import {parseArgs} from 'node:util'
@@ -9,13 +8,13 @@ import {
   getBenchmark,
   run as runBenchmark,
   output as getBenchmarkOutput,
-  serialize as serializeBenchmarkOutput,
+  write as writeBenchmarkOutput,
 } from './benchmark'
 import {
   getExperiment,
   run as runExperiment,
   output as getExperimentOutput,
-  serialize as serializeExperimentOutput,
+  write as writeExperimentOutput,
 } from './experiment'
 import {logger} from './logger'
 import {formatBenchmarkResults, formatExperimentResults} from './report'
@@ -143,19 +142,12 @@ if (values.benchmark) {
   })
   const sorted = result.toSorted(compareTrial)
 
-  if (!existsSync(path.dirname(env.outputPath))) {
-    await fs.mkdir(path.dirname(env.outputPath), {recursive: true})
-  }
-
   logger.info('Writing benchmark output to: %s', env.outputPath)
-  await fs.writeFile(
+  await writeBenchmarkOutput(
     env.outputPath,
-    serializeBenchmarkOutput(
-      getBenchmarkOutput(benchmark.id, sorted, {
-        baseDirectory: path.dirname(env.outputPath),
-      }),
-    ),
-    'utf-8',
+    getBenchmarkOutput(benchmark.id, sorted, {
+      baseDirectory: path.dirname(env.outputPath),
+    }),
   )
 
   const resultSummaries = formatBenchmarkResults(benchmark, sorted)
@@ -185,11 +177,7 @@ if (values.benchmark) {
     baseDirectory: path.dirname(env.outputPath),
   })
 
-  if (!existsSync(path.dirname(env.outputPath))) {
-    await fs.mkdir(path.dirname(env.outputPath), {recursive: true})
-  }
-
-  await fs.writeFile(env.outputPath, serializeExperimentOutput(output), 'utf-8')
+  await writeExperimentOutput(env.outputPath, output)
 
   const resultSummaries = formatExperimentResults(experiment.name, sorted)
   console.log(resultSummaries)

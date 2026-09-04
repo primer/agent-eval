@@ -5,8 +5,8 @@
 ## What this project does
 
 This project provides a framework for using agent-eval to evaluate scenarios.
-Each experiment defines treatments that set up the agent's environment before
-it completes one or more scenarios.
+Experiments compare treatments across selected scenarios, while benchmarks
+group scenarios into capabilities to measure broader agent performance.
 
 Scenarios represent tasks where, given a prompt, we measure how the agent
 behaves. This framework helps compare the effectiveness of different treatments
@@ -22,12 +22,14 @@ Results are scored by:
 
 - **Scenarios** describe the task and tests used to grade the agent's output.
 - **Experiments** select the models, scenarios, and treatments to run together.
+- **Benchmarks** group scenarios by capability and compare them against the
+  control treatment.
 - **Treatments** define the conditions for a run, such as adding an MCP server,
   custom sub-agent, or skill before the scenario starts.
 
-## Running experiments
+## Running evaluations
 
-Run local experiments with the `agent-eval` CLI:
+Run a local experiment with the `agent-eval` CLI:
 
 ```sh
 COPILOT_GITHUB_TOKEN=... agent-eval \
@@ -36,30 +38,35 @@ COPILOT_GITHUB_TOKEN=... agent-eval \
   --experiment mcp
 ```
 
-You can also provide a path directly to `--experiment`:
+Run a benchmark by selecting a file from the benchmarks directory:
 
 ```sh
 COPILOT_GITHUB_TOKEN=... agent-eval \
-  --experiment ./experiments/mcp.ts \
+  --benchmarks ./benchmarks \
+  --benchmark design-system \
   --scenarios ./scenarios
 ```
 
-The experiment and scenario directories default to `./experiments` and
-`./scenarios`, respectively. Results are written to `./output.json` by default.
-The output includes a run ID, the selected experiment ID, and an array of
-treatment results.
+The benchmark, experiment, and scenario directories default to `./benchmarks`,
+`./experiments`, and `./scenarios`. Results are written to `./output.json` by
+default, with trial artifacts stored in `./artifacts`.
+
+Use `--output-dir <directory>` to keep `output.json` and its artifacts together
+with portable relative paths. It cannot be combined with `--output` or
+`--artifacts`.
 
 ## Authoring scenarios
 
 Scenarios live in [`./scenarios`](./scenarios/). Each scenario has a
 `scenario.config.ts` file that defines the agent prompt and a `scenario.test.ts`
 file that grades the agent's output. Scenarios can also include an optional
-`scenario.browser.test.ts` file for checks that need a browser:
+`browser.test.ts` file for checks that need a browser. The legacy
+`scenario.browser.test.ts` filename remains supported:
 
 ```ts
-import {defineScenario} from '@primer/agent-eval/scenario'
+import {defineConfig} from '@primer/agent-eval/scenario'
 
-export default defineScenario({
+export default defineConfig({
   description: 'Evaluate whether the agent uses a Primer button correctly',
   prompt: 'Update the index page to use a primary button',
   tags: ['baseline', 'button', 'primer'],
@@ -100,10 +107,8 @@ export const experiment = defineConfig({
 })
 ```
 
-Each model config has a `name` and a `reasoningEfforts` array. The experiment
-runs once for each configured effort. Model information, including each model's
-supported reasoning efforts, is exported as `models` from
-`@primer/agent-eval`.
+Models can be specified by name to use the default `medium` reasoning effort or
+with a `name` and `reasoningEfforts` array to run multiple variants.
 
 The experiment config specifies:
 
@@ -138,8 +143,9 @@ export const experiment = defineConfig({
 
 Scenarios can also be defined inline in an experiment. Inline scenario paths
 resolve from the directory where the CLI is run, and use the same
-`scenario.config.ts`, `scenario.test.ts`, and optional `scenario.browser.test.ts`
-files as repository scenarios:
+`scenario.config.ts`, `scenario.test.ts`, and optional browser test files as
+repository scenarios. Use `name` to override the scenario ID derived from the
+directory name:
 
 ```ts
 export const experiment = defineConfig({
@@ -148,6 +154,7 @@ export const experiment = defineConfig({
   models: [{name: 'gpt-5.5', reasoningEfforts: ['high']}],
   scenarios: [
     {
+      name: 'local-button',
       path: './scenarios/local-button-scenario',
     },
   ],
@@ -155,7 +162,31 @@ export const experiment = defineConfig({
 })
 ```
 
-### Describe eval tests
+## Authoring benchmarks
+
+Benchmarks live in [`./benchmarks`](./benchmarks/) and group scenarios into
+capabilities:
+
+```ts
+import {defineConfig} from '@primer/agent-eval/benchmark'
+
+export const benchmark = defineConfig({
+  name: 'Design system',
+  description: 'Measure agent performance across design system tasks',
+  models: ['gpt-5.6-sol'],
+  capabilities: [
+    {
+      name: 'Uses components',
+      scenarios: ['001-agent-uses-button-from-primer'],
+    },
+  ],
+})
+```
+
+Each benchmark runs the control treatment for every configured model variant
+and scenario.
+
+## Describing eval tests
 
 Individual test titles and statuses are included in each run's `testResults`.
 Add a JSDoc, block, or consecutive line comment immediately before a test to

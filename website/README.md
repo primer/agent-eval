@@ -27,3 +27,6 @@ results/
     ├── output.json
     └── artifacts/
 ```
+
+Artifact and walkthrough paths are relative to each `output.json`, so result
+directories should be moved or uploaded as complete bundles.

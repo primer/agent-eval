@@ -2,10 +2,4 @@
 '@primer/agent-eval': minor
 ---
 
-Consolidate experiment configuration, discovery, execution, and output helpers under `@primer/agent-eval/experiment`.
-
-- Replace `findExperiment` with `getExperiment`.
-- Replace the package-root `run` export with `runExperiment`.
-- Replace the package-root `defineConfig` export with `defineExperimentConfig`.
-- Keep `listExperiments` under the singular experiment entry point and package root.
-- Remove `loadExperimentConfigs`, `ExperimentSourceOptions`, and `LoadExperimentOptions`; pass explicit experiment and scenario directories to the new discovery helpers instead.
+Move experiment APIs to `@primer/agent-eval/experiment`, replacing `findExperiment`, package-root `run`, and package-root `defineConfig` with `getExperiment`, `runExperiment`, and `defineExperimentConfig`. Remove the legacy experiment loading helpers in favor of `getExperiment` and `listExperiments` with explicit source directories.

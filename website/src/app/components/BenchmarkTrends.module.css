@@ -40,6 +40,48 @@
   pointer-events: none;
 }
 
+.controlLine,
+.controlPoint {
+  pointer-events: none;
+}
+
+.lineHitTarget {
+  cursor: crosshair;
+  pointer-events: stroke;
+}
+
+.lineHitTarget:focus-visible {
+  outline: none;
+  stroke: var(--focus-outline-color);
+}
+
+.pointHitTarget {
+  cursor: crosshair;
+  fill: transparent;
+}
+
+.tooltip {
+  pointer-events: none;
+}
+
+.tooltipBackground {
+  fill: var(--bgColor-default);
+  stroke: var(--borderColor-muted);
+  stroke-width: 1;
+  rx: var(--borderRadius-medium);
+}
+
+.tooltipTitle {
+  fill: var(--fgColor-default);
+  font-size: var(--text-body-size-small);
+  font-weight: var(--base-text-weight-semibold);
+}
+
+.tooltipValue {
+  fill: var(--fgColor-muted);
+  font-size: var(--text-body-size-small);
+}
+
 .legend {
   display: flex;
   flex-wrap: wrap;
@@ -49,11 +91,52 @@
   list-style: none;
 }
 
-.legendItem {
+.filters {
   display: flex;
-  align-items: center;
+  flex-wrap: wrap;
+  align-items: start;
+  gap: var(--stack-gap-normal);
+}
+
+.trendsHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: start;
+  justify-content: space-between;
+  gap: var(--stack-gap-normal);
+}
+
+.legendGroups {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: start;
+  justify-content: space-between;
+  gap: var(--stack-gap-normal);
+}
+
+.legendButton {
   gap: var(--stack-gap-condensed);
-  font: var(--text-body-shorthand-small);
+}
+
+.treatmentLegend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--stack-gap-normal);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.seriesGroup,
+.treatmentGroup {
+  transition: opacity var(--motion-transition-hover);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .seriesGroup,
+  .treatmentGroup {
+    transition: none;
+  }
 }
 
 .metricValue {

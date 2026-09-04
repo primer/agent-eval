@@ -136,7 +136,7 @@ export function BenchmarkOverview({benchmark, overview}: {benchmark: Benchmark; 
   return (
     <Stack padding="normal" gap="spacious">
       <BenchmarkResultsTable benchmark={benchmark} date={overview.date} results={overview.results} />
-      <BenchmarkTrends points={overview.trends} />
+      <BenchmarkTrends capabilities={benchmark.capabilities} points={overview.trends} />
     </Stack>
   )
 }

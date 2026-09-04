@@ -71,6 +71,8 @@ export type BenchmarkTrendMetric = {
 export type BenchmarkTrendPoint = {
   id: string
   date: string
+  capabilityId: string | null
+  scenarioId: string | null
   model: string
   reasoningEffort: string
   metrics: Record<BenchmarkTrendMetricId, BenchmarkTrendMetric>
@@ -326,6 +328,8 @@ function createTrendPoint(
   trials: Array<BenchmarkOutputTrial>,
   controlTreatmentId: string,
   benchmarkTreatmentId: string,
+  capabilityId: string | null,
+  scenarioId: string | null,
 ): BenchmarkTrendPoint {
   const trial = trials[0]
   const controlTotals = getTotals(
@@ -342,8 +346,10 @@ function createTrendPoint(
   const benchmarkPassRate = getPassRate(benchmarkTotals)
 
   return {
-    id: `${date}:${trial.model.name}:${trial.model.reasoningEffort}`,
+    id: `${date}:${capabilityId ?? 'all'}:${scenarioId ?? 'all'}:${trial.model.name}:${trial.model.reasoningEffort}`,
     date,
+    capabilityId,
+    scenarioId,
     model: trial.model.name,
     reasoningEffort: trial.model.reasoningEffort,
     metrics: {
@@ -389,6 +395,19 @@ function createTrendPoint(
       ),
     },
   }
+}
+
+function createTrendPoints(
+  date: string,
+  trials: Array<BenchmarkOutputTrial>,
+  controlTreatmentId: string,
+  benchmarkTreatmentId: string,
+  capabilityId: string | null,
+  scenarioId: string | null,
+): Array<BenchmarkTrendPoint> {
+  return groupTrialsByModel(trials).map(modelTrials => {
+    return createTrendPoint(date, modelTrials, controlTreatmentId, benchmarkTreatmentId, capabilityId, scenarioId)
+  })
 }
 
 function compareModelPerformance(
@@ -479,9 +498,54 @@ export function getBenchmarkOverviewData(runs: Array<BenchmarkRun>): BenchmarkOv
     : []
   const trends = runs.flatMap(run => {
     const {controlTreatmentId, benchmarkTreatmentId} = getTreatments(run.output)
-    return groupTrialsByModel([...run.output.trials.values()]).map(trials => {
-      return createTrendPoint(run.name, trials, controlTreatmentId, benchmarkTreatmentId)
+    const trials = [...run.output.trials.values()]
+    const scenarioIds = new Set(
+      trials.map(trial => {
+        return trial.scenarioId
+      }),
+    )
+    const allTrendPoints = createTrendPoints(run.name, trials, controlTreatmentId, benchmarkTreatmentId, null, null)
+    const scenarioTrendPoints = [...scenarioIds].flatMap(scenarioId => {
+      return createTrendPoints(
+        run.name,
+        trials.filter(trial => {
+          return trial.scenarioId === scenarioId
+        }),
+        controlTreatmentId,
+        benchmarkTreatmentId,
+        null,
+        scenarioId,
+      )
     })
+    const capabilityTrendPoints = [...run.output.capabilities.values()].flatMap(capability => {
+      const capabilityTrials = trials.filter(trial => {
+        return trial.capabilityId === capability.name
+      })
+      const capabilityPoints = createTrendPoints(
+        run.name,
+        capabilityTrials,
+        controlTreatmentId,
+        benchmarkTreatmentId,
+        capability.name,
+        null,
+      )
+      const capabilityScenarioPoints = capability.scenarioIds.flatMap(scenarioId => {
+        return createTrendPoints(
+          run.name,
+          capabilityTrials.filter(trial => {
+            return trial.scenarioId === scenarioId
+          }),
+          controlTreatmentId,
+          benchmarkTreatmentId,
+          capability.name,
+          scenarioId,
+        )
+      })
+
+      return [...capabilityPoints, ...capabilityScenarioPoints]
+    })
+
+    return [...allTrendPoints, ...scenarioTrendPoints, ...capabilityTrendPoints]
   })
 
   return {

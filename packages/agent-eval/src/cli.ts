@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 
-import {existsSync} from 'node:fs'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import {parseArgs} from 'node:util'
@@ -143,10 +142,6 @@ if (values.benchmark) {
   })
   const sorted = result.toSorted(compareTrial)
 
-  if (!existsSync(path.dirname(env.outputPath))) {
-    await fs.mkdir(path.dirname(env.outputPath), {recursive: true})
-  }
-
   logger.info('Writing benchmark output to: %s', env.outputPath)
   await writeBenchmarkOutput(
     env.outputPath,
@@ -181,10 +176,6 @@ if (values.benchmark) {
   const output = getExperimentOutput(experiment.id, sorted, {
     baseDirectory: path.dirname(env.outputPath),
   })
-
-  if (!existsSync(path.dirname(env.outputPath))) {
-    await fs.mkdir(path.dirname(env.outputPath), {recursive: true})
-  }
 
   await writeExperimentOutput(env.outputPath, output)
 

@@ -259,30 +259,6 @@ const BenchmarkTrialOutputSchema = z.object({
   walkthrough: WalkthroughSchema,
 })
 
-const SerializedBenchmarkOutputSchema = z.object({
-  benchmarkId: z.string(),
-  capabilities: z.record(z.string(), CapabilityOutputSchema),
-  scenarios: z.record(
-    z.string(),
-    z.pick(ScenarioSchema, {
-      id: true,
-      directory: true,
-      prompt: true,
-      description: true,
-      tags: true,
-      testPath: true,
-      browserTestPath: true,
-    }),
-  ),
-  treatments: z.record(
-    z.string(),
-    z.pick(TreatmentSchema, {
-      name: true,
-    }),
-  ),
-  trials: z.record(z.string(), BenchmarkTrialOutputSchema),
-})
-
 const BenchmarkOutputFileSchema = z.object({
   benchmarkId: z.string(),
   capabilities: z.record(z.string(), CapabilityOutputSchema),
@@ -369,29 +345,6 @@ function output(
   return result
 }
 
-function serialize(benchmarkOutput: BenchmarkOutput): string {
-  return JSON.stringify({
-    benchmarkId: benchmarkOutput.benchmarkId,
-    capabilities: Object.fromEntries(benchmarkOutput.capabilities),
-    scenarios: Object.fromEntries(benchmarkOutput.scenarios),
-    treatments: Object.fromEntries(benchmarkOutput.treatments),
-    trials: Object.fromEntries(benchmarkOutput.trials),
-  })
-}
-
-function deserialize(input: unknown): BenchmarkOutput {
-  const parsed = typeof input === 'string' ? JSON.parse(input) : input
-  const result = SerializedBenchmarkOutputSchema.parse(parsed, {reportInput: true})
-
-  return {
-    benchmarkId: result.benchmarkId,
-    capabilities: new Map(Object.entries(result.capabilities)),
-    scenarios: new Map(Object.entries(result.scenarios)),
-    treatments: new Map(Object.entries(result.treatments)),
-    trials: new Map(Object.entries(result.trials)),
-  }
-}
-
 async function write(
   filepath: string,
   benchmarkOutput: BenchmarkOutput,
@@ -399,7 +352,6 @@ async function write(
 ): Promise<void> {
   const host = options.host ?? DefaultHost
   const trials = await writeTrialFiles(filepath, benchmarkOutput.trials, options)
-  await host.fs.mkdir(path.dirname(filepath), {recursive: true})
   await host.fs.writeFile(
     filepath,
     JSON.stringify({
@@ -416,12 +368,7 @@ async function write(
 async function read(filepath: string, options: ResultFileOptions = {}): Promise<BenchmarkOutput> {
   const host = options.host ?? DefaultHost
   const contents = await host.fs.readFile(filepath, 'utf-8')
-  const parsed: unknown = JSON.parse(contents)
-  const parseResult = BenchmarkOutputFileSchema.safeParse(parsed)
-  if (!parseResult.success) {
-    return deserialize(parsed)
-  }
-  const result = parseResult.data
+  const result = BenchmarkOutputFileSchema.parse(JSON.parse(contents), {reportInput: true})
 
   return {
     benchmarkId: result.benchmarkId,
@@ -439,18 +386,7 @@ async function read(filepath: string, options: ResultFileOptions = {}): Promise<
   }
 }
 
-export {
-  BenchmarkConfigSchema,
-  defineConfig,
-  deserialize,
-  getBenchmark,
-  listBenchmarks,
-  output,
-  read,
-  run,
-  serialize,
-  write,
-}
+export {BenchmarkConfigSchema, defineConfig, getBenchmark, listBenchmarks, output, read, run, write}
 export type {
   BenchmarkConfig,
   Benchmark,

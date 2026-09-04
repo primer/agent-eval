@@ -1,13 +1,11 @@
 import {afterEach, expect, test, vi} from 'vitest'
 import {
   defineConfig,
-  deserialize,
   getBenchmark,
   listBenchmarks,
   output,
   read,
   run,
-  serialize,
   write,
   type BenchmarkTrialResult,
 } from './benchmark'
@@ -316,7 +314,7 @@ test('run applies global and capability setup to benchmark treatment trials', as
   expect(setupOrder).toEqual(['global', 'capability'])
 })
 
-test('output serializes and deserializes benchmark capability metadata', async () => {
+test('writes and reads benchmark capability metadata', async () => {
   const capability = {
     name: 'Test capability',
     scenarios: [
@@ -400,8 +398,6 @@ test('output serializes and deserializes benchmark capability metadata', async (
       },
     }),
   )
-  expect(deserialize(serialize(benchmarkOutput))).toEqual(benchmarkOutput)
-
   const host = VirtualHost.create()
   await write('/bundle/output.json', benchmarkOutput, {host})
 
@@ -432,6 +428,16 @@ test('output serializes and deserializes benchmark capability metadata', async (
   )
   await expect(read('/bundle/output.json', {host})).resolves.toEqual(benchmarkOutput)
 
-  await host.fs.writeFile('/bundle/embedded-output.json', serialize(benchmarkOutput), 'utf-8')
-  await expect(read('/bundle/embedded-output.json', {host})).resolves.toEqual(benchmarkOutput)
+  await host.fs.writeFile(
+    '/bundle/embedded-output.json',
+    JSON.stringify({
+      benchmarkId: benchmarkOutput.benchmarkId,
+      capabilities: Object.fromEntries(benchmarkOutput.capabilities),
+      scenarios: Object.fromEntries(benchmarkOutput.scenarios),
+      treatments: Object.fromEntries(benchmarkOutput.treatments),
+      trials: Object.fromEntries(benchmarkOutput.trials),
+    }),
+    'utf-8',
+  )
+  await expect(read('/bundle/embedded-output.json', {host})).rejects.toThrow()
 })

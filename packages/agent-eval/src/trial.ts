@@ -1,7 +1,7 @@
 import path from 'node:path'
 import {isMessageType, MessageSchema, parseMessage, type Message} from './copilot-cli'
 import {DefaultHost, type Host} from './host'
-import {AGENTS_DIR, CONTAINER_WORKDIR, COPILOT_DIR, NODE_USER, type Sandbox} from './sandbox'
+import {AGENTS_DIR, CONTAINER_WORKDIR, COPILOT_DIR, NODE_USER, SKILLS_DIR, type Sandbox} from './sandbox'
 import {parseTestResults, TestResultsSchema} from './vitest'
 import {logger} from './logger'
 import * as z from 'zod/mini'
@@ -20,6 +20,7 @@ const TrialSchema = z.object({
 type Trial = z.infer<typeof TrialSchema>
 
 const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg'])
+const AGENT_BROWSER_SKILL_DIRECTORY = path.posix.join(SKILLS_DIR, 'agent-browser')
 
 const WalkthroughSchema = z.discriminatedUnion('type', [
   z.object({type: z.literal('Unavailable')}),
@@ -277,6 +278,11 @@ Only capture the walkthrough, do not make any further code changes.`
   if (walkthroughResult.exitCode !== 0) {
     logger.warn('%s Unable to capture walkthrough: %s', logPrefix, walkthroughResult.stderr)
   }
+
+  logger.debug('%s Removing walkthrough skill...', logPrefix)
+  await sandbox.runCommand('rm', ['-rf', AGENT_BROWSER_SKILL_DIRECTORY], {
+    user: NODE_USER,
+  })
 
   const artifactDirectory = path.join(artifactsDirectory, trial.id)
   const workspaceDirectory = path.join(artifactDirectory, 'workspace')

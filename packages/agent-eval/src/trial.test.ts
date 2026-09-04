@@ -1,7 +1,15 @@
 import path from 'node:path'
 import {describe, expect, test, vi} from 'vitest'
-import {VirtualHost} from './host'
-import {AGENTS_DIR, CONTAINER_WORKDIR, COPILOT_DIR, NODE_USER, type CommandResult, type Sandbox} from './sandbox'
+import {VirtualHost, type Host} from './host'
+import {
+  AGENTS_DIR,
+  CONTAINER_WORKDIR,
+  COPILOT_DIR,
+  NODE_USER,
+  SKILLS_DIR,
+  type CommandResult,
+  type Sandbox,
+} from './sandbox'
 import {run} from './trial'
 import type {Trial} from './trial'
 import type {ResultMessage} from './copilot-cli'
@@ -143,6 +151,21 @@ function writeWalkthroughArtifact(filepath: string, contents = ''): RunCommandMo
       args[1].startsWith('Record a visual walkthrough')
     ) {
       await sandbox.writeFile(filepath, contents)
+    }
+  }
+}
+
+function manageAgentBrowserSkill(host: Host): RunCommandMock {
+  return async ({params, sandbox}) => {
+    const [command, args] = params
+    const skillDirectory = path.posix.join(SKILLS_DIR, 'agent-browser')
+
+    if (command === 'npx' && Array.isArray(args) && args[0] === 'skills' && args[1] === 'add') {
+      await sandbox.writeFile(path.posix.join(skillDirectory, 'SKILL.md'), 'agent browser skill')
+    }
+
+    if (command === 'rm' && Array.isArray(args) && args[0] === '-rf' && args[1] === skillDirectory) {
+      await host.fs.rm(skillDirectory, {recursive: true, force: true})
     }
   }
 }
@@ -782,6 +805,30 @@ describe('run', () => {
       await expect(
         host.fs.readFile(path.join(result.artifacts.skillsConfigDirectory, 'AGENTS.md'), 'utf8'),
       ).resolves.toBe('agent config')
+    })
+
+    test('excludes the walkthrough skill from the agent configuration', async () => {
+      const trial = createTrial()
+      const {sandbox, host, ...runOptions} = await setup(trial)
+      const treatmentSkillPath = path.posix.join(SKILLS_DIR, 'treatment-skill', 'SKILL.md')
+      await host.fs.mkdir(path.posix.dirname(treatmentSkillPath), {recursive: true})
+      await host.fs.writeFile(treatmentSkillPath, 'treatment skill')
+      mockRunCommand(sandbox, [manageAgentBrowserSkill(host)])
+
+      const result = await run({
+        ...runOptions,
+        host,
+        sandbox,
+        trial,
+      })
+
+      expect(host.existsSync(path.join(result.artifacts.skillsConfigDirectory, 'skills', 'agent-browser'))).toBe(false)
+      await expect(
+        host.fs.readFile(
+          path.join(result.artifacts.skillsConfigDirectory, 'skills', 'treatment-skill', 'SKILL.md'),
+          'utf8',
+        ),
+      ).resolves.toBe('treatment skill')
     })
 
     test('downloads the walkthrough', async () => {

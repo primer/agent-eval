@@ -424,10 +424,10 @@ test('output serializes and deserializes benchmark capability metadata', async (
       },
     },
     trials: {
-      trial: 'artifacts/trial.json',
+      trial: 'artifacts/trial/trial.json',
     },
   })
-  expect(JSON.parse(await host.fs.readFile('/bundle/artifacts/trial.json', 'utf-8'))).toEqual(
+  expect(JSON.parse(await host.fs.readFile('/bundle/artifacts/trial/trial.json', 'utf-8'))).toEqual(
     benchmarkOutput.trials.get('trial'),
   )
   await expect(read('/bundle/output.json', {host})).resolves.toEqual(benchmarkOutput)

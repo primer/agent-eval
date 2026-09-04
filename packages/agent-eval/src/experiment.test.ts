@@ -385,10 +385,10 @@ test('creates portable artifact paths relative to the output directory', async (
       },
     },
     trials: {
-      trial: 'artifacts/trial.json',
+      trial: 'artifacts/trial/trial.json',
     },
   })
-  expect(JSON.parse(await host.fs.readFile('/bundle/artifacts/trial.json', 'utf-8'))).toEqual(
+  expect(JSON.parse(await host.fs.readFile('/bundle/artifacts/trial/trial.json', 'utf-8'))).toEqual(
     portableOutput.trials.get('trial'),
   )
   await expect(read('/bundle/output.json', {host})).resolves.toEqual(portableOutput)

@@ -21,7 +21,7 @@ async function writeTrialFiles<T extends {artifacts: {directory: string}; id: st
       const artifactDirectory = path.isAbsolute(trial.artifacts.directory)
         ? trial.artifacts.directory
         : path.resolve(outputDirectory, trial.artifacts.directory)
-      const trialFilePath = path.join(path.dirname(artifactDirectory), `${trialId}.json`)
+      const trialFilePath = path.join(artifactDirectory, `${trialId}.json`)
       await host.fs.mkdir(path.dirname(trialFilePath), {recursive: true})
       await host.fs.writeFile(trialFilePath, JSON.stringify(trial), 'utf-8')
       const reference = path.relative(outputDirectory, trialFilePath).split(path.sep).join(path.posix.sep)

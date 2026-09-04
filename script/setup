@@ -38,6 +38,7 @@ if [[ -n "$artifact_ids" ]]; then
 
   mkdir -p "$repository_root/results"
   cp -R "$download_directory/results/." "$repository_root/results/"
+  node "$repository_root/script/migrate-result-output.js" "$repository_root/results/benchmarks"
 fi
 
 # Build

@@ -1,3 +1,4 @@
+import path from 'node:path'
 import {expect, test} from 'vitest'
 import {defineConfig, getExperiment, listExperiments} from './experiment'
 import {VirtualHost} from './host'
@@ -100,6 +101,73 @@ test('listExperiments prefers the named experiment export', async () => {
       ...resolveConfig(namedConfig),
       id: 'experiment',
       filepath: '/experiments/experiment.ts',
+    },
+  ])
+})
+
+test('listExperiments resolves inline scenario paths with optional names', async () => {
+  const unnamedDirectory = path.resolve('/fixtures/unnamed-scenario')
+  const namedDirectory = path.resolve('/fixtures/named-scenario')
+  const inlineConfig = {
+    ...config,
+    scenarios: [
+      {
+        path: unnamedDirectory,
+      },
+      {
+        name: 'custom-name',
+        path: namedDirectory,
+      },
+    ],
+  }
+  const scenarioConfig = JSON.stringify({
+    prompt: 'Complete the task',
+  })
+  const host = VirtualHost.create({
+    '/experiments': {
+      'inline.ts': `export default ${JSON.stringify(inlineConfig)}`,
+    },
+    '/fixtures': {
+      'unnamed-scenario': {
+        'scenario.browser.test.ts': '',
+        'scenario.config.ts': `export default ${scenarioConfig}`,
+        'scenario.test.ts': '',
+      },
+      'named-scenario': {
+        'scenario.config.ts': `export default ${scenarioConfig}`,
+        'scenario.test.ts': '',
+      },
+    },
+  })
+
+  await expect(
+    listExperiments({
+      host,
+      experimentsDirectory: '/experiments',
+      scenariosDirectory: '/scenarios',
+    }),
+  ).resolves.toEqual([
+    {
+      ...resolveConfig(inlineConfig),
+      id: 'inline',
+      filepath: '/experiments/inline.ts',
+      scenarios: [
+        {
+          id: 'unnamed-scenario',
+          directory: unnamedDirectory,
+          prompt: 'Complete the task',
+          tags: [],
+          testPath: path.join(unnamedDirectory, 'scenario.test.ts'),
+          browserTestPath: path.join(unnamedDirectory, 'scenario.browser.test.ts'),
+        },
+        {
+          id: 'custom-name',
+          directory: namedDirectory,
+          prompt: 'Complete the task',
+          tags: [],
+          testPath: path.join(namedDirectory, 'scenario.test.ts'),
+        },
+      ],
     },
   ])
 })

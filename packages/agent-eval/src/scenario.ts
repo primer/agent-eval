@@ -35,6 +35,50 @@ type ScenarioSourceOptions = {
   directory: string
 }
 
+async function loadScenario(host: Host, directory: string, id = path.basename(directory)): Promise<Scenario> {
+  if (!host.existsSync(directory)) {
+    throw new Error(`Scenario "${id}" directory was not found: ${directory}`)
+  }
+
+  const stats = await host.fs.stat(directory)
+  if (!stats.isDirectory()) {
+    throw new Error(`Scenario "${id}" directory was not found: ${directory}`)
+  }
+
+  const configPath = path.join(directory, 'scenario.config.ts')
+  if (!host.existsSync(configPath)) {
+    throw new Error(`Scenario "${id}" config file was not found: ${configPath}`)
+  }
+
+  const testPath = path.join(directory, 'scenario.test.ts')
+  if (!host.existsSync(testPath)) {
+    throw new Error(`Scenario "${id}" test file was not found: ${testPath}`)
+  }
+
+  const data: ScenarioConfigModule = await host.loadModule(configPath)
+  const config = ScenarioConfigSchema.parse(data.default)
+  const scenario: Scenario = {
+    id,
+    directory,
+    prompt: config.prompt,
+    tags: config.tags ?? [],
+    testPath,
+  }
+
+  if (config.description) {
+    scenario.description = config.description
+  }
+
+  const browserTestPath = ['browser.test.ts', 'scenario.browser.test.ts']
+    .map(filename => path.join(directory, filename))
+    .find(filepath => host.existsSync(filepath))
+  if (browserTestPath) {
+    scenario.browserTestPath = browserTestPath
+  }
+
+  return scenario
+}
+
 function getScenarioSource(
   hostOrOptions: Host | ScenarioSourceOptions,
   directory?: string,
@@ -103,35 +147,13 @@ async function listScenarios(
   const scenarios: Array<Scenario> = []
 
   for (const entry of candidates) {
-    const data: ScenarioConfigModule = await host.loadModule(path.join(directory, entry.name, 'scenario.config.ts'))
-    if (!data.default) {
+    const scenarioDirectory = path.join(directory, entry.name)
+    const data: ScenarioConfigModule = await host.loadModule(path.join(scenarioDirectory, 'scenario.config.ts'))
+    if (!ScenarioConfigSchema.safeParse(data.default).success) {
       continue
     }
 
-    const parseResult = ScenarioConfigSchema.safeParse(data.default)
-    if (!parseResult.success) {
-      continue
-    }
-
-    const {data: config} = parseResult
-    const scenario: Scenario = {
-      id: entry.name,
-      directory: path.join(directory, entry.name),
-      prompt: config.prompt,
-      tags: config.tags ?? [],
-      testPath: path.join(directory, entry.name, 'scenario.test.ts'),
-    }
-
-    if (config.description) {
-      scenario.description = config.description
-    }
-
-    const browserTestPath = path.join(directory, entry.name, 'browser.test.ts')
-    if (host.existsSync(browserTestPath)) {
-      scenario.browserTestPath = browserTestPath
-    }
-
-    scenarios.push(scenario)
+    scenarios.push(await loadScenario(host, scenarioDirectory, entry.name))
   }
 
   return scenarios
@@ -155,5 +177,5 @@ async function getScenario(
   throw new Error(`Scenario "${id}" was not found in: ${source.directory}`)
 }
 
-export {defineConfig, listScenarios, getScenario, ScenarioSchema, ScenarioConfigSchema}
+export {defineConfig, listScenarios, getScenario, loadScenario, ScenarioSchema, ScenarioConfigSchema}
 export type {ScenarioConfig, Scenario, ScenarioSourceOptions}

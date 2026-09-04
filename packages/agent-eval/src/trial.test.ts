@@ -29,6 +29,7 @@ async function setup(trial: Trial) {
       },
       'scenario.config.ts': '',
       'scenario.test.ts': '',
+      ...(trial.scenario.browserTestPath ? {[path.basename(trial.scenario.browserTestPath)]: ''} : {}),
     },
   })
   const sandbox = await host.createSandbox()
@@ -91,8 +92,14 @@ const writeCopilotResult: RunCommandMock = async ({params}) => {
 const writeTestFile: RunCommandMock = async ({params, sandbox}) => {
   const [command, args] = params
   if (command === 'sh' && Array.isArray(args) && args[0] === '-c' && args[1].startsWith('npx vitest run')) {
+    const config = await sandbox.readFile('vitest.agent-eval.config.ts')
+    const outputFile = config.match(/outputFile: "([^"]+)"/)?.[1]
+    if (!outputFile) {
+      throw new Error('Vitest output file was not configured')
+    }
+
     await sandbox.writeFile(
-      'test-results.json',
+      outputFile,
       JSON.stringify({
         numTotalTests: 0,
         numPassedTests: 0,
@@ -280,7 +287,15 @@ describe('run', () => {
     })
 
     expect(sandbox.copy).toHaveBeenCalledWith(trial.scenario.directory, CONTAINER_WORKDIR, {
-      exclude: ['scenario.config.ts', 'scenario.test.ts', 'scenario.browser.test.ts', 'node_modules', '.next', 'dist'],
+      exclude: [
+        'scenario.config.ts',
+        'scenario.test.ts',
+        'browser.test.ts',
+        'scenario.browser.test.ts',
+        'node_modules',
+        '.next',
+        'dist',
+      ],
     })
   })
 
@@ -659,6 +674,91 @@ describe('run', () => {
         env: {},
       },
     )
+  })
+
+  test('runs and combines browser tests with scenario tests', async () => {
+    const trial = createTrial()
+    trial.scenario.browserTestPath = '/scenarios/test/scenario.browser.test.ts'
+    const {sandbox, ...runOptions} = await setup(trial)
+    const writeTestResults: RunCommandMock = async ({params, sandbox: testSandbox}) => {
+      const [command, args] = params
+      if (command !== 'sh' || !Array.isArray(args) || args[0] !== '-c') {
+        return
+      }
+
+      const browser = args.at(-1) === 'scenario.browser.test.ts'
+      const outputFile = browser ? 'browser-test-results.json' : 'test-results.json'
+      await testSandbox.writeFile(
+        outputFile,
+        JSON.stringify({
+          numTotalTests: 1,
+          numPassedTests: browser ? 0 : 1,
+          numFailedTests: browser ? 1 : 0,
+          numPendingTests: 0,
+          numTodoTests: 0,
+          success: !browser,
+          testResults: [
+            {
+              assertionResults: [],
+            },
+          ],
+        }),
+      )
+
+      return {
+        stdout: '',
+        stderr: '',
+        exitCode: 0,
+      }
+    }
+    mockRunCommand(sandbox, [writeTestResults])
+
+    const result = await run({
+      ...runOptions,
+      sandbox,
+      trial,
+    })
+
+    expect(sandbox.runCommand).toHaveBeenCalledWith(
+      'npm',
+      ['install', '--no-save', '--package-lock=false', 'vitest', 'playwright', '@vitest/browser-playwright'],
+      {
+        user: NODE_USER,
+      },
+    )
+    expect(sandbox.runCommand).toHaveBeenCalledWith(
+      './node_modules/.bin/playwright',
+      ['install', '--with-deps', 'chromium'],
+      {
+        user: 'root',
+        env: {
+          PLAYWRIGHT_BROWSERS_PATH: '/ms-playwright',
+        },
+      },
+    )
+    expect(sandbox.copy).toHaveBeenCalledWith(trial.scenario.browserTestPath, 'scenario.browser.test.ts')
+    expect(sandbox.runCommand).toHaveBeenCalledWith(
+      'sh',
+      [
+        '-c',
+        'npx vitest run --config "$1" "$2" || true',
+        'vitest-run',
+        'vitest.agent-eval.config.ts',
+        'scenario.browser.test.ts',
+      ],
+      {
+        user: NODE_USER,
+        env: {
+          PLAYWRIGHT_BROWSERS_PATH: '/ms-playwright',
+        },
+      },
+    )
+    expect(result.testResults).toMatchObject({
+      numTotalTests: 2,
+      numPassedTests: 1,
+      numFailedTests: 1,
+      success: false,
+    })
   })
 
   test('runs Copilot with the walkthrough arguments', async () => {

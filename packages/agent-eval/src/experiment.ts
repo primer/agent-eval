@@ -12,7 +12,7 @@ import {
 import {DefaultHost, type Host} from './host'
 import {logger} from './logger'
 import {create as createPlan, run as runPlan} from './plan'
-import {getScenario, ScenarioSchema, type Scenario} from './scenario'
+import {getScenario, loadScenario, ScenarioSchema, type Scenario} from './scenario'
 import {selectShard, type Shard} from './shard'
 import {ControlTreatment, TreatmentSchema, TreatmentSetupSchema, type Treatment, type TreatmentSetup} from './treatment'
 import {
@@ -25,20 +25,32 @@ import {
 } from './trial'
 import {TestResultsSchema} from './vitest'
 
+type InlineScenarioConfig = {
+  name?: string
+  path: string
+}
+
+type ExperimentScenarioConfig = string | InlineScenarioConfig
+
 type ExperimentConfig = {
   name: string
   description: string
   models: ModelVariantConfig
-  scenarios: Array<string>
+  scenarios: Array<ExperimentScenarioConfig>
   setup?: TreatmentSetup
   treatments: Array<Treatment>
 }
+
+const InlineScenarioConfigSchema = z.object({
+  name: z.optional(z.string()),
+  path: z.string(),
+})
 
 const ExperimentConfigSchema = z.object({
   name: z.string(),
   description: z.string(),
   models: ModelVariantConfigSchema,
-  scenarios: z.array(z.string()),
+  scenarios: z.array(z.union([z.string(), InlineScenarioConfigSchema])),
   setup: z.optional(TreatmentSetupSchema),
   treatments: z.array(TreatmentSchema),
 }) satisfies z.ZodMiniType<ExperimentConfig>
@@ -113,7 +125,12 @@ async function listExperiments({
     const {data: config} = parseResult
     const scenarios = await Promise.all(
       config.scenarios.map(scenario => {
-        return getScenario(host, scenariosDirectory, scenario)
+        if (typeof scenario === 'string') {
+          return getScenario(host, scenariosDirectory, scenario)
+        }
+
+        const directory = path.resolve(scenario.path)
+        return loadScenario(host, directory, scenario.name ?? path.basename(directory))
       }),
     )
     const id = path.basename(filename, path.extname(filename))
@@ -314,4 +331,11 @@ function deserialize(input: unknown): ExperimentOutput {
 }
 
 export {ExperimentConfigSchema, defineConfig, deserialize, getExperiment, listExperiments, output, run, serialize}
-export type {ExperimentConfig, Experiment, ExperimentOutput, ExperimentOutputOptions}
+export type {
+  ExperimentConfig,
+  Experiment,
+  ExperimentOutput,
+  ExperimentOutputOptions,
+  ExperimentScenarioConfig,
+  InlineScenarioConfig,
+}

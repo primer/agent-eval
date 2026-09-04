@@ -21,6 +21,7 @@ type Trial = z.infer<typeof TrialSchema>
 
 const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg'])
 const AGENT_BROWSER_SKILL_DIRECTORY = path.posix.join(SKILLS_DIR, 'agent-browser')
+const PLAYWRIGHT_BROWSERS_PATH = '/ms-playwright'
 
 const WalkthroughSchema = z.discriminatedUnion('type', [
   z.object({type: z.literal('Unavailable')}),
@@ -123,7 +124,15 @@ async function run({
   logger.info('%s Copying files from: %s...', logPrefix, trial.scenario.directory)
 
   await sandbox.copy(trial.scenario.directory, CONTAINER_WORKDIR, {
-    exclude: ['scenario.config.ts', 'scenario.test.ts', 'scenario.browser.test.ts', 'node_modules', '.next', 'dist'],
+    exclude: [
+      'scenario.config.ts',
+      'scenario.test.ts',
+      'browser.test.ts',
+      'scenario.browser.test.ts',
+      'node_modules',
+      '.next',
+      'dist',
+    ],
   })
   await sandbox.runCommand('chown', ['-R', NODE_USER, '.'], {
     user: 'root',
@@ -163,6 +172,24 @@ async function run({
     user: NODE_USER,
   })
 
+  if (trial.scenario.browserTestPath) {
+    logger.info('%s Installing browser test dependencies...', logPrefix)
+    await sandbox.runCommand(
+      'npm',
+      ['install', '--no-save', '--package-lock=false', 'vitest', 'playwright', '@vitest/browser-playwright'],
+      {
+        user: NODE_USER,
+      },
+    )
+    logger.info('%s Installing Playwright browser...', logPrefix)
+    await sandbox.runCommand('./node_modules/.bin/playwright', ['install', '--with-deps', 'chromium'], {
+      user: 'root',
+      env: {
+        PLAYWRIGHT_BROWSERS_PATH,
+      },
+    })
+  }
+
   logger.info('%s Running copilot...', logPrefix)
   const copilotOutput = await sandbox.runCommand(
     'copilot',
@@ -197,24 +224,72 @@ async function run({
   logger.info('%s Running tests...', logPrefix)
 
   const TEST_PATH = 'scenario.test.ts'
+  const BROWSER_TEST_PATH = 'scenario.browser.test.ts'
   const VITEST_CONFIG_PATH = 'vitest.agent-eval.config.ts'
   const TEST_RESULTS_PATH = 'test-results.json'
-
-  await sandbox.copy(trial.scenario.testPath, TEST_PATH)
-  await sandbox.writeFile(VITEST_CONFIG_PATH, getVitestConfig(TEST_RESULTS_PATH))
-  await sandbox.runCommand(
-    'sh',
-    ['-c', 'npx vitest run --config "$1" "$2" || true', 'vitest-run', VITEST_CONFIG_PATH, TEST_PATH],
+  const BROWSER_TEST_RESULTS_PATH = 'browser-test-results.json'
+  const scenarioTests = [
     {
-      user: NODE_USER,
-      env: {},
+      sourcePath: trial.scenario.testPath,
+      testPath: TEST_PATH,
+      resultsPath: TEST_RESULTS_PATH,
+      browser: false,
     },
-  )
-  const testResultsContent = await sandbox.readFile(TEST_RESULTS_PATH)
-  const rawTestResult: unknown = JSON.parse(testResultsContent)
-  const testResults = parseTestResults(rawTestResult)
-  if (!testResults.success) {
-    throw new Error(`Failed to parse test results: ${testResults.error}`)
+  ]
+
+  if (trial.scenario.browserTestPath) {
+    scenarioTests.push({
+      sourcePath: trial.scenario.browserTestPath,
+      testPath: BROWSER_TEST_PATH,
+      resultsPath: BROWSER_TEST_RESULTS_PATH,
+      browser: true,
+    })
+  }
+
+  const testRuns: Array<z.infer<typeof TestResultsSchema>> = []
+  for (const scenarioTest of scenarioTests) {
+    await sandbox.copy(scenarioTest.sourcePath, scenarioTest.testPath)
+    await sandbox.writeFile(VITEST_CONFIG_PATH, getVitestConfig(scenarioTest.resultsPath, scenarioTest.browser))
+    await sandbox.runCommand(
+      'sh',
+      ['-c', 'npx vitest run --config "$1" "$2" || true', 'vitest-run', VITEST_CONFIG_PATH, scenarioTest.testPath],
+      {
+        user: NODE_USER,
+        env: scenarioTest.browser ? {PLAYWRIGHT_BROWSERS_PATH} : {},
+      },
+    )
+
+    const testResultsContent = await sandbox.readFile(scenarioTest.resultsPath)
+    const rawTestResult: unknown = JSON.parse(testResultsContent)
+    const testResults = parseTestResults(rawTestResult)
+    if (!testResults.success) {
+      throw new Error(`Failed to parse test results: ${testResults.error}`)
+    }
+
+    testRuns.push(testResults.data)
+  }
+
+  const firstTestRun = testRuns[0]
+  if (!firstTestRun) {
+    throw new Error('No test results were collected')
+  }
+
+  const testResults =
+    testRuns.length === 1
+      ? firstTestRun
+      : {
+          ...firstTestRun,
+          numFailedTests: testRuns.reduce((total, result) => total + result.numFailedTests, 0),
+          numPassedTests: testRuns.reduce((total, result) => total + result.numPassedTests, 0),
+          numPendingTests: testRuns.reduce((total, result) => total + result.numPendingTests, 0),
+          numTodoTests: testRuns.reduce((total, result) => total + result.numTodoTests, 0),
+          numTotalTests: testRuns.reduce((total, result) => total + result.numTotalTests, 0),
+          success: testRuns.every(result => result.success),
+          testResults: testRuns.flatMap(result => result.testResults),
+        }
+
+  if (testRuns.length > 1) {
+    await sandbox.writeFile(TEST_RESULTS_PATH, JSON.stringify(testResults))
   }
 
   const WALKTHROUGH_DIR = 'walkthrough'
@@ -364,7 +439,7 @@ Only capture the walkthrough, do not make any further code changes.`
     agent: {
       sessions: [getAgentSession(messages)],
     },
-    testResults: testResults.data,
+    testResults,
     walkthrough,
   }
 }
@@ -412,11 +487,27 @@ function getAgentSession(messages: Array<Message>): AgentSession {
   }
 }
 
-function getVitestConfig(outputFile: string) {
-  return `import {defineConfig} from 'vitest/config';
+function getVitestConfig(outputFile: string, browser = false) {
+  const browserImport = browser ? `import {playwright} from '@vitest/browser-playwright';\n` : ''
+  const browserConfig = browser
+    ? `    browser: {
+      enabled: true,
+      headless: true,
+      instances: [
+        {
+          browser: 'chromium',
+        },
+      ],
+      provider: playwright(),
+    },
+`
+    : ''
+
+  return `${browserImport}import {defineConfig} from 'vitest/config';
 
 export default defineConfig({
   test: {
+${browserConfig}    include: ['**/*.test.ts'],
     reporters: [
       [
         'json',

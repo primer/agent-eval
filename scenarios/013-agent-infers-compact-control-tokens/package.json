@@ -1,0 +1,22 @@
+{
+  "name": "013-agent-infers-compact-control-tokens",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@primer/agent-eval": "workspace:*",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "typescript": "^6",
+    "vite": "^8",
+    "vitest": "^4.1.8"
+  }
+}

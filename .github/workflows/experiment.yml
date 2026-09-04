@@ -27,101 +27,40 @@ permissions:
   contents: read
 
 jobs:
-  setup:
-    runs-on: ubuntu-latest
-    outputs:
-      run-date: ${{ steps.run.outputs.date }}
-    steps:
-      - name: Set run date
-        id: run
-        run: echo "date=$(date -u +%F)" >> "$GITHUB_OUTPUT"
-
   run:
-    needs: setup
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: true
-      matrix:
-        order: [1, 2, 3, 4]
     steps:
-      - name: Checkout repository
+      - name: checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Set up pnpm
+      - name: set up pnpm
         uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
         with:
           cache: true
           require-lockfile: true
-      - name: Set up Node.js
+      - name: set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: '.nvmrc'
-      - name: Build project
+      - name: build project
         run: pnpm run build
-      - name: Run experiment
+      - name: run experiment
         env:
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
           CONCURRENCY: ${{ inputs.concurrency }}
           DOCKER_IMAGE: ${{ inputs.docker-image || 'node:26.5.0-slim' }}
-          EXPERIMENT_NAME: ${{ inputs.experiment }}
-          RUN_DATE: ${{ needs.setup.outputs.run-date }}
-          SHARD: ${{ matrix.order }}/${{ strategy.job-total }}
-        run: |
-          set -o pipefail
-          run_directory="results/experiments/$EXPERIMENT_NAME/$RUN_DATE"
-          node packages/agent-eval/dist/cli.js \
-            --concurrency "$CONCURRENCY" \
-            --docker-image "$DOCKER_IMAGE" \
-            --experiment "$EXPERIMENT_NAME" \
-            --experiments experiments \
-            --scenarios scenarios \
-            --output "$run_directory/output-${{ matrix.order }}.json" \
-            --shard "$SHARD"
-      - name: Prepare experiment artifact
+        run: script/run-experiment.sh "${{ inputs.experiment }}"
+      - name: prepare experiment artifact
         if: ${{ always() }}
         run: |
           mkdir -p workflow-artifact
           if [[ -d results ]]; then
             mv results workflow-artifact/results
           fi
-      - name: Upload experiment results
+      - name: upload experiment results
         if: ${{ always() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: experiment-shard-${{ github.run_id }}-${{ matrix.order }}
-          path: workflow-artifact
-          if-no-files-found: error
-          retention-days: 1
-          compression-level: 9
-
-  merge:
-    needs: [setup, run]
-    runs-on: ubuntu-latest
-    steps:
-      - name: download experiment results
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          pattern: experiment-shard-${{ github.run_id }}-*
-          merge-multiple: true
-      - name: merge experiment results
-        run: |
-          cd "results/experiments/${{ inputs.experiment }}/${{ needs.setup.outputs.run-date }}"
-          jq --slurp '
-            {
-              experimentId: .[0].experimentId,
-              scenarios: (reduce .[].scenarios as $scenarios ({}; . * $scenarios)),
-              treatments: (reduce .[].treatments as $treatments ({}; . * $treatments)),
-              trials: (reduce .[].trials as $trials ({}; . * $trials))
-            }
-          ' output-*.json > output.json
-          rm output-*.json
-      - name: Prepare experiment artifact
-        run: |
-          mkdir -p workflow-artifact
-          mv results workflow-artifact/results
-      - name: upload experiment results
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: experiment
+          name: experiment-${{ github.run_id }}
           path: workflow-artifact
           if-no-files-found: error
           retention-days: 90

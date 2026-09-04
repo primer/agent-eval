@@ -96,6 +96,17 @@ const ModelCallStartMessageSchema = z.object({
   }),
 })
 
+const ModelMessageSchema = z.looseObject({
+  type: z.literal('model.message'),
+  ...EphemeralEventFieldsSchema,
+  data: z.looseObject({
+    message: z.looseObject({
+      role: z.string(),
+      outputTokens: z.optional(z.number()),
+    }),
+  }),
+})
+
 const UserMessageSchema = z.object({
   type: z.literal('user.message'),
   ...EventFieldsSchema,
@@ -310,6 +321,7 @@ const KnownMessageSchema = z.discriminatedUnion('type', [
   SessionSkillsLoadedMessageSchema,
   SessionToolsUpdatedMessageSchema,
   ModelCallStartMessageSchema,
+  ModelMessageSchema,
   UserMessageSchema,
   AssistantTurnStartMessageSchema,
   AssistantMessageStartMessageSchema,
@@ -336,6 +348,7 @@ const KNOWN_MESSAGE_TYPES = new Set([
   'session.skills_loaded',
   'session.tools_updated',
   'model.call_start',
+  'model.message',
   'user.message',
   'assistant.turn_start',
   'assistant.message_start',

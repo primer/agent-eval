@@ -171,6 +171,76 @@ function manageAgentBrowserSkill(host: Host): RunCommandMock {
 }
 
 describe('run', () => {
+  test('collects output tokens from model messages without double counting assistant messages', async () => {
+    const trial = createTrial()
+    const {sandbox, ...runOptions} = await setup(trial)
+    const writeTokenOutput: RunCommandMock = async ({params}) => {
+      const [command, args] = params
+      if (command !== 'copilot' || !Array.isArray(args) || args[0] !== '--prompt') {
+        return
+      }
+
+      return {
+        stdout: [
+          JSON.stringify({
+            type: 'model.message',
+            data: {
+              message: {
+                role: 'assistant',
+                outputTokens: 42,
+              },
+            },
+            ephemeral: true,
+            id: 'model-message',
+            timestamp: '',
+            parentId: '',
+          }),
+          JSON.stringify({
+            type: 'assistant.message',
+            data: {
+              messageId: 'assistant-message',
+              content: 'Done.',
+              toolRequests: [],
+              interactionId: 'interaction',
+              turnId: 'turn',
+              outputTokens: 42,
+            },
+            id: 'assistant-message',
+            timestamp: '',
+            parentId: '',
+          }),
+          JSON.stringify({
+            type: 'result',
+            timestamp: '',
+            sessionId: '',
+            exitCode: 0,
+            usage: {
+              premiumRequests: 0,
+              totalApiDurationMs: 0,
+              sessionDurationMs: 0,
+              codeChanges: {
+                linesAdded: 0,
+                linesRemoved: 0,
+                filesModified: [],
+              },
+            },
+          }),
+        ].join('\n'),
+        stderr: '',
+        exitCode: 0,
+      }
+    }
+    mockRunCommand(sandbox, [writeTokenOutput])
+
+    const result = await run({
+      ...runOptions,
+      sandbox,
+      trial,
+    })
+
+    expect(result.agent.sessions[0].outputTokens).toBe(42)
+  })
+
   test('copies scenario files into the container workdir', async () => {
     const trial: Trial = {
       id: 'test-id',

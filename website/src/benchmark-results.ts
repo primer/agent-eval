@@ -197,6 +197,10 @@ function getPercentDeltaValue(control: number, benchmark: number): number | null
 }
 
 function formatPercentDelta(control: number, benchmark: number): string {
+  if (control === benchmark) {
+    return '0%'
+  }
+
   const delta = getPercentDelta(control, benchmark)
   if (delta === null) {
     return 'N/A'
@@ -240,13 +244,11 @@ function createComparison(
       return trial.treatmentId === benchmarkTreatmentId
     }),
   )
+  const controlPassRate = getPassRate(controlTotals) ?? 0
+  const benchmarkPassRate = getPassRate(benchmarkTotals) ?? 0
 
   return {
-    tests: formatValue(
-      `${benchmarkTotals.passed}/${benchmarkTotals.total}`,
-      controlTotals.passed,
-      benchmarkTotals.passed,
-    ),
+    tests: formatValue(`${benchmarkTotals.passed}/${benchmarkTotals.total}`, controlPassRate, benchmarkPassRate),
     outputTokens: formatValue(
       formatNumber(benchmarkTotals.outputTokens),
       controlTotals.outputTokens,
@@ -350,8 +352,8 @@ function createTrendPoint(
         `${benchmarkTotals.passed}/${benchmarkTotals.total}`,
         controlPassRate === null ? null : controlPassRate * 100,
         `${controlTotals.passed}/${controlTotals.total}`,
-        controlTotals.passed,
-        benchmarkTotals.passed,
+        controlPassRate ?? 0,
+        benchmarkPassRate ?? 0,
       ),
       outputTokens: createTrendMetric(
         benchmarkTotals.outputTokens,

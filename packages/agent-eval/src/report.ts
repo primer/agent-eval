@@ -237,8 +237,12 @@ function formatSummaryRow(summary: ResultSummary, level: 'treatment' | 'scenario
 }
 
 function formatPercentDelta(control: number, benchmark: number): string {
+  if (control === benchmark) {
+    return '0%'
+  }
+
   if (control === 0) {
-    return benchmark === 0 ? '0.0%' : 'N/A'
+    return 'N/A'
   }
 
   const delta = (benchmark - control) / control
@@ -370,8 +374,8 @@ function formatBenchmarkComparison(comparison: BenchmarkComparison): TableRow {
     'Reasoning Effort': comparison.reasoningEffort ?? '',
     Tests: formatBenchmarkValue(
       `${comparison.benchmarkTreatment.numPassedTests}/${comparison.benchmarkTreatment.numTotalTests}`,
-      comparison.control.numPassedTests,
-      comparison.benchmarkTreatment.numPassedTests,
+      getSuccessRate(comparison.control),
+      getSuccessRate(comparison.benchmarkTreatment),
     ),
     'Output Tokens': formatBenchmarkValue(
       formatNumber(comparison.benchmarkTreatment.outputTokens),

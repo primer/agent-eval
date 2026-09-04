@@ -321,6 +321,61 @@ test('formats benchmark results as capability comparisons by scenario', () => {
     Design system  Authoring   All scenarios        All models                             2/4 (+100.0%)  1,500 (-11.8%)  3 (+50.0%)        1m 0.0s (-20.0%)   35.0s (-30.0%)
                                  create-component   All models                             2/4 (+100.0%)  1,500 (-11.8%)  3 (+50.0%)        1m 0.0s (-20.0%)   35.0s (-30.0%)
                                                         gpt-5.6-sol      medium            2/2 (+100.0%)  800 (-20.0%)    2 (+100.0%)       35.0s (-22.2%)     20.0s (-33.3%)
-                                                        claude-sonnet-5  high              0/2 (0.0%)     700 (0.0%)      1 (0.0%)          25.0s (-16.7%)     15.0s (-25.0%)"
+                                                        claude-sonnet-5  high              0/2 (0%)       700 (0%)        1 (0%)            25.0s (-16.7%)     15.0s (-25.0%)"
   `)
+})
+
+test('compares benchmark test success rates when test totals differ', () => {
+  const capability: Capability = {
+    name: 'Authoring',
+    scenarios: [
+      {
+        id: 'create-component',
+        directory: '/scenarios/create-component',
+        prompt: 'Complete the task',
+        tags: [],
+        testPath: '/scenarios/create-component/scenario.test.ts',
+      },
+    ],
+  }
+  const results: Array<BenchmarkTrialResult> = [
+    {
+      ...createResult({
+        treatment: 'Control',
+        scenario: 'create-component',
+        model: {
+          name: 'gpt-5.6-sol',
+          reasoningEffort: 'medium',
+        },
+        numPassedTests: 1,
+        numTotalTests: 2,
+        sessions: [],
+      }),
+      capability,
+    },
+    {
+      ...createResult({
+        treatment: 'Benchmark',
+        scenario: 'create-component',
+        model: {
+          name: 'gpt-5.6-sol',
+          reasoningEffort: 'medium',
+        },
+        numPassedTests: 2,
+        numTotalTests: 4,
+        sessions: [],
+      }),
+      capability,
+    },
+  ]
+
+  expect(
+    formatBenchmarkResults(
+      {
+        name: 'Design system',
+        capabilities: [capability],
+      },
+      results,
+    ),
+  ).toContain('2/4 (0%)')
 })

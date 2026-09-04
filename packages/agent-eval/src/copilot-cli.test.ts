@@ -60,6 +60,22 @@ describe(parseMessage, () => {
       parentId: '080d2918-29d2-4da6-b115-3fe37825b5d2',
     },
     {
+      type: 'model.message',
+      data: {
+        kind: 'message',
+        turn: 0,
+        message: {
+          role: 'assistant',
+          content: 'Done.',
+          outputTokens: 42,
+        },
+      },
+      ephemeral: true,
+      id: 'dbf7cd98-649a-44c2-b013-680c902773ac',
+      timestamp: '2026-09-04T01:06:13.385Z',
+      parentId: '7e3943af-9aca-4042-b1fd-92a390203597',
+    },
+    {
       type: 'user.message',
       data: {
         content: "Update the index page to use a primary button with the text 'Submit'",

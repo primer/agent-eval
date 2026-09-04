@@ -372,7 +372,9 @@ Only capture the walkthrough, do not make any further code changes.`
 function getAgentSession(messages: Array<Message>): AgentSession {
   const turns = new Set()
   const toolCalls = new Map()
-  let outputTokens = 0
+  let assistantOutputTokens = 0
+  let modelOutputTokens = 0
+  let hasModelOutput = false
 
   for (const message of messages) {
     if (isMessageType(message, 'assistant.turn_start')) {
@@ -380,7 +382,12 @@ function getAgentSession(messages: Array<Message>): AgentSession {
     }
 
     if (isMessageType(message, 'assistant.message')) {
-      outputTokens += message.data.outputTokens ?? 0
+      assistantOutputTokens += message.data.outputTokens ?? 0
+    }
+
+    if (isMessageType(message, 'model.message') && message.data.message.role === 'assistant') {
+      hasModelOutput = true
+      modelOutputTokens += message.data.message.outputTokens ?? 0
     }
 
     if (isMessageType(message, 'tool.execution_start')) {
@@ -396,7 +403,7 @@ function getAgentSession(messages: Array<Message>): AgentSession {
 
   return {
     messages,
-    outputTokens,
+    outputTokens: hasModelOutput ? modelOutputTokens : assistantOutputTokens,
     premiumRequests: result.usage.premiumRequests,
     sessionDurationMs: result.usage.sessionDurationMs,
     tools: Object.fromEntries(toolCalls),

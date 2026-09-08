@@ -28,8 +28,9 @@ safe-outputs:
     draft: true
     fallback-as-issue: false
     if-no-changes: ignore
+    protected-files: allowed
     allowed-files:
-      - packages/agent-eval/src/sandbox.ts
+      - packages/agent-eval/src/sandbox/system.ts
   noop:
 timeout-minutes: 30
 ---
@@ -40,10 +41,10 @@ Keep the stable versions of npm and GitHub Copilot CLI used by evaluation sandbo
 
 ## Version sources and pins
 
-| Tool               | Latest stable version                     | Current pin                                                   |
-| ------------------ | ----------------------------------------- | ------------------------------------------------------------- |
-| npm                | `npm view npm@latest version`             | `NPM_VERSION` in `packages/agent-eval/src/sandbox.ts`         |
-| GitHub Copilot CLI | `npm view @github/copilot@latest version` | `COPILOT_CLI_VERSION` in `packages/agent-eval/src/sandbox.ts` |
+| Tool               | Latest stable version                     | Current pin                                                          |
+| ------------------ | ----------------------------------------- | -------------------------------------------------------------------- |
+| npm                | `npm view npm@latest version`             | `NPM_VERSION` in `packages/agent-eval/src/sandbox/system.ts`         |
+| GitHub Copilot CLI | `npm view @github/copilot@latest version` | `COPILOT_CLI_VERSION` in `packages/agent-eval/src/sandbox/system.ts` |
 
 ## Required process
 

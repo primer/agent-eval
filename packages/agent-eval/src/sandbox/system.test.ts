@@ -50,7 +50,7 @@ describe('SystemSandbox lifecycle', () => {
       expect.objectContaining({
         buildargs: {
           BASE_IMAGE: 'custom-node:local',
-          COPILOT_CLI_VERSION: '1.0.82',
+          COPILOT_CLI_VERSION: '1.0.83',
           NPM_VERSION: '12.0.2',
         },
         dockerfile: 'Dockerfile',

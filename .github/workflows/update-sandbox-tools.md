@@ -31,6 +31,7 @@ safe-outputs:
     protected-files: allowed
     allowed-files:
       - packages/agent-eval/src/sandbox/system.ts
+      - packages/agent-eval/src/sandbox/system.test.ts
   noop:
 timeout-minutes: 30
 ---

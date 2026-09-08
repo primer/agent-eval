@@ -32,6 +32,7 @@ safe-outputs:
     allowed-files:
       - packages/agent-eval/src/sandbox/system.ts
       - packages/agent-eval/src/sandbox/system.test.ts
+      - .changeset/*.md
   noop:
 timeout-minutes: 30
 ---

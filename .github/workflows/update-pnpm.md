@@ -24,6 +24,9 @@ steps:
     run: |
       mkdir -p "$HOME/.npm-global/bin"
       corepack enable --install-directory "$HOME/.npm-global/bin"
+      corepack install
+      corepack install --global pnpm@latest
+      echo "$HOME/.npm-global/bin" >> "$GITHUB_PATH"
 safe-outputs:
   create-pull-request:
     title-prefix: 'chore: '

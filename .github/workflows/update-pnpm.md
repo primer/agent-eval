@@ -48,7 +48,7 @@ Keep the stable pnpm version used by this project up to date.
 
 1. Read the current pnpm version from `packageManager` in `package.json`.
 2. Query the latest stable version with this exact command (run it separately; no shell chaining like `;`/`&&` and no redirection):
-   - `npm view pnpm@latest version`
+   - `pnpm view pnpm@latest version`
      Only use the version returned by the `latest` npm distribution tag. Do not select a prerelease version.
 3. If the current pin matches the latest stable version, call `noop` as the final action and report that pnpm is current.
 4. If pnpm is outdated, run `corepack use pnpm@<version>` so `package.json` contains Corepack's canonical version and integrity hash.

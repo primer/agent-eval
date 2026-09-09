@@ -3,7 +3,7 @@ import type {Route} from 'next'
 import {notFound} from 'next/navigation'
 import {get as getBenchmark, list as listBenchmarks} from '../../../../../benchmarks'
 import {getBenchmarkRun, listBenchmarkRuns, type BenchmarkRun} from '../../../../../benchmark-results'
-import {createTranscript, getWalkthroughDataUrls, type RunDetails} from '../../../../../run-details'
+import {createTranscript, getResultFilesUrl, getWalkthroughDataUrls, type RunDetails} from '../../../../../run-details'
 import {RunDetailsPage} from '../../../../components/RunDetailsPage'
 
 const EMPTY_RUN_PARAM = '__no-runs__'
@@ -63,6 +63,7 @@ async function createBenchmarkRunDetails(run: BenchmarkRun): Promise<RunDetails>
             })
           }),
           walkthrough: await getWalkthroughDataUrls(trial.walkthrough, run.directory),
+          filesUrl: getResultFilesUrl('benchmarks', run.output.benchmarkId, run.name, trial.id),
           transcript: createTranscript(
             sessions.flatMap(session => {
               return session.messages

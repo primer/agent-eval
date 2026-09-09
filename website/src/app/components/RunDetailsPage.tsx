@@ -6,7 +6,13 @@ import type {RunDetails, TranscriptEntry, WalkthroughDataUrl} from '../../run-de
 import type {Route} from 'next'
 import Link from 'next/link'
 import Image from 'next/image'
+import dynamic from 'next/dynamic'
 import {useState} from 'react'
+
+const FileExplorer = dynamic(() => import('./FileExplorer'), {
+  ssr: false,
+  loading: () => <p role="status">Loading file explorer…</p>,
+})
 
 type RunResult = RunDetails['results'][number]
 
@@ -114,7 +120,7 @@ function UiWalkthrough({scenarioId, walkthrough}: {scenarioId: string; walkthrou
   return <p>No UI walkthrough was recorded.</p>
 }
 
-type ResultTab = 'walkthrough' | 'tests' | 'transcript'
+type ResultTab = 'walkthrough' | 'tests' | 'transcript' | 'files'
 
 function ResultTabs({index, result}: {index: number; result: RunResult}) {
   const [selectedTab, setSelectedTab] = useState<ResultTab>('walkthrough')
@@ -122,6 +128,7 @@ function ResultTabs({index, result}: {index: number; result: RunResult}) {
     walkthrough: `result-${index}-walkthrough-tab`,
     tests: `result-${index}-tests-tab`,
     transcript: `result-${index}-transcript-tab`,
+    files: `result-${index}-files-tab`,
   }
   const panelId = `result-${index}-${selectedTab}-panel`
 
@@ -162,6 +169,17 @@ function ResultTabs({index, result}: {index: number; result: RunResult}) {
           }}
         >
           Transcript
+        </UnderlineNav.Item>
+        <UnderlineNav.Item
+          aria-current={selectedTab === 'files' ? 'page' : undefined}
+          href={`#result-${index}-files-panel`}
+          id={tabIds.files}
+          onSelect={event => {
+            event.preventDefault()
+            setSelectedTab('files')
+          }}
+        >
+          Files
         </UnderlineNav.Item>
       </UnderlineNav>
       <div aria-labelledby={tabIds[selectedTab]} className="p-4" id={panelId} role="region">
@@ -204,6 +222,7 @@ function ResultTabs({index, result}: {index: number; result: RunResult}) {
             <Transcript entries={result.transcript} />
           </div>
         ) : null}
+        {selectedTab === 'files' ? <FileExplorer key={result.filesUrl} url={result.filesUrl} /> : null}
       </div>
     </section>
   )

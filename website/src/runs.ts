@@ -37,6 +37,7 @@ type RunOutputResult = {
     }>
   }
   walkthrough: ExperimentOutputTrial['walkthrough']
+  artifacts: ExperimentOutputTrial['artifacts']
 }
 
 type RunOutput = {
@@ -224,6 +225,7 @@ function normalizeOutput(output: ExperimentOutput): RunOutput {
         }),
       },
       walkthrough: trial.walkthrough,
+      artifacts: trial.artifacts,
     }
   })
 

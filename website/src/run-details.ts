@@ -44,6 +44,7 @@ type RunResult = {
   }>
   transcript: Array<TranscriptEntry>
   walkthrough: WalkthroughDataUrl
+  filesUrl: string
 }
 
 type RunDetails = {
@@ -324,6 +325,7 @@ async function createExperimentRunDetails(date: string, output: RunOutput, runDi
             }
           }),
           walkthrough: await getWalkthroughDataUrls(result.walkthrough, runDirectory),
+          filesUrl: getResultFilesUrl('experiments', output.experiment.id, date, result.id),
           transcript: createTranscript(result.assistant.logs),
         }
       }),
@@ -331,5 +333,17 @@ async function createExperimentRunDetails(date: string, output: RunOutput, runDi
   }
 }
 
-export {createExperimentRunDetails, createTranscript, getWalkthroughDataUrls}
+function getResultFilesUrl(collection: string, id: string, date: string, trialId: string): string {
+  const segments = [collection, id, date, trialId].map(segment => encodeURIComponent(segment))
+  return `${process.env.PAGES_BASE_PATH ?? ''}/result-files/${segments.join('/')}/files.json`
+}
+
+export {
+  createExperimentRunDetails,
+  createTranscript,
+  getArtifactCandidates,
+  getResultFilesUrl,
+  getWalkthroughDataUrls,
+  isWithinDirectory,
+}
 export type {RunDetails, TranscriptEntry, WalkthroughDataUrl}

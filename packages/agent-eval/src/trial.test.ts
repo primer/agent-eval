@@ -120,6 +120,7 @@ function createTrial(): Trial {
       directory: '/scenarios/test',
       prompt: 'test-prompt',
       tags: [],
+      judges: [],
       testPath: '/scenarios/test/scenario.test.ts',
     },
     treatment: {
@@ -859,6 +860,32 @@ describe('run', () => {
         allowNonZeroExitCode: true,
       },
     )
+  })
+
+  test('instructs the walkthrough agent to clean up its background processes before completing', async () => {
+    const trial = createTrial()
+    const {sandbox, ...runOptions} = await setup(trial)
+    mockRunCommand(sandbox)
+
+    await run({
+      ...runOptions,
+      sandbox,
+      trial,
+    })
+
+    const walkthroughCall = vi.mocked(sandbox.runCommand).mock.calls.find(([command, args]) => {
+      return command === 'copilot' && args?.[1]?.startsWith('Record a visual walkthrough')
+    })
+    const prompt = walkthroughCall?.[1]?.[1]
+
+    expect(prompt).toContain('After saving and verifying the walkthrough artifacts')
+    expect(prompt).toContain('close the agent-browser session you opened')
+    expect(prompt).toContain('stop the development server and any other background processes you started')
+    expect(prompt).toContain('Use stop_bash with the shellId')
+    expect(prompt).toContain('verify that it has stopped')
+    expect(prompt).toContain('leave unrelated processes and the saved artifacts intact')
+    expect(prompt).toContain('Complete this cleanup before calling task_complete')
+    expect(prompt).toContain('If cleanup fails, report the failure instead of claiming completion')
   })
 
   describe('walkthrough artifacts', () => {

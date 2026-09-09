@@ -567,6 +567,8 @@ Save the result inside a "${WALKTHROUGH_DIR}" directory (create it if it doesn't
 - If there are a few distinct views worth showing (for example separate pages or states), take a screenshot of each, in the order a reviewer should look at them, saved as ${WALKTHROUGH_DIR}/screenshots/01.png, ${WALKTHROUGH_DIR}/screenshots/02.png, etc.
 - If reviewing the change requires seeing an interactive flow across multiple steps or pages, record a short video of yourself clicking through it instead and save it as ${WALKTHROUGH_DIR}/walkthrough.webm.
 
+After saving and verifying the walkthrough artifacts, close the agent-browser session you opened and stop the development server and any other background processes you started. Use stop_bash with the shellId returned when starting an async Bash command, and verify that it has stopped. Only clean up processes and browser sessions you started; leave unrelated processes and the saved artifacts intact. Complete this cleanup before calling task_complete so background processes do not keep the Copilot CLI running. If cleanup fails, report the failure instead of claiming completion.
+
 Only capture the walkthrough, do not make any further code changes.`
   const walkthroughResult = await sandbox.runCommand(
     'copilot',

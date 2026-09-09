@@ -37,7 +37,9 @@ export function JudgeResults({judges}: {judges: Array<JudgeDetails>}) {
             ) : null}
             {result.type === 'result' ? (
               <div className="flex flex-col gap-4 mt-4">
-                {selectedScore ? <p className="m-0 whitespace-pre-wrap break-words">{selectedScore.description}</p> : null}
+                {selectedScore ? (
+                  <p className="m-0 whitespace-pre-wrap break-words">{selectedScore.description}</p>
+                ) : null}
                 <div>
                   <h4 className="text-body-medium mt-0 mb-2">Rationale</h4>
                   <p className="m-0 whitespace-pre-wrap break-words">{result.rationale}</p>

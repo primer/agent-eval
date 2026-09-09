@@ -1,6 +1,7 @@
 import * as z from 'zod/mini'
 import {ModelVariantSchema, type ModelVariant} from './model'
 import type {Trial} from './trial'
+import {AgentSessionSchema} from './agent'
 
 const JudgeConfigSchema = z.object({
   name: z.string(),
@@ -19,23 +20,36 @@ const JudgeConfigSchema = z.object({
 
 type JudgeConfig = z.infer<typeof JudgeConfigSchema>
 
-const JudgeResultSchema = z.object({
-  score: z.number(),
-  rationale: z.string(),
-  findings: z.array(
-    z.object({
-      filepath: z.string(),
-      snippet: z.string(),
-      explanation: z.string(),
-    }),
-  ),
-})
+const JudgeResultSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('unknown'),
+  }),
+  z.object({
+    type: z.literal('error'),
+    message: z.string(),
+  }),
+  z.object({
+    type: z.literal('result'),
+    score: z.number(),
+    rationale: z.string(),
+    findings: z.array(
+      z.object({
+        filepath: z.string(),
+        snippet: z.string(),
+        explanation: z.string(),
+      }),
+    ),
+  }),
+])
 
 type JudgeResult = z.infer<typeof JudgeResultSchema>
 
 const JudgeOutputSchema = z.object({
   config: JudgeConfigSchema,
   result: JudgeResultSchema,
+  agent: z.object({
+    session: AgentSessionSchema,
+  }),
 })
 
 type JudgeOutput = z.infer<typeof JudgeOutputSchema>
@@ -92,11 +106,15 @@ function getJudgePrompt(config: JudgeConfig): string {
       2,
     )}`,
     '## Report file',
-    JSON.stringify(`judge-${config.name}-report.json`),
+    JSON.stringify(getJudgeReportFilename(config)),
     '## Result JSON Schema',
     JSON.stringify(z.toJSONSchema(JudgeResultSchema), null, 2),
   ].join('\n\n')
 }
 
-export {JudgeConfigSchema, JudgeResultSchema, JudgeOutputSchema, getJudgeModel, getJudgePrompt}
+function getJudgeReportFilename(config: JudgeConfig): string {
+  return `judge-${config.name}-report.json`
+}
+
+export {JudgeConfigSchema, JudgeResultSchema, JudgeOutputSchema, getJudgeModel, getJudgePrompt, getJudgeReportFilename}
 export type {JudgeConfig, JudgeResult, JudgeOutput}

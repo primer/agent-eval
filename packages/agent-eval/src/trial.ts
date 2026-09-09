@@ -1,13 +1,22 @@
 import path from 'node:path'
-import {isMessageType, MessageSchema, parseMessage, type Message} from './copilot-cli'
+import * as z from 'zod/mini'
+import {AgentSessionSchema, getAgentSession} from './agent'
+import {parseMessage, type Message} from './copilot-cli'
 import {DefaultHost, type Host} from './host'
 import {AGENTS_DIR, CONTAINER_WORKDIR, COPILOT_DIR, NODE_USER, SKILLS_DIR, type Sandbox} from './sandbox'
 import {parseTestResults, TestResultsSchema} from './vitest'
 import {logger} from './logger'
-import * as z from 'zod/mini'
 import {ModelVariantSchema} from './model'
 import {ScenarioSchema} from './scenario'
 import {TreatmentSchema, TreatmentSetupSchema} from './treatment'
+import {
+  getJudgeModel,
+  getJudgePrompt,
+  getJudgeReportFilename,
+  JudgeOutputSchema,
+  JudgeResultSchema,
+  type JudgeOutput,
+} from './judge'
 
 const TrialSchema = z.object({
   id: z.string(),
@@ -32,18 +41,6 @@ const WalkthroughSchema = z.discriminatedUnion('type', [
 
 type Walkthrough = z.infer<typeof WalkthroughSchema>
 
-const AgentSessionSchema = z.object({
-  turns: z.number(),
-  outputTokens: z.number(),
-  premiumRequests: z.number(),
-  totalApiDurationMs: z.number(),
-  sessionDurationMs: z.number(),
-  tools: z.record(z.string(), z.number()),
-  messages: z.array(MessageSchema),
-})
-
-type AgentSession = z.infer<typeof AgentSessionSchema>
-
 const TrialArtifactsSchema = z.object({
   directory: z.string(),
   copilotConfigDirectory: z.string(),
@@ -57,10 +54,11 @@ const TrialAgentSchema = z.object({
 })
 
 const TrialResultSchema = z.object({
-  artifacts: TrialArtifactsSchema,
-  trial: TrialSchema,
   agent: TrialAgentSchema,
+  artifacts: TrialArtifactsSchema,
+  judges: z.array(JudgeOutputSchema),
   testResults: TestResultsSchema,
+  trial: TrialSchema,
   walkthrough: WalkthroughSchema,
 })
 
@@ -273,6 +271,8 @@ async function run({
   sandbox: Sandbox
   trial: Trial
 }): Promise<TrialResult> {
+  // Setup ---------------------------------------------------------------------
+
   const logPrefix = `[${trial.scenario.id}] [${trial.treatment.name}] [${trial.model.name} (${trial.model.reasoningEffort})]`
 
   logger.info('%s Running trial: %s', logPrefix, trial.id)
@@ -346,6 +346,8 @@ async function run({
     })
   }
 
+  // Implementation ------------------------------------------------------------
+
   logger.info('%s Running copilot...', logPrefix)
   const copilotOutput = await sandbox.runCommand(
     'copilot',
@@ -376,6 +378,8 @@ async function run({
     }
     return parseMessage(JSON.parse(trimmed))
   })
+
+  // Verification --------------------------------------------------------------
 
   logger.info('%s Running tests...', logPrefix)
 
@@ -448,6 +452,91 @@ async function run({
     await sandbox.writeFile(TEST_RESULTS_PATH, JSON.stringify(testResults))
   }
 
+  // Judge ---------------------------------------------------------------------
+  const judgeOutputs: Array<JudgeOutput> = []
+
+  if (trial.scenario.judges.length > 0) {
+    logger.info('%s Running judges...', logPrefix)
+
+    for (const judge of trial.scenario.judges) {
+      logger.info('%s Running judge: %s...', logPrefix, judge.name)
+
+      const model = getJudgeModel(judge, trial)
+      const prompt = getJudgePrompt(judge)
+      const copilotOutput = await sandbox.runCommand(
+        'copilot',
+        [
+          '--prompt',
+          prompt,
+          '--model',
+          model.name,
+          '--reasoning-effort',
+          model.reasoningEffort,
+          '--mode',
+          'autopilot',
+          '--allow-all',
+          '--output-format',
+          'json',
+        ],
+        {
+          user: NODE_USER,
+          env: {
+            COPILOT_GITHUB_TOKEN: copilotToken,
+          },
+        },
+      )
+      const messages: Array<Message> = copilotOutput.stdout.split('\n').flatMap(line => {
+        const trimmed = line.trim()
+        if (trimmed.length === 0) {
+          return []
+        }
+        return parseMessage(JSON.parse(trimmed))
+      })
+      const session = getAgentSession(messages)
+
+      const judgeReportPath = path.join(artifactsDirectory, trial.id, getJudgeReportFilename(judge))
+
+      if (host.existsSync(judgeReportPath)) {
+        const contents = await host.fs.readFile(judgeReportPath, 'utf-8')
+        const json = JSON.parse(contents)
+        const result = JudgeResultSchema.safeParse(json)
+
+        if (result.success) {
+          judgeOutputs.push({
+            config: judge,
+            result: result.data,
+            agent: {
+              session,
+            },
+          })
+        } else {
+          judgeOutputs.push({
+            config: judge,
+            result: {
+              type: 'error',
+              message: z.prettifyError(result.error),
+            },
+            agent: {
+              session,
+            },
+          })
+        }
+      } else {
+        judgeOutputs.push({
+          config: judge,
+          result: {
+            type: 'unknown',
+          },
+          agent: {
+            session,
+          },
+        })
+      }
+    }
+  }
+
+  // Capture -------------------------------------------------------------------
+
   const WALKTHROUGH_DIR = 'walkthrough'
   const WALKTHROUGH_VIEWPORT_WIDTH = 1440
   const WALKTHROUGH_VIEWPORT_HEIGHT = 900
@@ -511,6 +600,8 @@ Only capture the walkthrough, do not make any further code changes.`
   await sandbox.runCommand('rm', ['-rf', AGENT_BROWSER_SKILL_DIRECTORY], {
     user: NODE_USER,
   })
+
+  // Save ----------------------------------------------------------------------
 
   const artifactDirectory = path.join(artifactsDirectory, trial.id)
   const workspaceDirectory = path.join(artifactDirectory, 'workspace')
@@ -594,49 +685,7 @@ Only capture the walkthrough, do not make any further code changes.`
     },
     testResults,
     walkthrough,
-  }
-}
-
-function getAgentSession(messages: Array<Message>): AgentSession {
-  const turns = new Set()
-  const toolCalls = new Map()
-  let assistantOutputTokens = 0
-  let modelOutputTokens = 0
-  let hasModelOutput = false
-
-  for (const message of messages) {
-    if (isMessageType(message, 'assistant.turn_start')) {
-      turns.add(message.data.turnId)
-    }
-
-    if (isMessageType(message, 'assistant.message')) {
-      assistantOutputTokens += message.data.outputTokens ?? 0
-    }
-
-    if (isMessageType(message, 'model.message') && message.data.message.role === 'assistant') {
-      hasModelOutput = true
-      modelOutputTokens += message.data.message.outputTokens ?? 0
-    }
-
-    if (isMessageType(message, 'tool.execution_start')) {
-      const toolName = message.data.toolName
-      toolCalls.set(toolName, (toolCalls.get(toolName) ?? 0) + 1)
-    }
-  }
-
-  const result = messages.find(message => isMessageType(message, 'result'))
-  if (!result) {
-    throw new Error('No result message found in copilot output')
-  }
-
-  return {
-    messages,
-    outputTokens: hasModelOutput ? modelOutputTokens : assistantOutputTokens,
-    premiumRequests: result.usage.premiumRequests,
-    sessionDurationMs: result.usage.sessionDurationMs,
-    tools: Object.fromEntries(toolCalls),
-    totalApiDurationMs: result.usage.totalApiDurationMs,
-    turns: turns.size,
+    judges: judgeOutputs,
   }
 }
 

@@ -1,11 +1,13 @@
 import path from 'node:path'
 import * as z from 'zod/mini'
 import {DefaultHost, type Host} from './host'
+import {JudgeConfigSchema} from './judge'
 
 const ScenarioConfigSchema = z.object({
   description: z.optional(z.string()),
   prompt: z.string(),
   tags: z.optional(z.array(z.string())),
+  judges: z.optional(z.array(JudgeConfigSchema)),
 })
 
 type ScenarioConfig = z.infer<typeof ScenarioConfigSchema>
@@ -26,6 +28,7 @@ const ScenarioSchema = z.object({
   tags: z.array(z.string()),
   testPath: z.string(),
   browserTestPath: z.optional(z.string()),
+  judges: z.array(JudgeConfigSchema),
 })
 
 type Scenario = z.infer<typeof ScenarioSchema>
@@ -63,6 +66,7 @@ async function loadScenario(host: Host, directory: string, id = path.basename(di
     prompt: config.prompt,
     tags: config.tags ?? [],
     testPath,
+    judges: config.judges ?? [],
   }
 
   if (config.description) {

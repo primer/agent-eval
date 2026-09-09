@@ -36,7 +36,7 @@ const CapabilityConfigSchema = z.object({
 const BenchmarkConfigSchema = z.object({
   name: z.string(),
   description: z.string(),
-  models: ModelVariantConfigSchema,
+  models: z.array(ModelVariantConfigSchema),
   setup: z.optional(TreatmentSetupSchema),
   capabilities: z.array(CapabilityConfigSchema),
 })

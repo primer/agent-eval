@@ -132,10 +132,6 @@ async function listScenarios(
       return false
     }
 
-    if (entry.name.startsWith('000')) {
-      return false
-    }
-
     const scenarioConfigPath = path.join(directory, entry.name, 'scenario.config.ts')
     if (!host.existsSync(scenarioConfigPath)) {
       return false

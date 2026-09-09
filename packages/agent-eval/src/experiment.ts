@@ -43,7 +43,7 @@ type ExperimentScenarioConfig = string | InlineScenarioConfig
 type ExperimentConfig = {
   name: string
   description: string
-  models: ModelVariantConfig
+  models: Array<ModelVariantConfig>
   scenarios: Array<ExperimentScenarioConfig>
   setup?: TreatmentSetup
   treatments: Array<Treatment>
@@ -57,7 +57,7 @@ const InlineScenarioConfigSchema = z.object({
 const ExperimentConfigSchema = z.object({
   name: z.string(),
   description: z.string(),
-  models: ModelVariantConfigSchema,
+  models: z.array(ModelVariantConfigSchema),
   scenarios: z.array(z.union([z.string(), InlineScenarioConfigSchema])),
   setup: z.optional(TreatmentSetupSchema),
   treatments: z.array(TreatmentSchema),

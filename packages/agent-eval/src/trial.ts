@@ -14,8 +14,9 @@ import {
   getJudgePrompt,
   getJudgeReportFilename,
   JudgeOutputSchema,
-  JudgeResultSchema,
+  parseJudgeReport,
   type JudgeOutput,
+  type JudgeResult,
 } from './judge'
 
 const TrialSchema = z.object({
@@ -463,7 +464,7 @@ async function run({
 
       const model = getJudgeModel(judge, trial)
       const prompt = getJudgePrompt(judge)
-      const copilotOutput = await sandbox.runCommand(
+      const judgeCopilotOutput = await sandbox.runCommand(
         'copilot',
         [
           '--prompt',
@@ -485,53 +486,30 @@ async function run({
           },
         },
       )
-      const messages: Array<Message> = copilotOutput.stdout.split('\n').flatMap(line => {
+      const judgeMessages: Array<Message> = judgeCopilotOutput.stdout.split('\n').flatMap(line => {
         const trimmed = line.trim()
         if (trimmed.length === 0) {
           return []
         }
         return parseMessage(JSON.parse(trimmed))
       })
-      const session = getAgentSession(messages)
-
-      const judgeReportPath = path.join(artifactsDirectory, trial.id, getJudgeReportFilename(judge))
-
-      if (host.existsSync(judgeReportPath)) {
-        const contents = await host.fs.readFile(judgeReportPath, 'utf-8')
-        const json = JSON.parse(contents)
-        const result = JudgeResultSchema.safeParse(json)
-
-        if (result.success) {
-          judgeOutputs.push({
-            config: judge,
-            result: result.data,
-            agent: {
-              session,
-            },
-          })
-        } else {
-          judgeOutputs.push({
-            config: judge,
-            result: {
-              type: 'error',
-              message: z.prettifyError(result.error),
-            },
-            agent: {
-              session,
-            },
-          })
+      const session = getAgentSession(judgeMessages)
+      const judgeReportPath = getJudgeReportFilename(judge)
+      let judgeResult: JudgeResult
+      if (await sandbox.exists(judgeReportPath)) {
+        judgeResult = parseJudgeReport(await sandbox.readFile(judgeReportPath), judge)
+        if (judgeResult.type === 'error') {
+          logger.warn('%s Judge "%s" report is invalid: %s', logPrefix, judge.name, judgeResult.message)
         }
       } else {
-        judgeOutputs.push({
-          config: judge,
-          result: {
-            type: 'unknown',
-          },
-          agent: {
-            session,
-          },
-        })
+        logger.warn('%s Judge "%s" did not write its report: %s', logPrefix, judge.name, judgeReportPath)
+        judgeResult = {type: 'unknown'}
       }
+      judgeOutputs.push({
+        config: judge,
+        result: judgeResult,
+        agent: {session},
+      })
     }
   }
 

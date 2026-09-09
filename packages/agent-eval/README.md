@@ -156,13 +156,26 @@ agent-eval \
 ```
 
 `output.json` stores run metadata and maps each trial ID to its JSON file inside
-that trial's artifact directory. Each trial file contains the agent, model,
-test result, artifact, and walkthrough data that was previously embedded in
-`output.json`. Artifact and walkthrough references are relative to the
-directory containing `output.json`. Upload or download the complete `run`
+that trial's artifact directory. Each trial file contains agent, model, judge,
+test result, artifact, and walkthrough data. Artifact and walkthrough references
+are relative to the directory containing `output.json`. Upload or download the complete `run`
 directory to preserve those references. `--output-dir` creates `output.json`
 and `artifacts/` within the selected directory. When using `--output`, artifacts
 are written to an `artifacts/` directory beside the selected file.
+
+Trials include a `judges` array. Each entry preserves the judge's `config`,
+`result`, and `agent.session` (including its messages and usage). Judge sessions
+are separate from the implementation agent's sessions. Successful results have
+`type: "result"` with a `score`, `rationale`, and file-backed `findings`. Missing
+reports have `type: "unknown"`; malformed reports and scores outside the
+configured scale have `type: "error"` with a diagnostic `message`.
+
+Judge reports are read from the sandbox workspace before artifacts are
+downloaded. Reports contain `score`, `rationale`, and `findings`; the runner adds
+the result type. The original reports are also retained in the downloaded
+workspace. Benchmark and experiment readers preserve judge results and scenario
+judge configurations. Older bundles without judge fields load with empty
+`judges` arrays.
 
 ### Plans and sharding
 

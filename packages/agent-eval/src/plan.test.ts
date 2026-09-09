@@ -27,6 +27,7 @@ function createTrial(id: string): Trial {
       directory: '/scenario',
       prompt: 'prompt',
       tags: [],
+      judges: [],
       testPath: '/scenario/scenario.test.ts',
     },
     treatment: {
@@ -52,6 +53,7 @@ function createResult(trial: Trial): TrialResult {
     agent: {
       sessions: [],
     },
+    judges: [],
     testResults: {
       numTotalTests: 0,
       numPassedTests: 0,

@@ -11,6 +11,7 @@ import {
 } from './model'
 import {DefaultHost, type Host} from './host'
 import {logger} from './logger'
+import {JudgeOutputSchema} from './judge'
 import {
   create as createDurablePlan,
   run as runPlan,
@@ -323,6 +324,7 @@ const ExperimentOutputScenarioSchema = z.pick(ScenarioSchema, {
   tags: true,
   testPath: true,
   browserTestPath: true,
+  judges: true,
 })
 
 const ExperimentOutputTreatmentSchema = z.pick(TreatmentSchema, {
@@ -333,6 +335,7 @@ const ExperimentOutputTrialSchema = z.object({
   agent: TrialAgentSchema,
   artifacts: TrialArtifactsSchema,
   id: z.string(),
+  judges: z._default(z.array(JudgeOutputSchema), []),
   model: ModelVariantSchema,
   scenarioId: z.string(),
   testResults: TestResultsSchema,
@@ -390,6 +393,7 @@ function output(
       agent: trialResult.agent,
       artifacts,
       id: trial.id,
+      judges: trialResult.judges,
       model: trial.model,
       scenarioId: trial.scenario.id,
       testResults: trialResult.testResults,

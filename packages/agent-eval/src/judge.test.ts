@@ -5,7 +5,9 @@ import {
   getJudgePrompt,
   JudgeConfigSchema,
   JudgeOutputSchema,
+  JudgeReportSchema,
   JudgeResultSchema,
+  parseJudgeReport,
   type JudgeConfig,
   type JudgeResult,
 } from './judge'
@@ -21,6 +23,7 @@ const config: JudgeConfig = {
 }
 
 const result: JudgeResult = {
+  type: 'result',
   score: 1,
   rationale: 'The implementation meets the requirements.',
   findings: [
@@ -32,6 +35,18 @@ const result: JudgeResult = {
   ],
 }
 
+const agent = {
+  session: {
+    turns: 1,
+    outputTokens: 10,
+    premiumRequests: 0,
+    totalApiDurationMs: 100,
+    sessionDurationMs: 200,
+    tools: {view: 1},
+    messages: [],
+  },
+}
+
 function createTrial(model: Trial['model']): Trial {
   return {
     id: 'test-trial',
@@ -40,6 +55,7 @@ function createTrial(model: Trial['model']): Trial {
       directory: '/scenarios/test',
       prompt: 'Implement the requested behavior.',
       tags: [],
+      judges: [],
       testPath: '/scenarios/test/scenario.test.ts',
     },
     treatment: {name: 'control'},
@@ -85,6 +101,7 @@ test('JudgeResultSchema accepts a score, rationale, and file-backed findings', (
 
 test('JudgeResultSchema accepts an empty findings array', () => {
   const emptyFindings: JudgeResult = {
+    type: 'result',
     score: 0,
     rationale: 'No implementation files were available for inspection.',
     findings: [],
@@ -94,13 +111,13 @@ test('JudgeResultSchema accepts an empty findings array', () => {
 })
 
 test.each([
-  ['missing score', {rationale: result.rationale, findings: []}],
+  ['missing score', {type: 'result', rationale: result.rationale, findings: []}],
   ['nonnumeric score', {...result, score: '1'}],
   ['nonfinite score', {...result, score: Infinity}],
-  ['missing rationale', {score: 1, findings: []}],
-  ['legacy rational key', {score: 1, rational: result.rationale, findings: []}],
+  ['missing rationale', {type: 'result', score: 1, findings: []}],
+  ['legacy rational key', {type: 'result', score: 1, rational: result.rationale, findings: []}],
   ['nonstring rationale', {...result, rationale: 42}],
-  ['missing findings', {score: 1, rationale: result.rationale}],
+  ['missing findings', {type: 'result', score: 1, rationale: result.rationale}],
   ['nonarray findings', {...result, findings: {}}],
   ['missing finding filepath', {...result, findings: [{snippet: 'return true', explanation: 'Meets requirements.'}]}],
   ['missing finding snippet', {...result, findings: [{filepath: 'src/index.ts', explanation: 'Meets requirements.'}]}],
@@ -113,15 +130,16 @@ test.each([
   expect(JudgeResultSchema.safeParse(input).success).toBe(false)
 })
 
-test('JudgeOutputSchema accepts the configuration and result together', () => {
-  expect(JudgeOutputSchema.parse({config, result})).toEqual({config, result})
+test('JudgeOutputSchema accepts the configuration, result, and judge session together', () => {
+  expect(JudgeOutputSchema.parse({config, result, agent})).toEqual({config, result, agent})
 })
 
 test.each([
-  ['missing configuration', {result}],
-  ['missing result', {config}],
-  ['invalid configuration', {config: {...config, scores: 'invalid'}, result}],
-  ['invalid result', {config, result: {...result, score: 'invalid'}}],
+  ['missing configuration', {result, agent}],
+  ['missing result', {config, agent}],
+  ['missing agent session', {config, result}],
+  ['invalid configuration', {config: {...config, scores: 'invalid'}, result, agent}],
+  ['invalid result', {config, result: {...result, score: 'invalid'}, agent}],
 ])('JudgeOutputSchema rejects %s', (_name, input) => {
   expect(JudgeOutputSchema.safeParse(input).success).toBe(false)
 })
@@ -192,7 +210,35 @@ test('getJudgePrompt supports omitted description and instructions and embeds th
     name: 'correctness',
     scores: [{value: 0, description: 'Does not meet the requirements.'}],
   })
-  expect(JSON.parse(schema)).toEqual(z.toJSONSchema(JudgeResultSchema))
+  expect(JSON.parse(schema)).toEqual(z.toJSONSchema(JudgeReportSchema))
   expect(JSON.parse(schema).required).toEqual(['score', 'rationale', 'findings'])
   expect(prompt).not.toContain('undefined')
 })
+
+test('parseJudgeReport wraps the report in a successful result', () => {
+  const report = {score: 1, rationale: result.rationale, findings: result.findings}
+  expect(parseJudgeReport(JSON.stringify(report), config)).toEqual(result)
+})
+
+test('parseJudgeReport accepts reports with an existing result discriminator', () => {
+  expect(parseJudgeReport(JSON.stringify(result), config)).toEqual(result)
+})
+
+test.each([
+  ['invalid JSON', '{', 'Invalid judge report JSON'],
+  ['invalid report schema', '{"score": 1}', 'rationale'],
+  ['unconfigured score', JSON.stringify({...result, score: 2}), 'unconfigured score: 2'],
+  ['agent-authored error state', '{"type": "error", "message": "failed"}', 'score'],
+])('parseJudgeReport records %s as an error', (_name, contents, message) => {
+  expect(parseJudgeReport(contents, config)).toEqual({
+    type: 'error',
+    message: expect.stringContaining(message),
+  })
+})
+
+test.each([{type: 'unknown'}, {type: 'error', message: 'Missing evidence'}])(
+  'JudgeOutputSchema preserves a $type result and its session',
+  state => {
+    expect(JudgeOutputSchema.parse({config, result: state, agent})).toEqual({config, result: state, agent})
+  },
+)

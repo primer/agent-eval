@@ -192,6 +192,7 @@ test('listExperiments resolves inline scenario paths with optional names', async
           directory: unnamedDirectory,
           prompt: 'Complete the task',
           tags: [],
+          judges: [],
           testPath: path.join(unnamedDirectory, 'scenario.test.ts'),
           browserTestPath: path.join(unnamedDirectory, 'scenario.browser.test.ts'),
         },
@@ -200,6 +201,7 @@ test('listExperiments resolves inline scenario paths with optional names', async
           directory: namedDirectory,
           prompt: 'Complete the task',
           tags: [],
+          judges: [],
           testPath: path.join(namedDirectory, 'scenario.test.ts'),
         },
       ],
@@ -326,6 +328,7 @@ test('creates portable artifact paths relative to the output directory', async (
         directory: '/scenarios/scenario',
         prompt: 'Complete the task',
         tags: [],
+        judges: [],
         testPath: '/scenarios/scenario/scenario.test.ts',
       },
       treatment: {
@@ -339,6 +342,7 @@ test('creates portable artifact paths relative to the output directory', async (
     agent: {
       sessions: [],
     },
+    judges: [],
     testResults: {
       numTotalTests: 1,
       numPassedTests: 1,
@@ -461,6 +465,7 @@ test('resolves durable experiment plans with experiment and treatment setup func
         directory: '/scenarios/001-scenario',
         prompt: 'Complete the task',
         tags: [],
+        judges: [],
         testPath: '/scenarios/001-scenario/scenario.test.ts',
       },
     ],
@@ -488,6 +493,7 @@ test('rejects experiment plans with references missing from the current config',
     directory: '/scenarios/001-scenario',
     prompt: 'Complete the task',
     tags: [],
+    judges: [],
     testPath: '/scenarios/001-scenario/scenario.test.ts',
   }
   const experiment: Experiment = {

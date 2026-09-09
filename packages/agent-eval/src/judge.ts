@@ -20,6 +20,18 @@ const JudgeConfigSchema = z.object({
 
 type JudgeConfig = z.infer<typeof JudgeConfigSchema>
 
+const JudgeReportSchema = z.object({
+  score: z.number(),
+  rationale: z.string(),
+  findings: z.array(
+    z.object({
+      filepath: z.string(),
+      snippet: z.string(),
+      explanation: z.string(),
+    }),
+  ),
+})
+
 const JudgeResultSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('unknown'),
@@ -30,15 +42,7 @@ const JudgeResultSchema = z.discriminatedUnion('type', [
   }),
   z.object({
     type: z.literal('result'),
-    score: z.number(),
-    rationale: z.string(),
-    findings: z.array(
-      z.object({
-        filepath: z.string(),
-        snippet: z.string(),
-        explanation: z.string(),
-      }),
-    ),
+    ...JudgeReportSchema.shape,
   }),
 ])
 
@@ -53,6 +57,36 @@ const JudgeOutputSchema = z.object({
 })
 
 type JudgeOutput = z.infer<typeof JudgeOutputSchema>
+
+function parseJudgeReport(contents: string, config: JudgeConfig): JudgeResult {
+  let json: unknown
+  try {
+    json = JSON.parse(contents)
+  } catch (error) {
+    if (!(error instanceof SyntaxError)) {
+      throw error
+    }
+    return {type: 'error', message: `Invalid judge report JSON: ${error.message}`}
+  }
+
+  const report = JudgeReportSchema.safeParse(json)
+  if (!report.success) {
+    return {type: 'error', message: z.prettifyError(report.error)}
+  }
+
+  if (
+    !config.scores.some(score => {
+      return score.value === report.data.score
+    })
+  ) {
+    return {
+      type: 'error',
+      message: `Judge "${config.name}" returned an unconfigured score: ${report.data.score}`,
+    }
+  }
+
+  return {type: 'result', ...report.data}
+}
 
 /**
  * Get the model information for a judge evaluating the given trial. If an
@@ -108,7 +142,7 @@ function getJudgePrompt(config: JudgeConfig): string {
     '## Report file',
     JSON.stringify(getJudgeReportFilename(config)),
     '## Result JSON Schema',
-    JSON.stringify(z.toJSONSchema(JudgeResultSchema), null, 2),
+    JSON.stringify(z.toJSONSchema(JudgeReportSchema), null, 2),
   ].join('\n\n')
 }
 
@@ -116,5 +150,14 @@ function getJudgeReportFilename(config: JudgeConfig): string {
   return `judge-${config.name}-report.json`
 }
 
-export {JudgeConfigSchema, JudgeResultSchema, JudgeOutputSchema, getJudgeModel, getJudgePrompt, getJudgeReportFilename}
+export {
+  JudgeConfigSchema,
+  JudgeReportSchema,
+  JudgeResultSchema,
+  JudgeOutputSchema,
+  getJudgeModel,
+  getJudgePrompt,
+  getJudgeReportFilename,
+  parseJudgeReport,
+}
 export type {JudgeConfig, JudgeResult, JudgeOutput}

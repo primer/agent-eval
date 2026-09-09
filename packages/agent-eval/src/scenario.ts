@@ -28,7 +28,7 @@ const ScenarioSchema = z.object({
   tags: z.array(z.string()),
   testPath: z.string(),
   browserTestPath: z.optional(z.string()),
-  judges: z.array(JudgeConfigSchema),
+  judges: z._default(z.array(JudgeConfigSchema), []),
 })
 
 type Scenario = z.infer<typeof ScenarioSchema>

@@ -43,7 +43,7 @@ import {resolveContainerPath} from './path'
 import {logger} from '../logger'
 import {createCapturedStream} from './captured-stream'
 
-const COPILOT_CLI_VERSION = '1.0.82'
+const COPILOT_CLI_VERSION = '1.0.83'
 const NPM_VERSION = '12.0.2'
 const DOCKERFILE = `ARG BASE_IMAGE=node:26.5.0-slim
 

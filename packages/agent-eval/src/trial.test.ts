@@ -918,11 +918,23 @@ describe('run', () => {
       {name: 'experiment', format: experiment},
     ])('collects sandbox judge reports and round-trips $name output', async ({format}) => {
       const trial = createTrial()
-      trial.scenario.judges = [judge]
+      const referencedJudge = {...judge, files: ['reference.txt', 'screenshots']}
+      trial.scenario.judges = [referencedJudge]
       const {sandbox, ...runOptions} = await setup(trial)
+      const {host} = runOptions
+      await host.fs.writeFile('/scenarios/test/reference.txt', 'Reference copy', 'utf8')
+      await host.fs.mkdir('/scenarios/test/screenshots/nested', {recursive: true})
+      const screenshot = Buffer.from([0x89, 0x50, 0x4e, 0x47])
+      await host.fs.writeFile('/scenarios/test/screenshots/nested/distant.png', screenshot)
       mockRunCommand(sandbox, [
         async ({params}) => {
+          if ((params[0] === 'copilot' && params[1]?.[1] === trial.scenario.prompt) || params[0] === 'sh') {
+            expect(await sandbox.exists('reference.txt')).toBe(false)
+            expect(await sandbox.exists('screenshots')).toBe(false)
+          }
           if (params[0] === 'copilot' && params[1]?.[1]?.startsWith('You are an independent judge')) {
+            expect(await sandbox.readFile('reference.txt')).toBe('Reference copy')
+            expect(await host.fs.readFile(`${CONTAINER_WORKDIR}/screenshots/nested/distant.png`)).toEqual(screenshot)
             await sandbox.writeFile(getJudgeReportFilename(judge), JSON.stringify(report))
             const commandResult = await writeCopilotResult({params, sandbox})
             if (!commandResult) {
@@ -940,7 +952,7 @@ describe('run', () => {
       const result = await run({...runOptions, sandbox, trial})
       expect(result.judges).toEqual([
         {
-          config: judge,
+          config: referencedJudge,
           result: {type: 'result', ...report},
           agent: {
             session: expect.objectContaining({
@@ -953,6 +965,14 @@ describe('run', () => {
       ])
       expect(result.agent.sessions).toHaveLength(1)
       expect(result.agent.sessions[0].premiumRequests).toBe(0)
+      expect(sandbox.copy).toHaveBeenCalledWith(trial.scenario.directory, CONTAINER_WORKDIR, {
+        exclude: expect.arrayContaining(['reference.txt', 'screenshots']),
+      })
+      expect(sandbox.runCommand).toHaveBeenCalledWith(
+        'chown',
+        ['-R', NODE_USER, '--', 'reference.txt', 'screenshots'],
+        {user: 'root'},
+      )
       expect(sandbox.runCommand).toHaveBeenCalledWith(
         'copilot',
         [
@@ -976,11 +996,13 @@ describe('run', () => {
           'utf8',
         ),
       ).resolves.toBe(JSON.stringify(report))
+      await expect(
+        host.fs.readFile(path.join(result.artifacts.workspaceDirectory, 'screenshots/nested/distant.png')),
+      ).resolves.toEqual(screenshot)
 
       const output = format.output('judge', [{...result, capability: {name: 'judge', scenarios: [trial.scenario]}}], {
         baseDirectory: '/artifacts',
       })
-      const {host} = runOptions
       if ('benchmarkId' in output) {
         await benchmark.write('/artifacts/output.json', output, {host})
       } else {
@@ -991,7 +1013,7 @@ describe('run', () => {
       expect(savedTrial.judges).toEqual(result.judges)
       const loaded = await format.read('/artifacts/output.json', {host})
       expect(loaded).toEqual(output)
-      expect(loaded.scenarios.get(trial.scenario.id)?.judges).toEqual([judge])
+      expect(loaded.scenarios.get(trial.scenario.id)?.judges).toEqual([referencedJudge])
       const merged = 'benchmarkId' in loaded ? benchmark.merge([loaded]) : experiment.merge([loaded])
       expect(merged.trials.get(trial.id)?.judges).toEqual(result.judges)
 
@@ -1059,6 +1081,72 @@ describe('run', () => {
       for (const output of result.judges) {
         expect(output.agent.session.messages).toEqual([expect.objectContaining({type: 'result'})])
       }
+    })
+
+    test('copies shared and overlapping judge references only once', async () => {
+      const trial = createTrial()
+      trial.scenario.judges = [
+        {...judge, files: ['./references/', 'references/target.txt']},
+        {...judge, name: 'second', files: ['references']},
+      ]
+      const {sandbox, ...runOptions} = await setup(trial)
+      await runOptions.host.fs.mkdir('/scenarios/test/references', {recursive: true})
+      await runOptions.host.fs.writeFile('/scenarios/test/references/target.txt', 'Reference', 'utf8')
+      mockRunCommand(sandbox)
+
+      await run({...runOptions, sandbox, trial})
+
+      const copies = vi.mocked(sandbox.copy).mock.calls.filter(([source]) => {
+        return source.startsWith('/scenarios/test/references')
+      })
+      expect(copies).toEqual([['/scenarios/test/references', 'references']])
+    })
+
+    test.each([['missing.png'], ['references', 'references/missing.png']])(
+      'rejects missing judge references %j before implementation',
+      async (...files) => {
+        const trial = createTrial()
+        trial.scenario.judges = [{...judge, files}]
+        const {sandbox, ...runOptions} = await setup(trial)
+        await runOptions.host.fs.mkdir('/scenarios/test/references', {recursive: true})
+        mockRunCommand(sandbox)
+
+        await expect(run({...runOptions, sandbox, trial})).rejects.toThrow('was not found in scenario')
+        expect(sandbox.runCommand).not.toHaveBeenCalled()
+      },
+    )
+
+    test.each(['references', 'references/target.txt'])(
+      'rejects symbolic links in judge reference %s before implementation',
+      async filepath => {
+        const trial = createTrial()
+        trial.scenario.judges = [{...judge, files: [filepath]}]
+        const {sandbox, ...runOptions} = await setup(trial)
+        await runOptions.host.fs.mkdir('/scenarios/test/references', {recursive: true})
+        await runOptions.host.fs.writeFile('/private.txt', 'Private data', 'utf8')
+        await runOptions.host.fs.symlink('/private.txt', '/scenarios/test/references/target.txt')
+        mockRunCommand(sandbox)
+
+        await expect(run({...runOptions, sandbox, trial})).rejects.toThrow('symbolic links')
+        expect(sandbox.runCommand).not.toHaveBeenCalled()
+      },
+    )
+
+    test('does not overwrite implementation output with judge references', async () => {
+      const trial = createTrial()
+      trial.scenario.judges = [{...judge, files: ['reference.txt']}]
+      const {sandbox, ...runOptions} = await setup(trial)
+      await runOptions.host.fs.writeFile('/scenarios/test/reference.txt', 'Reference', 'utf8')
+      mockRunCommand(sandbox, [
+        async ({params}) => {
+          if (params[0] === 'copilot' && params[1]?.[1] === trial.scenario.prompt) {
+            await sandbox.writeFile('reference.txt', 'Implementation output')
+          }
+        },
+      ])
+
+      await expect(run({...runOptions, sandbox, trial})).rejects.toThrow('workspace path already exists')
+      expect(await sandbox.readFile('reference.txt')).toBe('Implementation output')
     })
   })
 

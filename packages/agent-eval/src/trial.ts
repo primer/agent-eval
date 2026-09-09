@@ -13,6 +13,7 @@ import {
   getJudgeModel,
   getJudgePrompt,
   getJudgeReportFilename,
+  getJudgeFiles,
   JudgeOutputSchema,
   parseJudgeReport,
   type JudgeOutput,
@@ -259,6 +260,49 @@ function getPortableTrialPaths(result: TrialResult, baseDirectory: string): Port
   }
 }
 
+async function validateJudgeFileSource(host: Host, sourcePath: string): Promise<void> {
+  const stats = await host.fs.lstat(sourcePath)
+  if (stats.isSymbolicLink()) {
+    throw new Error(`Judge reference must not contain symbolic links: ${sourcePath}`)
+  }
+  if (stats.isDirectory()) {
+    for (const entry of await host.fs.readdir(sourcePath)) {
+      await validateJudgeFileSource(host, path.join(sourcePath, entry))
+    }
+  } else if (!stats.isFile()) {
+    throw new Error(`Judge reference must be a file or directory: ${sourcePath}`)
+  }
+}
+
+async function getJudgeFileSources(host: Host, trial: Trial): Promise<Array<{filepath: string; sourcePath: string}>> {
+  const files = [...new Set(trial.scenario.judges.flatMap(getJudgeFiles))]
+  if (files.length === 0) {
+    return []
+  }
+
+  const directory = await host.fs.realpath(trial.scenario.directory)
+  const sources: Array<{filepath: string; sourcePath: string}> = []
+  for (const filepath of files) {
+    const sourcePath = path.join(directory, filepath)
+    if (!host.existsSync(sourcePath)) {
+      throw new Error(`Judge reference "${filepath}" was not found in scenario "${trial.scenario.id}"`)
+    }
+    if ((await host.fs.realpath(sourcePath)) !== sourcePath) {
+      throw new Error(`Judge reference must not use symbolic links: ${filepath}`)
+    }
+    await validateJudgeFileSource(host, sourcePath)
+    if (
+      files.some(parent => {
+        return filepath.startsWith(`${parent}/`)
+      })
+    ) {
+      continue
+    }
+    sources.push({filepath, sourcePath})
+  }
+  return sources
+}
+
 async function run({
   artifactsDirectory,
   copilotToken,
@@ -278,6 +322,8 @@ async function run({
 
   logger.info('%s Running trial: %s', logPrefix, trial.id)
 
+  const judgeFiles = await getJudgeFileSources(host, trial)
+
   logger.info('%s Copying files from: %s...', logPrefix, trial.scenario.directory)
 
   await sandbox.copy(trial.scenario.directory, CONTAINER_WORKDIR, {
@@ -289,6 +335,9 @@ async function run({
       'node_modules',
       '.next',
       'dist',
+      ...judgeFiles.map(file => {
+        return file.filepath
+      }),
     ],
   })
   await sandbox.runCommand('chown', ['-R', NODE_USER, '.'], {
@@ -459,6 +508,30 @@ async function run({
   if (trial.scenario.judges.length > 0) {
     logger.info('%s Running judges...', logPrefix)
 
+    for (const file of judgeFiles) {
+      if (await sandbox.exists(file.filepath)) {
+        throw new Error(`Cannot copy judge reference "${file.filepath}": the workspace path already exists`)
+      }
+    }
+    for (const file of judgeFiles) {
+      logger.info('%s Copying judge reference: %s...', logPrefix, file.filepath)
+      await sandbox.copy(file.sourcePath, file.filepath)
+    }
+    if (judgeFiles.length > 0) {
+      await sandbox.runCommand(
+        'chown',
+        [
+          '-R',
+          NODE_USER,
+          '--',
+          ...judgeFiles.map(file => {
+            return file.filepath
+          }),
+        ],
+        {user: 'root'},
+      )
+    }
+
     for (const judge of trial.scenario.judges) {
       logger.info('%s Running judge: %s...', logPrefix, judge.name)
 
@@ -600,6 +673,20 @@ Only capture the walkthrough, do not make any further code changes.`
   logger.debug('%s Downloading agent workspace to: %s...', logPrefix, workspaceDirectory)
   await sandbox.download(CONTAINER_WORKDIR, workspaceDirectory, {
     ignore(name) {
+      const relativePath = (path.isAbsolute(name) ? path.relative(workspaceDirectory, name) : name)
+        .split(path.sep)
+        .join(path.posix.sep)
+      if (
+        judgeFiles.some(file => {
+          return (
+            relativePath === file.filepath ||
+            relativePath.startsWith(`${file.filepath}/`) ||
+            file.filepath.startsWith(`${relativePath}/`)
+          )
+        })
+      ) {
+        return false
+      }
       return name.includes('node_modules') || name.includes('.next') || name.includes('.turbo') || name.includes('dist')
     },
   })

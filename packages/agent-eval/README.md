@@ -177,6 +177,46 @@ workspace. Benchmark and experiment readers preserve judge results and scenario
 judge configurations. Older bundles without judge fields load with empty
 `judges` arrays.
 
+### Judge reference files
+
+Use `files` on a judge entry to provide reference screenshots, text files, or
+directories:
+
+```ts
+import {defineConfig} from '@primer/agent-eval/scenario'
+
+export default defineConfig({
+  prompt: 'Build a project overview page.',
+  judges: [
+    {
+      name: 'visual-match',
+      files: ['screenshots', 'references/notes.txt'],
+      judge: {
+        instructions: 'Compare the implementation with the reference screenshots and notes.',
+      },
+      scores: [
+        {value: 0, description: 'The implementation does not match the references.'},
+        {value: 1, description: 'The implementation matches the references.'},
+      ],
+    },
+  ],
+})
+```
+
+Paths are relative to the scenario directory and use forward slashes. These are
+literal file or directory paths, not glob patterns. Directories are copied
+recursively. References are excluded from the implementation workspace and
+copied to the same relative workspace paths during the judge phase, after
+deterministic tests finish. The judge prompt identifies them as reference
+material, not implementation output. Shared references are copied once.
+
+Use dedicated reference paths that the implementation will not create.
+Missing references, symbolic links, absolute paths, parent traversal, and paths
+that would overwrite existing workspace content fail the trial explicitly.
+Reference files remain in the downloaded workspace, and `files` is preserved in
+saved judge configurations. For findings based on images, judges use an empty
+`snippet` and describe the visual evidence in `explanation`.
+
 ### Plans and sharding
 
 Create a durable, randomized trial plan before running an experiment or

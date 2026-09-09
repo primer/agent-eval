@@ -3,6 +3,7 @@ import * as z from 'zod/mini'
 import {
   getJudgeModel,
   getJudgePrompt,
+  getJudgeFiles,
   JudgeConfigSchema,
   JudgeOutputSchema,
   JudgeReportSchema,
@@ -71,6 +72,7 @@ test('JudgeConfigSchema accepts description, instructions, and an explicit model
   const completeConfig: JudgeConfig = {
     ...config,
     description: 'Evaluate correctness.',
+    files: ['screenshots', 'references/example.txt'],
     judge: {
       model: {name: 'claude-opus-5', reasoningEffort: 'high'},
       instructions: 'Inspect the implementation.',
@@ -85,6 +87,8 @@ test.each([
   ['missing judge', {name: config.name, scores: config.scores}],
   ['missing scores', {name: config.name, judge: {}}],
   ['invalid instructions', {...config, judge: {instructions: 42}}],
+  ['nonarray files', {...config, files: 'screenshots'}],
+  ['nonstring file', {...config, files: [42]}],
   ['nonnumeric score value', {...config, scores: [{value: '1', description: 'Meets requirements.'}]}],
   ['missing score description', {...config, scores: [{value: 1}]}],
   ['unknown model', {...config, judge: {model: {name: 'unknown', reasoningEffort: 'medium'}}}],
@@ -93,6 +97,33 @@ test.each([
   ['model configuration instead of variant', {...config, judge: {model: 'gpt-5.6-sol'}}],
 ])('JudgeConfigSchema rejects %s', (_name, input) => {
   expect(JudgeConfigSchema.safeParse(input).success).toBe(false)
+})
+
+test.each([
+  '',
+  ' ',
+  '.',
+  './',
+  '././',
+  '..',
+  '../private.txt',
+  'references/../private.txt',
+  '/tmp/reference.png',
+  'C:/reference.png',
+  'C:reference.png',
+  'references\\target.png',
+  'target\0.png',
+])('JudgeConfigSchema rejects unsafe reference path %j', filepath => {
+  expect(JudgeConfigSchema.safeParse({...config, files: [filepath]}).success).toBe(false)
+})
+
+test('getJudgeFiles normalizes scenario-relative paths and supports omitted files', () => {
+  expect(getJudgeFiles(config)).toEqual([])
+  expect(getJudgeFiles({...config, files: []})).toEqual([])
+  expect(getJudgeFiles({...config, files: ['./screenshots/', 'references//example.txt']})).toEqual([
+    'screenshots',
+    'references/example.txt',
+  ])
 })
 
 test('JudgeResultSchema accepts a score, rationale, and file-backed findings', () => {
@@ -173,6 +204,7 @@ test('getJudgePrompt includes the judge criteria, instructions, and exact report
   const promptConfig: JudgeConfig = {
     name: 'accessibility',
     description: 'Evaluate keyboard accessibility.',
+    files: ['screenshots'],
     judge: {
       model: {name: 'gpt-5.6-sol', reasoningEffort: 'medium'},
       instructions: 'Inspect focus order.\nDo not grade visual styling.',
@@ -191,10 +223,15 @@ test('getJudgePrompt includes the judge criteria, instructions, and exact report
     name: promptConfig.name,
     description: promptConfig.description,
     instructions: promptConfig.judge.instructions,
+    files: promptConfig.files,
     scores: promptConfig.scores,
   })
   expect(JSON.parse(reportFile)).toBe('judge-accessibility-report.json')
   expect(prompt).not.toContain('gpt-5.6-sol')
+  expect(prompt).toContain('scenario-provided references')
+  expect(prompt).toContain('same relative paths in the workspace')
+  expect(prompt).toContain('screenshots with an image-capable tool')
+  expect(prompt).toContain('For images, use an empty snippet')
 })
 
 test('getJudgePrompt supports omitted description and instructions and embeds the result schema', () => {

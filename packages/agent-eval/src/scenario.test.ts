@@ -142,6 +142,7 @@ test('listScenarios loads judge configurations in zero-prefixed scenarios', asyn
     {
       name: 'copy',
       judge: {instructions: 'Evaluate the clarity of the copy.'},
+      files: ['screenshots'],
       scores: [{value: 1, description: 'Clear copy'}],
     },
   ]

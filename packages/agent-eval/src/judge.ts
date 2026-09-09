@@ -1,11 +1,31 @@
+import path from 'node:path'
 import * as z from 'zod/mini'
 import {ModelVariantSchema, type ModelVariant} from './model'
 import type {Trial} from './trial'
 import {AgentSessionSchema} from './agent'
 
+const JudgeFileSchema = z.string().check(
+  z.refine(
+    filepath => {
+      const normalized = path.posix.normalize(filepath).replace(/\/$/, '')
+      return (
+        filepath.trim().length > 0 &&
+        !filepath.includes('\0') &&
+        !filepath.includes('\\') &&
+        !path.posix.isAbsolute(filepath) &&
+        path.win32.parse(filepath).root === '' &&
+        !filepath.split('/').includes('..') &&
+        normalized !== '.'
+      )
+    },
+    {error: 'Judge files must be scenario-relative paths using forward slashes, without parent traversal.'},
+  ),
+)
+
 const JudgeConfigSchema = z.object({
   name: z.string(),
   description: z.optional(z.string()),
+  files: z.optional(z.array(JudgeFileSchema)),
   judge: z.object({
     model: z.optional(ModelVariantSchema),
     instructions: z.optional(z.string()),
@@ -57,6 +77,12 @@ const JudgeOutputSchema = z.object({
 })
 
 type JudgeOutput = z.infer<typeof JudgeOutputSchema>
+
+function getJudgeFiles(config: JudgeConfig): Array<string> {
+  return (config.files ?? []).map(filepath => {
+    return path.posix.normalize(JudgeFileSchema.parse(filepath)).replace(/\/$/, '')
+  })
+}
 
 function parseJudgeReport(contents: string, config: JudgeConfig): JudgeResult {
   let json: unknown
@@ -120,20 +146,27 @@ Inspect the relevant files before deciding. Evaluate only the configured criteri
 
 Select exactly one numeric value from the configured scores, using its description as the scoring anchor. Do not invent a scale, interpolate, average scores, or assume that higher numbers are better. If evidence is incomplete, choose the best-supported configured score and explicitly explain the uncertainty and any inspection limitations. Never fabricate evidence.
 
-Support the decision with concise findings. Each finding must name a workspace-relative filepath, quote an exact snippet from that file, and explain how it supports the score under the criteria. Findings may describe strengths or shortcomings. Use an empty findings array when no file-backed findings are available; explain missing evidence in rationale rather than inventing paths or snippets.
+Support the decision with concise findings. Each finding must name a workspace-relative filepath and explain how it supports the score under the criteria. For text files, quote an exact snippet from that file. For images, use an empty snippet and describe the visual evidence in the explanation instead of inventing a text quote. Findings may describe strengths or shortcomings. Use an empty findings array when no file-backed findings are available; explain missing evidence in rationale rather than inventing paths or snippets.
 
 Write a single JSON object matching the supplied result schema to the specified report file in the workspace root. Use exactly the fields score, rationale, and findings. The rationale field must give a concise evidence-based justification for the selected score, not a step-by-step internal deliberation. Do not wrap the result in config or result keys, Markdown fences, or additional prose.
 
 Use a file-writing tool to create the report; printing JSON in your final response is not sufficient. Read the saved file back and check that it is valid JSON, matches the schema, and uses a configured score. Correct any report errors before finishing. If you cannot write or verify the report, explicitly report the failure rather than claim completion.`
 
 function getJudgePrompt(config: JudgeConfig): string {
+  const files = getJudgeFiles(config)
   return [
     preamble,
+    ...(files.length > 0
+      ? [
+          'The files listed in the judge configuration are scenario-provided references, copied to the same relative paths in the workspace. They are not implementation output. Inspect these references (including screenshots with an image-capable tool) alongside the implementation when applying the scoring criteria.',
+        ]
+      : []),
     `## Judge configuration\n\n${JSON.stringify(
       {
         name: config.name,
         description: config.description,
         instructions: config.judge.instructions,
+        files: config.files === undefined ? undefined : files,
         scores: config.scores,
       },
       null,
@@ -158,6 +191,7 @@ export {
   getJudgeModel,
   getJudgePrompt,
   getJudgeReportFilename,
+  getJudgeFiles,
   parseJudgeReport,
 }
 export type {JudgeConfig, JudgeResult, JudgeOutput}

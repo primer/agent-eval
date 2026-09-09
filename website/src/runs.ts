@@ -37,6 +37,7 @@ type RunOutputResult = {
     }>
   }
   walkthrough: ExperimentOutputTrial['walkthrough']
+  judges: ExperimentOutputTrial['judges']
 }
 
 type RunOutput = {
@@ -224,6 +225,7 @@ function normalizeOutput(output: ExperimentOutput): RunOutput {
         }),
       },
       walkthrough: trial.walkthrough,
+      judges: trial.judges,
     }
   })
 
@@ -250,5 +252,5 @@ function normalizeOutput(output: ExperimentOutput): RunOutput {
   }
 }
 
-export {list, listForExperiment, get}
+export {list, listForExperiment, get, normalizeOutput}
 export type {Run, RunOutput, RunOutputResult}

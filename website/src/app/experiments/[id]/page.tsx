@@ -1,5 +1,6 @@
 import {get, list} from '../../../experiments'
 import {listForExperiment} from '../../../runs'
+import {createExperimentOverview} from '../../../experiment-results'
 import {Page} from './components/Page'
 
 type ExperimentPageProps = {
@@ -15,6 +16,7 @@ export default async function ExperimentPage(props: ExperimentPageProps) {
   return (
     <Page
       experiment={experiment}
+      overview={runs[0] ? createExperimentOverview(runs[0].output) : null}
       runs={runs.map(run => ({
         id: run.id,
         name: run.name,

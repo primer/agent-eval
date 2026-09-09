@@ -28,6 +28,7 @@ type RunResult = {
   scenarioId: string
   context?: string
   treatment: string
+  treatmentId?: string
   model: string
   reasoningEffort?: string
   testsPassed: number
@@ -307,6 +308,7 @@ async function createExperimentRunDetails(date: string, output: RunOutput, runDi
           id: result.id,
           scenarioId: result.scenarioId,
           treatment: treatments.get(result.treatmentId) ?? 'Unknown treatment',
+          treatmentId: result.treatmentId,
           model: result.model,
           reasoningEffort: result.reasoningEffort,
           testsPassed: result.testResults.numPassedTests,

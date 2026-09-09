@@ -4,6 +4,7 @@ import {get as getExperiment} from '../../../../../experiments'
 import {createExperimentRunDetails} from '../../../../../run-details'
 import {get as getRun, list as listRuns} from '../../../../../runs'
 import {RunDetailsPage} from '../../../../components/RunDetailsPage'
+import {createExperimentOverview} from '../../../../../experiment-results'
 
 const EMPTY_RUN_PARAM = '__no-runs__'
 
@@ -34,6 +35,7 @@ export default async function RunPage(props: RunPageProps) {
         href: `/experiments/${experiment.id}` as Route,
       }}
       run={await createExperimentRunDetails(date, run.output, run.directory)}
+      overview={createExperimentOverview(run.output)}
     />
   )
 }

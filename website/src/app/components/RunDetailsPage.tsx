@@ -7,6 +7,8 @@ import type {Route} from 'next'
 import Link from 'next/link'
 import Image from 'next/image'
 import {useState} from 'react'
+import type {ExperimentOverviewData} from '../../experiment-results'
+import {ExperimentOverview, scenarioResultAnchor} from './ExperimentOverview'
 
 type RunResult = RunDetails['results'][number]
 
@@ -217,6 +219,10 @@ function getModelLabel(result: RunResult): string {
   return result.reasoningEffort ? `${result.model} (${result.reasoningEffort})` : result.model
 }
 
+function getTreatmentValue(result: RunResult): string {
+  return result.treatmentId ?? result.treatment
+}
+
 function groupResultsByScenario(results: Array<RunResult>): Array<ScenarioResultGroup> {
   const groups = new Map<string, ScenarioResultGroup>()
 
@@ -247,27 +253,29 @@ function ScenarioResults({group, index}: {group: ScenarioResultGroup; index: num
   })
 
   const [selectedModel, setSelectedModel] = useState(getModelValue(group.results[0]))
-  const [selectedTreatment, setSelectedTreatment] = useState(group.results[0].treatment)
+  const [selectedTreatment, setSelectedTreatment] = useState(getTreatmentValue(group.results[0]))
+  const [selectedTrial, setSelectedTrial] = useState(0)
   const resultsForSelectedModel = group.results.filter(result => {
     return getModelValue(result) === selectedModel
   })
-  const treatmentOptions = Array.from(new Set(resultsForSelectedModel.map(result => result.treatment))).toSorted(
-    (firstTreatment, secondTreatment) => {
-      return firstTreatment.localeCompare(secondTreatment)
-    },
-  )
-  const selectedResult =
-    resultsForSelectedModel.find(result => {
-      return result.treatment === selectedTreatment
-    }) ??
-    resultsForSelectedModel[0] ??
-    group.results[0]
+  const treatmentOptions = Array.from(
+    new Map(resultsForSelectedModel.map(result => [getTreatmentValue(result), result.treatment])),
+  ).toSorted(([, firstLabel], [, secondLabel]) => firstLabel.localeCompare(secondLabel))
+  const activeTreatment = treatmentOptions.some(([value]) => value === selectedTreatment)
+    ? selectedTreatment
+    : getTreatmentValue(resultsForSelectedModel[0] ?? group.results[0])
+  const trials = resultsForSelectedModel.filter(result => getTreatmentValue(result) === activeTreatment)
+  const selectedResult = trials[selectedTrial] ?? trials[0] ?? group.results[0]
 
   const resultHeadingId = `result-${index}-heading`
   const summaryHeadingId = `result-${index}-summary-heading`
 
   return (
-    <article aria-labelledby={resultHeadingId} className="flex flex-col gap-4">
+    <article
+      aria-labelledby={resultHeadingId}
+      className="flex flex-col gap-4"
+      id={scenarioResultAnchor(group.scenarioId)}
+    >
       <header className="border-b border-default pb-3 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <h2 className="text-title-medium m-0" id={resultHeadingId}>
           {group.scenarioId}
@@ -283,13 +291,14 @@ function ScenarioResults({group, index}: {group: ScenarioResultGroup; index: num
                   return getModelValue(result) === nextModel
                 })
                 const nextTreatment = resultsForNextModel.some(result => {
-                  return result.treatment === selectedTreatment
+                  return getTreatmentValue(result) === selectedTreatment
                 })
                   ? selectedTreatment
-                  : (resultsForNextModel[0] ?? group.results[0]).treatment
+                  : getTreatmentValue(resultsForNextModel[0] ?? group.results[0])
 
                 setSelectedModel(nextModel)
                 setSelectedTreatment(nextTreatment)
+                setSelectedTrial(0)
               }}
             >
               {sortedModelOptions.map(([value, label]) => {
@@ -304,18 +313,33 @@ function ScenarioResults({group, index}: {group: ScenarioResultGroup; index: num
           <FormControl>
             <FormControl.Label>Treatment</FormControl.Label>
             <Select
-              value={selectedResult.treatment}
+              value={activeTreatment}
               onChange={event => {
                 setSelectedTreatment(event.currentTarget.value)
+                setSelectedTrial(0)
               }}
             >
-              {treatmentOptions.map(treatment => {
+              {treatmentOptions.map(([value, label]) => {
+                const duplicateName = treatmentOptions.filter(([, name]) => name === label).length > 1
                 return (
-                  <Select.Option key={treatment} value={treatment}>
-                    {treatment}
+                  <Select.Option key={value} value={value}>
+                    {duplicateName ? `${label} (${value})` : label}
                   </Select.Option>
                 )
               })}
+            </Select>
+          </FormControl>
+          <FormControl>
+            <FormControl.Label>Trial</FormControl.Label>
+            <Select
+              value={selectedTrial}
+              onChange={event => setSelectedTrial(Number(event.currentTarget.value))}
+            >
+              {trials.map((trial, trialIndex) => (
+                <Select.Option key={`${trial.id}-${trialIndex}`} value={trialIndex}>
+                  Trial {trialIndex + 1} of {trials.length}
+                </Select.Option>
+              ))}
             </Select>
           </FormControl>
         </div>
@@ -323,8 +347,9 @@ function ScenarioResults({group, index}: {group: ScenarioResultGroup; index: num
       <div className="flex flex-col gap-4">
         <section className="bg-default border border-default rounded-lg p-4" aria-labelledby={summaryHeadingId}>
           <h3 className="text-title-small mt-0 mb-3" id={summaryHeadingId}>
-            Run summary
+            Trial {selectedTrial + 1} summary
           </h3>
+          <p className="text-caption text-muted break-words">Trial ID: {selectedResult.id}</p>
           <dl className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 m-0">
             <div className="bg-muted rounded-md p-3">
               <dt className="text-caption text-muted">Tests passed</dt>
@@ -369,9 +394,10 @@ type Props = {
     href: Route
   }
   run: RunDetails
+  overview?: ExperimentOverviewData
 }
 
-export function RunDetailsPage({resource, run}: Props) {
+export function RunDetailsPage({resource, run, overview}: Props) {
   const resultGroups = groupResultsByScenario(run.results)
 
   return (
@@ -386,7 +412,8 @@ export function RunDetailsPage({resource, run}: Props) {
           </Breadcrumbs.Item>
           <Breadcrumbs.Item selected>{run.date}</Breadcrumbs.Item>
         </Breadcrumbs>
-        <h1 className="sr-only">Run results for {resource.name}</h1>
+        <h1 className="text-title-large m-0">Run results for {resource.name}</h1>
+        {overview ? <ExperimentOverview overview={overview} date={run.date} /> : null}
         <div className="flex flex-col gap-8">
           {resultGroups.map((group, index) => {
             return <ScenarioResults group={group} index={index} key={`${run.date}:${group.scenarioId}`} />

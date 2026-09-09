@@ -6,6 +6,8 @@ import type {Experiment} from '../../../../experiments'
 import {Link} from '../../../../components/Link'
 import type {Route} from 'next'
 import NextLink from 'next/link'
+import type {ExperimentOverviewData} from '../../../../experiment-results'
+import {ExperimentOverview} from '../../../components/ExperimentOverview'
 
 type ExperimentRun = {
   id: string
@@ -18,9 +20,10 @@ type ExperimentRun = {
 type Props = {
   experiment: Experiment
   runs: Array<ExperimentRun>
+  overview: ExperimentOverviewData | null
 }
 
-export function Page({experiment, runs}: Props) {
+export function Page({experiment, runs, overview}: Props) {
   return (
     <Stack padding="normal" gap="spacious">
       <Breadcrumbs>
@@ -33,6 +36,13 @@ export function Page({experiment, runs}: Props) {
         <h1>{experiment.name}</h1>
         <p>{experiment.description}</p>
       </div>
+      {overview && runs[0] ? (
+        <ExperimentOverview
+          overview={overview}
+          date={runs[0].name}
+          runHref={`/experiments/${experiment.id}/runs/${runs[0].name}` as Route}
+        />
+      ) : null}
       <section>
         <h2 className="text-title-medium pb-4">Runs</h2>
         {runs.length > 0 ? (

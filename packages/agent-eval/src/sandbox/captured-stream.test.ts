@@ -47,4 +47,16 @@ describe('createCapturedStream', () => {
     expect(onLine).toHaveBeenCalledWith('hello 👋')
     expect(captured.read()).toBe('hello 👋\n')
   })
+
+  test('forwards raw chunks while preserving captured output', () => {
+    const onChunk = vi.fn()
+    const captured = createCapturedStream(() => {}, onChunk)
+
+    captured.stream.write('first')
+    captured.stream.write(' second')
+    captured.flush()
+
+    expect(onChunk.mock.calls).toEqual([['first'], [' second']])
+    expect(captured.read()).toBe('first second')
+  })
 })

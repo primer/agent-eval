@@ -42,8 +42,24 @@ export type {ScenarioConfig, Scenario, ScenarioSourceOptions} from './scenario'
 export {TreatmentSchema, ControlTreatment} from './treatment'
 export type {Treatment} from './treatment'
 
-export {TrialSchema, TrialResultSchema, run as runTrial, compare as compareTrial} from './trial'
-export type {Trial, TrialResult} from './trial'
+export {
+  TrialExecutionError,
+  TrialSchema,
+  TrialResultSchema,
+  compare as compareTrial,
+  run as runTrial,
+  validateTrialExecutionOptions,
+} from './trial'
+export type {
+  RunTrialOptions,
+  Trial,
+  TrialAttemptOptions,
+  TrialExecutionOptions,
+  TrialFailure,
+  TrialFailureKind,
+  TrialPhase,
+  TrialResult,
+} from './trial'
 
 export {
   BenchmarkPlanSchema,

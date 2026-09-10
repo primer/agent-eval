@@ -1,5 +1,6 @@
 import Docker from 'dockerode'
 import {beforeEach, describe, expect, test, vi} from 'vitest'
+import tarStream from 'tar-stream'
 import {VirtualHost} from '../host'
 import {MCP_CONFIG_PATH, NODE_USER, SKILLS_DIR} from './constants'
 import {
@@ -7,6 +8,7 @@ import {
   cleanupActiveContainers,
   createContainer,
   getDockerImageName,
+  resolvePreparedImage,
   SandboxSchema,
   SystemSandbox,
 } from './system'
@@ -95,6 +97,65 @@ describe('SystemSandbox lifecycle', () => {
     expect(container.remove).toHaveBeenCalledWith({force: true})
   })
 
+  test('hardens containers created from prepared images', async () => {
+    const container = {
+      start: vi.fn(),
+      remove: vi.fn().mockResolvedValue(undefined),
+    }
+    const docker = {
+      createContainer: vi.fn().mockResolvedValue(container),
+    }
+
+    // @ts-expect-error This test only exercises the Docker methods used to create the container.
+    const initializedContainer = await createContainer(docker, `sha256:${'a'.repeat(64)}`, {
+      hardened: true,
+      network: 'agent-eval-pilot',
+    })
+
+    expect(docker.createContainer).toHaveBeenCalledWith({
+      Image: `sha256:${'a'.repeat(64)}`,
+      Cmd: ['sleep', 'infinity'],
+      WorkingDir: '/home/sandbox/workspace',
+      Tty: true,
+      HostConfig: {
+        AutoRemove: true,
+        CapAdd: ['CHOWN'],
+        CapDrop: ['ALL'],
+        Memory: 4 * 1024 * 1024 * 1024,
+        NetworkMode: 'agent-eval-pilot',
+        PidsLimit: 512,
+        SecurityOpt: ['no-new-privileges'],
+      },
+    })
+
+    const sandbox = new SystemSandbox(VirtualHost.create(), new Docker(), initializedContainer)
+    await sandbox[Symbol.asyncDispose]()
+  })
+
+  test('does not set a network mode for default containers', async () => {
+    const container = {
+      start: vi.fn(),
+      remove: vi.fn().mockResolvedValue(undefined),
+    }
+    const docker = {
+      createContainer: vi.fn().mockResolvedValue(container),
+    }
+
+    // @ts-expect-error This test only exercises the Docker methods used to create the container.
+    const initializedContainer = await createContainer(docker, 'test-image')
+
+    expect(docker.createContainer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        HostConfig: {
+          AutoRemove: true,
+        },
+      }),
+    )
+
+    const sandbox = new SystemSandbox(VirtualHost.create(), new Docker(), initializedContainer)
+    await sandbox[Symbol.asyncDispose]()
+  })
+
   test('removes active containers when the process is terminated', async () => {
     const container = {
       start: vi.fn(),
@@ -124,6 +185,77 @@ describe('SystemSandbox lifecycle', () => {
     expect(container.remove).toHaveBeenCalledTimes(1)
   })
 
+  describe('prepared images', () => {
+    test('requires network configuration to use a prepared image', async () => {
+      await expect(
+        SystemSandbox.create({
+          network: 'agent-eval-pilot',
+        }),
+      ).rejects.toThrow('network requires preparedImage')
+    })
+
+    test('rejects an empty network name', async () => {
+      await expect(
+        SystemSandbox.create({
+          network: '   ',
+          preparedImage: `sha256:${'a'.repeat(64)}`,
+        }),
+      ).rejects.toThrow('network must not be empty')
+    })
+
+    test.each([`sha256:${'a'.repeat(64)}`, `example.test/agent-eval/runtime@sha256:${'b'.repeat(64)}`])(
+      'resolves existing immutable image %s without building',
+      async image => {
+        const inspect = vi.fn().mockResolvedValue({
+          Id: `sha256:${'c'.repeat(64)}`,
+        })
+        const docker = {
+          buildImage: vi.fn(),
+          getImage: vi.fn().mockReturnValue({
+            inspect,
+          }),
+        }
+
+        // @ts-expect-error This test only exercises local image resolution.
+        await expect(resolvePreparedImage(docker, image)).resolves.toBe(image)
+        expect(docker.getImage).toHaveBeenCalledWith(image)
+        expect(inspect).toHaveBeenCalledOnce()
+        expect(docker.buildImage).not.toHaveBeenCalled()
+      },
+    )
+
+    test.each([
+      '',
+      '   ',
+      'node:26.5.0',
+      'example.test/agent-eval/runtime:stable',
+      `example.test/agent-eval/runtime:stable@sha256:${'a'.repeat(64)}`,
+      'sha256:not-a-digest',
+    ])('rejects mutable or invalid prepared image reference %s', async image => {
+      const docker = {
+        getImage: vi.fn(),
+      }
+
+      // @ts-expect-error This test only exercises prepared image validation.
+      await expect(resolvePreparedImage(docker, image)).rejects.toThrow(/preparedImage/)
+      expect(docker.getImage).not.toHaveBeenCalled()
+    })
+
+    test('fails when the prepared image does not exist locally', async () => {
+      const image = `sha256:${'a'.repeat(64)}`
+      const docker = {
+        getImage: vi.fn().mockReturnValue({
+          inspect: vi.fn().mockRejectedValue(new Error('missing')),
+        }),
+      }
+
+      // @ts-expect-error This test only exercises local image resolution.
+      await expect(resolvePreparedImage(docker, image)).rejects.toThrow(
+        `Prepared image does not exist locally: ${image}`,
+      )
+    })
+  })
+
   test('untracks containers that Docker already removed', async () => {
     const notFoundError = Object.assign(new Error('No such container'), {statusCode: 404})
     const container = {
@@ -144,6 +276,78 @@ describe('SystemSandbox lifecycle', () => {
     expect(off).toHaveBeenCalledWith('SIGINT', expect.any(Function))
     expect(off).toHaveBeenCalledWith('SIGTERM', expect.any(Function))
     await expect(cleanupActiveContainers()).resolves.toBeUndefined()
+  })
+
+  test('transforms downloaded file contents before writing them to the host', async () => {
+    const token = Buffer.from('secret-token')
+    const binary = Buffer.from([0, 255, 1, 254])
+    const archive = tarStream.pack()
+    archive.entry({name: 'workspace', type: 'directory'})
+    archive.entry({name: 'workspace/secret.txt'}, Buffer.from('before secret-token after'))
+    archive.entry({name: 'workspace/binary.bin'}, binary)
+    archive.finalize()
+
+    const host = VirtualHost.create()
+    const container = {
+      getArchive: vi.fn().mockResolvedValue(archive),
+      remove: vi.fn().mockResolvedValue(undefined),
+    }
+    // @ts-expect-error This test only exercises the container archive download.
+    const sandbox = new SystemSandbox(host, new Docker(), container)
+    const writeFile = vi.spyOn(host.fs, 'writeFile')
+
+    await sandbox.download('/home/sandbox/workspace', '/download', {
+      transform(contents) {
+        const match = contents.indexOf(token)
+        if (match === -1) {
+          return contents
+        }
+        return Buffer.concat([
+          contents.subarray(0, match),
+          Buffer.from('[REDACTED]'),
+          contents.subarray(match + token.length),
+        ])
+      },
+    })
+
+    const downloadWrites = writeFile.mock.calls.filter(([filepath]) => {
+      return typeof filepath === 'string' && filepath.startsWith('/download/')
+    })
+    expect(downloadWrites).toHaveLength(2)
+    for (const [, contents] of downloadWrites) {
+      expect(Buffer.from(contents as Buffer).includes(token)).toBe(false)
+    }
+    await expect(host.fs.readFile('/download/secret.txt', 'utf8')).resolves.toBe('before [REDACTED] after')
+    await expect(host.fs.readFile('/download/binary.bin')).resolves.toEqual(binary)
+  })
+
+  test('refuses archive symlinks that escape the destination', async () => {
+    const archive = tarStream.pack()
+    archive.entry({name: 'workspace', type: 'directory'})
+    archive.entry({name: 'workspace/escape', type: 'symlink', linkname: '/outside'})
+    archive.entry({name: 'workspace/escape/secret.txt'}, 'must not escape')
+    archive.finalize()
+    const host = VirtualHost.create({'/outside/secret.txt': 'untouched'})
+    const container = {getArchive: vi.fn().mockResolvedValue(archive)}
+    // @ts-expect-error This test only exercises the archive download.
+    const sandbox = new SystemSandbox(host, new Docker(), container)
+    await expect(sandbox.download('/home/sandbox/workspace', '/download')).rejects.toThrow('outside the destination')
+    await expect(host.fs.readFile('/outside/secret.txt', 'utf8')).resolves.toBe('untouched')
+  })
+
+  test('never writes a downloaded file through an existing symbolic link', async () => {
+    const archive = tarStream.pack()
+    archive.entry({name: 'workspace/secret.txt'}, 'downloaded')
+    archive.finalize()
+    const host = VirtualHost.create({'/outside/secret.txt': 'untouched'})
+    await host.fs.mkdir('/download')
+    await host.fs.symlink('/outside/secret.txt', '/download/secret.txt')
+    const container = {getArchive: vi.fn().mockResolvedValue(archive)}
+    // @ts-expect-error This test only exercises the archive download.
+    const sandbox = new SystemSandbox(host, new Docker(), container)
+    await sandbox.download('/home/sandbox/workspace', '/download')
+    await expect(host.fs.readFile('/outside/secret.txt', 'utf8')).resolves.toBe('untouched')
+    await expect(host.fs.readFile('/download/secret.txt', 'utf8')).resolves.toBe('downloaded')
   })
 })
 

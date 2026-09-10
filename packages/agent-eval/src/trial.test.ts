@@ -10,7 +10,14 @@ import {
   type CommandResult,
   type Sandbox,
 } from './sandbox'
-import {readTrialFiles, run, writeTrialFiles, type Trial} from './trial'
+import {
+  readTrialFiles,
+  run,
+  TrialExecutionError,
+  validateTrialExecutionOptions,
+  writeTrialFiles,
+  type Trial,
+} from './trial'
 import type {ResultMessage} from './copilot-cli'
 
 async function setup(trial: Trial) {
@@ -533,6 +540,29 @@ describe('run', () => {
     })
   })
 
+  test('skips workspace dependency installation when installDependencies is false', async () => {
+    const trial = createTrial()
+    const {sandbox, ...runOptions} = await setup(trial)
+    mockRunCommand(sandbox)
+
+    await run({
+      ...runOptions,
+      execution: {
+        captureWalkthrough: false,
+        installDependencies: false,
+      },
+      sandbox,
+      trial,
+    })
+
+    expect(sandbox.runCommand).not.toHaveBeenCalledWith('npm', ['install'], {
+      user: NODE_USER,
+    })
+    expect(sandbox.runCommand).toHaveBeenCalledWith('npm', ['run', 'build', '--if-present'], {
+      user: NODE_USER,
+    })
+  })
+
   test('runs the generic setup', async () => {
     const genericSetup = vi.fn(async () => {
       //
@@ -693,16 +723,290 @@ describe('run', () => {
         '--mode',
         'autopilot',
         '--allow-all',
+        '--no-auto-update',
+        '--usage-output-file',
+        '/tmp/agent-eval-candidate/usage.json',
+        '--log-dir',
+        '/tmp/agent-eval-candidate/logs',
         '--output-format',
         'json',
       ],
       {
+        allowNonZeroExitCode: true,
         user: NODE_USER,
         env: {
           COPILOT_GITHUB_TOKEN: copilotToken,
         },
+        onStderr: expect.any(Function),
+        onStdout: expect.any(Function),
       },
     )
+  })
+
+  test('forwards the candidate credit limit', async () => {
+    const trial = createTrial()
+    const {sandbox, ...runOptions} = await setup(trial)
+    mockRunCommand(sandbox)
+
+    await run({
+      ...runOptions,
+      execution: {
+        captureWalkthrough: false,
+        maxAiCredits: 100,
+      },
+      sandbox,
+      trial,
+    })
+
+    expect(sandbox.runCommand).toHaveBeenCalledWith(
+      'copilot',
+      expect.arrayContaining(['--max-ai-credits', '100']),
+      expect.objectContaining({
+        allowNonZeroExitCode: true,
+      }),
+    )
+  })
+
+  test('skips all walkthrough work when captureWalkthrough is false', async () => {
+    const trial = createTrial()
+    const {sandbox, ...runOptions} = await setup(trial)
+    mockRunCommand(sandbox)
+
+    const result = await run({
+      ...runOptions,
+      execution: {
+        captureWalkthrough: false,
+      },
+      sandbox,
+      trial,
+    })
+
+    const copilotCalls = vi.mocked(sandbox.runCommand).mock.calls.filter(([command]) => {
+      return command === 'copilot'
+    })
+    expect(copilotCalls).toHaveLength(1)
+    expect(sandbox.runCommand).not.toHaveBeenCalledWith(
+      'npm',
+      ['install', '-g', '--allow-scripts=agent-browser', 'agent-browser'],
+      expect.anything(),
+    )
+    expect(sandbox.runCommand).not.toHaveBeenCalledWith(
+      'npx',
+      expect.arrayContaining(['skills', 'add', 'vercel-labs/agent-browser']),
+      expect.anything(),
+    )
+    expect(await sandbox.exists('agent-browser.json')).toBe(false)
+    expect(result.walkthrough).toEqual({
+      type: 'Unavailable',
+    })
+  })
+
+  test('disposes the owned sandbox when the trial times out', async () => {
+    const trial = createTrial()
+    const {sandbox, host, ...runOptions} = await setup(trial)
+    const dispose = vi.spyOn(sandbox, Symbol.asyncDispose)
+    const runCommand = sandbox.runCommand
+
+    vi.spyOn(sandbox, 'runCommand').mockImplementation(async (command, args, commandOptions) => {
+      if (command === 'copilot' && args?.[0] === '--prompt') {
+        await sandbox.writeFile('/tmp/agent-eval-candidate/usage.json', '{"aiCredits":42}')
+        await sandbox.writeFile('/tmp/agent-eval-candidate/logs/copilot.log', 'partial log')
+        commandOptions?.onStdout?.('{"type":"partial"')
+        return new Promise(() => {})
+      }
+      return runCommand(command, args, commandOptions)
+    })
+
+    await expect(
+      run({
+        ...runOptions,
+        execution: {
+          captureWalkthrough: false,
+          timeoutMs: 10,
+        },
+        host,
+        sandbox,
+        trial,
+      }),
+    ).rejects.toMatchObject({
+      failure: {
+        kind: 'timeout',
+        status: 'failed',
+      },
+    })
+
+    expect(dispose).toHaveBeenCalledOnce()
+    await expect(host.fs.readFile('/artifacts/test-id/attempts/1/candidate.stdout.log', 'utf8')).resolves.toBe(
+      '{"type":"partial"',
+    )
+    await expect(host.fs.readFile('/artifacts/test-id/attempts/1/candidate-usage.json', 'utf8')).resolves.toBe(
+      '{"aiCredits":42}',
+    )
+    await expect(host.fs.readFile('/artifacts/test-id/attempts/1/candidate-logs/copilot.log', 'utf8')).resolves.toBe(
+      'partial log',
+    )
+  })
+
+  test('retains raw candidate output when parsing fails', async () => {
+    const trial = createTrial()
+    const {sandbox, host, ...runOptions} = await setup(trial)
+    const malformedOutput = '{"type":"assistant.turn_start"'
+    const writeMalformedOutput: RunCommandMock = async ({params, sandbox: testSandbox}) => {
+      const [command, args] = params
+      if (command === 'copilot' && args?.[0] === '--prompt') {
+        await testSandbox.writeFile('/tmp/agent-eval-candidate/usage.json', '{"aiCredits":23}')
+        await testSandbox.writeFile('/tmp/agent-eval-candidate/logs/copilot.log', 'candidate log')
+        return {
+          stdout: malformedOutput,
+          stderr: 'candidate stderr',
+          exitCode: 0,
+        }
+      }
+    }
+    mockRunCommand(sandbox, [writeMalformedOutput])
+
+    await expect(
+      run({
+        ...runOptions,
+        execution: {
+          captureWalkthrough: false,
+        },
+        host,
+        sandbox,
+        trial,
+      }),
+    ).rejects.toBeInstanceOf(TrialExecutionError)
+
+    await expect(host.fs.readFile('/artifacts/test-id/attempts/1/candidate.stdout.log', 'utf8')).resolves.toBe(
+      malformedOutput,
+    )
+    await expect(host.fs.readFile('/artifacts/test-id/attempts/1/candidate.stderr.log', 'utf8')).resolves.toBe(
+      'candidate stderr',
+    )
+    await expect(host.fs.readFile('/artifacts/test-id/attempts/1/candidate-usage.json', 'utf8')).resolves.toBe(
+      '{"aiCredits":23}',
+    )
+    await expect(host.fs.readFile('/artifacts/test-id/attempts/1/candidate-logs/copilot.log', 'utf8')).resolves.toBe(
+      'candidate log',
+    )
+    await expect(host.fs.readFile('/artifacts/test-id/attempts/1/failure.json', 'utf8')).resolves.toContain(
+      '"kind": "invalid-output"',
+    )
+  })
+
+  test('does not grade a candidate whose JSON result reports failure', async () => {
+    const trial = createTrial()
+    const {sandbox, host, ...runOptions} = await setup(trial)
+    const writeFailedResult: RunCommandMock = async ({params}) => {
+      const [command, args] = params
+      if (command === 'copilot' && args?.[0] === '--prompt') {
+        const result: ResultMessage = {
+          type: 'result',
+          timestamp: '',
+          sessionId: '',
+          exitCode: 1,
+          usage: {
+            premiumRequests: 1,
+            totalApiDurationMs: 10,
+            sessionDurationMs: 20,
+            codeChanges: {
+              linesAdded: 0,
+              linesRemoved: 0,
+              filesModified: [],
+            },
+          },
+        }
+        return {
+          stdout: JSON.stringify(result),
+          stderr: '',
+          exitCode: 0,
+        }
+      }
+    }
+    mockRunCommand(sandbox, [writeFailedResult])
+
+    await expect(
+      run({
+        ...runOptions,
+        execution: {
+          captureWalkthrough: false,
+        },
+        host,
+        sandbox,
+        trial,
+      }),
+    ).rejects.toMatchObject({
+      failure: {
+        candidateExitCode: 1,
+        kind: 'candidate-exit',
+        phase: 'candidate-output',
+      },
+    })
+
+    const testCalls = vi.mocked(sandbox.runCommand).mock.calls.filter(([command]) => {
+      return command === 'sh'
+    })
+    expect(testCalls).toHaveLength(0)
+    await expect(host.fs.readFile('/artifacts/test-id/attempts/1/candidate-session.json', 'utf8')).resolves.toContain(
+      '"premiumRequests":1',
+    )
+  })
+
+  test('retains raw artifacts when the candidate process exits nonzero', async () => {
+    const trial = createTrial()
+    const {sandbox, host, ...runOptions} = await setup(trial)
+    const writeFailedProcess: RunCommandMock = async ({params, sandbox: testSandbox}) => {
+      const [command, args] = params
+      if (command === 'copilot' && args?.[0] === '--prompt') {
+        await testSandbox.writeFile('/tmp/agent-eval-candidate/usage.json', '{"aiCredits":100}')
+        return {
+          stdout: '{"type":"session.info"}',
+          stderr: 'budget exhausted',
+          exitCode: 2,
+        }
+      }
+    }
+    mockRunCommand(sandbox, [writeFailedProcess])
+
+    await expect(
+      run({
+        ...runOptions,
+        execution: {
+          captureWalkthrough: false,
+        },
+        host,
+        sandbox,
+        trial,
+      }),
+    ).rejects.toMatchObject({
+      failure: {
+        candidateExitCode: 2,
+        kind: 'candidate-exit',
+        phase: 'candidate',
+      },
+    })
+
+    await expect(host.fs.readFile('/artifacts/test-id/attempts/1/candidate.stdout.log', 'utf8')).resolves.toBe(
+      '{"type":"session.info"}',
+    )
+    await expect(host.fs.readFile('/artifacts/test-id/attempts/1/candidate.stderr.log', 'utf8')).resolves.toBe(
+      'budget exhausted',
+    )
+    await expect(host.fs.readFile('/artifacts/test-id/attempts/1/candidate-usage.json', 'utf8')).resolves.toBe(
+      '{"aiCredits":100}',
+    )
+  })
+
+  test.each([
+    [{maxAiCredits: 29}, 'maxAiCredits'],
+    [{maxAiCredits: Number.NaN}, 'maxAiCredits'],
+    [{timeoutMs: 0}, 'timeoutMs'],
+    [{timeoutMs: Number.POSITIVE_INFINITY}, 'timeoutMs'],
+    [{installDependencies: 'no' as never}, 'installDependencies'],
+  ])('rejects invalid execution options %o', (execution, message) => {
+    expect(() => {
+      validateTrialExecutionOptions(execution)
+    }).toThrow(message)
   })
 
   test('runs the scenario tests', async () => {
@@ -848,6 +1152,7 @@ describe('run', () => {
         '--mode',
         'autopilot',
         '--allow-all',
+        '--no-auto-update',
         '--output-format',
         'json',
       ],
@@ -1003,6 +1308,158 @@ describe('run', () => {
       )
     })
 
+    test('preserves raw candidate usage without interpreting it', async () => {
+      const trial = createTrial()
+      const {sandbox, host, ...runOptions} = await setup(trial)
+      const writeUsageArtifact: RunCommandMock = async ({params, sandbox: testSandbox}) => {
+        const [command, args] = params
+        if (command === 'copilot' && args?.[0] === '--prompt') {
+          await testSandbox.writeFile(
+            '/tmp/agent-eval-candidate/usage.json',
+            '{"totalNanoAiu":123456789,"assistant":{"usage":{"inputTokens":10,"outputTokens":20}}}',
+          )
+        }
+      }
+      mockRunCommand(sandbox, [writeUsageArtifact])
+
+      const result = await run({
+        ...runOptions,
+        execution: {
+          captureWalkthrough: false,
+        },
+        host,
+        sandbox,
+        trial,
+      })
+
+      expect(result.artifacts.candidateUsagePath).toBe('/artifacts/test-id/attempts/1/candidate-usage.json')
+      await expect(host.fs.readFile(result.artifacts.candidateUsagePath!, 'utf8')).resolves.toBe(
+        '{"totalNanoAiu":123456789,"assistant":{"usage":{"inputTokens":10,"outputTokens":20}}}',
+      )
+    })
+
+    test('leaves candidate usage unavailable when the CLI does not write it', async () => {
+      const trial = createTrial()
+      const {sandbox, host, ...runOptions} = await setup(trial)
+      mockRunCommand(sandbox)
+
+      const result = await run({
+        ...runOptions,
+        execution: {
+          captureWalkthrough: false,
+        },
+        host,
+        sandbox,
+        trial,
+      })
+
+      expect(result.artifacts.candidateUsagePath).toBeUndefined()
+      expect(host.existsSync('/artifacts/test-id/attempts/1/candidate-usage.json')).toBe(false)
+    })
+
+    test('redacts the execution token from persisted evidence and excludes credential stores', async () => {
+      const trial = createTrial()
+      const {sandbox, host, ...runOptions} = await setup(trial)
+      const copilotToken = 'secret-token'
+      await sandbox.writeFile(path.posix.join(COPILOT_DIR, 'config.json'), `config=${copilotToken}`)
+      await sandbox.writeFile(path.posix.join(COPILOT_DIR, 'credentials.json'), copilotToken)
+      const writeFile = vi.spyOn(host.fs, 'writeFile')
+      const writeSensitiveArtifacts: RunCommandMock = async ({params, sandbox: testSandbox}) => {
+        const [command, args] = params
+        if (command === 'copilot' && args?.[0] === '--prompt') {
+          await testSandbox.writeFile(
+            '/tmp/agent-eval-candidate/usage.json',
+            `{"totalNanoAiu":123,"diagnostic":"${copilotToken}"}`,
+          )
+          await testSandbox.writeFile('/tmp/agent-eval-candidate/logs/copilot.log', `log=${copilotToken}`)
+          const result: ResultMessage = {
+            type: 'result',
+            timestamp: '',
+            sessionId: '',
+            exitCode: 0,
+            usage: {
+              premiumRequests: 0,
+              totalApiDurationMs: 0,
+              sessionDurationMs: 0,
+              codeChanges: {
+                linesAdded: 0,
+                linesRemoved: 0,
+                filesModified: [],
+              },
+            },
+          }
+          return {
+            stdout: [
+              JSON.stringify({
+                type: 'unknown.event',
+                data: {
+                  output: copilotToken,
+                },
+              }),
+              JSON.stringify(result),
+            ].join('\n'),
+            stderr: `stderr=${copilotToken}`,
+            exitCode: 0,
+          }
+        }
+
+        if (command === 'sh') {
+          throw new Error(`grader leaked ${copilotToken}`)
+        }
+      }
+      mockRunCommand(sandbox, [writeSensitiveArtifacts])
+
+      let failure: TrialExecutionError | undefined
+      try {
+        await run({
+          ...runOptions,
+          copilotToken,
+          execution: {
+            captureWalkthrough: false,
+          },
+          host,
+          sandbox,
+          trial,
+        })
+      } catch (error) {
+        if (error instanceof TrialExecutionError) {
+          failure = error
+        } else {
+          throw error
+        }
+      }
+
+      expect(failure?.failure.redactionApplied).toBe(true)
+      expect(failure?.failure.error.message).toBe('grader leaked [REDACTED]')
+      const persistedArtifactWrites = writeFile.mock.calls.filter(([filepath]) => {
+        return typeof filepath === 'string' && filepath.startsWith('/artifacts/')
+      })
+      expect(persistedArtifactWrites.length).toBeGreaterThan(0)
+      for (const [, contents] of persistedArtifactWrites) {
+        const persisted = Buffer.isBuffer(contents) ? contents : Buffer.from(String(contents))
+        expect(persisted.includes(Buffer.from(copilotToken))).toBe(false)
+      }
+      await expect(
+        host.fs.readFile('/artifacts/test-id/attempts/1/candidate.stdout.log', 'utf8'),
+      ).resolves.not.toContain(copilotToken)
+      await expect(host.fs.readFile('/artifacts/test-id/attempts/1/candidate.stderr.log', 'utf8')).resolves.toBe(
+        'stderr=[REDACTED]',
+      )
+      await expect(host.fs.readFile('/artifacts/test-id/attempts/1/candidate-usage.json', 'utf8')).resolves.toBe(
+        '{"totalNanoAiu":123,"diagnostic":"[REDACTED]"}',
+      )
+      await expect(host.fs.readFile('/artifacts/test-id/attempts/1/candidate-logs/copilot.log', 'utf8')).resolves.toBe(
+        'log=[REDACTED]',
+      )
+      await expect(host.fs.readFile('/artifacts/test-id/.copilot/config.json', 'utf8')).resolves.toBe(
+        'config=[REDACTED]',
+      )
+      expect(host.existsSync('/artifacts/test-id/.copilot/credentials.json')).toBe(false)
+      await expect(host.fs.readFile('/artifacts/test-id/attempts/1/redaction.json', 'utf8')).resolves.toContain(
+        '"redactionApplied": true',
+      )
+    })
+
     test('downloads the Copilot configuration', async () => {
       const trial = createTrial()
       const {sandbox, host, ...runOptions} = await setup(trial)
@@ -1083,6 +1540,29 @@ describe('run', () => {
         'screenshot',
       )
       expect(host.existsSync('/artifacts/test-id/workspace/walkthrough')).toBe(false)
+    })
+
+    test('persists successful attempt metadata and result before aggregate output is written', async () => {
+      const trial = createTrial()
+      const {sandbox, host, ...runOptions} = await setup(trial)
+      mockRunCommand(sandbox)
+
+      await run({
+        ...runOptions,
+        execution: {
+          captureWalkthrough: false,
+        },
+        host,
+        sandbox,
+        trial,
+      })
+
+      await expect(host.fs.readFile('/artifacts/test-id/attempts/1/attempt.json', 'utf8')).resolves.toContain(
+        '"status": "succeeded"',
+      )
+      await expect(host.fs.readFile('/artifacts/test-id/attempts/1/result.json', 'utf8')).resolves.toContain(
+        '"id":"test-id"',
+      )
     })
   })
 })

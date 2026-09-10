@@ -14,6 +14,7 @@ const config = defineConfig({
     experiment: 'src/experiment.ts',
     index: 'src/index.ts',
     plan: 'src/plan.ts',
+    'sandbox/index': 'src/sandbox/index.ts',
     scenario: 'src/scenario.ts',
   },
   platform: 'node',

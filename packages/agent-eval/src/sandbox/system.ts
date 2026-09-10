@@ -1,6 +1,5 @@
 import {createHash, randomUUID} from 'node:crypto'
 import path from 'node:path'
-import {pipeline} from 'node:stream/promises'
 import Docker from 'dockerode'
 import tarFs from 'tar-fs'
 import type {Headers} from 'tar-fs'
@@ -45,6 +44,8 @@ import {createCapturedStream} from './captured-stream'
 
 const COPILOT_CLI_VERSION = '1.0.83'
 const NPM_VERSION = '12.0.2'
+const PREPARED_IMAGE_MEMORY_BYTES = 4 * 1024 * 1024 * 1024
+const PREPARED_IMAGE_PIDS_LIMIT = 512
 const DOCKERFILE = `ARG BASE_IMAGE=node:26.5.0-slim
 
 FROM \${BASE_IMAGE} AS base
@@ -91,9 +92,28 @@ const DEFAULT_MCP_CONFIG: McpConfigFile = {
 class SystemSandbox implements Sandbox {
   static async create(options: SandboxCreateOptions = {}) {
     const docker = new Docker()
-    const baseDockerImage = options.dockerImage?.trim() || DEFAULT_DOCKER_IMAGE
-    const dockerImage = await ensureDockerImage(docker, baseDockerImage)
-    const container = await createContainer(docker, dockerImage)
+    const preparedImage = options.preparedImage?.trim()
+    const network = options.network?.trim()
+    if (options.preparedImage !== undefined && !preparedImage) {
+      throw new Error('preparedImage must not be empty')
+    }
+    if (options.network !== undefined && !network) {
+      throw new Error('network must not be empty')
+    }
+    if (network && !preparedImage) {
+      throw new Error('network requires preparedImage')
+    }
+    if (preparedImage && options.dockerImage?.trim()) {
+      throw new Error('preparedImage cannot be combined with dockerImage')
+    }
+
+    const dockerImage = preparedImage
+      ? await resolvePreparedImage(docker, preparedImage)
+      : await ensureDockerImage(docker, options.dockerImage?.trim() || DEFAULT_DOCKER_IMAGE)
+    const container = await createContainer(docker, dockerImage, {
+      hardened: Boolean(preparedImage),
+      network,
+    })
     return new SystemSandbox(options.host ?? DefaultHost, docker, container)
   }
 
@@ -151,35 +171,10 @@ class SystemSandbox implements Sandbox {
 
   async download(containerFilePath: string, hostDestinationPath: string, options: DownloadOptions = {}): Promise<void> {
     const containerPath = resolveContainerPath(containerFilePath)
-
-    await this.#host.fs.mkdir(hostDestinationPath, {
-      recursive: true,
-    })
-
     const archive = await this.#container.getArchive({
       path: containerPath,
     })
-    const sourceName = path.posix.basename(containerPath)
-
-    await pipeline(
-      archive,
-      tarFs.extract(hostDestinationPath, {
-        readable: true,
-        writable: true,
-        map(header) {
-          const prefix = `${sourceName}/`
-
-          if (header.name === sourceName) {
-            header.name = '.'
-          } else if (header.name.startsWith(prefix)) {
-            header.name = header.name.slice(prefix.length)
-          }
-
-          return header
-        },
-        ignore: options.ignore,
-      }),
-    )
+    await extractArchiveToHost(archive, path.posix.basename(containerPath), hostDestinationPath, options, this.#host)
   }
 
   async readFile(filepath: string): Promise<string> {
@@ -233,6 +228,8 @@ class SystemSandbox implements Sandbox {
       },
       user: options?.user ?? NODE_USER,
       allowNonZeroExitCode: options?.allowNonZeroExitCode,
+      onStdout: options?.onStdout,
+      onStderr: options?.onStderr,
     })
   }
 
@@ -428,6 +425,32 @@ async function buildDockerImage(docker: Docker, baseDockerImage: string): Promis
   return dockerImage
 }
 
+async function resolvePreparedImage(docker: Docker, image: string): Promise<string> {
+  assertImmutableImageReference(image)
+
+  try {
+    await docker.getImage(image).inspect()
+  } catch (error) {
+    throw new Error(`Prepared image does not exist locally: ${image}`, {
+      cause: error,
+    })
+  }
+
+  return image
+}
+
+function assertImmutableImageReference(image: string): void {
+  if (/^sha256:[a-f0-9]{64}$/i.test(image)) {
+    return
+  }
+
+  const repositoryDigestPattern =
+    /^(?:[a-z0-9]+(?:[.-][a-z0-9]+)*(?::[0-9]+)?\/)?[a-z0-9]+(?:[._/-][a-z0-9]+)*@sha256:[a-f0-9]{64}$/i
+  if (!repositoryDigestPattern.test(image)) {
+    throw new Error('preparedImage must be a local sha256 image ID or repository digest without a mutable tag')
+  }
+}
+
 function getDockerImageName(baseDockerImage: string, dockerfile = DOCKERFILE): string {
   const digest = createHash('sha256')
     .update(baseDockerImage)
@@ -443,15 +466,36 @@ function getDockerImageName(baseDockerImage: string, dockerfile = DOCKERFILE): s
   return `agent-eval-sandbox:${digest}`
 }
 
-async function createContainer(docker: Docker, dockerImage: string): Promise<InitializedContainer> {
+async function createContainer(
+  docker: Docker,
+  dockerImage: string,
+  options: {
+    hardened?: boolean
+    network?: string
+  } = {},
+): Promise<InitializedContainer> {
+  const hostConfig: Docker.HostConfig = {
+    AutoRemove: true,
+  }
+  if (options.hardened) {
+    Object.assign(hostConfig, {
+      CapAdd: ['CHOWN'],
+      CapDrop: ['ALL'],
+      Memory: PREPARED_IMAGE_MEMORY_BYTES,
+      PidsLimit: PREPARED_IMAGE_PIDS_LIMIT,
+      SecurityOpt: ['no-new-privileges'],
+    })
+  }
+  if (options.network) {
+    hostConfig.NetworkMode = options.network
+  }
+
   const container = await docker.createContainer({
     Image: dockerImage,
     Cmd: ['sleep', 'infinity'],
     WorkingDir: CONTAINER_WORKDIR,
     Tty: true,
-    HostConfig: {
-      AutoRemove: true,
-    },
+    HostConfig: hostConfig,
   })
 
   try {
@@ -702,6 +746,129 @@ async function readFileFromArchive(archive: NodeJS.ReadableStream): Promise<Buff
   })
 }
 
+async function extractArchiveToHost(
+  archive: NodeJS.ReadableStream,
+  sourceName: string,
+  hostDestinationPath: string,
+  options: DownloadOptions,
+  host: Host,
+): Promise<void> {
+  const destinationRoot = path.resolve(hostDestinationPath)
+  await host.fs.mkdir(destinationRoot, {
+    recursive: true,
+  })
+
+  const extract = tarStream.extract()
+  await new Promise<void>((resolve, reject) => {
+    extract.on('entry', (header, stream, next) => {
+      void (async () => {
+        const relativePath = getDownloadedRelativePath(header, sourceName)
+        if (options.ignore?.(relativePath)) {
+          stream.resume()
+          return
+        }
+
+        const destination = resolveDownloadDestination(destinationRoot, relativePath)
+        await assertDownloadAncestors(host, destinationRoot, destination)
+        if (header.type === 'directory') {
+          stream.resume()
+          if ((await downloadStats(host, destination))?.isSymbolicLink()) {
+            throw new Error(`Cannot extract directory through a symbolic link: ${relativePath}`)
+          }
+          await host.fs.mkdir(destination, {recursive: true})
+          return
+        }
+
+        if (header.type === 'file') {
+          const contents = await readStream(stream)
+          const transformed = options.transform?.(contents, relativePath) ?? contents
+          await host.fs.mkdir(path.dirname(destination), {recursive: true})
+          if ((await downloadStats(host, destination))?.isSymbolicLink()) {
+            await host.fs.unlink(destination)
+          }
+          await host.fs.writeFile(destination, transformed)
+          return
+        }
+
+        if (header.type === 'symlink') {
+          stream.resume()
+          const target = resolveDownloadDestination(
+            destinationRoot,
+            path.relative(destinationRoot, path.resolve(path.dirname(destination), header.linkname ?? '')),
+          )
+          await assertDownloadAncestors(host, destinationRoot, target)
+          if ((await downloadStats(host, target))?.isSymbolicLink()) {
+            throw new Error(`Cannot extract a symbolic link chain: ${relativePath}`)
+          }
+          await host.fs.mkdir(path.dirname(destination), {recursive: true})
+          await host.fs.rm(destination, {force: true})
+          await host.fs.symlink(header.linkname ?? '', destination)
+          return
+        }
+
+        stream.resume()
+        throw new Error(`Unsupported download archive entry: ${relativePath} (${header.type})`)
+      })().then(
+        () => {
+          next()
+        },
+        error => {
+          extract.destroy(error as Error)
+        },
+      )
+    })
+    extract.on('finish', resolve)
+    extract.on('error', reject)
+    archive.on('error', reject)
+    archive.pipe(extract)
+  })
+}
+
+async function downloadStats(host: Host, filepath: string) {
+  try {
+    return await host.fs.lstat(filepath)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined
+    throw error
+  }
+}
+
+async function assertDownloadAncestors(host: Host, root: string, destination: string): Promise<void> {
+  const relativeParent = destination === root ? '' : path.relative(root, path.dirname(destination))
+  let directory = root
+  for (const segment of ['', ...relativeParent.split(path.sep).filter(Boolean)]) {
+    directory = segment ? path.join(directory, segment) : directory
+    const stats = await downloadStats(host, directory)
+    if (stats?.isSymbolicLink()) throw new Error(`Cannot extract through a symbolic link: ${directory}`)
+  }
+}
+
+function getDownloadedRelativePath(header: tarStream.Headers, sourceName: string): string {
+  if (header.name === sourceName) {
+    return header.type === 'directory' ? '.' : sourceName
+  }
+
+  const prefix = `${sourceName}/`
+  return header.name.startsWith(prefix) ? header.name.slice(prefix.length) : header.name
+}
+
+function resolveDownloadDestination(destinationRoot: string, relativePath: string): string {
+  const destination = path.resolve(destinationRoot, relativePath)
+  const relative = path.relative(destinationRoot, destination)
+  if (relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+    throw new Error(`Cannot download archive path outside the destination: ${relativePath}`)
+  }
+  return destination
+}
+
+async function readStream(stream: NodeJS.ReadableStream): Promise<Buffer> {
+  const chunks: Array<Buffer> = []
+  for await (const chunk of stream) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as string))
+  }
+  return Buffer.concat(chunks)
+}
+
 class CommandError extends Error {
   command: ReadonlyArray<string>
   result: CommandResult
@@ -740,10 +907,10 @@ async function execCommand(
   return new Promise((resolve, reject) => {
     const stdout = createCapturedStream(line => {
       logger.debug('[sandbox]: %s', line)
-    })
+    }, options.onStdout)
     const stderr = createCapturedStream(line => {
       logger.debug('[sandbox]: %s', line)
-    })
+    }, options.onStderr)
 
     docker.modem.demuxStream(stream, stdout.stream, stderr.stream)
 
@@ -790,4 +957,5 @@ export {
   cleanupActiveContainers,
   createContainer,
   getDockerImageName,
+  resolvePreparedImage,
 }

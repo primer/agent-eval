@@ -5,6 +5,7 @@ import type {Route} from 'next'
 import {useId} from 'react'
 import type {ExperimentResults, TreatmentResult} from '../../experiment-results'
 import {Link} from '../../components/Link'
+import {getScenarioAnchor} from '../../scenario-anchor'
 
 type ExperimentSummary = {
   id: string
@@ -180,9 +181,7 @@ export function LatestExperimentResults({id, results}: {id: string; results: Exp
                 <TreatmentResultsTable label={`Treatment results for ${scenario.id}`} results={scenario.treatments} />
                 <p>
                   <Link
-                    href={
-                      `/experiments/${id}/runs/${results.date}#scenario-${encodeURIComponent(scenario.id)}` as Route
-                    }
+                    href={`/experiments/${id}/runs/${results.date}${getScenarioAnchor(scenario.id).fragment}` as Route}
                   >
                     View output for {scenario.id}
                   </Link>

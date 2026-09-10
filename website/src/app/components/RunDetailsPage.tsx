@@ -7,6 +7,7 @@ import type {Route} from 'next'
 import Link from 'next/link'
 import Image from 'next/image'
 import {useState} from 'react'
+import {getScenarioAnchor} from '../../scenario-anchor'
 import {JudgeResults} from './JudgeResults'
 
 type RunResult = RunDetails['results'][number]
@@ -287,7 +288,11 @@ function ScenarioResults({group, index}: {group: ScenarioResultGroup; index: num
   const summaryHeadingId = `result-${index}-summary-heading`
 
   return (
-    <article aria-labelledby={resultHeadingId} className="flex flex-col gap-4" id={`scenario-${group.scenarioId}`}>
+    <article
+      aria-labelledby={resultHeadingId}
+      className="flex flex-col gap-4"
+      id={getScenarioAnchor(group.scenarioId).id}
+    >
       <header className="border-b border-default pb-3 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <h2 className="text-title-medium m-0" id={resultHeadingId}>
           {group.scenarioId}

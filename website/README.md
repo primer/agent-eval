@@ -46,6 +46,8 @@ and transcript. The run viewer supports switching model, treatment, and trial
 when multiple trials were recorded. Runs without trials and experiments without
 runs show empty states rather than falling back to older results.
 Changing the model or treatment selects the first trial for that combination.
+Scenario output links also support IDs containing spaces, slashes, and percent
+escapes.
 
 Benchmark and experiment run details include a **Judges** tab for the selected
 model, treatment, and trial. Each judge shows its score, scoring criteria, rationale,

@@ -54,7 +54,8 @@ test('reads only the newest available run, including an empty latest run', async
     name: '2026-09-10',
     output: {results: []},
   })
-  expect(read).toHaveBeenCalledExactlyOnceWith(latest)
+  expect(read).toHaveBeenCalledTimes(1)
+  expect(read).toHaveBeenCalledWith(latest)
 })
 
 test('skips invalid dates, files, and directories without a result manifest', async () => {
@@ -66,7 +67,8 @@ test('skips invalid dates, files, and directories without a result manifest', as
   await fs.writeFile(path.join(directory, 'results/experiments/example/2026-09-11'), '')
 
   expect(await getLatestForExperiment('example')).toMatchObject({name: '2026-09-10'})
-  expect(read).toHaveBeenCalledExactlyOnceWith(latest)
+  expect(read).toHaveBeenCalledTimes(1)
+  expect(read).toHaveBeenCalledWith(latest)
 })
 
 test('returns no run when no result bundles exist', async () => {
@@ -97,5 +99,6 @@ test('propagates errors in the latest bundle without falling back to older resul
   vi.mocked(read).mockRejectedValue(new Error('Invalid result bundle'))
 
   await expect(getLatestForExperiment('example')).rejects.toThrow('Invalid result bundle')
-  expect(read).toHaveBeenCalledExactlyOnceWith(latest)
+  expect(read).toHaveBeenCalledTimes(1)
+  expect(read).toHaveBeenCalledWith(latest)
 })

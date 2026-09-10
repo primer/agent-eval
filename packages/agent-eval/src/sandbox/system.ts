@@ -388,6 +388,7 @@ async function ensureDockerImage(docker: Docker, baseDockerImage: string): Promi
 async function buildDockerImage(docker: Docker, baseDockerImage: string): Promise<string> {
   const dockerImage = getDockerImageName(baseDockerImage)
   logger.debug('Building sandbox image %s from %s...', dockerImage, baseDockerImage)
+  let builtImageId: string | undefined
 
   const dockerfile = Buffer.from(DOCKERFILE)
   const context = tarStream.pack()
@@ -412,15 +413,48 @@ async function buildDockerImage(docker: Docker, baseDockerImage: string): Promis
   })
 
   await new Promise<void>((resolve, reject) => {
-    docker.modem.followProgress(stream, error => {
-      if (error) {
-        reject(error)
-        return
-      }
+    docker.modem.followProgress(
+      stream,
+      error => {
+        if (error) {
+          reject(error)
+          return
+        }
 
-      resolve()
-    })
+        resolve()
+      },
+      event => {
+        if (
+          typeof event === 'object' &&
+          event !== null &&
+          'aux' in event &&
+          typeof event.aux === 'object' &&
+          event.aux !== null &&
+          'ID' in event.aux &&
+          typeof event.aux.ID === 'string'
+        ) {
+          builtImageId = event.aux.ID
+        }
+      },
+    )
   })
+
+  try {
+    await docker.getImage(dockerImage).inspect()
+  } catch (error) {
+    if (!builtImageId) {
+      throw new Error(`Docker build completed without creating image tag: ${dockerImage}`, {
+        cause: error,
+      })
+    }
+
+    const separator = dockerImage.lastIndexOf(':')
+    await docker.getImage(builtImageId).tag({
+      repo: dockerImage.slice(0, separator),
+      tag: dockerImage.slice(separator + 1),
+    })
+    await docker.getImage(dockerImage).inspect()
+  }
 
   return dockerImage
 }

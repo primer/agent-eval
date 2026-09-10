@@ -35,8 +35,10 @@ describe('SandboxSchema', () => {
 describe('SystemSandbox lifecycle', () => {
   test('builds the local sandbox image', async () => {
     const stream = {}
+    const inspect = vi.fn().mockResolvedValue({})
     const docker = {
       buildImage: vi.fn().mockResolvedValue(stream),
+      getImage: vi.fn().mockReturnValue({inspect}),
       modem: {
         followProgress: vi.fn((_stream: unknown, onFinished: (error: Error | null) => void) => {
           onFinished(null)
@@ -60,8 +62,62 @@ describe('SystemSandbox lifecycle', () => {
         target: 'sandbox',
       }),
     )
-    expect(docker.modem.followProgress).toHaveBeenCalledWith(stream, expect.any(Function))
+    expect(docker.modem.followProgress).toHaveBeenCalledWith(stream, expect.any(Function), expect.any(Function))
+    expect(docker.getImage).toHaveBeenCalledWith(image)
+    expect(inspect).toHaveBeenCalledOnce()
     expect(image).toMatch(/^agent-eval-sandbox:[a-f0-9]{16}$/)
+  })
+
+  test('tags the BuildKit image ID when the requested tag is missing', async () => {
+    const stream = {}
+    const tag = vi.fn().mockResolvedValue(undefined)
+    const inspectTag = vi.fn().mockRejectedValueOnce(new Error('No such image')).mockResolvedValueOnce({})
+    const docker = {
+      buildImage: vi.fn().mockResolvedValue(stream),
+      getImage: vi.fn((image: string) => {
+        return image.startsWith('sha256:') ? {tag} : {inspect: inspectTag}
+      }),
+      modem: {
+        followProgress: vi.fn(
+          (
+            _stream: unknown,
+            onFinished: (error: Error | null) => void,
+            onProgress: (event: {aux: {ID: string}}) => void,
+          ) => {
+            onProgress({aux: {ID: `sha256:${'a'.repeat(64)}`}})
+            onFinished(null)
+          },
+        ),
+      },
+    }
+
+    // @ts-expect-error This test only exercises the Docker methods used to build the image.
+    const image = await buildDockerImage(docker, 'custom-node:local')
+
+    expect(tag).toHaveBeenCalledWith({
+      repo: 'agent-eval-sandbox',
+      tag: image.slice('agent-eval-sandbox:'.length),
+    })
+    expect(inspectTag).toHaveBeenCalledTimes(2)
+  })
+
+  test('fails clearly when the build creates neither the requested tag nor an image ID', async () => {
+    const stream = {}
+    const inspect = vi.fn().mockRejectedValue(new Error('No such image'))
+    const docker = {
+      buildImage: vi.fn().mockResolvedValue(stream),
+      getImage: vi.fn().mockReturnValue({inspect}),
+      modem: {
+        followProgress: vi.fn((_stream: unknown, onFinished: (error: Error | null) => void) => {
+          onFinished(null)
+        }),
+      },
+    }
+
+    // @ts-expect-error This test only exercises the Docker methods used to build the image.
+    await expect(buildDockerImage(docker, 'custom-node:local')).rejects.toThrow(
+      /^Docker build completed without creating image tag: agent-eval-sandbox:[a-f0-9]{16}$/,
+    )
   })
 
   test('includes the Dockerfile contents in the local image tag', () => {

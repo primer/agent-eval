@@ -248,6 +248,7 @@ function ScenarioResults({group, index}: {group: ScenarioResultGroup; index: num
 
   const [selectedModel, setSelectedModel] = useState(getModelValue(group.results[0]))
   const [selectedTreatment, setSelectedTreatment] = useState(group.results[0].treatment)
+  const [selectedTrial, setSelectedTrial] = useState(group.results[0].id)
   const resultsForSelectedModel = group.results.filter(result => {
     return getModelValue(result) === selectedModel
   })
@@ -256,18 +257,22 @@ function ScenarioResults({group, index}: {group: ScenarioResultGroup; index: num
       return firstTreatment.localeCompare(secondTreatment)
     },
   )
+  const activeTreatment = treatmentOptions.includes(selectedTreatment) ? selectedTreatment : treatmentOptions[0]
+  const trials = resultsForSelectedModel.filter(result => {
+    return result.treatment === activeTreatment
+  })
   const selectedResult =
-    resultsForSelectedModel.find(result => {
-      return result.treatment === selectedTreatment
+    trials.find(result => {
+      return result.id === selectedTrial
     }) ??
-    resultsForSelectedModel[0] ??
+    trials[0] ??
     group.results[0]
 
   const resultHeadingId = `result-${index}-heading`
   const summaryHeadingId = `result-${index}-summary-heading`
 
   return (
-    <article aria-labelledby={resultHeadingId} className="flex flex-col gap-4">
+    <article aria-labelledby={resultHeadingId} className="flex flex-col gap-4" id={`scenario-${group.scenarioId}`}>
       <header className="border-b border-default pb-3 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <h2 className="text-title-medium m-0" id={resultHeadingId}>
           {group.scenarioId}
@@ -318,6 +323,25 @@ function ScenarioResults({group, index}: {group: ScenarioResultGroup; index: num
               })}
             </Select>
           </FormControl>
+          {trials.length > 1 ? (
+            <FormControl>
+              <FormControl.Label>Trial</FormControl.Label>
+              <Select
+                value={selectedResult.id}
+                onChange={event => {
+                  setSelectedTrial(event.currentTarget.value)
+                }}
+              >
+                {trials.map((trial, trialIndex) => {
+                  return (
+                    <Select.Option key={trial.id} value={trial.id}>
+                      Trial {trialIndex + 1}
+                    </Select.Option>
+                  )
+                })}
+              </Select>
+            </FormControl>
+          ) : null}
         </div>
       </header>
       <div className="flex flex-col gap-4">

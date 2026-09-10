@@ -43,6 +43,12 @@ workspace, including starter files, rather than a diff of the agent's changes.
 Workspaces are read at build time, so the explorer also works in the static export.
 Missing workspaces have an unavailable message.
 
+Recognized file types use Shiki syntax highlighting with GitHub light and dark
+themes that follow the website's color mode. Unknown file types remain plain text.
+The results page renders previews in Server Components and passes them into the
+interactive file explorer, keeping Shiki and its language grammars out of the
+browser bundle. Highlighting also runs at build time for the static export.
+
 Dependency, build, and Git directories (`node_modules`, `.next`, `.turbo`, `dist`,
 and `.git`) are omitted. Symbolic links and binary files cannot be previewed.
 Previews are limited to 256 KiB per file and 2 MiB per workspace; the tree is limited

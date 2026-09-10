@@ -9,25 +9,28 @@ const MAX_ENTRIES = 2000
 const MAX_DEPTH = 50
 const EXCLUDED_DIRECTORIES = new Set(['.git', '.next', '.turbo', 'node_modules', 'dist'])
 
-type WorkspaceFile = {
+type WorkspacePreview = {type: 'text'; content: string} | {type: 'unavailable'; reason: string}
+
+type WorkspaceFile<Preview = WorkspacePreview> = {
   type: 'file'
   name: string
   path: string
   size: number
-  preview: {type: 'text'; content: string} | {type: 'unavailable'; reason: string}
+  preview: Preview
 }
 
-type WorkspaceEntry =
-  | WorkspaceFile
+type WorkspaceEntry<Preview = WorkspacePreview> =
+  | WorkspaceFile<Preview>
   | {
       type: 'directory'
       name: string
       path: string
-      children: Array<WorkspaceEntry>
+      children: Array<WorkspaceEntry<Preview>>
     }
 
-type WorkspaceFiles =
-  {type: 'unavailable'; reason: string} | {type: 'available'; entries: Array<WorkspaceEntry>; truncated: boolean}
+type WorkspaceFiles<Preview = WorkspacePreview> =
+  | {type: 'unavailable'; reason: string}
+  | {type: 'available'; entries: Array<WorkspaceEntry<Preview>>; truncated: boolean}
 
 async function readWorkspace(directory: string): Promise<WorkspaceFiles> {
   let entryCount = 0

@@ -2,19 +2,19 @@
 
 import {FileIcon} from '@primer/octicons-react'
 import {TreeView} from '@primer/react'
-import {useId, useState} from 'react'
+import {useId, useState, type ReactNode} from 'react'
 import type {WorkspaceEntry, WorkspaceFile, WorkspaceFiles} from '../../workspace-files'
 import styles from './FileExplorer.module.css'
 
-function FileExplorer({workspace}: {workspace: WorkspaceFiles}) {
-  const [selectedFile, setSelectedFile] = useState<WorkspaceFile | null>(null)
+function FileExplorer({workspace}: {workspace: WorkspaceFiles<ReactNode>}) {
+  const [selectedFile, setSelectedFile] = useState<WorkspaceFile<ReactNode> | null>(null)
   const id = useId()
 
   if (workspace.type === 'unavailable') {
     return <p className="m-0 text-muted">{workspace.reason}</p>
   }
 
-  function renderEntry(entry: WorkspaceEntry) {
+  function renderEntry(entry: WorkspaceEntry<ReactNode>) {
     if (entry.type === 'directory') {
       return (
         <TreeView.Item id={`${id}-${entry.path}`} key={entry.path}>
@@ -66,17 +66,7 @@ function FileExplorer({workspace}: {workspace: WorkspaceFiles}) {
                   {selectedFile.size.toLocaleString('en-US')} bytes
                 </span>
               </header>
-              {selectedFile.preview.type === 'text' ? (
-                selectedFile.preview.content.length > 0 ? (
-                  <pre aria-label={selectedFile.path} className={styles.code} tabIndex={0}>
-                    <code>{selectedFile.preview.content}</code>
-                  </pre>
-                ) : (
-                  <p className="p-3 m-0 text-muted">This file is empty.</p>
-                )
-              ) : (
-                <p className="p-3 m-0 text-muted">{selectedFile.preview.reason}</p>
-              )}
+              {selectedFile.preview}
             </>
           ) : (
             <p className="p-3 m-0 text-muted">Select a file to view its contents.</p>

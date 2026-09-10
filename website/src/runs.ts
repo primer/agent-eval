@@ -38,6 +38,7 @@ type RunOutputResult = {
   }
   walkthrough: ExperimentOutputTrial['walkthrough']
   judges: ExperimentOutputTrial['judges']
+  workspaceDirectory?: string
 }
 
 type RunOutput = {
@@ -226,6 +227,7 @@ function normalizeOutput(output: ExperimentOutput): RunOutput {
       },
       walkthrough: trial.walkthrough,
       judges: trial.judges,
+      workspaceDirectory: trial.artifacts.workspaceDirectory,
     }
   })
 

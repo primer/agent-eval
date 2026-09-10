@@ -8,6 +8,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import {useState} from 'react'
 import {JudgeResults} from './JudgeResults'
+import {FileExplorer} from './FileExplorer'
 
 type RunResult = RunDetails['results'][number]
 
@@ -115,7 +116,7 @@ function UiWalkthrough({scenarioId, walkthrough}: {scenarioId: string; walkthrou
   return <p>No UI walkthrough was recorded.</p>
 }
 
-type ResultTab = 'walkthrough' | 'tests' | 'judges' | 'transcript'
+type ResultTab = 'walkthrough' | 'tests' | 'judges' | 'transcript' | 'code'
 
 function ResultTabs({index, result}: {index: number; result: RunResult}) {
   const [selectedTab, setSelectedTab] = useState<ResultTab>('walkthrough')
@@ -124,6 +125,7 @@ function ResultTabs({index, result}: {index: number; result: RunResult}) {
     tests: `result-${index}-tests-tab`,
     judges: `result-${index}-judges-tab`,
     transcript: `result-${index}-transcript-tab`,
+    code: `result-${index}-code-tab`,
   }
   const panelId = `result-${index}-${selectedTab}-panel`
 
@@ -177,6 +179,17 @@ function ResultTabs({index, result}: {index: number; result: RunResult}) {
         >
           Transcript
         </UnderlineNav.Item>
+        <UnderlineNav.Item
+          aria-current={selectedTab === 'code' ? 'page' : undefined}
+          href={`#result-${index}-code-panel`}
+          id={tabIds.code}
+          onSelect={event => {
+            event.preventDefault()
+            setSelectedTab('code')
+          }}
+        >
+          Code
+        </UnderlineNav.Item>
       </UnderlineNav>
       <div aria-labelledby={tabIds[selectedTab]} className="p-4" id={panelId} role="region">
         {selectedTab === 'walkthrough' ? (
@@ -219,6 +232,7 @@ function ResultTabs({index, result}: {index: number; result: RunResult}) {
             <Transcript entries={result.transcript} />
           </div>
         ) : null}
+        {selectedTab === 'code' ? <FileExplorer key={result.id} workspace={result.workspace} /> : null}
       </div>
     </section>
   )

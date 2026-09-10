@@ -56,6 +56,10 @@ const {values} = parseArgs({
       description:
         'The Docker base image to layer the treatment environment on (must be a Debian-based Node image with npm, apt-get, and a node user, default: node:26.5.0-slim)',
     },
+    'prepared-image': {
+      type: 'string',
+      description: 'An existing immutable local image ID or repository digest to use without rebuilding',
+    },
     experiment: {
       type: 'string',
       short: 'e',
@@ -73,6 +77,26 @@ const {values} = parseArgs({
     'log-level': {
       type: 'string',
       description: 'The log level to use',
+    },
+    'max-ai-credits': {
+      type: 'string',
+      description: 'Soft AI-credit limit for each evaluated Copilot session (minimum: 30)',
+    },
+    'max-retries': {
+      type: 'string',
+      description: 'Number of retries after the first trial attempt',
+    },
+    'no-install-dependencies': {
+      type: 'boolean',
+      description: 'Skip installing scenario dependencies before candidate execution',
+    },
+    'no-walkthrough': {
+      type: 'boolean',
+      description: 'Skip walkthrough setup and the walkthrough Copilot session',
+    },
+    'fail-fast': {
+      type: 'boolean',
+      description: 'Do not start queued trials after a trial fails',
     },
     output: {
       type: 'string',
@@ -102,6 +126,10 @@ const {values} = parseArgs({
       type: 'string',
       description: 'The durable plan shard to run, formatted as order/total',
     },
+    'timeout-ms': {
+      type: 'string',
+      description: 'Maximum wall-clock time for each trial in milliseconds',
+    },
   },
 })
 
@@ -114,10 +142,17 @@ Options:
       --benchmarks <dir>     The directory containing local benchmark files (default: ./benchmarks)
   -c, --concurrency <num>    The number of treatments to run in parallel
       --docker-image <image> The Docker base image to layer the treatment environment on (must be a Debian-based Node image with npm, apt-get, and a node user; default: node:26.5.0-slim)
+      --prepared-image <ref> Use an existing immutable local image ID or repository digest without rebuilding
   -e, --experiment <file>    The file name of the experiment to run
       --experiments <dir>    The directory containing local experiment files (default: ./experiments)
+      --fail-fast            Do not start queued trials after a trial fails
   -h, --help                 Learn more about the command and its options
       --log-level <level>    The log level to use (default: info)
+      --max-ai-credits <num> Soft AI-credit limit for each evaluated Copilot session (minimum: 30)
+      --max-retries <num>    Number of retries after the first attempt (default: 3)
+      --no-install-dependencies
+                             Skip installing scenario dependencies before candidate execution
+      --no-walkthrough       Skip walkthrough setup and the walkthrough Copilot session
       --output <file>        The target file in which results are written (default: output.json)
       --output-dir <dir>     The directory containing output.json and its artifacts
       --plan [path]          Create a durable plan without running it (default: plan.json)
@@ -125,6 +160,7 @@ Options:
       --merge-results        Merge output-*.json files in --output-dir
       --scenarios <dir>      The directory containing scenario directories (default: ./scenarios)
       --shard <order/total>  Select a deterministic shard from --from-plan
+      --timeout-ms <num>     Maximum wall-clock time for each trial in milliseconds
 `)
 }
 
@@ -144,14 +180,21 @@ const shard = mode.kind === 'from-plan' && mode.shard ? parseShard(mode.shard) :
 
 const env = getEnvironmentConfig({
   benchmarksDirectory: values.benchmarks,
+  captureWalkthrough: !values['no-walkthrough'],
   concurrency: values.concurrency,
   copilotToken: COPILOT_GITHUB_TOKEN ?? '',
   dockerImage: values['docker-image']?.trim(),
   experimentsDirectory: values.experiments,
+  failFast: values['fail-fast'],
+  installDependencies: !values['no-install-dependencies'],
+  maxAiCredits: values['max-ai-credits'],
+  maxRetries: values['max-retries'],
   outputDirectory: values['output-dir'],
   outputPath: values.output,
+  preparedImage: values['prepared-image']?.trim(),
   scenariosDirectory: values.scenarios,
   shard,
+  timeoutMs: values['timeout-ms'],
 })
 
 logger.debug('Environment configuration: %o', env)

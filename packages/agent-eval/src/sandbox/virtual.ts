@@ -55,16 +55,23 @@ export class VirtualSandbox implements Sandbox {
           continue
         }
 
-        await copyPath(this.#host, path.posix.join(source, name), path.join(destination, name), relativePath => {
-          return options.ignore?.(path.posix.join(name, relativePath)) ?? false
-        })
+        await copyPath(
+          this.#host,
+          path.posix.join(source, name),
+          path.join(destination, name),
+          relativePath => {
+            return options.ignore?.(path.posix.join(name, relativePath)) ?? false
+          },
+          source,
+          options.transform,
+        )
       }
       return
     }
 
     const name = path.basename(source)
     if (!options.ignore?.(name)) {
-      await copyPath(this.#host, source, path.join(destination, name))
+      await copyPath(this.#host, source, path.join(destination, name), undefined, source, options.transform)
     }
   }
 
@@ -120,6 +127,7 @@ async function copyPath(
     return false
   },
   root: string = source,
+  transform?: DownloadOptions['transform'],
 ): Promise<void> {
   const relativePath = normalizeCopyPath(path.relative(root, source))
   if (ignore(relativePath)) {
@@ -135,7 +143,7 @@ async function copyPath(
     const entries = await host.fs.readdir(source)
     for (const entry of entries) {
       const name = entry.toString()
-      await copyPath(host, path.join(source, name), path.join(destination, name), ignore, root)
+      await copyPath(host, path.join(source, name), path.join(destination, name), ignore, root, transform)
     }
     return
   }
@@ -147,7 +155,12 @@ async function copyPath(
   await host.fs.mkdir(path.dirname(destination), {
     recursive: true,
   })
-  await host.fs.copyFile(source, destination)
+  if (transform) {
+    const contents = await host.fs.readFile(source)
+    await host.fs.writeFile(destination, transform(contents, relativePath))
+  } else {
+    await host.fs.copyFile(source, destination)
+  }
 }
 
 function normalizeCopyPath(filepath: string): string {

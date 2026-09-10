@@ -265,7 +265,8 @@ const SessionUsageCheckpointMessageSchema = z.object({
 
 const SessionInfoMessageSchema = z.object({
   type: z.literal('session.info'),
-  ...EphemeralEventFieldsSchema,
+  ...EventFieldsSchema,
+  ephemeral: z.optional(z.boolean()),
   data: z.object({
     infoType: z.string(),
     message: z.string(),

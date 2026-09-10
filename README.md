@@ -55,6 +55,25 @@ Use `--output-dir <directory>` to keep `output.json` and its artifacts together
 with portable relative paths. It cannot be combined with `--output` or
 `--artifacts`.
 
+Opt-in execution controls are available for bounded runs:
+
+```sh
+COPILOT_GITHUB_TOKEN=... agent-eval \
+  --experiment example \
+  --concurrency 1 \
+  --fail-fast \
+  --max-retries 0 \
+  --max-ai-credits 100 \
+  --timeout-ms 600000 \
+  --no-install-dependencies \
+  --no-walkthrough \
+  --prepared-image sha256:<64-hex-character-image-id>
+```
+
+The prepared image must already exist locally and must be referenced by an immutable image ID or repository digest. See the package README for the programmatic API, soft-limit semantics, sandbox contract, and per-attempt artifact layout.
+
+Agent-eval passes `--no-auto-update` to every Copilot CLI invocation so the runtime version supplied by the sandbox image remains pinned for the complete trial. Candidate sessions also write CLI usage JSON and logs into the per-attempt artifact directory. Exact execution-token occurrences are replaced with `[REDACTED]`, with a separate diagnostic recording whether redaction occurred; missing usage is never represented as zero. Gist sharing is never enabled.
+
 ## Authoring scenarios
 
 Scenarios live in [`./scenarios`](./scenarios/). Each scenario has a

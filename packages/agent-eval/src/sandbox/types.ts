@@ -5,6 +5,8 @@ type RunOptions = {
   env?: Record<string, string>
   user?: string
   allowNonZeroExitCode?: boolean
+  onStderr?: (chunk: string) => void
+  onStdout?: (chunk: string) => void
 }
 
 type CopyOptions = {
@@ -13,6 +15,10 @@ type CopyOptions = {
 
 type DownloadOptions = {
   ignore?: (name: string) => boolean
+  /**
+   * Transforms a complete file before the sandbox writes it to the host.
+   */
+  transform?: (contents: Buffer, name: string) => Buffer
 }
 
 type CommandResult = {
@@ -24,6 +30,17 @@ type CommandResult = {
 type SandboxCreateOptions = {
   dockerImage?: string
   host?: Host
+  /**
+   * Existing Docker network to attach the prepared-image container to.
+   * The caller owns network creation and removal.
+   */
+  network?: string
+  /**
+   * Existing local image referenced by immutable image ID or repository digest.
+   * When set, the sandbox uses this image directly instead of building the
+   * default runtime image.
+   */
+  preparedImage?: string
 }
 
 type CustomAgentCopiedFile = {

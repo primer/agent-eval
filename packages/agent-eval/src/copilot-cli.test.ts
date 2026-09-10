@@ -2,6 +2,18 @@ import {describe, expect, test} from 'vitest'
 import {KNOWN_MESSAGE_TYPES, KnownMessageSchema, parseMessage} from './copilot-cli'
 
 describe(parseMessage, () => {
+  test.each([undefined, false, true])('accepts session-limit information with ephemeral=%s', ephemeral => {
+    const message = {
+      type: 'session.info',
+      data: {infoType: 'session_limits', message: 'Session limits: 50/100 AI credits used.'},
+      id: 'session-info-event',
+      timestamp: '2026-09-01T12:00:00.000Z',
+      parentId: 'previous-event',
+      ...(ephemeral === undefined ? {} : {ephemeral}),
+    }
+    expect(parseMessage(message)).toMatchObject(message)
+  })
+
   test.each([
     {
       type: 'session.mcp_servers_loaded',

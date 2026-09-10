@@ -30,6 +30,12 @@ describe('cli', () => {
     expect(log).toHaveBeenCalledWith(expect.stringContaining('--output-dir <dir>'))
     expect(log).toHaveBeenCalledWith(expect.stringContaining('--from-plan [path]'))
     expect(log).toHaveBeenCalledWith(expect.stringContaining('--merge-results'))
+    expect(log).toHaveBeenCalledWith(expect.stringContaining('--max-ai-credits <num>'))
+    expect(log).toHaveBeenCalledWith(expect.stringContaining('--max-retries <num>'))
+    expect(log).toHaveBeenCalledWith(expect.stringContaining('--no-install-dependencies'))
+    expect(log).toHaveBeenCalledWith(expect.stringContaining('--no-walkthrough'))
+    expect(log).toHaveBeenCalledWith(expect.stringContaining('--prepared-image <ref>'))
+    expect(log).toHaveBeenCalledWith(expect.stringContaining('--timeout-ms <num>'))
   })
 
   test('requires a Copilot token when running', async () => {

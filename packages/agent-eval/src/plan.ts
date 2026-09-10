@@ -266,38 +266,94 @@ async function run({env, host = DefaultHost, plan}: RunPlanOptions): Promise<Arr
   const queue = new Queue({
     concurrency: env.concurrency,
   })
+  const maxRetries = env.maxRetries ?? 3
+  if (!Number.isSafeInteger(maxRetries) || maxRetries < 0) {
+    throw new Error('maxRetries must be a non-negative integer')
+  }
+  const stopOnFailure = Boolean(env.failFast) || env.concurrency === 1
+  let stopReason: unknown
 
-  const results = await Promise.all(
+  const settled = await Promise.allSettled(
     plan.trials.map(trial => {
-      return queue.add(() => {
-        return retry(async () => {
-          await using sandbox = await host.createSandbox({
-            dockerImage: env.dockerImage,
-          })
-          return await runTrial({
-            artifactsDirectory: env.artifactsDirectory,
-            copilotToken: env.copilotToken,
-            host,
-            sandbox,
-            trial,
-          })
-        })
+      return queue.add(async () => {
+        if (stopReason !== undefined) {
+          throw new PlanQueueStoppedError(trial.id)
+        }
+
+        try {
+          return await retry(async attempt => {
+            await using sandbox = await host.createSandbox(
+              env.preparedImage
+                ? {
+                    preparedImage: env.preparedImage,
+                  }
+                : {
+                    dockerImage: env.dockerImage,
+                  },
+            )
+            return await runTrial({
+              artifactsDirectory: env.artifactsDirectory,
+              attempt: {
+                maxRetries,
+                number: attempt,
+              },
+              copilotToken: env.copilotToken,
+              execution: env.execution,
+              host,
+              sandbox,
+              trial,
+            })
+          }, maxRetries)
+        } catch (error) {
+          if (stopOnFailure && stopReason === undefined) {
+            stopReason = error
+          }
+          throw error
+        }
       })
     }),
   )
 
-  return results
+  if (stopReason !== undefined) {
+    throw stopReason
+  }
+
+  const failure = settled.find(result => {
+    return result.status === 'rejected' && !(result.reason instanceof PlanQueueStoppedError)
+  })
+  if (failure?.status === 'rejected') {
+    throw failure.reason
+  }
+
+  return settled.flatMap(result => {
+    if (result.status === 'fulfilled' && result.value) {
+      return [result.value]
+    }
+    return []
+  })
 }
 
-async function retry<T>(fn: () => Promise<T>, retries: number = 3): Promise<T> {
-  try {
-    return await fn()
-  } catch (error) {
-    if (retries > 0) {
+class PlanQueueStoppedError extends Error {
+  constructor(trialId: string) {
+    super(`Trial "${trialId}" was not started because an earlier trial failed`)
+    this.name = 'PlanQueueStoppedError'
+  }
+}
+
+async function retry<T>(fn: (attempt: number) => Promise<T>, retries: number = 3): Promise<T> {
+  let attempt = 1
+
+  while (true) {
+    try {
+      return await fn(attempt)
+    } catch (error) {
+      if (attempt > retries) {
+        throw error
+      }
+
       logger.error({error}, 'Retrying')
-      return retry(fn, retries - 1)
+      attempt += 1
     }
-    throw error
   }
 }
 

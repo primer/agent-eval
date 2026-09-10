@@ -7,7 +7,7 @@ type CapturedStream = {
   flush(): void
 }
 
-function createCapturedStream(onLine: (line: string) => void): CapturedStream {
+function createCapturedStream(onLine: (line: string) => void, onChunk?: (chunk: string) => void): CapturedStream {
   const chunks: Array<Buffer> = []
   const decoder = new StringDecoder('utf8')
   let pending = ''
@@ -38,7 +38,9 @@ function createCapturedStream(onLine: (line: string) => void): CapturedStream {
     write(chunk: Buffer | string, encoding, callback) {
       const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk, encoding)
       chunks.push(buffer)
-      pending += decoder.write(buffer)
+      const decoded = decoder.write(buffer)
+      onChunk?.(decoded)
+      pending += decoded
       emitLines(false)
       callback()
     },
@@ -50,7 +52,11 @@ function createCapturedStream(onLine: (line: string) => void): CapturedStream {
       return Buffer.concat(chunks).toString('utf8')
     },
     flush() {
-      pending += decoder.end()
+      const finalChunk = decoder.end()
+      if (finalChunk) {
+        onChunk?.(finalChunk)
+      }
+      pending += finalChunk
       emitLines(true)
     },
   }

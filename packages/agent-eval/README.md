@@ -136,6 +136,89 @@ COPILOT_GITHUB_TOKEN=... agent-eval \
   --benchmark design-system
 ```
 
+### Execution controls
+
+Execution controls are opt-in. Omitting them preserves the existing three retries, walkthrough capture, uncapped candidate session, and generated sandbox image:
+
+```sh
+COPILOT_GITHUB_TOKEN=... agent-eval \
+  --experiment example \
+  --concurrency 1 \
+  --fail-fast \
+  --max-retries 0 \
+  --max-ai-credits 100 \
+  --timeout-ms 600000 \
+  --no-install-dependencies \
+  --no-walkthrough \
+  --prepared-image sha256:<64-hex-character-image-id>
+```
+
+- `--max-retries 0` runs one attempt with no retries. The default is three retries after the first attempt.
+- `--max-ai-credits` passes the Copilot CLI `--max-ai-credits` soft limit to the evaluated candidate session. The minimum is 30. The CLI may finish the process with a non-zero result event or process exit when the budget is exhausted; agent-eval treats either as a failed candidate attempt and preserves the raw output rather than grading it as a failed scenario.
+- `--timeout-ms` applies to the complete trial. On timeout, agent-eval disposes that trial's sandbox container before rejecting.
+- `--no-install-dependencies` skips the scenario's `npm install`. Use it when a prepared fixture already provides a locked dependency tree that must not be pruned or mutated. Package metadata normalization and the build-if-present step still run.
+- `--no-walkthrough` skips the agent-browser installation, walkthrough skill, second Copilot call, and all walkthrough-related sandbox mutations. The result reports `{type: 'Unavailable'}`.
+- `--fail-fast` prevents queued trials from starting after a failure. Serial runs (`--concurrency 1`) always have this behaviour.
+- `--prepared-image` accepts an existing local `sha256:<64 hex characters>` image ID or a repository digest such as `registry.example/runtime@sha256:<64 hex characters>`. Mutable tags are rejected, the image must already exist locally, and agent-eval does not build or pull a fallback image.
+
+`maxAiCredits` applies only to the evaluated candidate Copilot session. If walkthrough capture remains enabled, its helper session is separate and is not included in the candidate session's limit or usage totals. Disable walkthrough capture when the intended budget covers the whole trial.
+
+All Copilot CLI invocations include `--no-auto-update`, so a version pinned in either the generated sandbox or a prepared image cannot be replaced during a trial.
+
+The equivalent programmatic API is:
+
+```ts
+import {runTrial} from '@primer/agent-eval'
+import {SystemSandbox} from '@primer/agent-eval/sandbox'
+
+await using sandbox = await SystemSandbox.create({
+  preparedImage: 'sha256:<64-hex-character-image-id>',
+  network: 'agent-eval-pilot',
+})
+
+const result = await runTrial({
+  artifactsDirectory: './artifacts',
+  copilotToken,
+  sandbox,
+  trial,
+  execution: {
+    captureWalkthrough: false,
+    installDependencies: false,
+    maxAiCredits: 100,
+    timeoutMs: 600_000,
+  },
+})
+```
+
+Prepared-image containers are disposable and use `no-new-privileges`, `cap_drop: ALL`, `cap_add: CHOWN`, a 4 GiB memory limit, and a 512-process limit. They do not publish ports or mount host paths. The image must provide the user and writable directories required by the sandbox contract.
+
+`SandboxCreateOptions.network` may be used with `preparedImage` to attach the disposable container to an existing Docker network by setting `HostConfig.NetworkMode`. The caller owns creating and removing that network. No network mode is selected when the option is omitted, and the generated-image path does not accept this option.
+
+Each attempt writes evidence as it runs:
+
+```text
+artifacts/<trial-id>/
+├── attempts/
+│   └── <attempt-number>/
+│       ├── attempt.json
+│       ├── candidate-logs/
+│       ├── candidate-session.json
+│       ├── candidate.stderr.log
+│       ├── candidate.stdout.log
+│       ├── candidate-usage.json
+│       ├── candidate-workspace/
+│       ├── failure.json
+│       ├── redaction.json
+│       └── result.json
+├── .agents/
+├── .copilot/
+└── workspace/
+```
+
+`candidate.stdout.log`, `candidate.stderr.log`, `candidate-usage.json`, `candidate-logs/`, and `candidate-workspace/` are captured before tests or walkthrough work. The usage file preserves Copilot CLI's `--usage-output-file` output, except that exact occurrences of the execution token are replaced with `[REDACTED]`, and is the source of truth for AI-credit usage. `agent.sessions[].premiumRequests` remains the CLI's premium-request count and must not be interpreted as credits; see github/copilot-cli#4107. If the CLI does not produce a usage file, `candidateUsagePath` is omitted rather than recording zero usage.
+
+The runner redacts exact occurrences of the execution token from persisted stdout, stderr, usage, logs, parsed session data, error metadata, and downloaded text or binary artifacts. `redaction.json` records `redactionApplied: true` when any replacement occurred, so redacted evidence is not presented as an untouched transcript. Known credential-store filenames are excluded from `.copilot` downloads. `candidate-session.json` is written after JSON event parsing and before grading. Failed attempts write `failure.json` with the phase, failure kind, attempt number, retry count, and available artifact paths; successful attempts write `result.json`. Files that are unavailable for a particular failure phase are omitted or empty rather than replaced with a successful-looking result. Agent-eval never enables Copilot CLI gist sharing.
+
 ### Result bundles
 
 Keep the output file and artifacts in one directory so results can be moved

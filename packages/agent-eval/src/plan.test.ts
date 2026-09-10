@@ -171,9 +171,17 @@ describe('run', () => {
     const trials = [createTrial('one'), createTrial('two')]
     const results = trials.map(createResult)
     const host = VirtualHost.create()
+    const createSandbox = vi.spyOn(host, 'createSandbox')
     vi.mocked(runTrial).mockImplementation(async ({trial}) => {
       return createResult(trial)
     })
+    const preparedImage = `sha256:${'a'.repeat(64)}`
+    const execution = {
+      captureWalkthrough: false,
+      installDependencies: false,
+      maxAiCredits: 100,
+      timeoutMs: 600_000,
+    }
 
     await expect(
       run({
@@ -183,8 +191,11 @@ describe('run', () => {
           concurrency: 2,
           copilotToken: 'token',
           dockerImage: 'node:test',
+          execution,
           experimentsDirectory: '/experiments',
+          maxRetries: 0,
           outputPath: '/output.json',
+          preparedImage,
           scenariosDirectory: '/scenarios',
         },
         host,
@@ -194,6 +205,18 @@ describe('run', () => {
       }),
     ).resolves.toEqual(results)
     expect(runTrial).toHaveBeenCalledTimes(2)
+    expect(createSandbox).toHaveBeenCalledWith({
+      preparedImage,
+    })
+    expect(runTrial).toHaveBeenCalledWith(
+      expect.objectContaining({
+        attempt: {
+          maxRetries: 0,
+          number: 1,
+        },
+        execution,
+      }),
+    )
   })
 
   test('retries a failed trial three times', async () => {
@@ -253,6 +276,86 @@ describe('run', () => {
       }),
     ).rejects.toBe(error)
     expect(runTrial).toHaveBeenCalledTimes(4)
+  })
+
+  test('supports zero retries as one total attempt', async () => {
+    const host = VirtualHost.create()
+    const error = new Error('failure')
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    vi.mocked(runTrial).mockRejectedValue(error)
+
+    await expect(
+      run({
+        env: {
+          artifactsDirectory: '/artifacts',
+          benchmarksDirectory: '/benchmarks',
+          concurrency: 1,
+          copilotToken: 'token',
+          dockerImage: 'node:test',
+          experimentsDirectory: '/experiments',
+          maxRetries: 0,
+          outputPath: '/output.json',
+          scenariosDirectory: '/scenarios',
+        },
+        host,
+        plan: {
+          trials: [createTrial('one')],
+        },
+      }),
+    ).rejects.toBe(error)
+    expect(runTrial).toHaveBeenCalledOnce()
+  })
+
+  test('rejects invalid programmatic retry configuration', async () => {
+    await expect(
+      run({
+        env: {
+          artifactsDirectory: '/artifacts',
+          benchmarksDirectory: '/benchmarks',
+          concurrency: 1,
+          copilotToken: 'token',
+          dockerImage: 'node:test',
+          experimentsDirectory: '/experiments',
+          maxRetries: -1,
+          outputPath: '/output.json',
+          scenariosDirectory: '/scenarios',
+        },
+        host: VirtualHost.create(),
+        plan: {
+          trials: [createTrial('one')],
+        },
+      }),
+    ).rejects.toThrow('maxRetries must be a non-negative integer')
+    expect(runTrial).not.toHaveBeenCalled()
+  })
+
+  test('does not launch later trials after a serial failure', async () => {
+    const host = VirtualHost.create()
+    const error = new Error('failure')
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    vi.mocked(runTrial).mockRejectedValueOnce(error)
+
+    await expect(
+      run({
+        env: {
+          artifactsDirectory: '/artifacts',
+          benchmarksDirectory: '/benchmarks',
+          concurrency: 1,
+          copilotToken: 'token',
+          dockerImage: 'node:test',
+          experimentsDirectory: '/experiments',
+          maxRetries: 0,
+          outputPath: '/output.json',
+          scenariosDirectory: '/scenarios',
+        },
+        host,
+        plan: {
+          trials: [createTrial('one'), createTrial('two')],
+        },
+      }),
+    ).rejects.toBe(error)
+    expect(runTrial).toHaveBeenCalledOnce()
+    expect(vi.mocked(runTrial).mock.calls[0]?.[0].trial.id).toBe('one')
   })
 })
 

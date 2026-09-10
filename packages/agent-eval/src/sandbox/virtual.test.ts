@@ -1,5 +1,5 @@
 import path from 'node:path'
-import {describe, expect, test} from 'vitest'
+import {describe, expect, test, vi} from 'vitest'
 import {VirtualHost} from '../host'
 import {CONTAINER_WORKDIR} from './constants'
 import {VirtualSandbox} from './virtual'
@@ -81,5 +81,39 @@ describe('VirtualSandbox', () => {
     await sandbox.download('./nested/../result.txt', '/download')
 
     expect(await host.fs.readFile('/download/result.txt', 'utf8')).toBe('result')
+  })
+
+  test('transforms file contents before writing them to the host and preserves unmatched binary data', async () => {
+    const token = Buffer.from('secret-token')
+    const binary = Buffer.from([0, 255, 1, 254])
+    const host = VirtualHost.create()
+    const sandbox = await VirtualSandbox.create({host})
+    await sandbox.writeFile('results/secret.txt', 'before secret-token after')
+    await host.fs.writeFile(path.join(CONTAINER_WORKDIR, 'results/binary.bin'), binary)
+    const writeFile = vi.spyOn(host.fs, 'writeFile')
+
+    await sandbox.download('results', '/download', {
+      transform(contents) {
+        const match = contents.indexOf(token)
+        if (match === -1) {
+          return contents
+        }
+        return Buffer.concat([
+          contents.subarray(0, match),
+          Buffer.from('[REDACTED]'),
+          contents.subarray(match + token.length),
+        ])
+      },
+    })
+
+    const downloadWrites = writeFile.mock.calls.filter(([filepath]) => {
+      return typeof filepath === 'string' && filepath.startsWith('/download/')
+    })
+    expect(downloadWrites).toHaveLength(2)
+    for (const [, contents] of downloadWrites) {
+      expect(Buffer.from(contents as Buffer).includes(token)).toBe(false)
+    }
+    await expect(host.fs.readFile('/download/secret.txt', 'utf8')).resolves.toBe('before [REDACTED] after')
+    await expect(host.fs.readFile('/download/binary.bin')).resolves.toEqual(binary)
   })
 })

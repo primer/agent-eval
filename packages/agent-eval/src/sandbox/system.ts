@@ -410,6 +410,7 @@ async function buildDockerImage(docker: Docker, baseDockerImage: string): Promis
     dockerfile: 'Dockerfile',
     t: dockerImage,
     target: 'sandbox',
+    version: '1',
   })
 
   await new Promise<void>((resolve, reject) => {

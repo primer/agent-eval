@@ -60,6 +60,7 @@ describe('SystemSandbox lifecycle', () => {
         dockerfile: 'Dockerfile',
         t: expect.stringMatching(/^agent-eval-sandbox:[a-f0-9]{16}$/),
         target: 'sandbox',
+        version: '1',
       }),
     )
     expect(docker.modem.followProgress).toHaveBeenCalledWith(stream, expect.any(Function), expect.any(Function))

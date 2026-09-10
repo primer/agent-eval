@@ -43,6 +43,7 @@ test('listScenarios', async () => {
     directory: '/scenarios/001-scenario',
     prompt: 'test',
     tags: [],
+    judges: [],
     testPath: '/scenarios/001-scenario/scenario.test.ts',
   })
 
@@ -80,6 +81,7 @@ test('listScenarios includes optional metadata and browser tests', async () => {
       prompt: 'Complete the task',
       description: 'Test scenario',
       tags: ['test', 'browser'],
+      judges: [],
       testPath: '/scenarios/001-scenario/scenario.test.ts',
       browserTestPath: '/scenarios/001-scenario/browser.test.ts',
     },
@@ -135,15 +137,24 @@ test('listScenarios ignores configs without a default export', async () => {
   await expect(listScenarios(host, '/scenarios')).resolves.toEqual([])
 })
 
-test('listScenarios excludes template directories', async () => {
+test('listScenarios loads judge configurations in zero-prefixed scenarios', async () => {
+  const judges = [
+    {
+      name: 'copy',
+      judge: {instructions: 'Evaluate the clarity of the copy.'},
+      files: ['screenshots'],
+      scores: [{value: 1, description: 'Clear copy'}],
+    },
+  ]
   const config = JSON.stringify(
     defineConfig({
       prompt: 'test',
+      judges,
     }),
   )
   const host = VirtualHost.create({
     '/scenarios': {
-      '000-template': {
+      '000-llm-as-a-judge': {
         'package.json': '{}',
         'scenario.config.ts': `export default ${config}`,
         'scenario.test.ts': '',
@@ -151,7 +162,16 @@ test('listScenarios excludes template directories', async () => {
     },
   })
 
-  await expect(listScenarios(host, '/scenarios')).resolves.toEqual([])
+  await expect(listScenarios(host, '/scenarios')).resolves.toEqual([
+    {
+      id: '000-llm-as-a-judge',
+      directory: '/scenarios/000-llm-as-a-judge',
+      prompt: 'test',
+      tags: [],
+      judges,
+      testPath: '/scenarios/000-llm-as-a-judge/scenario.test.ts',
+    },
+  ])
 })
 
 test('throws if input is not a directory', async () => {
@@ -190,6 +210,7 @@ test('getScenario', async () => {
     directory: '/scenarios/001-scenario',
     prompt: 'test',
     tags: [],
+    judges: [],
     testPath: '/scenarios/001-scenario/scenario.test.ts',
   })
 
@@ -198,6 +219,7 @@ test('getScenario', async () => {
     directory: '/scenarios/002-scenario',
     prompt: 'test',
     tags: [],
+    judges: [],
     testPath: '/scenarios/002-scenario/scenario.test.ts',
   })
 

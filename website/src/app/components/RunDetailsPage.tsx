@@ -7,6 +7,7 @@ import type {Route} from 'next'
 import Link from 'next/link'
 import Image from 'next/image'
 import {useState} from 'react'
+import {JudgeResults} from './JudgeResults'
 
 type RunResult = RunDetails['results'][number]
 
@@ -114,13 +115,14 @@ function UiWalkthrough({scenarioId, walkthrough}: {scenarioId: string; walkthrou
   return <p>No UI walkthrough was recorded.</p>
 }
 
-type ResultTab = 'walkthrough' | 'tests' | 'transcript'
+type ResultTab = 'walkthrough' | 'tests' | 'judges' | 'transcript'
 
 function ResultTabs({index, result}: {index: number; result: RunResult}) {
   const [selectedTab, setSelectedTab] = useState<ResultTab>('walkthrough')
   const tabIds = {
     walkthrough: `result-${index}-walkthrough-tab`,
     tests: `result-${index}-tests-tab`,
+    judges: `result-${index}-judges-tab`,
     transcript: `result-${index}-transcript-tab`,
   }
   const panelId = `result-${index}-${selectedTab}-panel`
@@ -150,6 +152,18 @@ function ResultTabs({index, result}: {index: number; result: RunResult}) {
           }}
         >
           Tests
+        </UnderlineNav.Item>
+        <UnderlineNav.Item
+          aria-current={selectedTab === 'judges' ? 'page' : undefined}
+          counter={result.judges.length}
+          href={`#result-${index}-judges-panel`}
+          id={tabIds.judges}
+          onSelect={event => {
+            event.preventDefault()
+            setSelectedTab('judges')
+          }}
+        >
+          Judges
         </UnderlineNav.Item>
         <UnderlineNav.Item
           aria-current={selectedTab === 'transcript' ? 'page' : undefined}
@@ -199,6 +213,7 @@ function ResultTabs({index, result}: {index: number; result: RunResult}) {
             })}
           </ul>
         ) : null}
+        {selectedTab === 'judges' ? <JudgeResults judges={result.judges} /> : null}
         {selectedTab === 'transcript' ? (
           <div className="w-full max-w-3xl mx-auto">
             <Transcript entries={result.transcript} />

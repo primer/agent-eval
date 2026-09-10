@@ -1,13 +1,24 @@
 import path from 'node:path'
-import {isMessageType, MessageSchema, parseMessage, type Message} from './copilot-cli'
+import * as z from 'zod/mini'
+import {AgentSessionSchema, getAgentSession} from './agent'
+import {parseMessage, type Message} from './copilot-cli'
 import {DefaultHost, type Host} from './host'
 import {AGENTS_DIR, CONTAINER_WORKDIR, COPILOT_DIR, NODE_USER, SKILLS_DIR, type Sandbox} from './sandbox'
 import {parseTestResults, TestResultsSchema} from './vitest'
 import {logger} from './logger'
-import * as z from 'zod/mini'
 import {ModelVariantSchema} from './model'
 import {ScenarioSchema} from './scenario'
 import {TreatmentSchema, TreatmentSetupSchema} from './treatment'
+import {
+  getJudgeModel,
+  getJudgePrompt,
+  getJudgeReportFilename,
+  getJudgeFiles,
+  JudgeOutputSchema,
+  parseJudgeReport,
+  type JudgeOutput,
+  type JudgeResult,
+} from './judge'
 
 const TrialSchema = z.object({
   id: z.string(),
@@ -32,18 +43,6 @@ const WalkthroughSchema = z.discriminatedUnion('type', [
 
 type Walkthrough = z.infer<typeof WalkthroughSchema>
 
-const AgentSessionSchema = z.object({
-  turns: z.number(),
-  outputTokens: z.number(),
-  premiumRequests: z.number(),
-  totalApiDurationMs: z.number(),
-  sessionDurationMs: z.number(),
-  tools: z.record(z.string(), z.number()),
-  messages: z.array(MessageSchema),
-})
-
-type AgentSession = z.infer<typeof AgentSessionSchema>
-
 const TrialArtifactsSchema = z.object({
   directory: z.string(),
   copilotConfigDirectory: z.string(),
@@ -57,10 +56,11 @@ const TrialAgentSchema = z.object({
 })
 
 const TrialResultSchema = z.object({
-  artifacts: TrialArtifactsSchema,
-  trial: TrialSchema,
   agent: TrialAgentSchema,
+  artifacts: TrialArtifactsSchema,
+  judges: z.array(JudgeOutputSchema),
   testResults: TestResultsSchema,
+  trial: TrialSchema,
   walkthrough: WalkthroughSchema,
 })
 
@@ -260,6 +260,49 @@ function getPortableTrialPaths(result: TrialResult, baseDirectory: string): Port
   }
 }
 
+async function validateJudgeFileSource(host: Host, sourcePath: string): Promise<void> {
+  const stats = await host.fs.lstat(sourcePath)
+  if (stats.isSymbolicLink()) {
+    throw new Error(`Judge reference must not contain symbolic links: ${sourcePath}`)
+  }
+  if (stats.isDirectory()) {
+    for (const entry of await host.fs.readdir(sourcePath)) {
+      await validateJudgeFileSource(host, path.join(sourcePath, entry))
+    }
+  } else if (!stats.isFile()) {
+    throw new Error(`Judge reference must be a file or directory: ${sourcePath}`)
+  }
+}
+
+async function getJudgeFileSources(host: Host, trial: Trial): Promise<Array<{filepath: string; sourcePath: string}>> {
+  const files = [...new Set(trial.scenario.judges.flatMap(getJudgeFiles))]
+  if (files.length === 0) {
+    return []
+  }
+
+  const directory = await host.fs.realpath(trial.scenario.directory)
+  const sources: Array<{filepath: string; sourcePath: string}> = []
+  for (const filepath of files) {
+    const sourcePath = path.join(directory, filepath)
+    if (!host.existsSync(sourcePath)) {
+      throw new Error(`Judge reference "${filepath}" was not found in scenario "${trial.scenario.id}"`)
+    }
+    if ((await host.fs.realpath(sourcePath)) !== sourcePath) {
+      throw new Error(`Judge reference must not use symbolic links: ${filepath}`)
+    }
+    await validateJudgeFileSource(host, sourcePath)
+    if (
+      files.some(parent => {
+        return filepath.startsWith(`${parent}/`)
+      })
+    ) {
+      continue
+    }
+    sources.push({filepath, sourcePath})
+  }
+  return sources
+}
+
 async function run({
   artifactsDirectory,
   copilotToken,
@@ -273,9 +316,13 @@ async function run({
   sandbox: Sandbox
   trial: Trial
 }): Promise<TrialResult> {
+  // Setup ---------------------------------------------------------------------
+
   const logPrefix = `[${trial.scenario.id}] [${trial.treatment.name}] [${trial.model.name} (${trial.model.reasoningEffort})]`
 
   logger.info('%s Running trial: %s', logPrefix, trial.id)
+
+  const judgeFiles = await getJudgeFileSources(host, trial)
 
   logger.info('%s Copying files from: %s...', logPrefix, trial.scenario.directory)
 
@@ -288,6 +335,9 @@ async function run({
       'node_modules',
       '.next',
       'dist',
+      ...judgeFiles.map(file => {
+        return file.filepath
+      }),
     ],
   })
   await sandbox.runCommand('chown', ['-R', NODE_USER, '.'], {
@@ -346,6 +396,8 @@ async function run({
     })
   }
 
+  // Implementation ------------------------------------------------------------
+
   logger.info('%s Running copilot...', logPrefix)
   const copilotOutput = await sandbox.runCommand(
     'copilot',
@@ -376,6 +428,8 @@ async function run({
     }
     return parseMessage(JSON.parse(trimmed))
   })
+
+  // Verification --------------------------------------------------------------
 
   logger.info('%s Running tests...', logPrefix)
 
@@ -448,6 +502,92 @@ async function run({
     await sandbox.writeFile(TEST_RESULTS_PATH, JSON.stringify(testResults))
   }
 
+  // Judge ---------------------------------------------------------------------
+  const judgeOutputs: Array<JudgeOutput> = []
+
+  if (trial.scenario.judges.length > 0) {
+    logger.info('%s Running judges...', logPrefix)
+
+    for (const file of judgeFiles) {
+      if (await sandbox.exists(file.filepath)) {
+        throw new Error(`Cannot copy judge reference "${file.filepath}": the workspace path already exists`)
+      }
+    }
+    for (const file of judgeFiles) {
+      logger.info('%s Copying judge reference: %s...', logPrefix, file.filepath)
+      await sandbox.copy(file.sourcePath, file.filepath)
+    }
+    if (judgeFiles.length > 0) {
+      await sandbox.runCommand(
+        'chown',
+        [
+          '-R',
+          NODE_USER,
+          '--',
+          ...judgeFiles.map(file => {
+            return file.filepath
+          }),
+        ],
+        {user: 'root'},
+      )
+    }
+
+    for (const judge of trial.scenario.judges) {
+      logger.info('%s Running judge: %s...', logPrefix, judge.name)
+
+      const model = getJudgeModel(judge, trial)
+      const prompt = getJudgePrompt(judge)
+      const judgeCopilotOutput = await sandbox.runCommand(
+        'copilot',
+        [
+          '--prompt',
+          prompt,
+          '--model',
+          model.name,
+          '--reasoning-effort',
+          model.reasoningEffort,
+          '--mode',
+          'autopilot',
+          '--allow-all',
+          '--output-format',
+          'json',
+        ],
+        {
+          user: NODE_USER,
+          env: {
+            COPILOT_GITHUB_TOKEN: copilotToken,
+          },
+        },
+      )
+      const judgeMessages: Array<Message> = judgeCopilotOutput.stdout.split('\n').flatMap(line => {
+        const trimmed = line.trim()
+        if (trimmed.length === 0) {
+          return []
+        }
+        return parseMessage(JSON.parse(trimmed))
+      })
+      const session = getAgentSession(judgeMessages)
+      const judgeReportPath = getJudgeReportFilename(judge)
+      let judgeResult: JudgeResult
+      if (await sandbox.exists(judgeReportPath)) {
+        judgeResult = parseJudgeReport(await sandbox.readFile(judgeReportPath), judge)
+        if (judgeResult.type === 'error') {
+          logger.warn('%s Judge "%s" report is invalid: %s', logPrefix, judge.name, judgeResult.message)
+        }
+      } else {
+        logger.warn('%s Judge "%s" did not write its report: %s', logPrefix, judge.name, judgeReportPath)
+        judgeResult = {type: 'unknown'}
+      }
+      judgeOutputs.push({
+        config: judge,
+        result: judgeResult,
+        agent: {session},
+      })
+    }
+  }
+
+  // Capture -------------------------------------------------------------------
+
   const WALKTHROUGH_DIR = 'walkthrough'
   const WALKTHROUGH_VIEWPORT_WIDTH = 1440
   const WALKTHROUGH_VIEWPORT_HEIGHT = 900
@@ -477,6 +617,8 @@ Save the result inside a "${WALKTHROUGH_DIR}" directory (create it if it doesn't
 - If what you built is a single screen, take one screenshot and save it as ${WALKTHROUGH_DIR}/screenshot.png.
 - If there are a few distinct views worth showing (for example separate pages or states), take a screenshot of each, in the order a reviewer should look at them, saved as ${WALKTHROUGH_DIR}/screenshots/01.png, ${WALKTHROUGH_DIR}/screenshots/02.png, etc.
 - If reviewing the change requires seeing an interactive flow across multiple steps or pages, record a short video of yourself clicking through it instead and save it as ${WALKTHROUGH_DIR}/walkthrough.webm.
+
+After saving and verifying the walkthrough artifacts, close the agent-browser session you opened and stop the development server and any other background processes you started. Use stop_bash with the shellId returned when starting an async Bash command, and verify that it has stopped. Only clean up processes and browser sessions you started; leave unrelated processes and the saved artifacts intact. Complete this cleanup before calling task_complete so background processes do not keep the Copilot CLI running. If cleanup fails, report the failure instead of claiming completion.
 
 Only capture the walkthrough, do not make any further code changes.`
   const walkthroughResult = await sandbox.runCommand(
@@ -512,6 +654,8 @@ Only capture the walkthrough, do not make any further code changes.`
     user: NODE_USER,
   })
 
+  // Save ----------------------------------------------------------------------
+
   const artifactDirectory = path.join(artifactsDirectory, trial.id)
   const workspaceDirectory = path.join(artifactDirectory, 'workspace')
   const walkthroughPath = path.join(artifactDirectory, 'walkthrough')
@@ -529,6 +673,20 @@ Only capture the walkthrough, do not make any further code changes.`
   logger.debug('%s Downloading agent workspace to: %s...', logPrefix, workspaceDirectory)
   await sandbox.download(CONTAINER_WORKDIR, workspaceDirectory, {
     ignore(name) {
+      const relativePath = (path.isAbsolute(name) ? path.relative(workspaceDirectory, name) : name)
+        .split(path.sep)
+        .join(path.posix.sep)
+      if (
+        judgeFiles.some(file => {
+          return (
+            relativePath === file.filepath ||
+            relativePath.startsWith(`${file.filepath}/`) ||
+            file.filepath.startsWith(`${relativePath}/`)
+          )
+        })
+      ) {
+        return false
+      }
       return name.includes('node_modules') || name.includes('.next') || name.includes('.turbo') || name.includes('dist')
     },
   })
@@ -594,49 +752,7 @@ Only capture the walkthrough, do not make any further code changes.`
     },
     testResults,
     walkthrough,
-  }
-}
-
-function getAgentSession(messages: Array<Message>): AgentSession {
-  const turns = new Set()
-  const toolCalls = new Map()
-  let assistantOutputTokens = 0
-  let modelOutputTokens = 0
-  let hasModelOutput = false
-
-  for (const message of messages) {
-    if (isMessageType(message, 'assistant.turn_start')) {
-      turns.add(message.data.turnId)
-    }
-
-    if (isMessageType(message, 'assistant.message')) {
-      assistantOutputTokens += message.data.outputTokens ?? 0
-    }
-
-    if (isMessageType(message, 'model.message') && message.data.message.role === 'assistant') {
-      hasModelOutput = true
-      modelOutputTokens += message.data.message.outputTokens ?? 0
-    }
-
-    if (isMessageType(message, 'tool.execution_start')) {
-      const toolName = message.data.toolName
-      toolCalls.set(toolName, (toolCalls.get(toolName) ?? 0) + 1)
-    }
-  }
-
-  const result = messages.find(message => isMessageType(message, 'result'))
-  if (!result) {
-    throw new Error('No result message found in copilot output')
-  }
-
-  return {
-    messages,
-    outputTokens: hasModelOutput ? modelOutputTokens : assistantOutputTokens,
-    premiumRequests: result.usage.premiumRequests,
-    sessionDurationMs: result.usage.sessionDurationMs,
-    tools: Object.fromEntries(toolCalls),
-    totalApiDurationMs: result.usage.totalApiDurationMs,
-    turns: turns.size,
+    judges: judgeOutputs,
   }
 }
 

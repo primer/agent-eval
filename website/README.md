@@ -30,3 +30,9 @@ results/
 
 Artifact and walkthrough paths are relative to each `output.json`, so result
 directories should be moved or uploaded as complete bundles.
+
+Benchmark and experiment run details include a **Judges** tab for the selected
+model and treatment. Each judge shows its score, scoring criteria, rationale,
+and file-backed findings with code snippets. Scores use the judge's configured
+scale, not a shared pass/fail threshold. Judge errors and missing results are
+shown separately from scored results.

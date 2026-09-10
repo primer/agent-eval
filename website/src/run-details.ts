@@ -1,12 +1,14 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import type {RunOutput, RunOutputResult} from './runs'
+import type {BenchmarkRun} from './benchmark-results'
 
 const REPOSITORY_ROOT = path.resolve(process.cwd(), '..')
 const LEGACY_ARTIFACTS_DIRECTORY = path.join(REPOSITORY_ROOT, 'artifacts')
 
 type LogMessage = RunOutputResult['assistant']['logs'][number]
 type Walkthrough = RunOutputResult['walkthrough']
+type JudgeDetails = Pick<RunOutputResult['judges'][number], 'config' | 'result'>
 
 type TranscriptEntry = {
   id: string
@@ -44,6 +46,7 @@ type RunResult = {
   }>
   transcript: Array<TranscriptEntry>
   walkthrough: WalkthroughDataUrl
+  judges: Array<JudgeDetails>
 }
 
 type RunDetails = {
@@ -325,11 +328,79 @@ async function createExperimentRunDetails(date: string, output: RunOutput, runDi
           }),
           walkthrough: await getWalkthroughDataUrls(result.walkthrough, runDirectory),
           transcript: createTranscript(result.assistant.logs),
+          judges: createJudgeDetails(result.judges),
         }
       }),
     ),
   }
 }
 
-export {createExperimentRunDetails, createTranscript, getWalkthroughDataUrls}
-export type {RunDetails, TranscriptEntry, WalkthroughDataUrl}
+function createJudgeDetails(judges: RunOutputResult['judges']): Array<JudgeDetails> {
+  return judges.map(judge => {
+    return {
+      config: judge.config,
+      result: judge.result,
+    }
+  })
+}
+
+async function createBenchmarkRunDetails(run: BenchmarkRun): Promise<RunDetails> {
+  const treatments = new Map(
+    [...run.output.treatments].map(([id, treatment]) => {
+      return [id, treatment.name]
+    }),
+  )
+
+  return {
+    date: run.name,
+    results: await Promise.all(
+      [...run.output.trials.values()].map(async trial => {
+        const sessions = trial.agent.sessions
+        return {
+          id: trial.id,
+          scenarioId: trial.scenarioId,
+          context: trial.capabilityId,
+          treatment: treatments.get(trial.treatmentId) ?? 'Unknown treatment',
+          model: trial.model.name,
+          reasoningEffort: trial.model.reasoningEffort,
+          testsPassed: trial.testResults.numPassedTests,
+          totalTests: trial.testResults.numTotalTests,
+          turns: sessions.reduce((total, session) => {
+            return total + session.turns
+          }, 0),
+          outputTokens: sessions.reduce((total, session) => {
+            return total + session.outputTokens
+          }, 0),
+          premiumRequests: sessions.reduce((total, session) => {
+            return total + session.premiumRequests
+          }, 0),
+          totalApiDurationMs: sessions.reduce((total, session) => {
+            return total + session.totalApiDurationMs
+          }, 0),
+          sessionDurationMs: sessions.reduce((total, session) => {
+            return total + session.sessionDurationMs
+          }, 0),
+          tests: trial.testResults.testResults.flatMap(testResult => {
+            return testResult.assertionResults.map(assertion => {
+              return {
+                fullName: assertion.fullName,
+                status: assertion.status,
+                description: assertion.meta.description,
+              }
+            })
+          }),
+          walkthrough: await getWalkthroughDataUrls(trial.walkthrough, run.directory),
+          transcript: createTranscript(
+            sessions.flatMap(session => {
+              return session.messages
+            }),
+          ),
+          judges: createJudgeDetails(trial.judges),
+        }
+      }),
+    ),
+  }
+}
+
+export {createBenchmarkRunDetails, createExperimentRunDetails, createTranscript, getWalkthroughDataUrls}
+export type {JudgeDetails, RunDetails, TranscriptEntry, WalkthroughDataUrl}

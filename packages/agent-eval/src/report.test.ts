@@ -33,6 +33,7 @@ function createResult({
         directory: `/scenarios/${scenario}`,
         prompt: 'Complete the task',
         tags: [],
+        judges: [],
         testPath: `/scenarios/${scenario}/scenario.test.ts`,
       },
       treatment: {
@@ -43,6 +44,7 @@ function createResult({
     agent: {
       sessions,
     },
+    judges: [],
     testResults: {
       numTotalTests,
       numPassedTests,
@@ -135,6 +137,7 @@ test('formats benchmark results as capability comparisons by scenario', () => {
           directory: '/scenarios/migrate-component',
           prompt: 'Complete the task',
           tags: [],
+          judges: [],
           testPath: '/scenarios/migrate-component/scenario.test.ts',
         },
       ],
@@ -147,6 +150,7 @@ test('formats benchmark results as capability comparisons by scenario', () => {
           directory: '/scenarios/create-component',
           prompt: 'Complete the task',
           tags: [],
+          judges: [],
           testPath: '/scenarios/create-component/scenario.test.ts',
         },
       ],
@@ -334,6 +338,7 @@ test('compares benchmark test success rates when test totals differ', () => {
         directory: '/scenarios/create-component',
         prompt: 'Complete the task',
         tags: [],
+        judges: [],
         testPath: '/scenarios/create-component/scenario.test.ts',
       },
     ],

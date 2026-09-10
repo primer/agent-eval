@@ -1,82 +1,117 @@
-import 'server-only'
-import path from 'node:path'
-import {Fragment} from 'react'
-import {bundledLanguages, bundledLanguagesInfo, codeToTokens, type BundledLanguage} from 'shiki'
+'use client'
+
+import {Button} from '@primer/react'
+import {Fragment, useEffect, useState} from 'react'
+import {isFilePreviewData, type FilePreviewData, type FilePreviewReference} from '../../file-preview'
 import type {WorkspaceFile} from '../../workspace-files'
 import styles from './FileExplorer.module.css'
 
-const languages = new Map<string, string>()
-for (const language of bundledLanguagesInfo) {
-  languages.set(language.id, language.id)
-  for (const alias of language.aliases ?? []) {
-    languages.set(alias, language.id)
-  }
-}
+type PreviewState = {type: 'loading'} | {type: 'error'; message: string} | {type: 'loaded'; preview: FilePreviewData}
 
-function isBundledLanguage(language: string): language is BundledLanguage {
-  return Object.hasOwn(bundledLanguages, language)
-}
-
-function getFileLanguage(filepath: string): BundledLanguage | 'text' {
-  const name = path.posix.basename(filepath).toLowerCase()
-  if (name === 'dockerfile' || name.startsWith('dockerfile.')) {
-    return 'docker'
+function FilePreviewContent({filepath, preview}: {filepath: string; preview: FilePreviewData}) {
+  if (preview.type === 'unavailable') {
+    return <p className="p-3 m-0 text-muted">{preview.reason}</p>
   }
-  if (name === 'makefile' || name === 'gnumakefile') {
-    return 'make'
-  }
-  if (name === '.env' || name.startsWith('.env.')) {
-    return 'dotenv'
-  }
-  const language = languages.get(path.posix.extname(name).slice(1))
-  return language && isBundledLanguage(language) ? language : 'text'
-}
-
-async function FilePreview({file}: {file: WorkspaceFile}) {
-  if (file.preview.type === 'unavailable') {
-    return <p className="p-3 m-0 text-muted">{file.preview.reason}</p>
-  }
-
-  const content = file.preview.content
-  if (content.length === 0) {
+  if (preview.content.length === 0) {
     return <p className="p-3 m-0 text-muted">This file is empty.</p>
   }
-
-  const language = getFileLanguage(file.path)
-  if (language === 'text') {
+  if (preview.type === 'text') {
     return (
-      <pre aria-label={file.path} className={styles.code} tabIndex={0}>
-        <code>{content}</code>
+      <pre aria-label={filepath} className={styles.code} tabIndex={0}>
+        <code>{preview.content}</code>
       </pre>
     )
   }
 
-  const {tokens} = await codeToTokens(content, {
-    lang: language,
-    themes: {light: 'github-light-default', dark: 'github-dark-default'},
-    defaultColor: false,
-  })
   let previousEnd = 0
-  const highlighted = tokens.flat().map((token, index) => {
+  const highlighted = preview.tokens.map((token, index) => {
     // Token offsets let us retain the original line endings and blank lines.
-    const gap = content.slice(previousEnd, token.offset)
+    const gap = preview.content.slice(previousEnd, token.offset)
     previousEnd = token.offset + token.content.length
     return (
       <Fragment key={index}>
         {gap}
-        <span style={token.htmlStyle}>{token.content}</span>
+        <span style={token.style}>{token.content}</span>
       </Fragment>
     )
   })
 
   return (
-    <pre aria-label={file.path} className={styles.code} tabIndex={0}>
+    <pre aria-label={filepath} className={styles.code} tabIndex={0}>
       <code>
         {highlighted}
-        {content.slice(previousEnd)}
+        {preview.content.slice(previousEnd)}
       </code>
     </pre>
   )
 }
 
-export {FilePreview, getFileLanguage}
+function RemoteFilePreview({filepath, url}: {filepath: string; url: string}) {
+  const [state, setState] = useState<PreviewState>({type: 'loading'})
+  const [attempt, setAttempt] = useState(0)
+
+  useEffect(() => {
+    const controller = new AbortController()
+
+    async function loadPreview() {
+      try {
+        const response = await fetch(url, {signal: controller.signal})
+        if (!response.ok) {
+          throw new Error(`The server returned HTTP ${response.status}.`)
+        }
+        const preview: unknown = await response.json()
+        if (!isFilePreviewData(preview)) {
+          throw new Error('The server returned an invalid file preview.')
+        }
+        if (!controller.signal.aborted) {
+          setState({type: 'loaded', preview})
+        }
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          const message = error instanceof Error ? error.message : String(error)
+          setState({type: 'error', message: `Unable to load this file. ${message}`})
+        }
+      }
+    }
+
+    void loadPreview()
+    return () => {
+      controller.abort()
+    }
+  }, [url, attempt])
+
+  if (state.type === 'loading') {
+    return (
+      <p className="p-3 m-0 text-muted" role="status">
+        Loading file preview...
+      </p>
+    )
+  }
+  if (state.type === 'error') {
+    return (
+      <div className="p-3">
+        <p className="mt-0" role="alert">
+          {state.message}
+        </p>
+        <Button
+          onClick={() => {
+            setState({type: 'loading'})
+            setAttempt(attempt + 1)
+          }}
+        >
+          Retry
+        </Button>
+      </div>
+    )
+  }
+  return <FilePreviewContent filepath={filepath} preview={state.preview} />
+}
+
+function FilePreview({file}: {file: WorkspaceFile<FilePreviewReference>}) {
+  if (file.preview.type === 'remote') {
+    return <RemoteFilePreview filepath={file.path} key={file.preview.url} url={file.preview.url} />
+  }
+  return <FilePreviewContent filepath={file.path} preview={file.preview} />
+}
+
+export {FilePreview, FilePreviewContent}

@@ -6,13 +6,14 @@ import type {RunDetails, TranscriptEntry, WalkthroughDataUrl} from '../../run-de
 import type {Route} from 'next'
 import Link from 'next/link'
 import Image from 'next/image'
-import {useState, type ReactNode} from 'react'
+import {useState} from 'react'
+import type {FilePreviewReference} from '../../file-preview'
 import type {WorkspaceFiles} from '../../workspace-files'
 import {JudgeResults} from './JudgeResults'
 import {FileExplorer} from './FileExplorer'
 
 type RunResult = Omit<RunDetails['results'][number], 'workspace'> & {
-  workspace: WorkspaceFiles<ReactNode>
+  workspace: WorkspaceFiles<FilePreviewReference>
 }
 
 type ScenarioResultGroup = {

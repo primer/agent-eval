@@ -1,10 +1,15 @@
 import {renderToStaticMarkup} from 'react-dom/server'
 import {expect, test, vi} from 'vitest'
+import {getFileLanguage, highlightFile} from '../../file-highlighting'
+import {isFilePreviewData} from '../../file-preview'
 import type {WorkspaceFile} from '../../workspace-files'
-import {FilePreview, getFileLanguage} from './FilePreview'
+import {FilePreview, FilePreviewContent} from './FilePreview'
 
 vi.mock('server-only', () => {
   return {}
+})
+vi.mock('@primer/react', () => {
+  return {Button: 'button'}
 })
 
 function file(filepath: string, content: string): WorkspaceFile {
@@ -15,6 +20,12 @@ function file(filepath: string, content: string): WorkspaceFile {
     size: Buffer.byteLength(content),
     preview: {type: 'text', content},
   }
+}
+
+async function renderFile(workspaceFile: WorkspaceFile) {
+  const preview = await highlightFile(workspaceFile)
+  expect(isFilePreviewData(JSON.parse(JSON.stringify(preview)))).toBe(true)
+  return renderToStaticMarkup(<FilePreviewContent filepath={workspaceFile.path} preview={preview} />)
 }
 
 test.each([
@@ -45,8 +56,8 @@ test.each([
   ['src/App.tsx', 'export default function App() {\n  return <button>Hello</button>\n}\n'],
   ['package.json', '{\n  "name": "generated-app"\n}\n'],
   ['styles.css', 'button {\n  color: red;\n}\n'],
-])('renders %s as highlighted server markup with both themes', async (filepath, content) => {
-  const html = renderToStaticMarkup(await FilePreview({file: file(filepath, content)}))
+])('renders server-highlighted %s tokens with both themes', async (filepath, content) => {
+  const html = await renderFile(file(filepath, content))
   expect(html).toContain('--shiki-light:')
   expect(html).toContain('--shiki-dark:')
   expect(html).toContain(`aria-label="${filepath}"`)
@@ -61,13 +72,13 @@ test.each([
   'const greeting = "hello"',
   'const greeting = "こんにちは 👋"\n',
 ])('preserves source text, whitespace, and line endings: %j', async content => {
-  const html = renderToStaticMarkup(await FilePreview({file: file('index.ts', content)}))
+  const html = await renderFile(file('index.ts', content))
   expect(html.replace(/<[^>]*>/g, '')).toBe(renderToStaticMarkup(<>{content}</>))
 })
 
 test('escapes file contents rather than rendering generated HTML', async () => {
   const content = '<script>alert("generated")</script><img src=x onerror=alert(1)>'
-  const html = renderToStaticMarkup(await FilePreview({file: file('index.html', content)}))
+  const html = await renderFile(file('index.html', content))
   expect(html).not.toContain('<script>')
   expect(html).not.toContain('<img ')
   expect(html.replace(/<[^>]*>/g, '')).toBe(renderToStaticMarkup(<>{content}</>))
@@ -75,7 +86,7 @@ test('escapes file contents rather than rendering generated HTML', async () => {
 
 test('renders unknown file types as escaped plain text', async () => {
   const content = '<script>alert("generated")</script>\nplain text\n'
-  const html = renderToStaticMarkup(await FilePreview({file: file('notes.unknown', content)}))
+  const html = await renderFile(file('notes.unknown', content))
   expect(html).not.toContain('<span')
   expect(html).not.toContain('--shiki-')
   expect(html).toContain('&lt;script&gt;')
@@ -83,16 +94,34 @@ test('renders unknown file types as escaped plain text', async () => {
 })
 
 test('preserves empty and unavailable preview messages', async () => {
-  const empty = renderToStaticMarkup(await FilePreview({file: file('empty.ts', '')}))
+  const empty = await renderFile(file('empty.ts', ''))
   expect(empty).toContain('This file is empty.')
-  const unavailable = renderToStaticMarkup(
-    await FilePreview({
-      file: {
-        ...file('binary.png', ''),
-        preview: {type: 'unavailable', reason: 'Binary files cannot be previewed.'},
-      },
-    }),
-  )
+  const unavailable = await renderFile({
+    ...file('binary.png', ''),
+    preview: {type: 'unavailable', reason: 'Binary files cannot be previewed.'},
+  })
   expect(unavailable).toContain('Binary files cannot be previewed.')
   expect(unavailable).not.toContain('<pre')
+})
+
+test('renders only a loading state before fetching a selected remote preview', () => {
+  const html = renderToStaticMarkup(
+    <FilePreview
+      file={{...file('index.ts', ''), preview: {type: 'remote', url: '/file-previews/example/preview.json'}}}
+    />,
+  )
+  expect(html).toContain('Loading file preview...')
+  expect(html).not.toContain('<pre')
+})
+
+test.each([
+  null,
+  {},
+  {type: 'text', content: 1},
+  {type: 'unavailable'},
+  {type: 'highlighted', content: '', tokens: null},
+  {type: 'highlighted', content: '', tokens: [{content: 'x', offset: -1, style: {}}]},
+  {type: 'highlighted', content: '', tokens: [{content: 'x', offset: 0, style: {'--shiki-light': 1}}]},
+])('rejects malformed preview responses: %j', value => {
+  expect(isFilePreviewData(value)).toBe(false)
 })

@@ -45,9 +45,11 @@ Missing workspaces have an unavailable message.
 
 Recognized file types use Shiki syntax highlighting with GitHub light and dark
 themes that follow the website's color mode. Unknown file types remain plain text.
-The results page renders previews in Server Components and passes them into the
-interactive file explorer, keeping Shiki and its language grammars out of the
-browser bundle. Highlighting also runs at build time for the static export.
+Previews are highlighted on the server and exported as individual JSON assets.
+The explorer fetches a preview only when its file is selected, keeping file contents,
+tokens, Shiki, and language grammars out of the initial results page. Highlighting
+runs at build time for the static export, or on request during local development.
+The browser renders the returned tokens as escaped text, not generated HTML.
 
 Dependency, build, and Git directories (`node_modules`, `.next`, `.turbo`, `dist`,
 and `.git`) are omitted. Symbolic links and binary files cannot be previewed.

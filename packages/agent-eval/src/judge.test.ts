@@ -3,6 +3,7 @@ import * as z from 'zod/mini'
 import {
   getJudgeModel,
   getJudgePrompt,
+  getJudgeReportFilename,
   getJudgeFiles,
   JudgeConfigSchema,
   JudgeOutputSchema,
@@ -200,6 +201,35 @@ test.each(['gpt-5.6-sol', 'claude-opus-5', 'gemini-3.5-flash'] as const)(
   },
 )
 
+test('getJudgeReportFilename hashes the original name deterministically', () => {
+  expect(getJudgeReportFilename(config)).toBe(
+    'judge-92d521b76ad162ec17a3f3d0aded5cf9444b75e6929994a72937c27224abf515-report.json',
+  )
+  expect(getJudgeReportFilename({...config, description: 'Different description'})).toBe(getJudgeReportFilename(config))
+})
+
+test.each([
+  '',
+  '..',
+  '../../report',
+  '/tmp/report',
+  'C:\\reports\\judge',
+  'a:b?c*d"e<f>g|',
+  'name\0\n',
+  '\u65e5\u672c\u8a9e',
+  'a'.repeat(1000),
+])('getJudgeReportFilename produces a bounded path-safe filename for %j', name => {
+  expect(getJudgeReportFilename({...config, name})).toMatch(/^judge-[a-f0-9]{64}-report\.json$/)
+})
+
+test.each([
+  ['a/b', 'a:b'],
+  ['Correctness', 'correctness'],
+  ['name', 'name '],
+])('getJudgeReportFilename distinguishes %j from %j', (first, second) => {
+  expect(getJudgeReportFilename({...config, name: first})).not.toBe(getJudgeReportFilename({...config, name: second}))
+})
+
 test('getJudgePrompt includes the judge criteria, instructions, and exact report filename', () => {
   const promptConfig: JudgeConfig = {
     name: 'accessibility',
@@ -226,7 +256,7 @@ test('getJudgePrompt includes the judge criteria, instructions, and exact report
     files: promptConfig.files,
     scores: promptConfig.scores,
   })
-  expect(JSON.parse(reportFile)).toBe('judge-accessibility-report.json')
+  expect(JSON.parse(reportFile)).toBe(getJudgeReportFilename(promptConfig))
   expect(prompt).not.toContain('gpt-5.6-sol')
   expect(prompt).toContain('scenario-provided references')
   expect(prompt).toContain('same relative paths in the workspace')

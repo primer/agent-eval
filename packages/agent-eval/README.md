@@ -173,7 +173,9 @@ configured scale have `type: "error"` with a diagnostic `message`.
 Judge reports are read from the sandbox workspace before artifacts are
 downloaded. Reports contain `score`, `rationale`, and `findings`; the runner adds
 the result type. The original reports are also retained in the downloaded
-workspace. Benchmark and experiment readers preserve judge results and scenario
+workspace as `judge-<sha256>-report.json`, using the SHA-256 hex digest of the
+judge's name to keep filenames path-safe. The original name is preserved in the
+judge configuration. Benchmark and experiment readers preserve judge results and scenario
 judge configurations. Older bundles without judge fields load with empty
 `judges` arrays.
 

@@ -1071,7 +1071,11 @@ describe('run', () => {
       ])
 
       await runOptions.host.fs.mkdir('/artifacts/test-id', {recursive: true})
-      await runOptions.host.fs.writeFile('/artifacts/test-id/judge-missing-report.json', JSON.stringify(report), 'utf8')
+      await runOptions.host.fs.writeFile(
+        path.join('/artifacts/test-id', getJudgeReportFilename({...judge, name: 'missing'})),
+        JSON.stringify(report),
+        'utf8',
+      )
       const result = await run({...runOptions, sandbox, trial})
       expect(
         result.judges.map(output => {

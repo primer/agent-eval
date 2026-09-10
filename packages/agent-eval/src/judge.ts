@@ -1,3 +1,4 @@
+import {createHash} from 'node:crypto'
 import path from 'node:path'
 import * as z from 'zod/mini'
 import {ModelVariantSchema, type ModelVariant} from './model'
@@ -30,12 +31,18 @@ const JudgeConfigSchema = z.object({
     model: z.optional(ModelVariantSchema),
     instructions: z.optional(z.string()),
   }),
-  scores: z.array(
-    z.object({
-      value: z.number(),
-      description: z.string(),
-    }),
-  ),
+  scores: z
+    .array(
+      z.object({
+        value: z.number(),
+        description: z.string(),
+      }),
+    )
+    .check(
+      z.refine(scores => scores.length > 0, {
+        error: 'At least one score must be provided in a judge config.',
+      }),
+    ),
 })
 
 type JudgeConfig = z.infer<typeof JudgeConfigSchema>
@@ -111,7 +118,10 @@ function parseJudgeReport(contents: string, config: JudgeConfig): JudgeResult {
     }
   }
 
-  return {type: 'result', ...report.data}
+  return {
+    type: 'result',
+    ...report.data,
+  }
 }
 
 /**
@@ -180,7 +190,8 @@ function getJudgePrompt(config: JudgeConfig): string {
 }
 
 function getJudgeReportFilename(config: JudgeConfig): string {
-  return `judge-${config.name}-report.json`
+  const id = createHash('sha256').update(config.name).digest('hex')
+  return `judge-${id}-report.json`
 }
 
 export {

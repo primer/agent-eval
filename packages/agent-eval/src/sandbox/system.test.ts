@@ -104,14 +104,21 @@ describe('SystemSandbox lifecycle', () => {
     const docker = {
       buildImage: vi.fn().mockResolvedValue(stream),
       getImage: vi.fn().mockReturnValue({inspect}),
-      followProgress: vi.fn((_stream: unknown, onFinished: (error: Error | null) => void) => {
-        onFinished(null)
-      }),
+      followProgress: vi.fn(
+        (
+          _stream: unknown,
+          onFinished: (error: Error | null) => void,
+          onProgress: (event: {stream: string}) => void,
+        ) => {
+          onProgress({stream: 'ERROR: package installation failed\n'})
+          onFinished(null)
+        },
+      ),
     }
 
     // @ts-expect-error This test only exercises the Docker methods used to build the image.
     await expect(buildDockerImage(docker, 'custom-node:local')).rejects.toThrow(
-      /^Docker build completed without creating image tag: agent-eval-sandbox:[a-f0-9]{16}$/,
+      /^Docker build completed without creating image tag: agent-eval-sandbox:[a-f0-9]{16}\nERROR: package installation failed$/,
     )
   })
 

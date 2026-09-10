@@ -86,9 +86,13 @@ const JudgeOutputSchema = z.object({
 type JudgeOutput = z.infer<typeof JudgeOutputSchema>
 
 function getJudgeFiles(config: JudgeConfig): Array<string> {
-  return (config.files ?? []).map(filepath => {
-    return path.posix.normalize(JudgeFileSchema.parse(filepath)).replace(/\/$/, '')
-  })
+  if (config.files) {
+    return config.files.map(filepath => {
+      return path.posix.normalize(JudgeFileSchema.parse(filepath)).replace(/\/$/, '')
+    })
+  }
+
+  return []
 }
 
 function parseJudgeReport(contents: string, config: JudgeConfig): JudgeResult {
@@ -99,12 +103,18 @@ function parseJudgeReport(contents: string, config: JudgeConfig): JudgeResult {
     if (!(error instanceof SyntaxError)) {
       throw error
     }
-    return {type: 'error', message: `Invalid judge report JSON: ${error.message}`}
+    return {
+      type: 'error',
+      message: `Invalid judge report JSON: ${error.message}`,
+    }
   }
 
   const report = JudgeReportSchema.safeParse(json)
   if (!report.success) {
-    return {type: 'error', message: z.prettifyError(report.error)}
+    return {
+      type: 'error',
+      message: z.prettifyError(report.error),
+    }
   }
 
   if (

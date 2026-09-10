@@ -134,7 +134,7 @@ jobs:
         with:
           node-version-file: '.nvmrc'
       - name: Run tests
-        run: pnpm test
+        run: pnpm exec turbo run test
 
   type-check:
     runs-on: ubuntu-latest

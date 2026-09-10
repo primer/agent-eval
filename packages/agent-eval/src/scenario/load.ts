@@ -32,6 +32,7 @@ async function loadScenario(host: Host, directory: string, id = path.basename(di
     prompt: config.prompt,
     tags: config.tags ?? [],
     testPath,
+    checks: config.checks ?? [],
     judges: config.judges
       ? await Promise.all(
           config.judges.map(judgeConfig => {

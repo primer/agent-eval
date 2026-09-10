@@ -1,4 +1,5 @@
 import * as z from 'zod/mini'
+import {CheckConfigSchema} from '../check'
 import {JudgeSchema} from '../judge'
 
 const ScenarioSchema = z.object({
@@ -9,6 +10,7 @@ const ScenarioSchema = z.object({
   tags: z.array(z.string()),
   testPath: z.string(),
   browserTestPath: z.optional(z.string()),
+  checks: z._default(z.array(CheckConfigSchema), []),
   judges: z.array(JudgeSchema),
 })
 

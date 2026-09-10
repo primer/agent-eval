@@ -389,6 +389,7 @@ async function buildDockerImage(docker: Docker, baseDockerImage: string): Promis
   const dockerImage = getDockerImageName(baseDockerImage)
   logger.debug('Building sandbox image %s from %s...', dockerImage, baseDockerImage)
   let builtImageId: string | undefined
+  const buildOutput: Array<string> = []
 
   const dockerfile = Buffer.from(DOCKERFILE)
   const context = tarStream.pack()
@@ -450,6 +451,7 @@ async function buildDockerImage(docker: Docker, baseDockerImage: string): Promis
           if (match) {
             builtImageId = match[1]
           }
+          buildOutput.push(event.stream.trimEnd())
         }
       },
     )
@@ -459,9 +461,11 @@ async function buildDockerImage(docker: Docker, baseDockerImage: string): Promis
     await docker.getImage(dockerImage).inspect()
   } catch (error) {
     if (!builtImageId) {
-      throw new Error(`Docker build completed without creating image tag: ${dockerImage}`, {
-        cause: error,
-      })
+      const details = buildOutput.filter(Boolean).slice(-20).join('\n')
+      const message = details
+        ? `Docker build completed without creating image tag: ${dockerImage}\n${details}`
+        : `Docker build completed without creating image tag: ${dockerImage}`
+      throw new Error(message, {cause: error})
     }
 
     const separator = dockerImage.lastIndexOf(':')

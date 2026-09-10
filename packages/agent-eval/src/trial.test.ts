@@ -97,7 +97,12 @@ const writeCopilotResult: RunCommandMock = async ({params}) => {
 
 const writeTestFile: RunCommandMock = async ({params, sandbox}) => {
   const [command, args] = params
-  if (command === 'sh' && Array.isArray(args) && args[0] === '-c' && args[1].startsWith('npx vitest run')) {
+  if (
+    command === 'sh' &&
+    Array.isArray(args) &&
+    args[0] === '-c' &&
+    args[1].startsWith('./node_modules/.bin/vitest run')
+  ) {
     const config = await sandbox.readFile('vitest.agent-eval.config.ts')
     const outputFile = config.match(/outputFile: "([^"]+)"/)?.[1]
     if (!outputFile) {
@@ -1027,10 +1032,17 @@ describe('run', () => {
       expect.stringContaining('outputFile: "test-results.json"'),
     )
     expect(sandbox.runCommand).toHaveBeenCalledWith(
+      'npm',
+      ['install', '--no-save', '--package-lock=false', 'vitest@4.1.11'],
+      {
+        user: NODE_USER,
+      },
+    )
+    expect(sandbox.runCommand).toHaveBeenCalledWith(
       'sh',
       [
         '-c',
-        'npx vitest run --config "$1" "$2" || true',
+        './node_modules/.bin/vitest run --config "$1" "$2" || true',
         'vitest-run',
         'vitest.agent-eval.config.ts',
         'scenario.test.ts',
@@ -1107,7 +1119,7 @@ describe('run', () => {
       'sh',
       [
         '-c',
-        'npx vitest run --config "$1" "$2" || true',
+        './node_modules/.bin/vitest run --config "$1" "$2" || true',
         'vitest-run',
         'vitest.agent-eval.config.ts',
         'scenario.browser.test.ts',

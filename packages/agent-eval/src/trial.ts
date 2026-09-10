@@ -30,6 +30,7 @@ type Trial = z.infer<typeof TrialSchema>
 const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg'])
 const AGENT_BROWSER_SKILL_DIRECTORY = path.posix.join(SKILLS_DIR, 'agent-browser')
 const PLAYWRIGHT_BROWSERS_PATH = '/ms-playwright'
+const VITEST_VERSION = '4.1.11'
 const CANDIDATE_RUNTIME_ARTIFACTS_DIR = '/tmp/agent-eval-candidate'
 const CANDIDATE_LOG_DIR = path.posix.join(CANDIDATE_RUNTIME_ARTIFACTS_DIR, 'logs')
 const CANDIDATE_USAGE_PATH = path.posix.join(CANDIDATE_RUNTIME_ARTIFACTS_DIR, 'usage.json')
@@ -1158,6 +1159,13 @@ async function executeTrial({
   onPhase('tests')
   logger.info('%s Running tests...', logPrefix)
 
+  if (!trial.scenario.browserTestPath) {
+    logger.info('%s Installing test dependencies...', logPrefix)
+    await sandbox.runCommand('npm', ['install', '--no-save', '--package-lock=false', `vitest@${VITEST_VERSION}`], {
+      user: NODE_USER,
+    })
+  }
+
   const TEST_PATH = 'scenario.test.ts'
   const BROWSER_TEST_PATH = 'scenario.browser.test.ts'
   const VITEST_CONFIG_PATH = 'vitest.agent-eval.config.ts'
@@ -1187,7 +1195,13 @@ async function executeTrial({
     await sandbox.writeFile(VITEST_CONFIG_PATH, getVitestConfig(scenarioTest.resultsPath, scenarioTest.browser))
     await sandbox.runCommand(
       'sh',
-      ['-c', 'npx vitest run --config "$1" "$2" || true', 'vitest-run', VITEST_CONFIG_PATH, scenarioTest.testPath],
+      [
+        '-c',
+        './node_modules/.bin/vitest run --config "$1" "$2" || true',
+        'vitest-run',
+        VITEST_CONFIG_PATH,
+        scenarioTest.testPath,
+      ],
       {
         user: NODE_USER,
         env: scenarioTest.browser ? {PLAYWRIGHT_BROWSERS_PATH} : {},

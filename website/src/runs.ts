@@ -37,6 +37,7 @@ type RunOutputResult = {
     }>
   }
   walkthrough: ExperimentOutputTrial['walkthrough']
+  judges: ExperimentOutputTrial['judges']
 }
 
 type RunOutput = {
@@ -120,6 +121,21 @@ async function listForExperiment(experimentId: string): Promise<Array<Run>> {
     .toSorted((a, b) => {
       return b.date.getTime() - a.date.getTime()
     })
+}
+
+async function getLatestForExperiment(experimentId: string): Promise<Run | null> {
+  const entries = (await listRunDirectories(experimentId)).toSorted((first, second) => {
+    return second.name.localeCompare(first.name)
+  })
+
+  for (const entry of entries) {
+    const run = await find(experimentId, entry.name)
+    if (run) {
+      return run
+    }
+  }
+
+  return null
 }
 
 async function list(): Promise<Array<Run>> {
@@ -224,6 +240,7 @@ function normalizeOutput(output: ExperimentOutput): RunOutput {
         }),
       },
       walkthrough: trial.walkthrough,
+      judges: trial.judges,
     }
   })
 
@@ -250,5 +267,5 @@ function normalizeOutput(output: ExperimentOutput): RunOutput {
   }
 }
 
-export {list, listForExperiment, get}
+export {list, listForExperiment, getLatestForExperiment, get, normalizeOutput}
 export type {Run, RunOutput, RunOutputResult}

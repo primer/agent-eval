@@ -327,6 +327,7 @@ test('writes and reads benchmark capability metadata', async () => {
         directory: '/scenarios/001-scenario',
         prompt: 'Complete the task',
         tags: [],
+        judges: [],
         testPath: '/scenarios/001-scenario/scenario.test.ts',
       },
     ],
@@ -354,6 +355,7 @@ test('writes and reads benchmark capability metadata', async () => {
     agent: {
       sessions: [],
     },
+    judges: [],
     testResults: {
       numTotalTests: 1,
       numPassedTests: 1,
@@ -491,6 +493,7 @@ test('resolves durable benchmark plans with capability metadata and setup functi
             directory: '/scenarios/001-scenario',
             prompt: 'Complete the task',
             tags: [],
+            judges: [],
             testPath: '/scenarios/001-scenario/scenario.test.ts',
           },
         ],

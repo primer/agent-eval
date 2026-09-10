@@ -27,6 +27,7 @@ export function createResult(overrides: Partial<RunOutputResult> = {}): RunOutpu
       tests: [],
     },
     walkthrough: {type: 'Unavailable'},
+    judges: [],
     ...overrides,
   }
 }
@@ -45,6 +46,7 @@ export function createRun(results: Array<RunOutputResult> = [createResult()], da
           directory: `/scenarios/${id}`,
           prompt: 'Build a page',
           tags: [],
+          judges: [],
           testPath: `/scenarios/${id}/scenario.test.ts`,
         }
       }),

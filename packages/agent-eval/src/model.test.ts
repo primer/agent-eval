@@ -1,5 +1,22 @@
 import {test, expect} from 'vitest'
-import {getModelVariants} from './model'
+import {getModelVariants, ModelVariantConfigSchema} from './model'
+
+test('ModelVariantConfigSchema accepts a single model config', () => {
+  expect(ModelVariantConfigSchema.parse('claude-opus-5')).toBe('claude-opus-5')
+  expect(ModelVariantConfigSchema.parse({name: 'claude-opus-5'})).toEqual({name: 'claude-opus-5'})
+  expect(ModelVariantConfigSchema.parse({name: 'claude-opus-5', reasoningEfforts: ['medium', 'max']})).toEqual({
+    name: 'claude-opus-5',
+    reasoningEfforts: ['medium', 'max'],
+  })
+})
+
+test('ModelVariantConfigSchema rejects arrays and invalid model configs', () => {
+  expect(ModelVariantConfigSchema.safeParse([]).success).toBe(false)
+  expect(ModelVariantConfigSchema.safeParse(['claude-opus-5']).success).toBe(false)
+  expect(ModelVariantConfigSchema.safeParse([{name: 'claude-opus-5'}]).success).toBe(false)
+  expect(ModelVariantConfigSchema.safeParse('unknown-model').success).toBe(false)
+  expect(ModelVariantConfigSchema.safeParse({name: 'gpt-5.4', reasoningEfforts: ['max']}).success).toBe(false)
+})
 
 test('getModelVariants', () => {
   expect(getModelVariants([])).toEqual([])

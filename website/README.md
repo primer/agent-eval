@@ -32,6 +32,8 @@ Artifact and walkthrough paths are relative to each `output.json`, so result
 directories should be moved or uploaded as complete bundles.
 
 The overview includes each configured experiment and its latest dated run.
+It reads only the newest available result bundle for each experiment; dated
+run history is loaded on the experiment page.
 Experiment pages compare treatments separately for each model and reasoning
 effort, both across the run and within each scenario. Test pass rates use the
 sum of passed tests divided by the sum of total tests. Output tokens, premium
@@ -43,3 +45,10 @@ Select **View output** for a scenario to open its walkthrough, test results,
 and transcript. The run viewer supports switching model, treatment, and trial
 when multiple trials were recorded. Runs without trials and experiments without
 runs show empty states rather than falling back to older results.
+Changing the model or treatment selects the first trial for that combination.
+
+Benchmark and experiment run details include a **Judges** tab for the selected
+model, treatment, and trial. Each judge shows its score, scoring criteria, rationale,
+and file-backed findings with code snippets. Scores use the judge's configured
+scale, not a shared pass/fail threshold. Judge errors and missing results are
+shown separately from scored results.

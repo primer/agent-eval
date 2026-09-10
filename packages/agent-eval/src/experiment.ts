@@ -11,6 +11,7 @@ import {
 } from './model'
 import {DefaultHost, type Host} from './host'
 import {logger} from './logger'
+import {JudgeOutputSchema} from './judge'
 import {
   create as createDurablePlan,
   run as runPlan,
@@ -43,7 +44,7 @@ type ExperimentScenarioConfig = string | InlineScenarioConfig
 type ExperimentConfig = {
   name: string
   description: string
-  models: ModelVariantConfig
+  models: Array<ModelVariantConfig>
   scenarios: Array<ExperimentScenarioConfig>
   setup?: TreatmentSetup
   treatments: Array<Treatment>
@@ -57,7 +58,7 @@ const InlineScenarioConfigSchema = z.object({
 const ExperimentConfigSchema = z.object({
   name: z.string(),
   description: z.string(),
-  models: ModelVariantConfigSchema,
+  models: z.array(ModelVariantConfigSchema),
   scenarios: z.array(z.union([z.string(), InlineScenarioConfigSchema])),
   setup: z.optional(TreatmentSetupSchema),
   treatments: z.array(TreatmentSchema),
@@ -323,6 +324,7 @@ const ExperimentOutputScenarioSchema = z.pick(ScenarioSchema, {
   tags: true,
   testPath: true,
   browserTestPath: true,
+  judges: true,
 })
 
 const ExperimentOutputTreatmentSchema = z.pick(TreatmentSchema, {
@@ -333,6 +335,7 @@ const ExperimentOutputTrialSchema = z.object({
   agent: TrialAgentSchema,
   artifacts: TrialArtifactsSchema,
   id: z.string(),
+  judges: z._default(z.array(JudgeOutputSchema), []),
   model: ModelVariantSchema,
   scenarioId: z.string(),
   testResults: TestResultsSchema,
@@ -390,6 +393,7 @@ function output(
       agent: trialResult.agent,
       artifacts,
       id: trial.id,
+      judges: trialResult.judges,
       model: trial.model,
       scenarioId: trial.scenario.id,
       testResults: trialResult.testResults,

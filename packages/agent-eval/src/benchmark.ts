@@ -4,6 +4,7 @@ import * as z from 'zod/mini'
 import type {EnvironmentConfig} from './environment'
 import {DefaultHost, type Host} from './host'
 import {logger} from './logger'
+import {JudgeOutputSchema} from './judge'
 import {getModelVariants, ModelVariantConfigSchema, ModelVariantSchema, type ModelVariant} from './model'
 import {
   create as createDurablePlan,
@@ -36,7 +37,7 @@ const CapabilityConfigSchema = z.object({
 const BenchmarkConfigSchema = z.object({
   name: z.string(),
   description: z.string(),
-  models: ModelVariantConfigSchema,
+  models: z.array(ModelVariantConfigSchema),
   setup: z.optional(TreatmentSetupSchema),
   capabilities: z.array(CapabilityConfigSchema),
 })
@@ -363,6 +364,7 @@ const BenchmarkTrialOutputSchema = z.object({
   artifacts: TrialArtifactsSchema,
   capabilityId: z.string(),
   id: z.string(),
+  judges: z._default(z.array(JudgeOutputSchema), []),
   model: ModelVariantSchema,
   scenarioId: z.string(),
   testResults: TestResultsSchema,
@@ -383,6 +385,7 @@ const BenchmarkOutputFileSchema = z.object({
       tags: true,
       testPath: true,
       browserTestPath: true,
+      judges: true,
     }),
   ),
   treatments: z.record(
@@ -447,6 +450,7 @@ function output(
       artifacts,
       capabilityId: capability.name,
       id: trial.id,
+      judges: trialResult.judges,
       model: trial.model,
       scenarioId: trial.scenario.id,
       testResults: trialResult.testResults,

@@ -156,13 +156,68 @@ agent-eval \
 ```
 
 `output.json` stores run metadata and maps each trial ID to its JSON file inside
-that trial's artifact directory. Each trial file contains the agent, model,
-test result, artifact, and walkthrough data that was previously embedded in
-`output.json`. Artifact and walkthrough references are relative to the
-directory containing `output.json`. Upload or download the complete `run`
+that trial's artifact directory. Each trial file contains agent, model, judge,
+test result, artifact, and walkthrough data. Artifact and walkthrough references
+are relative to the directory containing `output.json`. Upload or download the complete `run`
 directory to preserve those references. `--output-dir` creates `output.json`
 and `artifacts/` within the selected directory. When using `--output`, artifacts
 are written to an `artifacts/` directory beside the selected file.
+
+Trials include a `judges` array. Each entry preserves the judge's `config`,
+`result`, and `agent.session` (including its messages and usage). Judge sessions
+are separate from the implementation agent's sessions. Successful results have
+`type: "result"` with a `score`, `rationale`, and file-backed `findings`. Missing
+reports have `type: "unknown"`; malformed reports and scores outside the
+configured scale have `type: "error"` with a diagnostic `message`.
+
+Judge reports are read from the sandbox workspace before artifacts are
+downloaded. Reports contain `score`, `rationale`, and `findings`; the runner adds
+the result type. The original reports are also retained in the downloaded
+workspace as `judge-<sha256>-report.json`, using the SHA-256 hex digest of the
+judge's name to keep filenames path-safe. The original name is preserved in the
+judge configuration. Benchmark and experiment readers preserve judge results and scenario
+judge configurations. Older bundles without judge fields load with empty
+`judges` arrays.
+
+### Judge reference files
+
+Use `files` on a judge entry to provide reference screenshots, text files, or
+directories:
+
+```ts
+import {defineConfig} from '@primer/agent-eval/scenario'
+
+export default defineConfig({
+  prompt: 'Build a project overview page.',
+  judges: [
+    {
+      name: 'visual-match',
+      files: ['screenshots', 'references/notes.txt'],
+      judge: {
+        instructions: 'Compare the implementation with the reference screenshots and notes.',
+      },
+      scores: [
+        {value: 0, description: 'The implementation does not match the references.'},
+        {value: 1, description: 'The implementation matches the references.'},
+      ],
+    },
+  ],
+})
+```
+
+Paths are relative to the scenario directory and use forward slashes. These are
+literal file or directory paths, not glob patterns. Directories are copied
+recursively. References are excluded from the implementation workspace and
+copied to the same relative workspace paths during the judge phase, after
+deterministic tests finish. The judge prompt identifies them as reference
+material, not implementation output. Shared references are copied once.
+
+Use dedicated reference paths that the implementation will not create.
+Missing references, symbolic links, absolute paths, parent traversal, and paths
+that would overwrite existing workspace content fail the trial explicitly.
+Reference files remain in the downloaded workspace, and `files` is preserved in
+saved judge configurations. For findings based on images, judges use an empty
+`snippet` and describe the visual evidence in `explanation`.
 
 ### Plans and sharding
 

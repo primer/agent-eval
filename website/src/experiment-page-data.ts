@@ -1,6 +1,6 @@
 import {get as getExperiment, list as listExperiments} from './experiments'
 import {getExperimentResults} from './experiment-results'
-import {listForExperiment} from './runs'
+import {getLatestForExperiment, listForExperiment} from './runs'
 
 export async function getExperimentPageData(id: string) {
   const [experiment, runs] = await Promise.all([getExperiment(id), listForExperiment(id)])
@@ -27,8 +27,8 @@ export async function getExperimentsOverview() {
   const experiments = await listExperiments()
   return Promise.all(
     experiments.map(async experiment => {
-      const runs = await listForExperiment(experiment.id)
-      const results = getExperimentResults(runs[0])
+      const run = await getLatestForExperiment(experiment.id)
+      const results = getExperimentResults(run ?? undefined)
       return {
         id: experiment.id,
         name: experiment.name,

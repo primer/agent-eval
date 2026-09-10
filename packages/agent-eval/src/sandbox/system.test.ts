@@ -39,11 +39,9 @@ describe('SystemSandbox lifecycle', () => {
     const docker = {
       buildImage: vi.fn().mockResolvedValue(stream),
       getImage: vi.fn().mockReturnValue({inspect}),
-      modem: {
-        followProgress: vi.fn((_stream: unknown, onFinished: (error: Error | null) => void) => {
-          onFinished(null)
-        }),
-      },
+      followProgress: vi.fn((_stream: unknown, onFinished: (error: Error | null) => void) => {
+        onFinished(null)
+      }),
     }
 
     // @ts-expect-error This test only exercises the Docker methods used to build the image.
@@ -60,10 +58,10 @@ describe('SystemSandbox lifecycle', () => {
         dockerfile: 'Dockerfile',
         t: expect.stringMatching(/^agent-eval-sandbox:[a-f0-9]{16}$/),
         target: 'sandbox',
-        version: '1',
+        version: '2',
       }),
     )
-    expect(docker.modem.followProgress).toHaveBeenCalledWith(stream, expect.any(Function), expect.any(Function))
+    expect(docker.followProgress).toHaveBeenCalledWith(stream, expect.any(Function), expect.any(Function))
     expect(docker.getImage).toHaveBeenCalledWith(image)
     expect(inspect).toHaveBeenCalledOnce()
     expect(image).toMatch(/^agent-eval-sandbox:[a-f0-9]{16}$/)
@@ -78,18 +76,16 @@ describe('SystemSandbox lifecycle', () => {
       getImage: vi.fn((image: string) => {
         return image.startsWith('sha256:') ? {tag} : {inspect: inspectTag}
       }),
-      modem: {
-        followProgress: vi.fn(
-          (
-            _stream: unknown,
-            onFinished: (error: Error | null) => void,
-            onProgress: (event: {aux: {ID: string}}) => void,
-          ) => {
-            onProgress({aux: {ID: `sha256:${'a'.repeat(64)}`}})
-            onFinished(null)
-          },
-        ),
-      },
+      followProgress: vi.fn(
+        (
+          _stream: unknown,
+          onFinished: (error: Error | null) => void,
+          onProgress: (event: {stream: string}) => void,
+        ) => {
+          onProgress({stream: `Built image: sha256:${'a'.repeat(64)}\n`})
+          onFinished(null)
+        },
+      ),
     }
 
     // @ts-expect-error This test only exercises the Docker methods used to build the image.
@@ -108,11 +104,9 @@ describe('SystemSandbox lifecycle', () => {
     const docker = {
       buildImage: vi.fn().mockResolvedValue(stream),
       getImage: vi.fn().mockReturnValue({inspect}),
-      modem: {
-        followProgress: vi.fn((_stream: unknown, onFinished: (error: Error | null) => void) => {
-          onFinished(null)
-        }),
-      },
+      followProgress: vi.fn((_stream: unknown, onFinished: (error: Error | null) => void) => {
+        onFinished(null)
+      }),
     }
 
     // @ts-expect-error This test only exercises the Docker methods used to build the image.

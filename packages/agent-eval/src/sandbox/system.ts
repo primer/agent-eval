@@ -410,11 +410,16 @@ async function buildDockerImage(docker: Docker, baseDockerImage: string): Promis
     dockerfile: 'Dockerfile',
     t: dockerImage,
     target: 'sandbox',
-    version: '1',
+    version: '2',
   })
 
   await new Promise<void>((resolve, reject) => {
-    docker.modem.followProgress(
+    const followProgress = (
+      docker as Docker & {
+        followProgress: Docker['modem']['followProgress']
+      }
+    ).followProgress.bind(docker)
+    followProgress(
       stream,
       error => {
         if (error) {
@@ -435,6 +440,16 @@ async function buildDockerImage(docker: Docker, baseDockerImage: string): Promis
           typeof event.aux.ID === 'string'
         ) {
           builtImageId = event.aux.ID
+        } else if (
+          typeof event === 'object' &&
+          event !== null &&
+          'stream' in event &&
+          typeof event.stream === 'string'
+        ) {
+          const match = /^Built image: (sha256:[a-f0-9]{64})\s*$/.exec(event.stream)
+          if (match) {
+            builtImageId = match[1]
+          }
         }
       },
     )

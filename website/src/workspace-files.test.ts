@@ -89,6 +89,24 @@ test('omits dependency, build, and Git directories at every level', async () => 
   expect(await loadEntries()).toEqual([{type: 'directory', name: 'src', path: 'src', children: []}])
 })
 
+test('preserves regular files named like excluded directories at every level', async () => {
+  const names = ['node_modules', '.next', '.turbo', 'dist', '.git']
+  for (const name of names) {
+    await writeFile(name, `root ${name}`)
+    await writeFile(`src/${name}`, `nested ${name}`)
+  }
+
+  const entries = await loadEntries()
+  const src = entries[0]
+  if (src.type !== 'directory') {
+    throw new Error('Expected the src directory')
+  }
+  for (const name of names) {
+    expect(getFile(entries, name).preview).toEqual({type: 'text', content: `root ${name}`})
+    expect(getFile(src.children, name).preview).toEqual({type: 'text', content: `nested ${name}`})
+  }
+})
+
 test('reports missing and empty workspaces separately', async () => {
   expect(await getWorkspaceFiles(undefined, directory)).toMatchObject({type: 'unavailable'})
   expect(await getWorkspaceFiles('artifacts/missing/workspace', directory)).toMatchObject({type: 'unavailable'})
@@ -185,11 +203,9 @@ test('enforces the total workspace preview byte limit', async () => {
 })
 
 test('limits tree entries and reports truncation', async () => {
-  await Promise.all(
-    Array.from({length: 2001}, async (_, index) => {
-      await writeFile(`${index}.txt`, '')
-    }),
-  )
+  for (let index = 0; index < 2001; index++) {
+    await writeFile(`${index}.txt`, '')
+  }
   const result = await getWorkspaceFiles('artifacts/trial/workspace', directory)
   expect(result).toMatchObject({type: 'available', truncated: true})
   if (result.type === 'available') {
@@ -197,12 +213,28 @@ test('limits tree entries and reports truncation', async () => {
   }
 })
 
-test('limits deeply nested directories', async () => {
-  await writeFile(`${'nested/'.repeat(51)}file.txt`, 'too deep')
-  expect(await getWorkspaceFiles('artifacts/trial/workspace', directory)).toMatchObject({
-    type: 'available',
-    truncated: true,
-  })
+test.each([0, 49, 50, 51])('enforces the 50-level limit for a file at depth %i', async depth => {
+  await writeFile(`${'nested/'.repeat(depth)}file.txt`, 'file contents')
+  const result = await getWorkspaceFiles('artifacts/trial/workspace', directory)
+  if (result.type !== 'available') {
+    throw new Error(result.reason)
+  }
+  expect(result.truncated).toBe(depth > 50)
+
+  let entries = result.entries
+  for (let level = 0; level < Math.min(depth, 50); level++) {
+    expect(entries).toHaveLength(1)
+    const entry = entries[0]
+    if (entry.type !== 'directory') {
+      throw new Error(`Expected a directory at level ${level + 1}`)
+    }
+    entries = entry.children
+  }
+  if (depth <= 50) {
+    expect(getFile(entries, 'file.txt').preview).toEqual({type: 'text', content: 'file contents'})
+  } else {
+    expect(entries).toEqual([])
+  }
 })
 
 test('reports a file used as a workspace', async () => {

@@ -35,15 +35,10 @@ async function readWorkspace(directory: string): Promise<WorkspaceFiles> {
   let truncated = false
 
   async function readDirectory(relativePath: string, depth: number): Promise<Array<WorkspaceEntry>> {
-    if (depth >= MAX_DEPTH) {
-      truncated = true
-      return []
-    }
-
     const entries = await fs.readdir(path.join(directory, relativePath), {withFileTypes: true})
     const sortedEntries = entries
       .filter(entry => {
-        return !EXCLUDED_DIRECTORIES.has(entry.name)
+        return !entry.isDirectory() || !EXCLUDED_DIRECTORIES.has(entry.name)
       })
       .sort((first, second) => {
         return (
@@ -54,6 +49,10 @@ async function readWorkspace(directory: string): Promise<WorkspaceFiles> {
     const result: Array<WorkspaceEntry> = []
 
     for (const entry of sortedEntries) {
+      if (entry.isDirectory() && depth >= MAX_DEPTH) {
+        truncated = true
+        continue
+      }
       if (entryCount >= MAX_ENTRIES) {
         truncated = true
         break

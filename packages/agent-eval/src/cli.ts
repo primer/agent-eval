@@ -82,6 +82,10 @@ const {values} = parseArgs({
       type: 'string',
       description: 'The directory containing output.json and its artifacts',
     },
+    scenario: {
+      type: 'string',
+      description: 'The scenario to run, used for individual scenario testing',
+    },
     scenarios: {
       type: 'string',
       description: 'The directory containing scenario directories',
@@ -271,6 +275,8 @@ if (mode.kind === 'create-plan') {
   } else {
     await runExperimentFromPlan(plan)
   }
+} else if (mode.kind === 'scenario') {
+  console.log('scenario baby')
 } else {
   displayHelp()
 }

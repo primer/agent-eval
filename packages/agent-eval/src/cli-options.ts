@@ -8,6 +8,7 @@ const optionalPathDefaults = new Map<string, string>([
 type CliModeOptions = {
   benchmark?: string
   experiment?: string
+  scenario?: string
   plan?: string
   'from-plan'?: string
   'merge-results'?: boolean
@@ -24,6 +25,10 @@ type CliMode =
     }
   | {
       kind: 'experiment'
+      id: string
+    }
+  | {
+      kind: 'scenario'
       id: string
     }
   | {
@@ -129,6 +134,13 @@ function getCliMode(options: CliModeOptions): CliMode {
     return {
       kind: 'experiment',
       id: options.experiment,
+    }
+  }
+
+  if (options.scenario) {
+    return {
+      kind: 'scenario',
+      id: options.scenario,
     }
   }
 

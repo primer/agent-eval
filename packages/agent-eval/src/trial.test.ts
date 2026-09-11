@@ -1302,6 +1302,7 @@ describe('run', () => {
           '--mode',
           'autopilot',
           '--allow-all',
+          '--no-auto-update',
           '--output-format',
           'json',
         ],
@@ -1466,7 +1467,14 @@ describe('run', () => {
         },
       ])
 
-      await expect(run({...runOptions, sandbox, trial})).rejects.toThrow('workspace path already exists')
+      await expect(run({...runOptions, sandbox, trial})).rejects.toMatchObject({
+        failure: {
+          error: {
+            message: expect.stringContaining('workspace path already exists'),
+          },
+          phase: 'judges',
+        },
+      })
       expect(await sandbox.readFile('reference.txt')).toBe('Implementation output')
     })
   })

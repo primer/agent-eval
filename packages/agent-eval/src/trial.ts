@@ -16,6 +16,16 @@ import * as z from 'zod/mini'
 import {ModelVariantSchema} from './model'
 import {ScenarioSchema} from './scenario'
 import {TreatmentSchema, TreatmentSetupSchema} from './treatment'
+import {
+  getJudgeFiles,
+  getJudgeModel,
+  getJudgePrompt,
+  getJudgeReportFilename,
+  JudgeOutputSchema,
+  parseJudgeReport,
+  type JudgeOutput,
+  type JudgeResult,
+} from './judge'
 
 const TrialSchema = z.object({
   id: z.string(),
@@ -91,6 +101,7 @@ const TrialResultSchema = z.object({
   artifacts: TrialArtifactsSchema,
   trial: TrialSchema,
   agent: TrialAgentSchema,
+  judges: z.array(JudgeOutputSchema),
   testResults: TestResultsSchema,
   walkthrough: WalkthroughSchema,
 })
@@ -146,7 +157,7 @@ type RunTrialOptions = {
   trial: Trial
 }
 
-type TrialPhase = 'setup' | 'candidate' | 'candidate-output' | 'tests' | 'walkthrough' | 'artifacts'
+type TrialPhase = 'setup' | 'candidate' | 'candidate-output' | 'tests' | 'judges' | 'walkthrough' | 'artifacts'
 type TrialFailureKind = 'candidate-exit' | 'invalid-output' | 'timeout' | 'execution'
 
 type TrialFailure = {
@@ -440,10 +451,54 @@ function getPortableTrialPaths(result: TrialResult, baseDirectory: string): Port
   }
 }
 
+async function validateJudgeFileSource(host: Host, sourcePath: string): Promise<void> {
+  const stats = await host.fs.lstat(sourcePath)
+  if (stats.isSymbolicLink()) {
+    throw new Error(`Judge reference must not contain symbolic links: ${sourcePath}`)
+  }
+  if (stats.isDirectory()) {
+    for (const entry of await host.fs.readdir(sourcePath)) {
+      await validateJudgeFileSource(host, path.join(sourcePath, entry))
+    }
+  } else if (!stats.isFile()) {
+    throw new Error(`Judge reference must be a file or directory: ${sourcePath}`)
+  }
+}
+
+async function getJudgeFileSources(host: Host, trial: Trial): Promise<Array<{filepath: string; sourcePath: string}>> {
+  const files = [...new Set(trial.scenario.judges.flatMap(getJudgeFiles))]
+  if (files.length === 0) {
+    return []
+  }
+
+  const directory = await host.fs.realpath(trial.scenario.directory)
+  const sources: Array<{filepath: string; sourcePath: string}> = []
+  for (const filepath of files) {
+    const sourcePath = path.join(directory, filepath)
+    if (!host.existsSync(sourcePath)) {
+      throw new Error(`Judge reference "${filepath}" was not found in scenario "${trial.scenario.id}"`)
+    }
+    if ((await host.fs.realpath(sourcePath)) !== sourcePath) {
+      throw new Error(`Judge reference must not use symbolic links: ${filepath}`)
+    }
+    await validateJudgeFileSource(host, sourcePath)
+    if (
+      files.some(parent => {
+        return filepath.startsWith(`${parent}/`)
+      })
+    ) {
+      continue
+    }
+    sources.push({filepath, sourcePath})
+  }
+  return sources
+}
+
 async function run(options: RunTrialOptions): Promise<TrialResult> {
   const host = options.host ?? DefaultHost
   const execution = validateTrialExecutionOptions(options.execution)
   const attempt = validateTrialAttemptOptions(options.attempt)
+  const judgeFiles = await getJudgeFileSources(host, options.trial)
   const artifactPaths = getTrialArtifactPaths(options.artifactsDirectory, options.trial.id, attempt.number)
   const startedAt = new Date().toISOString()
   const state: {phase: TrialPhase} = {
@@ -483,6 +538,7 @@ async function run(options: RunTrialOptions): Promise<TrialResult> {
           copilotToken: options.copilotToken,
           execution,
           host,
+          judgeFiles,
           redaction,
           onCandidateOutput(output) {
             candidateOutput = output
@@ -536,7 +592,14 @@ async function run(options: RunTrialOptions): Promise<TrialResult> {
     const failureArtifactCaptureErrors =
       error instanceof TrialTimeoutError
         ? []
-        : await captureFailureArtifacts(options.sandbox, host, artifactPaths, options.copilotToken, redaction)
+        : await captureFailureArtifacts(
+            options.sandbox,
+            host,
+            artifactPaths,
+            options.copilotToken,
+            redaction,
+            judgeFiles.map(file => file.filepath),
+          )
     const safeError = getSafeError(error, options.copilotToken, redaction)
     await writeRedactionDiagnostic(host, artifactPaths.redactionPath, redaction)
     const failure: TrialFailure = {
@@ -823,6 +886,7 @@ async function captureFinalArtifacts(
   artifactPaths: TrialArtifactPaths,
   secret: string,
   redaction: RedactionState,
+  preservedPaths: Array<string> = [],
 ): Promise<void> {
   await Promise.all([
     host.fs.rm(artifactPaths.workspaceDirectory, {recursive: true, force: true}),
@@ -832,7 +896,9 @@ async function captureFinalArtifacts(
   await host.fs.mkdir(artifactPaths.workspaceDirectory, {recursive: true})
 
   await sandbox.download(CONTAINER_WORKDIR, artifactPaths.workspaceDirectory, {
-    ignore: shouldIgnoreDownloadedArtifact,
+    ignore(name) {
+      return shouldIgnoreDownloadedArtifact(name, preservedPaths)
+    },
     transform: createArtifactRedactor(secret, redaction),
   })
   await sandbox.download(COPILOT_DIR, artifactPaths.copilotConfigDirectory, {
@@ -850,16 +916,25 @@ async function captureFailureArtifacts(
   artifactPaths: TrialArtifactPaths,
   secret: string,
   redaction: RedactionState,
+  preservedPaths: Array<string> = [],
 ): Promise<Array<string>> {
   try {
-    await captureFinalArtifacts(sandbox, host, artifactPaths, secret, redaction)
+    await captureFinalArtifacts(sandbox, host, artifactPaths, secret, redaction, preservedPaths)
     return []
   } catch (error) {
     return [getSafeError(error, secret, redaction).message]
   }
 }
 
-function shouldIgnoreDownloadedArtifact(name: string): boolean {
+function shouldIgnoreDownloadedArtifact(name: string, preservedPaths: Array<string> = []): boolean {
+  const normalized = name.split(path.sep).join(path.posix.sep)
+  if (
+    preservedPaths.some(filepath => {
+      return normalized === filepath || normalized.startsWith(`${filepath}/`) || filepath.startsWith(`${normalized}/`)
+    })
+  ) {
+    return false
+  }
   return name.includes('node_modules') || name.includes('.next') || name.includes('.turbo') || name.includes('dist')
 }
 
@@ -979,6 +1054,7 @@ async function executeTrial({
   copilotToken,
   execution,
   host = DefaultHost,
+  judgeFiles,
   onArtifactCaptureErrors,
   onCandidateOutput,
   onPhase,
@@ -990,6 +1066,7 @@ async function executeTrial({
   copilotToken: string
   execution: Required<Pick<TrialExecutionOptions, 'captureWalkthrough' | 'installDependencies'>> & TrialExecutionOptions
   host?: Host
+  judgeFiles: Array<{filepath: string; sourcePath: string}>
   onArtifactCaptureErrors: (errors: Array<string>) => void
   onCandidateOutput: (output: {exitCode?: number; stderr: string; stdout: string}) => void
   onPhase: (phase: TrialPhase) => void
@@ -1013,6 +1090,9 @@ async function executeTrial({
       'node_modules',
       '.next',
       'dist',
+      ...judgeFiles.map(file => {
+        return file.filepath
+      }),
     ],
   })
   await sandbox.runCommand('chown', ['-R', NODE_USER, '.'], {
@@ -1241,6 +1321,89 @@ async function executeTrial({
     await sandbox.writeFile(TEST_RESULTS_PATH, JSON.stringify(testResults))
   }
 
+  onPhase('judges')
+  const judgeOutputs: Array<JudgeOutput> = []
+  if (trial.scenario.judges.length > 0) {
+    logger.info('%s Running judges...', logPrefix)
+
+    for (const file of judgeFiles) {
+      if (await sandbox.exists(file.filepath)) {
+        throw new Error(`Cannot copy judge reference "${file.filepath}": the workspace path already exists`)
+      }
+    }
+    for (const file of judgeFiles) {
+      logger.info('%s Copying judge reference: %s...', logPrefix, file.filepath)
+      await sandbox.copy(file.sourcePath, file.filepath)
+    }
+    if (judgeFiles.length > 0) {
+      await sandbox.runCommand(
+        'chown',
+        [
+          '-R',
+          NODE_USER,
+          '--',
+          ...judgeFiles.map(file => {
+            return file.filepath
+          }),
+        ],
+        {user: 'root'},
+      )
+    }
+
+    for (const judge of trial.scenario.judges) {
+      logger.info('%s Running judge: %s...', logPrefix, judge.name)
+
+      const model = getJudgeModel(judge, trial)
+      const judgeCopilotOutput = await sandbox.runCommand(
+        'copilot',
+        [
+          '--prompt',
+          getJudgePrompt(judge),
+          '--model',
+          model.name,
+          '--reasoning-effort',
+          model.reasoningEffort,
+          '--mode',
+          'autopilot',
+          '--allow-all',
+          '--no-auto-update',
+          '--output-format',
+          'json',
+        ],
+        {
+          user: NODE_USER,
+          env: {
+            COPILOT_GITHUB_TOKEN: copilotToken,
+          },
+        },
+      )
+      const judgeMessages: Array<Message> = judgeCopilotOutput.stdout.split('\n').flatMap(line => {
+        const trimmed = line.trim()
+        if (trimmed.length === 0) {
+          return []
+        }
+        return parseMessage(JSON.parse(trimmed))
+      })
+      const session = getAgentSession(judgeMessages)
+      const judgeReportPath = getJudgeReportFilename(judge)
+      let result: JudgeResult
+      if (await sandbox.exists(judgeReportPath)) {
+        result = parseJudgeReport(await sandbox.readFile(judgeReportPath), judge)
+        if (result.type === 'error') {
+          logger.warn('%s Judge "%s" report is invalid: %s', logPrefix, judge.name, result.message)
+        }
+      } else {
+        logger.warn('%s Judge "%s" did not write its report: %s', logPrefix, judge.name, judgeReportPath)
+        result = {type: 'unknown'}
+      }
+      judgeOutputs.push({
+        config: judge,
+        result,
+        agent: {session},
+      })
+    }
+  }
+
   const WALKTHROUGH_DIR = 'walkthrough'
   const WALKTHROUGH_VIEWPORT_WIDTH = 1440
   const WALKTHROUGH_VIEWPORT_HEIGHT = 900
@@ -1272,6 +1435,8 @@ Save the result inside a "${WALKTHROUGH_DIR}" directory (create it if it doesn't
 - If what you built is a single screen, take one screenshot and save it as ${WALKTHROUGH_DIR}/screenshot.png.
 - If there are a few distinct views worth showing (for example separate pages or states), take a screenshot of each, in the order a reviewer should look at them, saved as ${WALKTHROUGH_DIR}/screenshots/01.png, ${WALKTHROUGH_DIR}/screenshots/02.png, etc.
 - If reviewing the change requires seeing an interactive flow across multiple steps or pages, record a short video of yourself clicking through it instead and save it as ${WALKTHROUGH_DIR}/walkthrough.webm.
+
+After saving and verifying the walkthrough artifacts, close the agent-browser session you opened and stop the development server and any other background processes you started. Use stop_bash with the shellId returned when starting an async Bash command, and verify that it has stopped. Only clean up processes and browser sessions you started; leave unrelated processes and the saved artifacts intact. Complete this cleanup before calling task_complete so background processes do not keep the Copilot CLI running. If cleanup fails, report the failure instead of claiming completion.
 
 Only capture the walkthrough, do not make any further code changes.`
     const walkthroughResult = await sandbox.runCommand(
@@ -1329,7 +1494,14 @@ Only capture the walkthrough, do not make any further code changes.`
 
   logger.info('%s Downloading artifacts to: %s...', logPrefix, artifactDirectory)
 
-  await captureFinalArtifacts(sandbox, host, artifactPaths, copilotToken, redaction)
+  await captureFinalArtifacts(
+    sandbox,
+    host,
+    artifactPaths,
+    copilotToken,
+    redaction,
+    judgeFiles.map(file => file.filepath),
+  )
 
   let walkthrough: Walkthrough = {
     type: 'Unavailable',
@@ -1394,6 +1566,7 @@ Only capture the walkthrough, do not make any further code changes.`
     agent: {
       sessions: [candidateSession],
     },
+    judges: judgeOutputs,
     testResults,
     walkthrough,
   }

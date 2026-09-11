@@ -233,20 +233,24 @@ test('run returns an empty result when the benchmark has no trials', async () =>
 
   await expect(
     run({
-      env: {
-        artifactsDirectory: '/artifacts',
-        benchmarksDirectory: '/benchmarks',
-        concurrency: 1,
-        copilotToken: 'token',
-        dockerImage: 'node:26-slim',
-        experimentsDirectory: '/experiments',
-        outputPath: '/output.json',
-        scenariosDirectory: '/scenarios',
-      },
+      artifactsDirectory: '/artifacts',
+      benchmarksDirectory: '/benchmarks',
+      concurrency: 1,
+      copilotToken: 'token',
+      dockerImage: 'node:26-slim',
+      scenariosDirectory: '/scenarios',
       host,
       id: 'empty',
     }),
   ).resolves.toEqual([])
+  expect(runPlan).toHaveBeenCalledWith({
+    artifactsDirectory: '/artifacts',
+    concurrency: 1,
+    copilotToken: 'token',
+    dockerImage: 'node:26-slim',
+    host,
+    plan: {trials: []},
+  })
 })
 
 test('run applies global and capability setup to benchmark treatment trials', async () => {
@@ -300,16 +304,12 @@ test('run applies global and capability setup to benchmark treatment trials', as
 
   await expect(
     run({
-      env: {
-        artifactsDirectory: '/artifacts',
-        benchmarksDirectory: '/benchmarks',
-        concurrency: 1,
-        copilotToken: 'token',
-        dockerImage: 'node:26-slim',
-        experimentsDirectory: '/experiments',
-        outputPath: '/output.json',
-        scenariosDirectory: '/scenarios',
-      },
+      artifactsDirectory: '/artifacts',
+      benchmarksDirectory: '/benchmarks',
+      concurrency: 1,
+      copilotToken: 'token',
+      dockerImage: 'node:26-slim',
+      scenariosDirectory: '/scenarios',
       host,
       id: 'with-setup',
     }),

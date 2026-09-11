@@ -1,7 +1,6 @@
 import {randomUUID} from 'node:crypto'
 import path from 'node:path'
 import * as z from 'zod/mini'
-import type {EnvironmentConfig} from './environment'
 import {DefaultHost, type Host} from './host'
 import {logger} from './logger'
 import {JudgeOutputSchema} from './judge'
@@ -147,24 +146,24 @@ async function getBenchmark({
   host = DefaultHost,
   benchmarksDirectory,
   scenariosDirectory,
-  id,
+  name,
 }: {
   host?: Host
   benchmarksDirectory: string
   scenariosDirectory: string
-  id: string
+  name: string
 }): Promise<Benchmark> {
   const benchmarks = await listBenchmarks({
     host,
     benchmarksDirectory,
     scenariosDirectory,
   })
-  const benchmark = benchmarks.find(candidate => candidate.id === id)
+  const benchmark = benchmarks.find(candidate => candidate.id === name)
   if (benchmark) {
     return benchmark
   }
 
-  throw new Error(`Benchmark "${id}" was not found in: ${benchmarksDirectory}`)
+  throw new Error(`Benchmark "${name}" was not found in: ${benchmarksDirectory}`)
 }
 
 function getBenchmarkId(filename: string): string {
@@ -290,53 +289,45 @@ function resolvePlan(
 }
 
 async function run({
-  env,
+  // artifactsDirectory,
+  benchmarksDirectory,
+  concurrency,
+  copilotToken,
+  dockerImage,
   host = DefaultHost,
-  id,
   plan,
+  scenariosDirectory,
 }: {
-  env: EnvironmentConfig
+  benchmark: Benchmark
+  benchmarksDirectory: string
+  concurrency: number
+  copilotToken: string
+  dockerImage: string
   host?: Host
-  id?: string
-  plan?: BenchmarkPlan
+  plan: BenchmarkPlan
+  scenariosDirectory: string
 }): Promise<BenchmarkRunResult> {
-  if (id && plan) {
-    throw new Error('Benchmark run accepts either an id or a plan, not both')
-  }
-
-  if (!id && !plan) {
-    throw new Error('Benchmark run requires an id or a plan')
-  }
-
-  const benchmarkId = plan?.source.id ?? id
-  if (!benchmarkId) {
-    throw new Error('Benchmark run requires an id or a plan')
-  }
-
-  const benchmark = await getBenchmark({
-    host,
-    benchmarksDirectory: env.benchmarksDirectory,
-    scenariosDirectory: env.scenariosDirectory,
-    id: benchmarkId,
-  })
-  const resolved = resolvePlan(benchmark, plan ?? createPlan(benchmark))
-  const results = await runPlan({
-    env,
-    host,
-    plan: resolved.plan,
-  })
-
-  return results.map(result => {
-    const capability = resolved.trialCapabilities.get(result.trial.id)
-    if (!capability) {
-      throw new Error(`Capability was not found for trial: ${result.trial.id}`)
-    }
-
-    return {
-      ...result,
-      capability,
-    }
-  })
+  // const resolved = resolvePlan(benchmark, plan ?? createPlan(benchmark))
+  // const results = await runPlan({
+  //   artifactsDirectory,
+  //   concurrency,
+  //   copilotToken,
+  //   dockerImage,
+  //   host,
+  //   plan: resolved.plan,
+  // })
+  //
+  // return results.map(result => {
+  //   const capability = resolved.trialCapabilities.get(result.trial.id)
+  //   if (!capability) {
+  //     throw new Error(`Capability was not found for trial: ${result.trial.id}`)
+  //   }
+  //
+  //   return {
+  //     ...result,
+  //     capability,
+  //   }
+  // })
 }
 
 function createBenchmarkTreatment(benchmark: Benchmark, capability: Capability): Treatment {

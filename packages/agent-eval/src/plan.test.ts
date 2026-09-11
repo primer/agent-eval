@@ -171,22 +171,17 @@ describe('run', () => {
     const trials = [createTrial('one'), createTrial('two')]
     const results = trials.map(createResult)
     const host = VirtualHost.create()
+    const createSandbox = vi.spyOn(host, 'createSandbox')
     vi.mocked(runTrial).mockImplementation(async ({trial}) => {
       return createResult(trial)
     })
 
     await expect(
       run({
-        env: {
-          artifactsDirectory: '/artifacts',
-          benchmarksDirectory: '/benchmarks',
-          concurrency: 2,
-          copilotToken: 'token',
-          dockerImage: 'node:test',
-          experimentsDirectory: '/experiments',
-          outputPath: '/output.json',
-          scenariosDirectory: '/scenarios',
-        },
+        artifactsDirectory: '/artifacts',
+        concurrency: 2,
+        copilotToken: 'token',
+        dockerImage: 'node:test',
         host,
         plan: {
           trials,
@@ -194,6 +189,50 @@ describe('run', () => {
       }),
     ).resolves.toEqual(results)
     expect(runTrial).toHaveBeenCalledTimes(2)
+    expect(createSandbox).toHaveBeenCalledTimes(2)
+    expect(createSandbox).toHaveBeenCalledWith({dockerImage: 'node:test'})
+    for (const trial of trials) {
+      expect(runTrial).toHaveBeenCalledWith({
+        artifactsDirectory: '/artifacts',
+        copilotToken: 'token',
+        host,
+        sandbox: expect.anything(),
+        trial,
+      })
+    }
+  })
+
+  test.each([1, 2])('limits concurrent trials to %i', async concurrency => {
+    const trials = [createTrial('one'), createTrial('two'), createTrial('three')]
+    const host = VirtualHost.create()
+    const started = Promise.withResolvers<void>()
+    const release = Promise.withResolvers<void>()
+    let active = 0
+    let maximumActive = 0
+    vi.mocked(runTrial).mockImplementation(async ({trial}) => {
+      active++
+      maximumActive = Math.max(maximumActive, active)
+      if (active === concurrency) {
+        started.resolve()
+      }
+      await release.promise
+      active--
+      return createResult(trial)
+    })
+
+    const results = run({
+      artifactsDirectory: '/artifacts',
+      concurrency,
+      copilotToken: 'token',
+      dockerImage: 'node:test',
+      host,
+      plan: {trials},
+    })
+    await started.promise
+    release.resolve()
+
+    await expect(results).resolves.toEqual(trials.map(createResult))
+    expect(maximumActive).toBe(concurrency)
   })
 
   test('retries a failed trial three times', async () => {
@@ -209,16 +248,10 @@ describe('run', () => {
 
     await expect(
       run({
-        env: {
-          artifactsDirectory: '/artifacts',
-          benchmarksDirectory: '/benchmarks',
-          concurrency: 1,
-          copilotToken: 'token',
-          dockerImage: 'node:test',
-          experimentsDirectory: '/experiments',
-          outputPath: '/output.json',
-          scenariosDirectory: '/scenarios',
-        },
+        artifactsDirectory: '/artifacts',
+        concurrency: 1,
+        copilotToken: 'token',
+        dockerImage: 'node:test',
         host,
         plan: {
           trials: [trial],
@@ -236,16 +269,10 @@ describe('run', () => {
 
     await expect(
       run({
-        env: {
-          artifactsDirectory: '/artifacts',
-          benchmarksDirectory: '/benchmarks',
-          concurrency: 1,
-          copilotToken: 'token',
-          dockerImage: 'node:test',
-          experimentsDirectory: '/experiments',
-          outputPath: '/output.json',
-          scenariosDirectory: '/scenarios',
-        },
+        artifactsDirectory: '/artifacts',
+        concurrency: 1,
+        copilotToken: 'token',
+        dockerImage: 'node:test',
         host,
         plan: {
           trials: [createTrial('one')],

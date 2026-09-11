@@ -1,5 +1,5 @@
 import path from 'node:path'
-import {expect, test} from 'vitest'
+import {afterEach, expect, test, vi} from 'vitest'
 import {
   createPlan,
   defineConfig,
@@ -9,12 +9,26 @@ import {
   output,
   read,
   resolvePlan,
+  run,
   write,
   type Experiment,
 } from './experiment'
 import {VirtualHost} from './host'
 import type {TrialResult} from './trial'
-import {deserialize as deserializePlan, isBenchmarkPlan} from './plan'
+import {deserialize as deserializePlan, isBenchmarkPlan, run as runPlan} from './plan'
+
+vi.mock('./plan', async importOriginal => {
+  const original = await importOriginal<typeof import('./plan')>()
+  return {
+    ...original,
+    run: vi.fn(original.run),
+  }
+})
+
+afterEach(() => {
+  vi.clearAllMocks()
+  vi.restoreAllMocks()
+})
 
 const config = defineConfig({
   name: 'Test experiment',
@@ -40,6 +54,61 @@ function resolveConfig(input: typeof config) {
     setup: undefined,
   }
 }
+
+test.each(['id', 'plan', 'shard'] as const)('run forwards explicit arguments when using %s', async source => {
+  const host = VirtualHost.create({
+    '/custom-experiments': {
+      'example.ts': `export const experiment = ${JSON.stringify({...config, scenarios: ['001-scenario']})}`,
+    },
+    '/custom-scenarios': {
+      '001-scenario': {
+        'scenario.config.ts': 'export default {prompt: "Complete the task"}',
+        'scenario.test.ts': '',
+        'package.json': '{}',
+      },
+    },
+  })
+  const experiment = await getExperiment({
+    host,
+    experimentsDirectory: '/custom-experiments',
+    scenariosDirectory: '/custom-scenarios',
+    id: 'example',
+  })
+  const plan = createPlan(experiment)
+  const shard = source === 'shard' ? {order: 2, total: 2} : undefined
+  vi.mocked(runPlan).mockResolvedValueOnce([])
+
+  await expect(
+    run({
+      artifactsDirectory: '/custom-artifacts',
+      concurrency: 3,
+      copilotToken: 'test-token',
+      dockerImage: 'node:test',
+      experimentsDirectory: '/custom-experiments',
+      host,
+      id: source === 'id' ? 'example' : undefined,
+      plan: source === 'id' ? undefined : plan,
+      scenariosDirectory: '/custom-scenarios',
+      shard,
+    }),
+  ).resolves.toEqual([])
+
+  expect(runPlan).toHaveBeenCalledExactlyOnceWith({
+    artifactsDirectory: '/custom-artifacts',
+    concurrency: 3,
+    copilotToken: 'test-token',
+    dockerImage: 'node:test',
+    host,
+    plan:
+      source === 'id'
+        ? expect.anything()
+        : resolvePlan(experiment, {
+            ...plan,
+            trials: shard ? plan.trials.slice(1) : plan.trials,
+          }),
+  })
+  expect(vi.mocked(runPlan).mock.calls[0][0].plan.trials).toHaveLength(shard ? 1 : 2)
+})
 
 test('listExperiments loads named and default exports from supported files', async () => {
   const serializedConfig = JSON.stringify(config)

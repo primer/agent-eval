@@ -1,7 +1,6 @@
 import {randomUUID} from 'node:crypto'
 import path from 'node:path'
 import * as z from 'zod/mini'
-import type {EnvironmentConfig} from './environment'
 import {
   getModelVariants,
   ModelVariantConfigSchema,
@@ -269,16 +268,26 @@ function resolvePlan(experiment: Experiment, plan: ExperimentPlan): RuntimePlan 
 }
 
 async function run({
-  env,
+  artifactsDirectory,
+  concurrency,
+  copilotToken,
+  dockerImage,
+  experimentsDirectory,
   host = DefaultHost,
   id,
   plan,
+  scenariosDirectory,
   shard,
 }: {
-  env: EnvironmentConfig
+  artifactsDirectory: string
+  concurrency: number
+  copilotToken: string
+  dockerImage: string
+  experimentsDirectory: string
   host?: Host
   id?: string
   plan?: ExperimentPlan
+  scenariosDirectory: string
   shard?: Shard
 }): Promise<ExperimentRunResult> {
   if (id && plan) {
@@ -296,8 +305,8 @@ async function run({
 
   const experiment = await getExperiment({
     host,
-    experimentsDirectory: env.experimentsDirectory,
-    scenariosDirectory: env.scenariosDirectory,
+    experimentsDirectory,
+    scenariosDirectory,
     id: experimentId,
   })
   const durablePlan = plan ?? createPlan(experiment)
@@ -308,7 +317,10 @@ async function run({
       }
     : durablePlan
   const results = await runPlan({
-    env,
+    artifactsDirectory,
+    concurrency,
+    copilotToken,
+    dockerImage,
     host,
     plan: resolvePlan(experiment, selectedPlan),
   })

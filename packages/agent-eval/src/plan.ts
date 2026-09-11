@@ -2,7 +2,6 @@ import path from 'node:path'
 import Queue from 'p-queue'
 import * as z from 'zod/mini'
 import type {BenchmarkOutputFile} from './benchmark'
-import type {EnvironmentConfig} from './environment'
 import type {ExperimentOutputFile} from './experiment'
 import {DefaultHost, type Host} from './host'
 import {logger} from './logger'
@@ -257,14 +256,24 @@ function randomize<T>(input: Array<T>): Array<T> {
 }
 
 type RunPlanOptions = {
-  env: EnvironmentConfig
+  artifactsDirectory: string
+  concurrency: number
+  copilotToken: string
+  dockerImage: string
   host?: Host
   plan: RuntimePlan
 }
 
-async function run({env, host = DefaultHost, plan}: RunPlanOptions): Promise<Array<TrialResult>> {
+async function run({
+  artifactsDirectory,
+  concurrency,
+  copilotToken,
+  dockerImage,
+  host = DefaultHost,
+  plan,
+}: RunPlanOptions): Promise<Array<TrialResult>> {
   const queue = new Queue({
-    concurrency: env.concurrency,
+    concurrency,
   })
 
   const results = await Promise.all(
@@ -272,11 +281,11 @@ async function run({env, host = DefaultHost, plan}: RunPlanOptions): Promise<Arr
       return queue.add(() => {
         return retry(async () => {
           await using sandbox = await host.createSandbox({
-            dockerImage: env.dockerImage,
+            dockerImage,
           })
           return await runTrial({
-            artifactsDirectory: env.artifactsDirectory,
-            copilotToken: env.copilotToken,
+            artifactsDirectory,
+            copilotToken,
             host,
             sandbox,
             trial,

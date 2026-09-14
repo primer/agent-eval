@@ -46,6 +46,8 @@ const COPILOT_CLI_VERSION = '1.0.83'
 const NPM_VERSION = '12.0.2'
 const PREPARED_IMAGE_MEMORY_BYTES = 4 * 1024 * 1024 * 1024
 const PREPARED_IMAGE_PIDS_LIMIT = 512
+const CONTAINER_DOWNLOAD_TIMEOUT_MS = 30_000
+const CONTAINER_REMOVAL_TIMEOUT_MS = 5_000
 const DOCKERFILE = `ARG BASE_IMAGE=node:26.5.0-slim
 
 FROM \${BASE_IMAGE} AS base
@@ -171,10 +173,23 @@ class SystemSandbox implements Sandbox {
 
   async download(containerFilePath: string, hostDestinationPath: string, options: DownloadOptions = {}): Promise<void> {
     const containerPath = resolveContainerPath(containerFilePath)
-    const archive = await this.#container.getArchive({
-      path: containerPath,
-    })
-    await extractArchiveToHost(archive, path.posix.basename(containerPath), hostDestinationPath, options, this.#host)
+    await withAbortTimeout(
+      `Downloading "${containerPath}" from the sandbox`,
+      CONTAINER_DOWNLOAD_TIMEOUT_MS,
+      async signal => {
+        const archive = await this.#container.getArchive({
+          path: containerPath,
+          abortSignal: signal,
+        })
+        await extractArchiveToHost(
+          archive,
+          path.posix.basename(containerPath),
+          hostDestinationPath,
+          options,
+          this.#host,
+        )
+      },
+    )
   }
 
   async readFile(filepath: string): Promise<string> {
@@ -590,7 +605,9 @@ async function removeContainer(container: Docker.Container): Promise<void> {
 
   const removal = (async () => {
     try {
-      await container.remove({force: true})
+      await withAbortTimeout('Removing the sandbox container', CONTAINER_REMOVAL_TIMEOUT_MS, signal => {
+        return container.remove({force: true, abortSignal: signal})
+      })
     } catch (error) {
       if (!isDockerNotFoundError(error)) {
         throw error
@@ -609,6 +626,30 @@ async function removeContainer(container: Docker.Container): Promise<void> {
   })
   containerRemovals.set(container, removal)
   return removal
+}
+
+async function withAbortTimeout<T>(
+  description: string,
+  timeoutMs: number,
+  operation: (signal: AbortSignal) => Promise<T>,
+): Promise<T> {
+  const controller = new AbortController()
+  let timer: NodeJS.Timeout | undefined
+  const timeout = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => {
+      const error = new Error(`${description} timed out after ${timeoutMs}ms`)
+      controller.abort(error)
+      reject(error)
+    }, timeoutMs)
+  })
+
+  try {
+    return await Promise.race([operation(controller.signal), timeout])
+  } finally {
+    if (timer) {
+      clearTimeout(timer)
+    }
+  }
 }
 
 function isDockerNotFoundError(error: unknown): boolean {

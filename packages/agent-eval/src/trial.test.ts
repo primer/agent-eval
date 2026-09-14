@@ -863,6 +863,51 @@ describe('run', () => {
     )
   })
 
+  test('records a timeout when sandbox disposal stalls', async () => {
+    vi.useFakeTimers()
+    try {
+      const trial = createTrial()
+      const {sandbox, host, ...runOptions} = await setup(trial)
+      const runCommand = sandbox.runCommand
+
+      vi.spyOn(sandbox, 'runCommand').mockImplementation(async (command, args, commandOptions) => {
+        if (command === 'copilot' && args?.[0] === '--prompt') {
+          commandOptions?.onStdout?.('{"type":"partial"')
+          return new Promise(() => {})
+        }
+        return runCommand(command, args, commandOptions)
+      })
+      vi.spyOn(sandbox, Symbol.asyncDispose).mockImplementation(() => new Promise(() => {}))
+
+      const result = expect(
+        run({
+          ...runOptions,
+          execution: {
+            captureWalkthrough: false,
+            timeoutMs: 10,
+          },
+          host,
+          sandbox,
+          trial,
+        }),
+      ).rejects.toMatchObject({
+        failure: {
+          kind: 'timeout',
+          status: 'failed',
+        },
+      })
+
+      await vi.advanceTimersByTimeAsync(10)
+      await vi.advanceTimersByTimeAsync(10_000)
+      await result
+      await expect(host.fs.readFile('/artifacts/test-id/attempts/1/failure.json', 'utf8')).resolves.toContain(
+        'Sandbox disposal did not finish within 10000ms',
+      )
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   test('retains raw candidate output when parsing fails', async () => {
     const trial = createTrial()
     const {sandbox, host, ...runOptions} = await setup(trial)

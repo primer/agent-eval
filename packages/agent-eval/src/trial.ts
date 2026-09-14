@@ -45,6 +45,7 @@ const CANDIDATE_RUNTIME_ARTIFACTS_DIR = '/tmp/agent-eval-candidate'
 const CANDIDATE_LOG_DIR = path.posix.join(CANDIDATE_RUNTIME_ARTIFACTS_DIR, 'logs')
 const CANDIDATE_USAGE_PATH = path.posix.join(CANDIDATE_RUNTIME_ARTIFACTS_DIR, 'usage.json')
 const TIMEOUT_ARTIFACT_CAPTURE_GRACE_MS = 1_000
+const TIMEOUT_SANDBOX_DISPOSAL_GRACE_MS = 10_000
 const REDACTED_VALUE = '[REDACTED]'
 const CREDENTIAL_FILENAMES = new Set([
   'auth.json',
@@ -204,9 +205,17 @@ class TrialExecutionError extends Error {
 
 class TrialTimeoutError extends Error {
   constructor(timeoutMs: number, options?: ErrorOptions) {
-    super(`Trial timed out after ${timeoutMs}ms`, options)
+    const cause = options?.cause ? `; cleanup failed: ${getErrorCauseMessage(options.cause)}` : ''
+    super(`Trial timed out after ${timeoutMs}ms${cause}`, options)
     this.name = 'TrialTimeoutError'
   }
+}
+
+function getErrorCauseMessage(error: unknown): string {
+  if (error instanceof AggregateError) {
+    return error.errors.map(getErrorCauseMessage).join('; ')
+  }
+  return error instanceof Error ? error.message : String(error)
 }
 
 class CandidateExitError extends Error {
@@ -772,7 +781,11 @@ async function withTrialTimeout<T>(
         }
 
         try {
-          await sandbox[Symbol.asyncDispose]()
+          await runWithGracePeriod(
+            () => sandbox[Symbol.asyncDispose](),
+            TIMEOUT_SANDBOX_DISPOSAL_GRACE_MS,
+            'Sandbox disposal',
+          )
         } catch (disposalError) {
           reject(
             new TrialTimeoutError(timeoutMs, {
@@ -798,11 +811,15 @@ async function withTrialTimeout<T>(
   }
 }
 
-async function runWithGracePeriod(operation: () => Promise<void>, graceMs: number): Promise<void> {
+async function runWithGracePeriod(
+  operation: () => Promise<void>,
+  graceMs: number,
+  description = 'Artifact capture',
+): Promise<void> {
   let timer: NodeJS.Timeout | undefined
   const gracePeriod = new Promise<never>((_resolve, reject) => {
     timer = setTimeout(() => {
-      reject(new Error(`Artifact capture did not finish within ${graceMs}ms`))
+      reject(new Error(`${description} did not finish within ${graceMs}ms`))
     }, graceMs)
   })
 

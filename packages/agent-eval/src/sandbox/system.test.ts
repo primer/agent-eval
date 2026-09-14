@@ -137,7 +137,35 @@ describe('SystemSandbox lifecycle', () => {
 
     await sandbox[Symbol.asyncDispose]()
 
-    expect(container.remove).toHaveBeenCalledWith({force: true})
+    expect(container.remove).toHaveBeenCalledWith({
+      force: true,
+      abortSignal: expect.any(AbortSignal),
+    })
+  })
+
+  test('aborts a stalled container removal', async () => {
+    vi.useFakeTimers()
+    try {
+      const container = {
+        remove: vi.fn(
+          ({abortSignal}: {abortSignal: AbortSignal}) =>
+            new Promise((_resolve, reject) => {
+              abortSignal.addEventListener('abort', () => {
+                reject(abortSignal.reason)
+              })
+            }),
+        ),
+      }
+      const sandbox = createSandbox(container)
+      const disposal = expect(sandbox[Symbol.asyncDispose]()).rejects.toThrow(
+        'Removing the sandbox container timed out after 5000ms',
+      )
+
+      await vi.advanceTimersByTimeAsync(5_000)
+      await disposal
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   test('force removes the container when initialization fails', async () => {
@@ -233,7 +261,10 @@ describe('SystemSandbox lifecycle', () => {
 
     await cleanupActiveContainers()
 
-    expect(container.remove).toHaveBeenCalledWith({force: true})
+    expect(container.remove).toHaveBeenCalledWith({
+      force: true,
+      abortSignal: expect.any(AbortSignal),
+    })
     expect(off).toHaveBeenCalledWith('SIGINT', expect.any(Function))
     expect(off).toHaveBeenCalledWith('SIGTERM', expect.any(Function))
 
@@ -334,6 +365,32 @@ describe('SystemSandbox lifecycle', () => {
     expect(off).toHaveBeenCalledWith('SIGINT', expect.any(Function))
     expect(off).toHaveBeenCalledWith('SIGTERM', expect.any(Function))
     await expect(cleanupActiveContainers()).resolves.toBeUndefined()
+  })
+
+  test('aborts a stalled container download', async () => {
+    vi.useFakeTimers()
+    try {
+      const container = {
+        getArchive: vi.fn(
+          ({abortSignal}: {abortSignal: AbortSignal}) =>
+            new Promise((_resolve, reject) => {
+              abortSignal.addEventListener('abort', () => {
+                reject(abortSignal.reason)
+              })
+            }),
+        ),
+        remove: vi.fn().mockResolvedValue(undefined),
+      }
+      const sandbox = createSandbox(container)
+      const download = expect(sandbox.download('/home/sandbox/workspace', '/download')).rejects.toThrow(
+        'Downloading "/home/sandbox/workspace" from the sandbox timed out after 30000ms',
+      )
+
+      await vi.advanceTimersByTimeAsync(30_000)
+      await download
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   test('transforms downloaded file contents before writing them to the host', async () => {

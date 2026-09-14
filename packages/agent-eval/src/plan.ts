@@ -75,6 +75,12 @@ async function runPlan<T extends Trial>({
   host = DefaultHost,
   plan,
 }: RunPlanOptions<T>): Promise<RunPlanResult<T>> {
+  logger.debug(
+    'Running plan with %s trials: %o',
+    plan.trials.length,
+    plan.trials.map(trial => trial.id),
+  )
+
   const copilotQueue = new Queue({
     concurrency,
   })

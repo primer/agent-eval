@@ -17,14 +17,14 @@ import {
 } from '../judge'
 import {AgentSessionSchema, getAgentSession} from '../agent'
 
-const WalkthroughSchema = z.discriminatedUnion('type', [
+const TrialWalkthroughSchema = z.discriminatedUnion('type', [
   z.object({type: z.literal('Unavailable')}),
   z.object({type: z.literal('Screenshot'), filepath: z.string()}),
   z.object({type: z.literal('Screenshots'), screenshots: z.array(z.string())}),
   z.object({type: z.literal('Video'), filepath: z.string()}),
 ])
 
-type Walkthrough = z.infer<typeof WalkthroughSchema>
+type TrialWalkthrough = z.infer<typeof TrialWalkthroughSchema>
 
 type RunTrialOptions = {
   artifactsDirectory: string
@@ -35,20 +35,26 @@ type RunTrialOptions = {
   trial: Trial
 }
 
+const TrialAgentSchema = z.object({
+  sessions: z.array(AgentSessionSchema),
+})
+
+const TrialArtifactsSchema = z.object({
+  directory: z.string(),
+  copilotConfigDirectory: z.string(),
+  skillsConfigDirectory: z.string(),
+  walkthroughDirectory: z.string(),
+  workspaceDirectory: z.string(),
+})
+
+const TrialJudgesSchema = z.array(JudgeOutputSchema)
+
 const RunTrialResultSchema = z.object({
-  agent: z.object({
-    sessions: z.array(AgentSessionSchema),
-  }),
-  artifacts: z.object({
-    directory: z.string(),
-    copilotConfigDirectory: z.string(),
-    skillsConfigDirectory: z.string(),
-    walkthroughDirectory: z.string(),
-    workspaceDirectory: z.string(),
-  }),
-  judges: z.array(JudgeOutputSchema),
+  agent: TrialAgentSchema,
+  artifacts: TrialArtifactsSchema,
+  judges: TrialJudgesSchema,
   trial: TrialSchema,
-  walkthrough: WalkthroughSchema,
+  walkthrough: TrialWalkthroughSchema,
 })
 
 type RunTrialResult = z.infer<typeof RunTrialResultSchema>
@@ -68,7 +74,7 @@ async function runTrial({
     trial,
   })
 
-  const messages = await taskStage.run({
+  const {agent} = await taskStage.run({
     copilotQueue,
     copilotToken,
     sandbox,
@@ -103,9 +109,7 @@ async function runTrial({
 
   return {
     artifacts,
-    agent: {
-      sessions: [getAgentSession(messages)],
-    },
+    agent,
     trial,
     judges,
     walkthrough,
@@ -231,7 +235,11 @@ const taskStage = {
       return parseMessage(JSON.parse(trimmed))
     })
 
-    return messages
+    return {
+      agent: {
+        sessions: [getAgentSession(messages)],
+      },
+    }
   },
 }
 
@@ -449,7 +457,7 @@ Only capture the walkthrough, do not make any further code changes.`
       user: NODE_USER,
     })
 
-    let walkthrough: Walkthrough = {
+    let walkthrough: TrialWalkthrough = {
       type: 'Unavailable',
     }
 
@@ -494,7 +502,7 @@ type SaveStageOptions = {
   host: Host
   sandbox: Sandbox
   trial: Trial
-  walkthrough: Walkthrough
+  walkthrough: TrialWalkthrough
 }
 
 const saveStage = {
@@ -568,16 +576,7 @@ const saveStage = {
         recursive: true,
       })
 
-      if (walkthrough.type === 'Screenshot') {
-        await sandbox.download(walkthrough.filepath, path.join(walkthroughDirectory, 'screenshot.png'))
-      } else if (walkthrough.type === 'Screenshots') {
-        for (const screenshot of walkthrough.screenshots) {
-          const filename = path.basename(screenshot)
-          await sandbox.download(screenshot, path.join(walkthroughDirectory, 'screenshots', filename))
-        }
-      } else if (walkthrough.type === 'Video') {
-        await sandbox.download(walkthrough.filepath, path.join(walkthroughDirectory, 'walkthrough.webm'))
-      }
+      await sandbox.download(WALKTHROUGH_DIR, walkthroughDirectory)
     }
 
     return {
@@ -592,5 +591,5 @@ const saveStage = {
   },
 }
 
-export {runTrial}
+export {TrialAgentSchema, TrialArtifactsSchema, TrialJudgesSchema, TrialWalkthroughSchema, runTrial}
 export type {RunTrialResult}

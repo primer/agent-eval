@@ -18,7 +18,9 @@ import {
 import {logger} from '../../logger'
 import {parseShard} from '../../shard'
 import {getBenchmark} from '../../benchmark'
-import {createBenchmarkPlan, runBenchmarkPlan} from '../../benchmark/plan'
+import {createBenchmarkPlan} from '../../benchmark/plan'
+import {createBenchmarkOutput, writeBenchmarkOutput} from '../../benchmark/output'
+import {runPlan} from '../../plan'
 
 export const benchmark = defineCommand({
   meta: {
@@ -76,6 +78,16 @@ export const benchmark = defineCommand({
         const outputPath = getOutputPath(resultsDirectory, shard)
         const copilotToken = getCopilotToken(args.token)
 
+        logger.debug({
+          artifactsDirectory,
+          benchmarksDirectory,
+          concurrency,
+          outputPath,
+          resultsDirectory,
+          scenariosDirectory,
+          shard,
+        })
+
         const benchmark = await getBenchmark({
           benchmarksDirectory,
           scenariosDirectory,
@@ -84,15 +96,21 @@ export const benchmark = defineCommand({
         const plan = createBenchmarkPlan({
           benchmark,
         })
-        const results = await runBenchmarkPlan({
+        const runPlanResult = await runPlan({
           artifactsDirectory,
           concurrency,
           copilotToken,
           dockerImage: args['docker-image'],
           plan,
         })
-
-        console.log(results)
+        const output = createBenchmarkOutput({
+          benchmark,
+          runPlanResult,
+        })
+        await writeBenchmarkOutput({
+          output,
+          outputPath,
+        })
       },
     }),
   },

@@ -68,6 +68,10 @@ export class VirtualSandbox implements Sandbox {
     }
   }
 
+  readdir(filepath: string): Promise<Array<string>> {
+    return this.#host.fs.readdir(resolveContainerPath(filepath))
+  }
+
   readFile(filepath: string): Promise<string> {
     return this.#host.fs.readFile(resolveContainerPath(filepath), 'utf8')
   }

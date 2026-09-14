@@ -11,14 +11,14 @@ import {
   githubCopilotTokenOption,
   getCopilotToken,
   outputDirectoryOption,
-  planOption,
+  // planOption,
   scenariosOption,
   shardOption,
 } from '../options'
 import {logger} from '../../logger'
 import {parseShard} from '../../shard'
-import {getBenchmark, run as runBenchmark, createPlan} from '../../benchmark'
-import {BenchmarkPlanSchema, deserializePlan} from '../..'
+import {getBenchmark} from '../../benchmark'
+import {createBenchmarkPlan, runBenchmarkPlan} from '../../benchmark/plan'
 
 export const benchmark = defineCommand({
   meta: {
@@ -54,14 +54,12 @@ export const benchmark = defineCommand({
         benchmarks: benchmarksOption,
         concurrency: concurrencyOption,
         'docker-image': dockerImageOption,
-        experiments: experimentsOption,
         name: {
           type: 'positional',
           description: 'The name of the benchmark to run',
           required: true,
         },
         'output-dir': outputDirectoryOption,
-        // plan: planOption,
         scenarios: scenariosOption,
         shard: shardOption,
         token: githubCopilotTokenOption,
@@ -71,9 +69,9 @@ export const benchmark = defineCommand({
 
         const benchmarksDirectory = path.resolve(args.benchmarks)
         const concurrency = getConcurrencyValue(args.concurrency)
-        const experimentsDirectory = path.resolve(args.experiments)
         const scenariosDirectory = path.resolve(args.scenarios)
         const resultsDirectory = path.resolve(args['output-dir'])
+        const artifactsDirectory = path.join(resultsDirectory, 'artifacts')
         const shard = args.shard ? parseShard(args.shard) : undefined
         const outputPath = getOutputPath(resultsDirectory, shard)
         const copilotToken = getCopilotToken(args.token)
@@ -83,24 +81,18 @@ export const benchmark = defineCommand({
           scenariosDirectory,
           name: args.name,
         })
-        const plan = createPlan(benchmark)
-        // await runBenchmarkPlan({
-        //   //
-        // })
+        const plan = createBenchmarkPlan({
+          benchmark,
+        })
+        const results = await runBenchmarkPlan({
+          artifactsDirectory,
+          concurrency,
+          copilotToken,
+          dockerImage: args['docker-image'],
+          plan,
+        })
 
-        // let plan = undefined
-        // if (args.plan) {
-        //   const planPath = path.resolve(args.plan)
-        //   const data = await fs.readFile(planPath, 'utf-8')
-        //   plan = BenchmarkPlanSchema.parse(JSON.parse(data))
-        // }
-        //
-        // const result = await runBenchmark({
-        // //   benchmarksDirectory,
-        // //   concurrency,
-        // //   copilotToken,
-        // //   dockerImage: args['docker-image'],
-        // })
+        console.log(results)
       },
     }),
   },

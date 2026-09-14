@@ -2,35 +2,18 @@ import {createHash} from 'node:crypto'
 import path from 'node:path'
 import * as z from 'zod/mini'
 import {ModelVariantSchema, type ModelVariant} from './model'
-import type {Trial} from './trial'
+import type {Trial} from './trial/trial'
 import {AgentSessionSchema} from './agent'
+import type {Host} from './host'
 
-const JudgeFileSchema = z.string().check(
-  z.refine(
-    filepath => {
-      const normalized = path.posix.normalize(filepath).replace(/\/$/, '')
-      return (
-        filepath.trim().length > 0 &&
-        !filepath.includes('\0') &&
-        !filepath.includes('\\') &&
-        !path.posix.isAbsolute(filepath) &&
-        path.win32.parse(filepath).root === '' &&
-        !filepath.split('/').includes('..') &&
-        normalized !== '.'
-      )
-    },
-    {error: 'Judge files must be scenario-relative paths using forward slashes, without parent traversal.'},
-  ),
-)
+const JudgeConfigFilesSchema = z._default(z.array(z.string()), [])
 
 const JudgeConfigSchema = z.object({
   name: z.string(),
   description: z.optional(z.string()),
-  files: z.optional(z.array(JudgeFileSchema)),
-  judge: z.object({
-    model: z.optional(ModelVariantSchema),
-    instructions: z.optional(z.string()),
-  }),
+  files: JudgeConfigFilesSchema,
+  model: z.optional(ModelVariantSchema),
+  instructions: z.optional(z.string()),
   scores: z
     .array(
       z.object({
@@ -46,6 +29,76 @@ const JudgeConfigSchema = z.object({
 })
 
 type JudgeConfig = z.infer<typeof JudgeConfigSchema>
+
+const JudgeSchema = z.extend(z.omit(JudgeConfigSchema, {files: true}), {
+  files: z.array(
+    z.object({
+      filepath: z.string(),
+      relativePath: z.string(),
+    }),
+  ),
+})
+
+type Judge = z.infer<typeof JudgeSchema>
+
+async function parseJudgeConfig(host: Host, directory: string, json: unknown): Promise<Judge> {
+  const schema = z.extend(
+    z.omit(JudgeConfigSchema, {
+      files: true,
+    }),
+    {
+      files: z.pipe(
+        JudgeConfigFilesSchema,
+        z.transform(async (files, ctx) => {
+          return await Promise.all(
+            files.map(async input => {
+              const filepath = path.isAbsolute(input) ? input : path.resolve(directory, input)
+              if (!host.existsSync(filepath)) {
+                ctx.issues.push({
+                  code: 'custom',
+                  message: `Judge config file does not exist: ${input}`,
+                  input,
+                })
+                return z.NEVER
+              }
+
+              if (!filepath.startsWith(directory)) {
+                ctx.issues.push({
+                  code: 'custom',
+                  message: `Judge config file path must be inside the scenario directory: ${input}`,
+                  input,
+                })
+                return z.NEVER
+              }
+
+              const stats = await host.fs.stat(filepath)
+              if (stats.isSymbolicLink()) {
+                ctx.issues.push({
+                  code: 'custom',
+                  message: `Judge config file path must not be a symbolic link: ${input}`,
+                  input,
+                })
+                return z.NEVER
+              }
+
+              const relativePath = path.posix.relative(directory, filepath)
+
+              return {
+                filepath,
+                relativePath,
+              }
+            }),
+          )
+        }),
+      ),
+    },
+  )
+  const result = await schema.safeParseAsync(json)
+  if (!result.success) {
+    throw new Error(`Invalid judge config: ${z.prettifyError(result.error)}`)
+  }
+  return result.data
+}
 
 const JudgeReportSchema = z.object({
   score: z.number(),
@@ -75,27 +128,7 @@ const JudgeResultSchema = z.discriminatedUnion('type', [
 
 type JudgeResult = z.infer<typeof JudgeResultSchema>
 
-const JudgeOutputSchema = z.object({
-  config: JudgeConfigSchema,
-  result: JudgeResultSchema,
-  agent: z.object({
-    session: AgentSessionSchema,
-  }),
-})
-
-type JudgeOutput = z.infer<typeof JudgeOutputSchema>
-
-function getJudgeFiles(config: JudgeConfig): Array<string> {
-  if (config.files) {
-    return config.files.map(filepath => {
-      return path.posix.normalize(JudgeFileSchema.parse(filepath)).replace(/\/$/, '')
-    })
-  }
-
-  return []
-}
-
-function parseJudgeReport(contents: string, config: JudgeConfig): JudgeResult {
+function parseJudgeReport(judge: Judge, contents: string): JudgeResult {
   let json: unknown
   try {
     json = JSON.parse(contents)
@@ -118,13 +151,13 @@ function parseJudgeReport(contents: string, config: JudgeConfig): JudgeResult {
   }
 
   if (
-    !config.scores.some(score => {
+    !judge.scores.some(score => {
       return score.value === report.data.score
     })
   ) {
     return {
       type: 'error',
-      message: `Judge "${config.name}" returned an unconfigured score: ${report.data.score}`,
+      message: `Judge "${judge.name}" returned an unconfigured score: ${report.data.score}`,
     }
   }
 
@@ -134,15 +167,25 @@ function parseJudgeReport(contents: string, config: JudgeConfig): JudgeResult {
   }
 }
 
+const JudgeOutputSchema = z.object({
+  judge: JudgeSchema,
+  result: JudgeResultSchema,
+  agent: z.object({
+    session: AgentSessionSchema,
+  }),
+})
+
+type JudgeOutput = z.infer<typeof JudgeOutputSchema>
+
 /**
  * Get the model information for a judge evaluating the given trial. If an
  * explicit model is provided it will be used. Otherwise, we use the opposite
  * family of the model (e.g. claude if the model is gpt or vice-versa). By
  * default, we use gpt-* models when no judge model is provided.
  */
-function getJudgeModel(config: JudgeConfig, trial: Trial): ModelVariant {
-  if (config.judge.model) {
-    return config.judge.model
+function getJudgeModel(judge: Judge, trial: Trial): ModelVariant {
+  if (judge.model) {
+    return judge.model
   }
 
   if (trial.model.name.startsWith('gpt-')) {
@@ -172,8 +215,8 @@ Write a single JSON object matching the supplied result schema to the specified 
 
 Use a file-writing tool to create the report; printing JSON in your final response is not sufficient. Read the saved file back and check that it is valid JSON, matches the schema, and uses a configured score. Correct any report errors before finishing. If you cannot write or verify the report, explicitly report the failure rather than claim completion.`
 
-function getJudgePrompt(config: JudgeConfig): string {
-  const files = getJudgeFiles(config)
+function getJudgePrompt(judge: Judge): string {
+  const files = judge.files.map(file => file.relativePath)
   return [
     preamble,
     ...(files.length > 0
@@ -183,36 +226,37 @@ function getJudgePrompt(config: JudgeConfig): string {
       : []),
     `## Judge configuration\n\n${JSON.stringify(
       {
-        name: config.name,
-        description: config.description,
-        instructions: config.judge.instructions,
-        files: config.files === undefined ? undefined : files,
-        scores: config.scores,
+        name: judge.name,
+        description: judge.description,
+        instructions: judge.instructions,
+        files,
+        scores: judge.scores,
       },
       null,
       2,
     )}`,
     '## Report file',
-    JSON.stringify(getJudgeReportFilename(config)),
+    JSON.stringify(getJudgeReportFilename(judge)),
     '## Result JSON Schema',
     JSON.stringify(z.toJSONSchema(JudgeReportSchema), null, 2),
   ].join('\n\n')
 }
 
-function getJudgeReportFilename(config: JudgeConfig): string {
-  const id = createHash('sha256').update(config.name).digest('hex')
+function getJudgeReportFilename(judge: Judge): string {
+  const id = createHash('sha256').update(judge.name).digest('hex')
   return `judge-${id}-report.json`
 }
 
 export {
   JudgeConfigSchema,
+  parseJudgeConfig,
+  JudgeSchema,
   JudgeReportSchema,
+  parseJudgeReport,
   JudgeResultSchema,
   JudgeOutputSchema,
   getJudgeModel,
   getJudgePrompt,
   getJudgeReportFilename,
-  getJudgeFiles,
-  parseJudgeReport,
 }
-export type {JudgeConfig, JudgeResult, JudgeOutput}
+export type {JudgeConfig, Judge, JudgeResult, JudgeOutput}

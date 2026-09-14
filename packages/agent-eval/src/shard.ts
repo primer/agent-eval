@@ -19,7 +19,9 @@ function parseShard(value: string): Shard {
 }
 
 function selectShard<T>(items: Array<T>, shard: Shard): Array<T> {
-  return items.filter((_, index) => index % shard.total === shard.order - 1)
+  return items.filter((_, index) => {
+    return index % shard.total === shard.order - 1
+  })
 }
 
 export {parseShard, selectShard}

@@ -1,245 +1,113 @@
-import path from 'node:path'
 import Queue from 'p-queue'
-import * as z from 'zod/mini'
-import type {BenchmarkOutputFile} from './benchmark'
-import type {ExperimentOutputFile} from './experiment'
 import {DefaultHost, type Host} from './host'
 import {logger} from './logger'
-import {ModelVariantSchema} from './model'
+import type {Trial} from './trial/trial'
+import type {RunTrialResult} from './trial/run'
+import {runTrial} from './trial/run'
 import {selectShard, type Shard} from './shard'
-import {run as runTrial} from './trial'
-import type {Trial, TrialResult} from './trial'
 
-const PLAN_VERSION = 1
-
-const BenchmarkPlanTrialReferenceSchema = z.object({
-  id: z.string(),
-  scenarioId: z.string(),
-  treatmentId: z.string(),
-  model: ModelVariantSchema,
-  capabilityId: z.string(),
-})
-
-const ExperimentPlanTrialReferenceSchema = z.object({
-  id: z.string(),
-  scenarioId: z.string(),
-  treatmentId: z.string(),
-  model: ModelVariantSchema,
-})
-
-const BenchmarkPlanSchema = z.object({
-  version: z.literal(PLAN_VERSION),
-  source: z.object({
-    kind: z.literal('benchmark'),
-    id: z.string(),
-  }),
-  trials: z.array(BenchmarkPlanTrialReferenceSchema),
-})
-
-const ExperimentPlanSchema = z.object({
-  version: z.literal(PLAN_VERSION),
-  source: z.object({
-    kind: z.literal('experiment'),
-    id: z.string(),
-  }),
-  trials: z.array(ExperimentPlanTrialReferenceSchema),
-})
-
-const PlanSchema = z.union([BenchmarkPlanSchema, ExperimentPlanSchema])
-
-type BenchmarkPlanTrialReference = z.infer<typeof BenchmarkPlanTrialReferenceSchema>
-type ExperimentPlanTrialReference = z.infer<typeof ExperimentPlanTrialReferenceSchema>
-type BenchmarkPlan = z.infer<typeof BenchmarkPlanSchema>
-type ExperimentPlan = z.infer<typeof ExperimentPlanSchema>
-
-type Plan = BenchmarkPlan | ExperimentPlan
-type PlanTrialReference = BenchmarkPlanTrialReference | ExperimentPlanTrialReference
-type CreatePlanInput = Omit<BenchmarkPlan, 'version'> | Omit<ExperimentPlan, 'version'>
-
-type RuntimePlan = {
-  trials: Array<Trial>
+/**
+ * A Plan represents an ordered collection of trials to run. Plans are created
+ * through `createPlan` which ensures randomized order or through `createPlanFromManifest`
+ * which assumes the trials have already been randomized.
+ */
+type Plan<T extends Trial> = {
+  trials: Array<T>
 }
 
-type MergedResults =
-  | {
-      kind: 'benchmark'
-      output: BenchmarkOutputFile
-    }
-  | {
-      kind: 'experiment'
-      output: ExperimentOutputFile
-    }
-
-type MergeResultsOptions = {
-  host?: Host
-  targetDirectory?: string
+type CreatePlanOptions<T extends Trial> = {
+  trials: Array<T>
 }
 
-function create(input: Omit<BenchmarkPlan, 'version'>): BenchmarkPlan
-function create(input: Omit<ExperimentPlan, 'version'>): ExperimentPlan
-function create(input: CreatePlanInput): Plan {
-  return input.source.kind === 'benchmark'
-    ? BenchmarkPlanSchema.parse({
-        version: PLAN_VERSION,
-        source: input.source,
-        trials: randomize(input.trials),
-      })
-    : ExperimentPlanSchema.parse({
-        version: PLAN_VERSION,
-        source: input.source,
-        trials: randomize(input.trials),
-      })
+/**
+ * Creates a plan from a collection of trials. We use this to build a plan so
+ * th at the trials are randomized before running.
+ */
+function createPlan<T extends Trial>({trials}: CreatePlanOptions<T>): Plan<T> {
+  return {
+    trials: randomize(trials),
+  }
 }
 
-function serialize(plan: Plan): string {
-  const parsed = PlanSchema.parse(plan)
-  return `${JSON.stringify(parsed, null, 2)}\n`
+type CreatePlanFromManifestOptions<T extends Trial> = {
+  trials: Array<T>
+  shard?: Shard
 }
 
-function deserialize(input: unknown): Plan {
-  const parsed = typeof input === 'string' ? JSON.parse(input) : input
-  return PlanSchema.parse(parsed, {reportInput: true})
-}
-
-function select(plan: BenchmarkPlan, shard: Shard): BenchmarkPlan
-function select(plan: ExperimentPlan, shard: Shard): ExperimentPlan
-function select(plan: Plan, shard: Shard): Plan {
-  if (isBenchmarkPlan(plan)) {
+/**
+ * Creates a plan from a collection of trials that have come from a manifest.
+ * It is assumed that these have already been randomized when saved to the
+ * manifest.
+ *
+ * When the `shard` option is provided, the plan will be filtered to only include trials
+ * that match the shard's order and total.
+ */
+function createPlanFromManifest<T extends Trial>({shard, trials}: CreatePlanFromManifestOptions<T>): Plan<T> {
+  if (shard) {
     return {
-      ...plan,
-      trials: selectShard(plan.trials, shard),
+      trials: selectShard(trials, shard),
     }
   }
 
   return {
-    ...plan,
-    trials: selectShard(plan.trials, shard),
+    trials,
   }
 }
 
-function isBenchmarkPlan(plan: Plan): plan is BenchmarkPlan {
-  return plan.source.kind === 'benchmark'
+type RunPlanOptions<T extends Trial> = {
+  artifactsDirectory: string
+  concurrency: number
+  copilotToken: string
+  dockerImage: string
+  host?: Host
+  plan: Plan<T>
 }
 
-async function mergeResults(filepaths: Array<string>, options: MergeResultsOptions = {}): Promise<MergedResults> {
-  if (filepaths.length === 0) {
-    throw new Error('No shard outputs were found to merge')
-  }
+type RunPlanResult<T extends Trial> = {
+  results: Array<{trial: T; result: RunTrialResult}>
+}
 
-  const targetDirectory = path.resolve(options.targetDirectory ?? path.dirname(filepaths[0]))
-  for (const filepath of filepaths) {
-    if (path.resolve(path.dirname(filepath)) !== targetDirectory) {
-      throw new Error('Shard outputs and the merged output must use the same directory')
-    }
-  }
+async function runPlan<T extends Trial>({
+  artifactsDirectory,
+  concurrency,
+  copilotToken,
+  dockerImage,
+  host = DefaultHost,
+  plan,
+}: RunPlanOptions<T>): Promise<RunPlanResult<T>> {
+  const copilotQueue = new Queue({
+    concurrency,
+  })
+  const containerQueue = new Queue({
+    concurrency: 5,
+  })
 
-  const host = options.host ?? DefaultHost
-  const manifests = await Promise.all(
-    filepaths.map(async filepath => {
-      return JSON.parse(await host.fs.readFile(filepath, 'utf-8')) as unknown
+  const results = await Promise.all(
+    plan.trials.map(trial => {
+      return retry(() => {
+        return containerQueue.add(async () => {
+          await using sandbox = await host.createSandbox({
+            dockerImage,
+          })
+          const result = await runTrial({
+            artifactsDirectory,
+            copilotQueue,
+            copilotToken,
+            host,
+            sandbox,
+            trial,
+          })
+          return {
+            trial,
+            result,
+          }
+        })
+      })
     }),
   )
-  const kinds = manifests.map(getOutputKind)
-  const firstKind = kinds[0]
-  if (
-    kinds.some(kind => {
-      return kind !== firstKind
-    })
-  ) {
-    throw new Error('Cannot merge benchmark and experiment shard outputs together')
-  }
 
-  if (firstKind === 'benchmark') {
-    const {parseOutputFile} = await import('./benchmark')
-    return {
-      kind: 'benchmark',
-      output: mergeBenchmarkOutputFiles(manifests.map(parseOutputFile)),
-    }
-  }
-
-  const {parseOutputFile} = await import('./experiment')
   return {
-    kind: 'experiment',
-    output: mergeExperimentOutputFiles(manifests.map(parseOutputFile)),
-  }
-}
-
-function getOutputKind(input: unknown): 'benchmark' | 'experiment' {
-  if (typeof input !== 'object' || input === null) {
-    throw new Error('Shard output must be a JSON object')
-  }
-
-  const hasBenchmarkId = 'benchmarkId' in input
-  const hasExperimentId = 'experimentId' in input
-  if (hasBenchmarkId === hasExperimentId) {
-    throw new Error('Shard output must contain exactly one of benchmarkId or experimentId')
-  }
-
-  return hasBenchmarkId ? 'benchmark' : 'experiment'
-}
-
-function mergeBenchmarkOutputFiles(outputs: Array<BenchmarkOutputFile>): BenchmarkOutputFile {
-  const [first, ...remaining] = outputs
-  if (!first) {
-    throw new Error('At least one benchmark output is required to merge shards')
-  }
-
-  const result = structuredClone(first)
-  for (const output of remaining) {
-    if (output.benchmarkId !== result.benchmarkId) {
-      throw new Error(
-        `Cannot merge benchmark outputs for different sources: "${result.benchmarkId}" and "${output.benchmarkId}"`,
-      )
-    }
-
-    mergeMetadataRecord(result.capabilities, output.capabilities, 'capability')
-    mergeMetadataRecord(result.scenarios, output.scenarios, 'scenario')
-    mergeMetadataRecord(result.treatments, output.treatments, 'treatment')
-    mergeTrialReferences(result.trials, output.trials)
-  }
-
-  return result
-}
-
-function mergeExperimentOutputFiles(outputs: Array<ExperimentOutputFile>): ExperimentOutputFile {
-  const [first, ...remaining] = outputs
-  if (!first) {
-    throw new Error('At least one experiment output is required to merge shards')
-  }
-
-  const result = structuredClone(first)
-  for (const output of remaining) {
-    if (output.experimentId !== result.experimentId) {
-      throw new Error(
-        `Cannot merge experiment outputs for different sources: "${result.experimentId}" and "${output.experimentId}"`,
-      )
-    }
-
-    mergeMetadataRecord(result.scenarios, output.scenarios, 'scenario')
-    mergeMetadataRecord(result.treatments, output.treatments, 'treatment')
-    mergeTrialReferences(result.trials, output.trials)
-  }
-
-  return result
-}
-
-function mergeMetadataRecord<T>(target: Record<string, T>, source: Record<string, T>, type: string): void {
-  for (const [id, value] of Object.entries(source)) {
-    if (id in target && JSON.stringify(target[id]) !== JSON.stringify(value)) {
-      throw new Error(`Cannot merge conflicting ${type} metadata for id: ${id}`)
-    }
-
-    target[id] = value
-  }
-}
-
-function mergeTrialReferences(target: Record<string, string>, source: Record<string, string>): void {
-  for (const [trialId, reference] of Object.entries(source)) {
-    if (trialId in target) {
-      throw new Error(`Cannot merge duplicate trial id: ${trialId}`)
-    }
-
-    target[trialId] = reference
+    results,
   }
 }
 
@@ -255,49 +123,6 @@ function randomize<T>(input: Array<T>): Array<T> {
   return randomized
 }
 
-type RunPlanOptions = {
-  artifactsDirectory: string
-  concurrency: number
-  copilotToken: string
-  dockerImage: string
-  host?: Host
-  plan: RuntimePlan
-}
-
-async function run({
-  artifactsDirectory,
-  concurrency,
-  copilotToken,
-  dockerImage,
-  host = DefaultHost,
-  plan,
-}: RunPlanOptions): Promise<Array<TrialResult>> {
-  const queue = new Queue({
-    concurrency,
-  })
-
-  const results = await Promise.all(
-    plan.trials.map(trial => {
-      return queue.add(() => {
-        return retry(async () => {
-          await using sandbox = await host.createSandbox({
-            dockerImage,
-          })
-          return await runTrial({
-            artifactsDirectory,
-            copilotToken,
-            host,
-            sandbox,
-            trial,
-          })
-        })
-      })
-    }),
-  )
-
-  return results
-}
-
 async function retry<T>(fn: () => Promise<T>, retries: number = 3): Promise<T> {
   try {
     return await fn()
@@ -310,28 +135,5 @@ async function retry<T>(fn: () => Promise<T>, retries: number = 3): Promise<T> {
   }
 }
 
-export {
-  BenchmarkPlanSchema,
-  ExperimentPlanSchema,
-  PLAN_VERSION,
-  PlanSchema,
-  create,
-  deserialize,
-  isBenchmarkPlan,
-  mergeResults,
-  run,
-  select,
-  serialize,
-}
-export type {
-  BenchmarkPlan,
-  BenchmarkPlanTrialReference,
-  CreatePlanInput,
-  ExperimentPlan,
-  ExperimentPlanTrialReference,
-  MergedResults,
-  MergeResultsOptions,
-  Plan,
-  PlanTrialReference,
-  RuntimePlan,
-}
+export {createPlan, createPlanFromManifest, runPlan}
+export type {Plan, RunPlanResult}

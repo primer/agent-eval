@@ -26,15 +26,6 @@ const WalkthroughSchema = z.discriminatedUnion('type', [
 
 type Walkthrough = z.infer<typeof WalkthroughSchema>
 
-const ArtifactSchema = z.discriminatedUnion('type', [
-  z.object({type: z.literal('Workspace'), path: z.string(), sandboxPath: z.string()}),
-  z.object({type: z.literal('Walkthrough'), path: z.string(), sandboxPath: z.string()}),
-  z.object({type: z.literal('CopilotConfig'), path: z.string(), sandboxPath: z.string()}),
-  z.object({type: z.literal('AgentsConfig'), path: z.string(), sandboxPath: z.string()}),
-])
-
-// type Artifact = z.infer<typeof ArtifactSchema>
-
 type RunTrialOptions = {
   artifactsDirectory: string
   copilotQueue: Queue
@@ -48,7 +39,13 @@ const RunTrialResultSchema = z.object({
   agent: z.object({
     sessions: z.array(AgentSessionSchema),
   }),
-  artifacts: z.array(ArtifactSchema),
+  artifacts: z.object({
+    directory: z.string(),
+    copilotConfigDirectory: z.string(),
+    skillsConfigDirectory: z.string(),
+    walkthroughDirectory: z.string(),
+    workspaceDirectory: z.string(),
+  }),
   judges: z.array(JudgeOutputSchema),
   trial: TrialSchema,
   walkthrough: WalkthroughSchema,
@@ -96,37 +93,16 @@ async function runTrial({
     trial,
   })
 
-  // await saveStage.run({
-  //   artifactsDirectory,
-  //   host,
-  //   sandbox,
-  //   trial,
-  //   walkthrough,
-  // })
+  const {artifacts} = await saveStage.run({
+    artifactsDirectory,
+    host,
+    sandbox,
+    trial,
+    walkthrough,
+  })
 
   return {
-    artifacts: [
-      {
-        type: 'Workspace',
-        path: 'workspace',
-        sandboxPath: CONTAINER_WORKDIR,
-      },
-      {
-        type: 'Walkthrough',
-        path: 'walkthrough',
-        sandboxPath: path.posix.join(CONTAINER_WORKDIR, WALKTHROUGH_DIR),
-      },
-      {
-        type: 'CopilotConfig',
-        path: '.copilot',
-        sandboxPath: COPILOT_DIR,
-      },
-      {
-        type: 'AgentsConfig',
-        path: '.agents',
-        sandboxPath: AGENTS_DIR,
-      },
-    ],
+    artifacts,
     agent: {
       sessions: [getAgentSession(messages)],
     },
@@ -394,6 +370,7 @@ const judgeStage = {
 const WALKTHROUGH_DIR = 'walkthrough'
 const WALKTHROUGH_VIEWPORT_WIDTH = 1440
 const WALKTHROUGH_VIEWPORT_HEIGHT = 900
+const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg'])
 const AGENT_BROWSER_SKILL_DIRECTORY = path.posix.join(SKILLS_DIR, 'agent-browser')
 
 type CaptureStageOptions = {
@@ -482,16 +459,22 @@ Only capture the walkthrough, do not make any further code changes.`
         filepath: path.posix.join(WALKTHROUGH_DIR, 'screenshot.png'),
       }
     } else if (await sandbox.exists(path.posix.join(WALKTHROUGH_DIR, 'screenshots'))) {
-      const screenshots = await sandbox.readdir(path.posix.join(WALKTHROUGH_DIR, 'screenshots'))
-      walkthrough = {
-        type: 'Screenshots',
-        screenshots: screenshots
-          .toSorted((a, b) => {
-            return a.localeCompare(b, undefined, {numeric: true, sensitivity: 'base'})
-          })
-          .map(filename => {
+      const entries = await sandbox.readdir(path.posix.join(WALKTHROUGH_DIR, 'screenshots'))
+      const screenshots = entries
+        .filter(filename => {
+          return IMAGE_EXTENSIONS.has(path.extname(filename).toLowerCase())
+        })
+        .toSorted((a, b) => {
+          return a.localeCompare(b, undefined, {numeric: true, sensitivity: 'base'})
+        })
+
+      if (screenshots.length > 0) {
+        walkthrough = {
+          type: 'Screenshots',
+          screenshots: screenshots.map(filename => {
             return path.posix.join(WALKTHROUGH_DIR, 'screenshots', filename)
           }),
+        }
       }
     } else if (await sandbox.exists(path.posix.join(WALKTHROUGH_DIR, 'walkthrough.webm'))) {
       walkthrough = {
@@ -506,95 +489,108 @@ Only capture the walkthrough, do not make any further code changes.`
   },
 }
 
-// type SaveStageOptions = {
-//   artifactsDirectory: string
-//   host: Host
-//   sandbox: Sandbox
-//   trial: Trial
-//   walkthrough: Walkthrough
-// }
-//
-// const saveStage = {
-//   name: 'Save',
-//   async run({artifactsDirectory, host, sandbox, trial, walkthrough}: SaveStageOptions) {
-//     logger.info('[%s] Saving trial results', trial.id)
-//
-//     const artifactDirectory = path.join(artifactsDirectory, trial.id)
-//     const workspaceDirectory = path.join(artifactDirectory, 'workspace')
-//     const walkthroughDirectory = path.join(artifactDirectory, 'walkthrough')
-//     const copilotConfigDirectory = path.join(artifactDirectory, '.copilot')
-//     const skillsConfigDirectory = path.join(artifactDirectory, '.agents')
-//
-//     if (host.existsSync(artifactDirectory)) {
-//       logger.debug('[%s] Cleaning up artifact directory: %s', trial.id, artifactDirectory)
-//       await host.fs.rm(artifactDirectory, {recursive: true, force: true})
-//     }
-//
-//     logger.debug('[%s] Creating artifact directory: %s', trial.id, artifactDirectory)
-//     await host.fs.mkdir(artifactDirectory, {recursive: true})
-//
-//     logger.debug('[%s] Creating workspace directory: %s', trial.id, workspaceDirectory)
-//     await host.fs.mkdir(workspaceDirectory, {recursive: true})
-//
-//     logger.info('[%s] Downloading artifacts to: %s...', trial.id, artifactDirectory)
-//
-//     logger.debug('[%s] Downloading agent workspace to: %s', trial.id, workspaceDirectory)
-//     const judgeFiles = Array.from(
-//       new Set(
-//         trial.scenario.judges.flatMap(judge => {
-//           return judge.files.map(file => {
-//             return file.relativePath
-//           })
-//         }),
-//       ),
-//     )
-//     await sandbox.download(CONTAINER_WORKDIR, workspaceDirectory, {
-//       ignore(name) {
-//         const relativePath = (path.isAbsolute(name) ? path.relative(workspaceDirectory, name) : name)
-//           .split(path.sep)
-//           .join(path.posix.sep)
-//         if (
-//           judgeFiles.some(judgeFileRelativePath => {
-//             return (
-//               relativePath === judgeFileRelativePath ||
-//               relativePath.startsWith(`${judgeFileRelativePath}/`) ||
-//               judgeFileRelativePath.startsWith(`${relativePath}/`)
-//             )
-//           })
-//         ) {
-//           return false
-//         }
-//         return (
-//           name.includes('node_modules') ||
-//           name.includes('.next') ||
-//           name.includes('.turbo') ||
-//           name.includes('dist') ||
-//           name.includes(WALKTHROUGH_DIR)
-//         )
-//       },
-//     })
-//
-//     logger.debug('[%s] Downloading copilot config to: %s', trial.id, copilotConfigDirectory)
-//     await sandbox.download(COPILOT_DIR, copilotConfigDirectory)
-//
-//     logger.debug('[%s] Downloading skills config to: %s', trial.id, skillsConfigDirectory)
-//     await sandbox.download(AGENTS_DIR, skillsConfigDirectory)
-//
-//     if (walkthrough.type !== 'Unavailable') {
-//       await host.fs.mkdir(walkthroughDirectory, {recursive: true})
-//     }
-//
-//     return {
-//       artifacts: {
-//         directory: artifactDirectory,
-//         copilotConfigDirectory,
-//         skillsConfigDirectory,
-//         walkthroughDirectory,
-//         workspaceDirectory,
-//       },
-//     }
-//   },
-// }
+type SaveStageOptions = {
+  artifactsDirectory: string
+  host: Host
+  sandbox: Sandbox
+  trial: Trial
+  walkthrough: Walkthrough
+}
+
+const saveStage = {
+  name: 'Save',
+  async run({artifactsDirectory, host, sandbox, trial, walkthrough}: SaveStageOptions) {
+    logger.info('[%s] Saving trial results', trial.id)
+
+    const artifactDirectory = path.join(artifactsDirectory, trial.id)
+    const workspaceDirectory = path.join(artifactDirectory, 'workspace')
+    const walkthroughDirectory = path.join(artifactDirectory, 'walkthrough')
+    const copilotConfigDirectory = path.join(artifactDirectory, '.copilot')
+    const skillsConfigDirectory = path.join(artifactDirectory, '.agents')
+
+    if (host.existsSync(artifactDirectory)) {
+      logger.debug('[%s] Cleaning up artifact directory: %s', trial.id, artifactDirectory)
+      await host.fs.rm(artifactDirectory, {recursive: true, force: true})
+    }
+
+    logger.debug('[%s] Creating artifact directory: %s', trial.id, artifactDirectory)
+    await host.fs.mkdir(artifactDirectory, {recursive: true})
+
+    logger.debug('[%s] Creating workspace directory: %s', trial.id, workspaceDirectory)
+    await host.fs.mkdir(workspaceDirectory, {recursive: true})
+
+    logger.info('[%s] Downloading artifacts to: %s...', trial.id, artifactDirectory)
+
+    logger.debug('[%s] Downloading agent workspace to: %s', trial.id, workspaceDirectory)
+    const judgeFiles = Array.from(
+      new Set(
+        trial.scenario.judges.flatMap(judge => {
+          return judge.files.map(file => {
+            return file.relativePath
+          })
+        }),
+      ),
+    )
+    await sandbox.download(CONTAINER_WORKDIR, workspaceDirectory, {
+      ignore(name) {
+        const relativePath = (path.isAbsolute(name) ? path.relative(workspaceDirectory, name) : name)
+          .split(path.sep)
+          .join(path.posix.sep)
+        if (
+          judgeFiles.some(judgeFileRelativePath => {
+            return (
+              relativePath === judgeFileRelativePath ||
+              relativePath.startsWith(`${judgeFileRelativePath}/`) ||
+              judgeFileRelativePath.startsWith(`${relativePath}/`)
+            )
+          })
+        ) {
+          return false
+        }
+        return (
+          name.includes('node_modules') ||
+          name.includes('.next') ||
+          name.includes('.turbo') ||
+          name.includes('dist') ||
+          name.includes(WALKTHROUGH_DIR)
+        )
+      },
+    })
+
+    logger.debug('[%s] Downloading copilot config to: %s', trial.id, copilotConfigDirectory)
+    await sandbox.download(COPILOT_DIR, copilotConfigDirectory)
+
+    logger.debug('[%s] Downloading skills config to: %s', trial.id, skillsConfigDirectory)
+    await sandbox.download(AGENTS_DIR, skillsConfigDirectory)
+
+    if (walkthrough.type !== 'Unavailable') {
+      await host.fs.mkdir(walkthroughDirectory, {
+        recursive: true,
+      })
+
+      if (walkthrough.type === 'Screenshot') {
+        await sandbox.download(walkthrough.filepath, path.join(walkthroughDirectory, 'screenshot.png'))
+      } else if (walkthrough.type === 'Screenshots') {
+        for (const screenshot of walkthrough.screenshots) {
+          const filename = path.basename(screenshot)
+          await sandbox.download(screenshot, path.join(walkthroughDirectory, 'screenshots', filename))
+        }
+      } else if (walkthrough.type === 'Video') {
+        await sandbox.download(walkthrough.filepath, path.join(walkthroughDirectory, 'walkthrough.webm'))
+      }
+    }
+
+    return {
+      artifacts: {
+        directory: artifactDirectory,
+        copilotConfigDirectory,
+        skillsConfigDirectory,
+        walkthroughDirectory,
+        workspaceDirectory,
+      },
+    }
+  },
+}
 
 export {runTrial}
 export type {RunTrialResult}

@@ -73,6 +73,8 @@ async function runBenchmarkPlan({
     plan,
   })
 
+  console.log(results)
+
   throw new Error('unimplemented')
 }
 

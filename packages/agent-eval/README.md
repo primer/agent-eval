@@ -180,7 +180,7 @@ as:
   for migration work)
 - Figuring out how similar a generated file is from a baseline file
 
-Checks are available as an option on scenarios with the `checks` option:
+Checks are available with the `checks` option in a `scenario` config:
 
 ```ts
 import {defineConfig} from '@primer/agent-eval/scenario'
@@ -234,7 +234,47 @@ export default defineConfig({
 
 ### Judges
 
-## Programmatic usage
+Judges are non-deterministic evaluations of how well an agent performed on a task. These represent the LLM-as-a-judge concept, allowing you to define different criteria and how a model should judge the output of a scenario based on a given rubric.
+
+You can define judges using the `judge` option in a scenario:
+
+```ts
+import {defineConfig} from '@primer/agent-eval/scenario'
+
+export default defineConfig({
+  prompt: 'Prompt for the scenario that is passed to the agent',
+  description: 'A description of the scenario and what it tests for',
+  judges: [
+    {
+      name: 'Example judge',
+      description: 'An example judge that evaluates the agent output based on a given rubric',
+      model: 'gpt-5.6-luna',
+      instructions: 'Instructions for the judge that are provided as part of the prompt',
+      scores: [
+        {
+          value: 0,
+          description: 'The agent output is completely incorrect or irrelevant',
+        },
+        {
+          value: 1,
+          description: 'The agent output is partially correct or relevant, but has significant issues',
+        },
+        {
+          value: 2,
+          description: 'The agent output is mostly correct or relevant, but has some minor issues',
+        },
+        {
+          value: 3,
+          description: 'The agent output is completely correct or relevant',
+        },
+      ],
+    },
+  ],
+})
+```
+
+Judges are run after a scenario completes and use the provided instructions and score
+definitions to provide the state of the deliverable by the agent.
 
 ## License
 

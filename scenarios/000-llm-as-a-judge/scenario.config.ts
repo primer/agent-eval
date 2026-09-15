@@ -40,13 +40,11 @@ export default defineConfig({
     {
       name: 'empty-state-copy',
       description: 'Evaluate whether the empty state is clear, welcoming, and actionable.',
-      judge: {
-        model: {
-          name: 'gpt-5.6-luna',
-          reasoningEffort: 'low',
-        },
-        instructions: `Inspect src/App.tsx and any local components it renders. Judge only the user-facing copy: it should communicate that there are no projects yet and encourage creating the first one in a friendly, concise way. Do not grade styling, require a button, or require exact wording.`,
+      model: {
+        name: 'gpt-5.6-luna',
+        reasoningEffort: 'low',
       },
+      instructions: `Inspect src/App.tsx and any local components it renders. Judge only the user-facing copy: it should communicate that there are no projects yet and encourage creating the first one in a friendly, concise way. Do not grade styling, require a button, or require exact wording.`,
       scores: [
         {
           value: 0,

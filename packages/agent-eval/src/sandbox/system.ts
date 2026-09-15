@@ -183,7 +183,7 @@ class SystemSandbox implements Sandbox {
   }
 
   async readdir(filepath: string): Promise<Array<string>> {
-    const result = await execCommand(this.#docker, this.#container, 'ls', ['-1', resolveContainerPath(filepath)], {
+    const result = await execCommand(this.#docker, this.#container, 'ls', ['-1A', resolveContainerPath(filepath)], {
       user: NODE_USER,
       allowNonZeroExitCode: true,
     })

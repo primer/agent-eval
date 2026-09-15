@@ -34,6 +34,15 @@ test('renders empty checks and empty value groups without inventing a score', ()
   ).toContain('No values were recorded for this check.')
 })
 
+test('uses distinct decorative pass, fail, and skip icons only for outcomes', () => {
+  const html = renderToStaticMarkup(<CheckResults checks={checks} />)
+  expect(html).toMatch(/text-success shrink-0"><svg[^>]*class="octicon octicon-check-circle-fill"[^>]*>/)
+  expect(html).toMatch(/text-danger shrink-0"><svg[^>]*class="octicon octicon-x-circle-fill"[^>]*>/)
+  expect(html).toMatch(/text-muted shrink-0"><svg[^>]*class="octicon octicon-skip-fill"[^>]*>/)
+  expect(html.match(/<svg /g)).toHaveLength(3)
+  expect(html.match(/aria-hidden="true"/g)).toHaveLength(3)
+})
+
 test('escapes arbitrary check errors and supplies labels for outcomes without IDs', () => {
   const html = renderToStaticMarkup(
     <CheckResults

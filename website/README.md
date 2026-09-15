@@ -1,5 +1,18 @@
 # website
 
+## Development
+
+Run `pnpm --dir website dev` from the repository root.
+
+Development response compression is disabled to avoid an upstream Next.js
+streaming/compression bug that retains `drain` listeners on large responses.
+This avoids the affected code path rather than increasing the listener limit.
+Production compression settings and the static export are unchanged.
+
+The root layout renders the attributes that Primer's `focus-visible` polyfill
+adds before hydration, so the server and client markup match without suppressing
+hydration warnings.
+
 ## Routes
 
 | URL                           | Description                                     |
@@ -43,9 +56,10 @@ such as `walkthrough/screenshot.png` are resolved through
 
 Benchmark and experiment run details include a **Checks** tab for outcomes,
 measurements, group IDs, units, scoring directions, and errors. Skipped outcomes
-are shown separately from failures. The trial selector exposes repeated trials
-for the same model and treatment. Benchmark run details can be filtered by
-capability, with shared scenarios displayed separately under each capability.
+use a neutral skip icon, alongside the green pass and red fail icons. The trial
+selector exposes repeated trials for the same model and treatment. Benchmark run
+details can be filtered by capability, with shared scenarios displayed separately
+under each capability.
 
 Summaries use the package's reporting helpers: each check's value is its pass
 percentage or measurement mean for a trial, averaged across trials. Skips and

@@ -1,4 +1,5 @@
 import type {CheckOutput} from '@primer/agent-eval'
+import {CheckCircleFillIcon, SkipFillIcon, XCircleFillIcon} from '@primer/octicons-react'
 
 export function CheckResults({checks}: {checks: Array<CheckOutput>}) {
   if (checks.length === 0) {
@@ -48,12 +49,23 @@ export function CheckResults({checks}: {checks: Array<CheckOutput>}) {
                       : value.status === 'failed'
                         ? 'text-danger'
                         : 'text-muted'
+                  const Icon =
+                    value.status === 'passed'
+                      ? CheckCircleFillIcon
+                      : value.status === 'failed'
+                        ? XCircleFillIcon
+                        : SkipFillIcon
                   return (
                     <li
                       className="border-t border-default py-2 first:border-t-0 flex justify-between gap-3"
                       key={valueIndex}
                     >
-                      <span className="break-words">{value.id ?? `Outcome ${valueIndex + 1}`}</span>
+                      <span className="flex items-start gap-2 min-w-0">
+                        <span className={`${color} shrink-0`}>
+                          <Icon aria-hidden="true" />
+                        </span>
+                        <span className="break-words min-w-0">{value.id ?? `Outcome ${valueIndex + 1}`}</span>
+                      </span>
                       <span className={color}>{value.status}</span>
                     </li>
                   )

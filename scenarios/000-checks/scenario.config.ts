@@ -1,13 +1,6 @@
 import {defineConfig} from '@primer/agent-eval/scenario'
 import type {ESLint} from 'eslint'
-
-type TestResults = {
-  testResults: Array<{
-    assertionResults: Array<{
-      status: 'passed' | 'failed' | 'skipped' | 'pending' | 'todo' | 'disabled'
-    }>
-  }>
-}
+import type {JsonTestResults} from 'vitest/reporters'
 
 export default defineConfig({
   prompt: `Example prompt`,
@@ -32,7 +25,7 @@ export default defineConfig({
         }
 
         const contents = await sandbox.readFile('vitest-scenario-report.json')
-        const json: TestResults = JSON.parse(contents)
+        const json: JsonTestResults = JSON.parse(contents)
 
         return {
           outcomes: json.testResults.flatMap(({assertionResults}) => {
@@ -71,7 +64,7 @@ export default defineConfig({
         }
 
         const contents = await sandbox.readFile('vitest-browser-scenario-report.json')
-        const json: TestResults = JSON.parse(contents)
+        const json: JsonTestResults = JSON.parse(contents)
 
         return {
           outcomes: json.testResults.flatMap(({assertionResults}) => {

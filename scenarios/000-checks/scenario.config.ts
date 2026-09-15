@@ -9,9 +9,7 @@ export default defineConfig({
       name: 'node-tests',
       description: 'Example for node-based tests with vitest',
       files: ['vitest.config.scenario.ts', 'scenario.test.ts'],
-      async run({logger, sandbox}) {
-        logger.info('Running node tests')
-
+      async run({sandbox}) {
         const commandResult = await sandbox.runCommand(
           'npx',
           ['vitest', 'run', '--config', 'vitest.config.scenario.ts'],
@@ -48,8 +46,8 @@ export default defineConfig({
       name: 'browser-tests',
       description: 'Example for browser-based tests with vitest',
       files: ['vitest.config.browser.scenario.ts', 'scenario.browser.test.ts'],
-      async run({logger, sandbox}) {
-        logger.info('Running browser tests')
+      async run({sandbox}) {
+        await sandbox.runCommand('npx', ['playwright', 'install'])
 
         const commandResult = await sandbox.runCommand(
           'npx',
@@ -87,9 +85,7 @@ export default defineConfig({
       name: 'eslint',
       description: 'Example for reporting on eslint checks',
       files: ['eslint.config.scenario.js'],
-      async run({logger, sandbox}) {
-        logger.info('Running eslint checks')
-
+      async run({sandbox}) {
         const commandResult = await sandbox.runCommand(
           'npx',
           [

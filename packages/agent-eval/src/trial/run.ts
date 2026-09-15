@@ -16,7 +16,7 @@ import {
   type JudgeResult,
 } from '../judge'
 import {AgentSessionSchema, getAgentSession} from '../agent'
-import type {CheckRunResult} from '../check'
+import {CheckOutputSchema, type CheckOutput} from '../check'
 
 const TrialWalkthroughSchema = z.discriminatedUnion('type', [
   z.object({type: z.literal('Unavailable')}),
@@ -48,11 +48,14 @@ const TrialArtifactsSchema = z.object({
   workspaceDirectory: z.string(),
 })
 
+const TrialChecksSchema = z.array(CheckOutputSchema)
+
 const TrialJudgesSchema = z.array(JudgeOutputSchema)
 
 const RunTrialResultSchema = z.object({
   agent: TrialAgentSchema,
   artifacts: TrialArtifactsSchema,
+  checks: TrialChecksSchema,
   judges: TrialJudgesSchema,
   trial: TrialSchema,
   walkthrough: TrialWalkthroughSchema,
@@ -112,6 +115,7 @@ async function runTrial({
   return {
     artifacts,
     agent,
+    checks,
     trial,
     judges,
     walkthrough,
@@ -255,7 +259,7 @@ const verifyStage = {
   async run({sandbox, trial}: VerifyStageOptions) {
     logger.info('[%s] Running checks', trial.id)
 
-    const results: Array<CheckRunResult> = []
+    const results: Array<CheckOutput> = []
 
     for (const check of trial.scenario.checks) {
       const copied = new Set<string>()
@@ -272,6 +276,8 @@ const verifyStage = {
         })
       }
 
+      logger.info('[%s] Running check: %s', trial.id, check.name)
+
       const checkRunResults = await check.run({
         logger: logger.child({
           trialId: trial.id,
@@ -280,7 +286,18 @@ const verifyStage = {
         sandbox,
       })
 
-      results.push(...checkRunResults)
+      results.push(
+        ...checkRunResults.map(runResult => {
+          return {
+            check: {
+              name: check.name,
+              description: check.description,
+              files: check.files,
+            },
+            result: runResult,
+          }
+        }),
+      )
 
       if (copied.size > 0) {
         logger.debug('[%s] Cleaning up check files: %o', trial.id, Array.from(copied))

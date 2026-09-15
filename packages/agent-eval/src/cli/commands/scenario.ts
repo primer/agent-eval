@@ -1,11 +1,13 @@
 import path from 'node:path'
 import {defineCommand} from 'citty'
+import {DefaultHost as host} from '../../host'
 import {logger} from '../../logger'
 import {
   concurrencyOption,
   dockerImageOption,
   getConcurrencyValue,
   getCopilotToken,
+  getOutputPath,
   githubCopilotTokenOption,
   outputDirectoryOption,
   scenariosOption,
@@ -13,6 +15,7 @@ import {
 import {getScenario} from '../../scenario/get'
 import {createScenarioPlan} from '../../scenario/plan'
 import {runPlan} from '../../plan'
+import type {RunTrialResult} from '../../trial/run'
 
 const scenarioCommand = defineCommand({
   meta: {
@@ -47,6 +50,7 @@ const scenarioCommand = defineCommand({
         const scenariosDirectory = path.resolve(args.scenarios)
         const resultsDirectory = path.resolve(args['output-dir'])
         const artifactsDirectory = path.join(resultsDirectory, 'artifacts')
+        const outputPath = getOutputPath(resultsDirectory)
         const copilotToken = getCopilotToken(args.token)
 
         logger.debug({
@@ -79,13 +83,40 @@ const scenarioCommand = defineCommand({
           scenario,
         })
 
-        await runPlan({
+        const {results} = await runPlan({
           artifactsDirectory,
           concurrency,
           copilotToken,
           dockerImage: args['docker-image'],
           plan,
         })
+
+        type ScenarioOutput = {
+          id: string
+          results: Array<{
+            trial: {
+              id: string
+            }
+            result: RunTrialResult
+          }>
+        }
+
+        const output: ScenarioOutput = {
+          id: scenario.id,
+          results: results.map(result => {
+            return {
+              trial: {
+                id: result.trial.id,
+              },
+              result: result.result,
+            }
+          }),
+        }
+
+        await host.fs.mkdir(path.dirname(outputPath), {
+          recursive: true,
+        })
+        await host.fs.writeFile(outputPath, JSON.stringify(output, null, 2), 'utf-8')
       },
     }),
   },

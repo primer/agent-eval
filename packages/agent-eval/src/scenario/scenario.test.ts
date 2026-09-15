@@ -83,11 +83,11 @@ test('loadScenario normalizes check results after defineConfig and config parsin
   await using sandbox = await VirtualSandbox.create()
 
   await expect(scenario.checks[0]!.run({logger, sandbox})).resolves.toEqual([
-    {type: 'outcomes', id: 'tests', results: [{type: 'outcome', status: 'passed'}]},
-    {type: 'measurements', id: 'score', results: [{type: 'measurement', value: 42}], unit: 'points'},
+    {type: 'outcomes', id: 'tests', outcomes: [{type: 'outcome', status: 'passed'}]},
+    {type: 'measurements', id: 'score', measurements: [{type: 'measurement', value: 42}], unit: 'points'},
   ])
   await expect(scenario.checks[1]!.run({logger, sandbox})).resolves.toEqual([
-    {type: 'outcomes', results: [{type: 'outcome', status: 'passed'}]},
+    {type: 'outcomes', outcomes: [{type: 'outcome', status: 'passed'}]},
   ])
 })
 

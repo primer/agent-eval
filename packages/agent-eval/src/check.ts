@@ -35,12 +35,12 @@ const CheckRunResultSchema = z.discriminatedUnion('type', [
     unit: z.optional(z.string()),
     direction: z.optional(z.enum(['higher-is-better', 'lower-is-better'])),
     id: z.optional(z.string()),
-    results: z.array(z.union([MeasurementSchema, ErrorSchema])),
+    measurements: z.array(z.union([MeasurementSchema, ErrorSchema])),
   }),
   z.object({
     type: z.literal('outcomes'),
     id: z.optional(z.string()),
-    results: z.array(z.union([OutcomeSchema, ErrorSchema])),
+    outcomes: z.array(z.union([OutcomeSchema, ErrorSchema])),
   }),
 ])
 
@@ -100,7 +100,7 @@ function parseCheckRunResult(result: z.infer<typeof CheckConfigRunResultSchema>)
     return {
       ...metadata,
       type: 'measurements',
-      results: measurements,
+      measurements,
     }
   }
 
@@ -108,7 +108,7 @@ function parseCheckRunResult(result: z.infer<typeof CheckConfigRunResultSchema>)
   return {
     ...metadata,
     type: 'outcomes',
-    results: outcomes,
+    outcomes,
   }
 }
 
@@ -207,25 +207,14 @@ const CheckSchema = z.object({
 
 type Check = z.infer<typeof CheckSchema>
 
-const CheckResultSchema = z.object({
-  //
-})
-
-type CheckResult = z.infer<typeof CheckResultSchema>
-
 const CheckOutputSchema = z.object({
-  //
+  check: z.omit(CheckSchema, {
+    run: true,
+  }),
+  result: CheckRunResultSchema,
 })
 
 type CheckOutput = z.infer<typeof CheckOutputSchema>
 
-export {
-  CheckConfigSchema,
-  CheckSchema,
-  CheckResultSchema,
-  CheckRunSchema,
-  CheckOutputSchema,
-  parseCheckConfig,
-  parseCheckRunResult,
-}
-export type {CheckConfig, CheckResult, CheckRun, CheckRunResult, CheckOutput}
+export {CheckConfigSchema, CheckSchema, CheckRunSchema, CheckOutputSchema, parseCheckConfig, parseCheckRunResult}
+export type {CheckConfig, CheckRun, CheckRunResult, CheckOutput}

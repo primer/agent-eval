@@ -1,13 +1,13 @@
 import {expect, expectTypeOf, test} from 'vitest'
-import {CheckRunSchema, parseCheckConfig, type CheckRunResult} from './check'
+import {CheckOutputSchema, CheckRunSchema, parseCheckConfig, type CheckRunResult} from './check'
 import {VirtualHost} from './host'
 import {logger} from './logger'
 import {VirtualSandbox} from './sandbox'
 
-test('check runs preserve a results array with a status for each file', async () => {
+test('check runs preserve an outcomes array with a status for each file', async () => {
   const result = {
     type: 'outcomes' as const,
-    results: [
+    outcomes: [
       {type: 'outcome' as const, id: 'src/App.tsx', status: 'passed' as const},
       {type: 'outcome' as const, id: 'src/main.tsx', status: 'failed' as const},
     ],
@@ -23,7 +23,7 @@ test('check runs preserve a results array with a status for each file', async ()
 test('check runs still accept outcomes without IDs', async () => {
   const result = {
     type: 'outcomes' as const,
-    results: [{type: 'outcome' as const, status: 'passed' as const}],
+    outcomes: [{type: 'outcome' as const, status: 'passed' as const}],
   }
   const run = CheckRunSchema.parse(async () => {
     return [result]
@@ -38,7 +38,7 @@ test('check outcome IDs must be strings', async () => {
     return [
       {
         type: 'outcomes',
-        results: [{type: 'outcome', id: 123, status: 'failed'}],
+        outcomes: [{type: 'outcome', id: 123, status: 'failed'}],
       },
     ]
   })
@@ -49,11 +49,37 @@ test('check outcome IDs must be strings', async () => {
 
 test('runtime check runs require an array of result groups', async () => {
   const run = CheckRunSchema.parse(async () => {
-    return {type: 'outcomes', results: []}
+    return {type: 'outcomes', outcomes: []}
   })
   await using sandbox = await VirtualSandbox.create()
 
   await expect(run({logger, sandbox})).rejects.toThrow()
+})
+
+test.each([
+  {type: 'outcomes', results: []},
+  {type: 'measurements', results: []},
+  {type: 'outcomes', measurements: []},
+  {type: 'measurements', outcomes: []},
+])('runtime check runs reject mismatched result fields: %j', async result => {
+  const run = CheckRunSchema.parse(async () => {
+    return [result]
+  })
+  await using sandbox = await VirtualSandbox.create()
+
+  await expect(run({logger, sandbox})).rejects.toThrow()
+})
+
+test.each([
+  {type: 'outcomes', outcomes: [{type: 'outcome', status: 'passed'}]},
+  {type: 'measurements', measurements: [{type: 'measurement', value: 42}], unit: 'ms'},
+])('check output preserves type-specific result fields: %j', result => {
+  const output = {
+    check: {name: 'example', files: []},
+    result,
+  }
+
+  expect(CheckOutputSchema.parse(output)).toEqual(output)
 })
 
 test.each([
@@ -71,7 +97,7 @@ test.each([
       {
         type: 'outcomes',
         id: 'lint',
-        results: [
+        outcomes: [
           {type: 'outcome', id: 'src/App.tsx', status: 'passed'},
           {type: 'outcome', id: 'src/main.tsx', status: 'failed'},
           {type: 'outcome', status: 'skipped'},
@@ -96,22 +122,22 @@ test.each([
         id: 'latency',
         unit: 'ms',
         direction: 'lower-is-better',
-        results: [
+        measurements: [
           {type: 'measurement', value: 42},
           {type: 'error', message: 'Timed out'},
         ],
       },
     ],
   },
-  {input: {outcomes: []}, expected: [{type: 'outcomes', results: []}]},
-  {input: {measurements: []}, expected: [{type: 'measurements', results: []}]},
+  {input: {outcomes: []}, expected: [{type: 'outcomes', outcomes: []}]},
+  {input: {measurements: []}, expected: [{type: 'measurements', measurements: []}]},
   {
     input: {outcomes: [{type: 'outcome', status: 'passed'}]},
-    expected: [{type: 'outcomes', results: [{type: 'outcome', status: 'passed'}]}],
+    expected: [{type: 'outcomes', outcomes: [{type: 'outcome', status: 'passed'}]}],
   },
   {
     input: [{id: 'tests', outcomes: []}],
-    expected: [{type: 'outcomes', id: 'tests', results: []}],
+    expected: [{type: 'outcomes', id: 'tests', outcomes: []}],
   },
   {
     input: [
@@ -119,11 +145,11 @@ test.each([
       {id: 'score', measurements: [{type: 'measurement', value: 0}], direction: 'higher-is-better'},
     ],
     expected: [
-      {type: 'outcomes', id: 'tests', results: [{type: 'outcome', status: 'passed'}]},
+      {type: 'outcomes', id: 'tests', outcomes: [{type: 'outcome', status: 'passed'}]},
       {
         type: 'measurements',
         id: 'score',
-        results: [{type: 'measurement', value: 0}],
+        measurements: [{type: 'measurement', value: 0}],
         direction: 'higher-is-better',
       },
     ],

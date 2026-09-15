@@ -10,9 +10,9 @@ import NextLink from 'next/link'
 type ExperimentRun = {
   id: string
   name: string
-  resultCount: number
-  passedTests: number
-  totalTests: number
+  resultCount: number | null
+  checks: string
+  unavailableReason?: string
 }
 
 type Props = {
@@ -45,19 +45,36 @@ export function Page({experiment, runs}: Props) {
                   header: 'Date',
                   field: 'name',
                   rowHeader: true,
-                  renderCell: row => (
-                    <Link href={`/experiments/${experiment.id}/runs/${row.name}` as Route}>
-                      <time dateTime={row.name}>{row.name}</time>
-                    </Link>
-                  ),
+                  renderCell: row => {
+                    return (
+                      <Link href={`/experiments/${experiment.id}/runs/${row.name}` as Route}>
+                        <time dateTime={row.name}>{row.name}</time>
+                      </Link>
+                    )
+                  },
                 },
-                {id: 'results', header: 'Results', field: 'resultCount', align: 'end'},
                 {
-                  id: 'tests',
-                  header: 'Tests passed',
-                  field: 'passedTests',
+                  id: 'results',
+                  header: 'Results',
+                  field: 'resultCount',
                   align: 'end',
-                  renderCell: row => `${row.passedTests}/${row.totalTests}`,
+                  renderCell: row => {
+                    return row.resultCount ?? 'N/A'
+                  },
+                },
+                {
+                  id: 'checks',
+                  header: 'Checks',
+                  field: 'checks',
+                  align: 'end',
+                },
+                {
+                  id: 'status',
+                  header: 'Status',
+                  field: 'unavailableReason',
+                  renderCell: row => {
+                    return row.unavailableReason ?? 'Available'
+                  },
                 },
               ]}
               data={runs}

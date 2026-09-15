@@ -1,14 +1,15 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import type {RunOutput, RunOutputResult} from './runs'
+import type {CheckOutput, ExperimentOutput, ExperimentTrialOutput, JudgeOutput} from '@primer/agent-eval'
 import type {BenchmarkRun} from './benchmark-results'
+import {formatChecks, summarizeTrials} from './check-results'
 
 const REPOSITORY_ROOT = path.resolve(process.cwd(), '..')
 const LEGACY_ARTIFACTS_DIRECTORY = path.join(REPOSITORY_ROOT, 'artifacts')
 
-type LogMessage = RunOutputResult['assistant']['logs'][number]
-type Walkthrough = RunOutputResult['walkthrough']
-type JudgeDetails = Pick<RunOutputResult['judges'][number], 'config' | 'result'>
+type LogMessage = ExperimentTrialOutput['agent']['sessions'][number]['messages'][number]
+type Walkthrough = ExperimentTrialOutput['walkthrough']
+type JudgeDetails = Pick<JudgeOutput, 'judge' | 'result'>
 
 type TranscriptEntry = {
   id: string
@@ -28,22 +29,16 @@ type WalkthroughDataUrl =
 type RunResult = {
   id: string
   scenarioId: string
-  context?: string
   treatment: string
   model: string
   reasoningEffort?: string
-  testsPassed: number
-  totalTests: number
+  checkSummary: string
   turns: number
   outputTokens: number
   premiumRequests: number
   totalApiDurationMs: number
   sessionDurationMs: number
-  tests: Array<{
-    fullName: string
-    status: string
-    description?: string
-  }>
+  checks: Array<CheckOutput>
   transcript: Array<TranscriptEntry>
   walkthrough: WalkthroughDataUrl
   judges: Array<JudgeDetails>
@@ -52,6 +47,7 @@ type RunResult = {
 type RunDetails = {
   date: string
   results: Array<RunResult>
+  unavailableReason?: string
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -221,9 +217,18 @@ async function getArtifactDataUrl(
   artifactPath: string | undefined,
   mimeType: string,
   runDirectory: string,
+  walkthroughDirectory?: string,
 ): Promise<string | undefined> {
   if (!artifactPath) {
     return undefined
+  }
+
+  if (walkthroughDirectory && artifactPath.startsWith('walkthrough/')) {
+    const relative = path.posix.relative('walkthrough', artifactPath)
+    if (relative === '..' || relative.startsWith('../')) {
+      throw new Error(`Walkthrough path points outside its directory: ${artifactPath}`)
+    }
+    artifactPath = path.join(walkthroughDirectory, relative)
   }
 
   for (const candidate of getArtifactCandidates(artifactPath, runDirectory)) {
@@ -248,12 +253,17 @@ function getImageMimeType(artifactPath: string): string {
   return 'image/png'
 }
 
-async function getWalkthroughDataUrls(walkthrough: Walkthrough, runDirectory: string): Promise<WalkthroughDataUrl> {
+async function getWalkthroughDataUrls(
+  walkthrough: Walkthrough,
+  runDirectory: string,
+  walkthroughDirectory?: string,
+): Promise<WalkthroughDataUrl> {
   if (walkthrough.type === 'Screenshot') {
     const screenshot = await getArtifactDataUrl(
       walkthrough.filepath,
       getImageMimeType(walkthrough.filepath),
       runDirectory,
+      walkthroughDirectory,
     )
     return screenshot
       ? {
@@ -266,7 +276,7 @@ async function getWalkthroughDataUrls(walkthrough: Walkthrough, runDirectory: st
   if (walkthrough.type === 'Screenshots') {
     const sources = await Promise.all(
       walkthrough.screenshots.map(artifactPath => {
-        return getArtifactDataUrl(artifactPath, getImageMimeType(artifactPath), runDirectory)
+        return getArtifactDataUrl(artifactPath, getImageMimeType(artifactPath), runDirectory, walkthroughDirectory)
       }),
     )
     const screenshots = sources.filter((source): source is string => {
@@ -281,7 +291,7 @@ async function getWalkthroughDataUrls(walkthrough: Walkthrough, runDirectory: st
   }
 
   if (walkthrough.type === 'Video') {
-    const video = await getArtifactDataUrl(walkthrough.filepath, 'video/webm', runDirectory)
+    const video = await getArtifactDataUrl(walkthrough.filepath, 'video/webm', runDirectory, walkthroughDirectory)
     return video
       ? {
           type: 'Video',
@@ -295,39 +305,51 @@ async function getWalkthroughDataUrls(walkthrough: Walkthrough, runDirectory: st
   }
 }
 
-async function createExperimentRunDetails(date: string, output: RunOutput, runDirectory: string): Promise<RunDetails> {
+async function createExperimentRunDetails(
+  date: string,
+  output: ExperimentOutput,
+  runDirectory: string,
+): Promise<RunDetails> {
   const treatments = new Map(
-    output.treatments.map(treatment => {
-      return [treatment.id, treatment.config.name]
+    [...output.treatments].map(([id, treatment]) => {
+      return [id, treatment.name]
     }),
   )
 
   return {
     date,
     results: await Promise.all(
-      output.results.map(async result => {
+      [...output.trials.values()].map(async result => {
+        const summary = summarizeTrials([result])
+        const treatment = treatments.get(result.treatmentId)
+        if (treatment === undefined) {
+          throw new Error(`Unknown treatment "${result.treatmentId}" for trial "${result.id}"`)
+        }
         return {
           id: result.id,
           scenarioId: result.scenarioId,
-          treatment: treatments.get(result.treatmentId) ?? 'Unknown treatment',
-          model: result.model,
-          reasoningEffort: result.reasoningEffort,
-          testsPassed: result.testResults.numPassedTests,
-          totalTests: result.testResults.numTotalTests,
-          turns: result.assistant.turns,
-          outputTokens: result.assistant.outputTokens,
-          premiumRequests: result.assistant.premiumRequests,
-          totalApiDurationMs: result.assistant.totalApiDurationMs,
-          sessionDurationMs: result.assistant.sessionDurationMs,
-          tests: result.testResults.tests.map(test => {
-            return {
-              fullName: test.fullName,
-              status: test.status,
-              description: test.description,
-            }
+          treatment,
+          model: result.model.name,
+          reasoningEffort: result.model.reasoningEffort,
+          checkSummary: formatChecks(summary),
+          turns: result.agent.sessions.reduce((total, session) => {
+            return total + session.turns
+          }, 0),
+          outputTokens: summary.outputTokens,
+          premiumRequests: summary.premiumRequests,
+          totalApiDurationMs: summary.totalApiDurationMs,
+          sessionDurationMs: summary.sessionDurationMs,
+          checks: result.checks,
+          walkthrough: await getWalkthroughDataUrls(
+            result.walkthrough,
+            runDirectory,
+            result.artifacts.walkthroughDirectory,
+          ),
+          transcript: result.agent.sessions.flatMap((session, sessionIndex) => {
+            return createTranscript(session.messages).map(entry => {
+              return {...entry, id: `${sessionIndex}:${entry.id}`}
+            })
           }),
-          walkthrough: await getWalkthroughDataUrls(result.walkthrough, runDirectory),
-          transcript: createTranscript(result.assistant.logs),
           judges: createJudgeDetails(result.judges),
         }
       }),
@@ -335,71 +357,20 @@ async function createExperimentRunDetails(date: string, output: RunOutput, runDi
   }
 }
 
-function createJudgeDetails(judges: RunOutputResult['judges']): Array<JudgeDetails> {
+function createJudgeDetails(judges: Array<JudgeOutput>): Array<JudgeDetails> {
   return judges.map(judge => {
     return {
-      config: judge.config,
+      judge: judge.judge,
       result: judge.result,
     }
   })
 }
 
 async function createBenchmarkRunDetails(run: BenchmarkRun): Promise<RunDetails> {
-  const treatments = new Map(
-    [...run.output.treatments].map(([id, treatment]) => {
-      return [id, treatment.name]
-    }),
-  )
-
-  return {
-    date: run.name,
-    results: await Promise.all(
-      [...run.output.trials.values()].map(async trial => {
-        const sessions = trial.agent.sessions
-        return {
-          id: trial.id,
-          scenarioId: trial.scenarioId,
-          context: trial.capabilityId,
-          treatment: treatments.get(trial.treatmentId) ?? 'Unknown treatment',
-          model: trial.model.name,
-          reasoningEffort: trial.model.reasoningEffort,
-          testsPassed: trial.testResults.numPassedTests,
-          totalTests: trial.testResults.numTotalTests,
-          turns: sessions.reduce((total, session) => {
-            return total + session.turns
-          }, 0),
-          outputTokens: sessions.reduce((total, session) => {
-            return total + session.outputTokens
-          }, 0),
-          premiumRequests: sessions.reduce((total, session) => {
-            return total + session.premiumRequests
-          }, 0),
-          totalApiDurationMs: sessions.reduce((total, session) => {
-            return total + session.totalApiDurationMs
-          }, 0),
-          sessionDurationMs: sessions.reduce((total, session) => {
-            return total + session.sessionDurationMs
-          }, 0),
-          tests: trial.testResults.testResults.flatMap(testResult => {
-            return testResult.assertionResults.map(assertion => {
-              return {
-                fullName: assertion.fullName,
-                status: assertion.status,
-                description: assertion.meta.description,
-              }
-            })
-          }),
-          walkthrough: await getWalkthroughDataUrls(trial.walkthrough, run.directory),
-          transcript: createTranscript(
-            sessions.flatMap(session => {
-              return session.messages
-            }),
-          ),
-          judges: createJudgeDetails(trial.judges),
-        }
-      }),
-    ),
+  if (run.output === null) {
+    return {date: run.name, results: [], unavailableReason: run.unavailableReason}
   }
+  return createExperimentRunDetails(run.name, run.output, run.directory)
 }
 
 export {createBenchmarkRunDetails, createExperimentRunDetails, createTranscript, getWalkthroughDataUrls}

@@ -223,4 +223,12 @@ async function listExperimentOutputFiles({
   return outputFiles
 }
 
-export {createExperimentOutput, listExperimentOutputFiles, mergeExperimentOutputFiles, writeExperimentOutput}
+export {
+  ExperimentOutputFileSchema,
+  ExperimentTrialOutputSchema,
+  createExperimentOutput,
+  listExperimentOutputFiles,
+  mergeExperimentOutputFiles,
+  writeExperimentOutput,
+}
+export type {ExperimentOutput, ExperimentTrialOutput}

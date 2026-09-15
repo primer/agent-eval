@@ -1,6 +1,25 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`@primer/agent-eval exports 1`] = `[]`;
+exports[`@primer/agent-eval exports 1`] = `
+[
+  "getBenchmark",
+  "listBenchmarks",
+  "BenchmarkOutputFileSchema",
+  "BenchmarkTrialOutputSchema",
+  "getExperiment",
+  "listExperiments",
+  "ExperimentOutputFileSchema",
+  "ExperimentTrialOutputSchema",
+  "getScenario",
+  "listScenarios",
+  "addCheckResults",
+  "formatCheckSummaries",
+  "getCheckDimensions",
+  "getCheckValue",
+  "createTrialSummary",
+  "createTrialSummaryComparator",
+]
+`;
 
 exports[`@primer/agent-eval/benchmark exports 1`] = `
 [

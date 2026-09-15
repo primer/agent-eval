@@ -286,4 +286,12 @@ async function listBenchmarkOutputFiles({
   return outputFiles
 }
 
-export {createBenchmarkOutput, listBenchmarkOutputFiles, mergeBenchmarkOutputFiles, writeBenchmarkOutput}
+export {
+  BenchmarkOutputFileSchema,
+  BenchmarkTrialOutputSchema,
+  createBenchmarkOutput,
+  listBenchmarkOutputFiles,
+  mergeBenchmarkOutputFiles,
+  writeBenchmarkOutput,
+}
+export type {BenchmarkOutput, BenchmarkTrialOutput}

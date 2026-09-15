@@ -1,6 +1,6 @@
 'use client'
 
-import {CheckCircleFillIcon, CopilotIcon, PersonIcon, XCircleFillIcon} from '@primer/octicons-react'
+import {CopilotIcon, PersonIcon} from '@primer/octicons-react'
 import {Breadcrumbs, FormControl, Select, Stack, UnderlineNav} from '@primer/react'
 import type {RunDetails, TranscriptEntry, WalkthroughDataUrl} from '../../run-details'
 import type {Route} from 'next'
@@ -8,6 +8,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import {useState} from 'react'
 import {JudgeResults} from './JudgeResults'
+import {CheckResults} from './CheckResults'
 
 type RunResult = RunDetails['results'][number]
 
@@ -115,13 +116,13 @@ function UiWalkthrough({scenarioId, walkthrough}: {scenarioId: string; walkthrou
   return <p>No UI walkthrough was recorded.</p>
 }
 
-type ResultTab = 'walkthrough' | 'tests' | 'judges' | 'transcript'
+type ResultTab = 'walkthrough' | 'checks' | 'judges' | 'transcript'
 
 function ResultTabs({index, result}: {index: number; result: RunResult}) {
   const [selectedTab, setSelectedTab] = useState<ResultTab>('walkthrough')
   const tabIds = {
     walkthrough: `result-${index}-walkthrough-tab`,
-    tests: `result-${index}-tests-tab`,
+    checks: `result-${index}-checks-tab`,
     judges: `result-${index}-judges-tab`,
     transcript: `result-${index}-transcript-tab`,
   }
@@ -142,16 +143,16 @@ function ResultTabs({index, result}: {index: number; result: RunResult}) {
           Walkthrough
         </UnderlineNav.Item>
         <UnderlineNav.Item
-          aria-current={selectedTab === 'tests' ? 'page' : undefined}
-          counter={result.tests.length}
-          href={`#result-${index}-tests-panel`}
-          id={tabIds.tests}
+          aria-current={selectedTab === 'checks' ? 'page' : undefined}
+          counter={result.checks.length}
+          href={`#result-${index}-checks-panel`}
+          id={tabIds.checks}
           onSelect={event => {
             event.preventDefault()
-            setSelectedTab('tests')
+            setSelectedTab('checks')
           }}
         >
-          Tests
+          Checks
         </UnderlineNav.Item>
         <UnderlineNav.Item
           aria-current={selectedTab === 'judges' ? 'page' : undefined}
@@ -182,37 +183,7 @@ function ResultTabs({index, result}: {index: number; result: RunResult}) {
         {selectedTab === 'walkthrough' ? (
           <UiWalkthrough scenarioId={result.scenarioId} walkthrough={result.walkthrough} />
         ) : null}
-        {selectedTab === 'tests' ? (
-          <ul className="list-none p-0 m-0">
-            {result.tests.map(test => {
-              const isPassed = test.status === 'passed'
-
-              return (
-                <li
-                  className="border-t border-default py-3 first:border-t-0 first:pt-0 last:pb-0 flex items-start gap-3"
-                  key={test.fullName}
-                >
-                  <span className={`mt-1 shrink-0 ${isPassed ? 'text-success' : 'text-danger'}`}>
-                    {isPassed ? <CheckCircleFillIcon /> : <XCircleFillIcon />}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <span className="text-body-medium">{test.fullName}</span>
-                      <span
-                        className={`rounded-full px-2 py-1 text-caption whitespace-nowrap ${
-                          isPassed ? 'bg-success-muted text-success' : 'bg-danger-muted text-danger'
-                        }`}
-                      >
-                        {test.status}
-                      </span>
-                    </div>
-                    {test.description ? <p className="text-muted mt-1 mb-0">{test.description}</p> : null}
-                  </div>
-                </li>
-              )
-            })}
-          </ul>
-        ) : null}
+        {selectedTab === 'checks' ? <CheckResults checks={result.checks} /> : null}
         {selectedTab === 'judges' ? <JudgeResults judges={result.judges} /> : null}
         {selectedTab === 'transcript' ? (
           <div className="w-full max-w-3xl mx-auto">
@@ -263,6 +234,7 @@ function ScenarioResults({group, index}: {group: ScenarioResultGroup; index: num
 
   const [selectedModel, setSelectedModel] = useState(getModelValue(group.results[0]))
   const [selectedTreatment, setSelectedTreatment] = useState(group.results[0].treatment)
+  const [selectedTrialId, setSelectedTrialId] = useState(group.results[0].id)
   const resultsForSelectedModel = group.results.filter(result => {
     return getModelValue(result) === selectedModel
   })
@@ -271,10 +243,14 @@ function ScenarioResults({group, index}: {group: ScenarioResultGroup; index: num
       return firstTreatment.localeCompare(secondTreatment)
     },
   )
+  const resultsForSelectedTreatment = resultsForSelectedModel.filter(result => {
+    return result.treatment === selectedTreatment
+  })
   const selectedResult =
-    resultsForSelectedModel.find(result => {
-      return result.treatment === selectedTreatment
+    resultsForSelectedTreatment.find(result => {
+      return result.id === selectedTrialId
     }) ??
+    resultsForSelectedTreatment[0] ??
     resultsForSelectedModel[0] ??
     group.results[0]
 
@@ -333,6 +309,25 @@ function ScenarioResults({group, index}: {group: ScenarioResultGroup; index: num
               })}
             </Select>
           </FormControl>
+          {resultsForSelectedTreatment.length > 1 ? (
+            <FormControl>
+              <FormControl.Label>Trial</FormControl.Label>
+              <Select
+                value={selectedResult.id}
+                onChange={event => {
+                  setSelectedTrialId(event.currentTarget.value)
+                }}
+              >
+                {resultsForSelectedTreatment.map((result, trialIndex) => {
+                  return (
+                    <Select.Option key={result.id} value={result.id}>
+                      Trial {trialIndex + 1} ({result.id})
+                    </Select.Option>
+                  )
+                })}
+              </Select>
+            </FormControl>
+          ) : null}
         </div>
       </header>
       <div className="flex flex-col gap-4">
@@ -342,10 +337,8 @@ function ScenarioResults({group, index}: {group: ScenarioResultGroup; index: num
           </h3>
           <dl className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 m-0">
             <div className="bg-muted rounded-md p-3">
-              <dt className="text-caption text-muted">Tests passed</dt>
-              <dd className="text-title-small m-0">
-                {selectedResult.testsPassed}/{selectedResult.totalTests}
-              </dd>
+              <dt className="text-caption text-muted">Checks</dt>
+              <dd className="text-title-small m-0">{selectedResult.checkSummary}</dd>
             </div>
             <div className="bg-muted rounded-md p-3">
               <dt className="text-caption text-muted">Turns</dt>
@@ -368,6 +361,10 @@ function ScenarioResults({group, index}: {group: ScenarioResultGroup; index: num
               <dd className="text-title-small m-0">{formatDuration(selectedResult.sessionDurationMs)}</dd>
             </div>
           </dl>
+          <p className="text-caption text-muted mb-0">
+            Checks average per-check pass percentages or measurement means. Skipped outcomes and errors are excluded
+            from values and shown separately. Usage includes implementation sessions only.
+          </p>
         </section>
         <ResultTabs index={index} result={selectedResult} />
       </div>
@@ -402,6 +399,11 @@ export function RunDetailsPage({resource, run}: Props) {
           <Breadcrumbs.Item selected>{run.date}</Breadcrumbs.Item>
         </Breadcrumbs>
         <h1 className="sr-only">Run results for {resource.name}</h1>
+        {run.unavailableReason ? (
+          <p className="bg-attention-muted border border-attention-muted rounded-md p-4">{run.unavailableReason}</p>
+        ) : resultGroups.length === 0 ? (
+          <p>No trial results were recorded.</p>
+        ) : null}
         <div className="flex flex-col gap-8">
           {resultGroups.map((group, index) => {
             return <ScenarioResults group={group} index={index} key={`${run.date}:${group.scenarioId}`} />

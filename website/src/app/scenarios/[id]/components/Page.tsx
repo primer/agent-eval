@@ -39,12 +39,45 @@ export function Page({scenario, experiments}: Props) {
             </h2>
             <p className="text-body-large text-default m-0 max-w-[80ch]">{scenario.prompt}</p>
           </section>
-          <section aria-labelledby="tests-heading">
-            <h2 className="text-title-medium mb-3" id="tests-heading">
-              Tests
+          <section aria-labelledby="checks-heading">
+            <h2 className="text-title-medium mb-3" id="checks-heading">
+              Checks
+            </h2>
+            {scenario.checks.length === 0 ? (
+              <p>No checks are configured.</p>
+            ) : (
+              <ul className="list-none p-0 flex flex-col gap-3">
+                {scenario.checks.map((check, index) => {
+                  return (
+                    <li className="border border-default rounded-md p-4" key={index}>
+                      <h3 className="text-title-small m-0">{check.name}</h3>
+                      {check.description ? <p>{check.description}</p> : null}
+                      {check.files.map(file => {
+                        return (
+                          <details className="mt-3" key={file.path}>
+                            <summary className="cursor-pointer">{file.path}</summary>
+                            {file.contents === null ? (
+                              <p>No text preview is available for this file.</p>
+                            ) : (
+                              <pre className="text-code-block bg-muted rounded-md p-4 overflow-x-auto">
+                                <code>{file.contents}</code>
+                              </pre>
+                            )}
+                          </details>
+                        )
+                      })}
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </section>
+          <section aria-labelledby="config-heading">
+            <h2 className="text-title-medium mb-3" id="config-heading">
+              Scenario configuration
             </h2>
             <pre className="text-code-block text-default bg-muted border-default rounded-md m-0 overflow-x-auto border p-4">
-              <code>{scenario.test}</code>
+              <code>{scenario.config}</code>
             </pre>
           </section>
           <section aria-labelledby="experiments-heading">

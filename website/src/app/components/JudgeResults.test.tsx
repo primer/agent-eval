@@ -3,10 +3,11 @@ import {expect, test} from 'vitest'
 import type {JudgeDetails} from '../../run-details'
 import {JudgeResults} from './JudgeResults'
 
-const config: JudgeDetails['config'] = {
+const judge: JudgeDetails['judge'] = {
   name: 'empty-state-copy',
   description: 'Evaluate the empty state.',
-  judge: {instructions: 'Inspect the user-facing copy.'},
+  instructions: 'Inspect the user-facing copy.',
+  files: [],
   scores: [
     {value: 0, description: 'Clear copy.'},
     {value: 10, description: 'Needs work.'},
@@ -18,7 +19,7 @@ test('renders the raw score, matching anchor, rationale, and escaped file-backed
     <JudgeResults
       judges={[
         {
-          config,
+          judge,
           result: {
             type: 'result',
             score: 0,
@@ -56,8 +57,8 @@ test('renders errors and unknown results independently for multiple judges', () 
   const html = renderToStaticMarkup(
     <JudgeResults
       judges={[
-        {config, result: {type: 'error', message: 'Invalid report: <not JSON>'}},
-        {config: {...config, name: 'another-judge'}, result: {type: 'unknown'}},
+        {judge, result: {type: 'error', message: 'Invalid report: <not JSON>'}},
+        {judge: {...judge, name: 'another-judge'}, result: {type: 'unknown'}},
       ]}
     />,
   )
@@ -79,7 +80,7 @@ test('renders a scored result with no file-backed findings or optional configura
     <JudgeResults
       judges={[
         {
-          config: {...config, description: undefined, judge: {}},
+          judge: {...judge, description: undefined, instructions: undefined},
           result: {type: 'result', score: 10, rationale: 'No files were available.', findings: []},
         },
       ]}

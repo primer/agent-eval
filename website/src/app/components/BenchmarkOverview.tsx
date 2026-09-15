@@ -52,7 +52,9 @@ function BenchmarkResultsTable({
       </Table.Title>
       <Table.Subtitle as="p" id="benchmark-overview-description">
         Each metric is the Benchmark result across all capabilities, followed by the percent change from Control in
-        parentheses. Models are ranked by test performance, followed by resource usage.
+        parentheses. Models use equal-weight ranks across shared checks with complete, error-free values and a scoring
+        direction. Implementation-agent usage breaks ties. Checks average per-check, per-trial pass percentages or
+        measurement means; units and directions stay separate. Skips and errors are shown separately.
         {date ? (
           <>
             {' '}
@@ -81,12 +83,12 @@ function BenchmarkResultsTable({
             field: 'reasoningEffort',
           },
           {
-            id: 'tests',
-            header: 'Tests',
+            id: 'checks',
+            header: 'Checks',
             field: 'comparison',
             align: 'end',
             renderCell: row => {
-              return <Metric value={row.comparison.tests} />
+              return <Metric value={row.comparison.checks} />
             },
           },
           {
@@ -135,8 +137,15 @@ function BenchmarkResultsTable({
 export function BenchmarkOverview({benchmark, overview}: {benchmark: Benchmark; overview: BenchmarkOverviewData}) {
   return (
     <Stack padding="normal" gap="spacious">
+      {overview.unavailableRuns.map(run => {
+        return (
+          <p className="bg-attention-muted border border-attention-muted rounded-md p-4 m-0" key={run.date}>
+            <Link href={`/benchmarks/${benchmark.id}/runs/${run.date}` as Route}>{run.date}</Link>: {run.reason}
+          </p>
+        )
+      })}
       <BenchmarkResultsTable benchmark={benchmark} date={overview.date} results={overview.results} />
-      <BenchmarkTrends capabilities={benchmark.capabilities} points={overview.trends} />
+      <BenchmarkTrends metrics={overview.metrics} points={overview.trends} />
     </Stack>
   )
 }

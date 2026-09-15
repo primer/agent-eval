@@ -171,6 +171,41 @@ export COPILOT_GITHUB_TOKEN=... # A GitHub token with access to the Copilot API
 npx @primer/agent-eval experiment run example --experiments ./experiments --scenarios ./scenarios
 ```
 
+## Programmatic reporting APIs
+
+Import discovery and reporting APIs from the package root. Configuration helpers
+remain in the `/benchmark`, `/experiment`, and `/scenario` entry points.
+
+```ts
+import {getExperiment, listScenarios} from '@primer/agent-eval'
+
+const scenarios = await listScenarios({directory: './scenarios'})
+const experiment = await getExperiment({
+  name: 'example',
+  experimentsDirectory: './experiments',
+  scenariosDirectory: './scenarios',
+})
+```
+
+The root also exports `getBenchmark`, `listBenchmarks`, `listExperiments`,
+`getScenario`, and the corresponding `Benchmark`, `Experiment`, and `Scenario`
+types. Getters select resources by `name` (the filename or directory name).
+
+For saved results, validate manifests with `BenchmarkOutputFileSchema` or
+`ExperimentOutputFileSchema`, then read the bundle-relative files in `trials`
+and validate them with `BenchmarkTrialOutputSchema` or
+`ExperimentTrialOutputSchema`. Check that each parsed trial's `id` matches its
+manifest key. The `BenchmarkOutput` and `ExperimentOutput` types describe hydrated
+results with `Map` collections, while the file schemas use JSON records.
+
+`CheckOutput` and `JudgeOutput` describe recorded evaluations.
+`createTrialSummary`, `addCheckResults`, `getCheckDimensions`, `getCheckValue`,
+`formatCheckSummaries`, and `createTrialSummaryComparator` support custom reports
+with the same aggregation and ordering as the CLI. When assembling a
+`TrialSummary`, record the trial count in `runs`, per-scenario counts in
+`scenarioRuns`, check results in `checks`, and implementation-session usage
+totals. Do not include judge-session usage in those totals.
+
 ## CLI
 
 Install the package and run the `agent-eval` binary with a GitHub token:

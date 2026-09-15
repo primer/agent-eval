@@ -1,6 +1,7 @@
 import path from 'node:path'
 import {defineCommand} from 'citty'
 import {getExperiment} from '../../experiment/get'
+import {createExperimentReport} from '../../experiment/report'
 import {
   createExperimentOutput,
   listExperimentOutputFiles,
@@ -188,6 +189,7 @@ const experimentCommand = defineCommand({
             })
             const output = createExperimentOutput({experiment: manifest.experiment, runPlanResult})
             await writeExperimentOutput({output, outputPath})
+            process.stdout.write(`${createExperimentReport({experiment: manifest.experiment, runPlanResult})}\n`)
           },
         }),
       },
@@ -248,6 +250,7 @@ const experimentCommand = defineCommand({
           output,
           outputPath,
         })
+        process.stdout.write(`${createExperimentReport({experiment, runPlanResult})}\n`)
       },
     }),
   },

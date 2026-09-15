@@ -1,6 +1,7 @@
 import path from 'node:path'
 import {defineCommand} from 'citty'
 import {getBenchmark} from '../../benchmark/get'
+import {createBenchmarkReport} from '../../benchmark/report'
 import {
   benchmarksOption,
   concurrencyOption,
@@ -72,7 +73,6 @@ export const benchmark = defineCommand({
           output,
           outputPath,
         })
-
         logger.info('Successfully merged benchmark results into: %s', path.relative(process.cwd(), outputPath))
       },
     }),
@@ -213,6 +213,7 @@ export const benchmark = defineCommand({
               output,
               outputPath,
             })
+            process.stdout.write(`${createBenchmarkReport({benchmark: manifest.benchmark, runPlanResult})}\n`)
           },
         }),
       },
@@ -278,6 +279,7 @@ export const benchmark = defineCommand({
           output,
           outputPath,
         })
+        process.stdout.write(`${createBenchmarkReport({benchmark, runPlanResult})}\n`)
       },
     }),
   },

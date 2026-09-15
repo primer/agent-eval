@@ -134,6 +134,23 @@ COPILOT_GITHUB_TOKEN=... agent-eval benchmark run design-system \
   --scenarios ./scenarios
 ```
 
+### Run reports
+
+Both `run` and `plan run` commands print a report after saving their result
+bundle. Experiment reports group results by treatment, scenario, and model.
+Benchmark reports group results by capability, scenario, and model, with usage
+changes relative to the control treatment. Plan-run reports cover only the
+selected shard.
+
+Usage columns sum `outputTokens`, `premiumRequests`, `sessionDurationMs`, and
+`totalApiDurationMs` across each trial's `agent.sessions`. Judge sessions are
+excluded. Benchmark percentage changes use `(benchmark - control) / control`;
+a missing comparison side or a zero baseline with a nonzero treatment value
+is shown as `N/A`. Run counts are included so unequal shard sizes are visible.
+
+Reports currently include run counts and agent usage only, without judge scores
+or test results.
+
 ### Result bundles
 
 Keep the output file and artifacts in one directory:
@@ -158,7 +175,7 @@ agent, model, judge, artifact, and walkthrough data. Artifact paths inside trial
 files retain their runtime locations. `--output-dir` creates `output.json` and
 `artifacts/` within the selected directory.
 
-Trials include a `judges` array. Each entry preserves the judge's `config`,
+Trials include a `judges` array. Each entry preserves the `judge` configuration,
 `result`, and `agent.session` (including its messages and usage). Judge sessions
 are separate from the implementation agent's sessions. Successful results have
 `type: "result"` with a `score`, `rationale`, and file-backed `findings`. Missing

@@ -3,6 +3,7 @@ import * as z from 'zod/mini'
 import {DefaultHost, type Host} from '../host'
 import {ModelVariantSchema} from '../model'
 import type {RunPlanResult} from '../plan'
+import {resolveTrialArtifactsPath} from '../result-path'
 import {ScenarioSchema} from '../scenario/scenario'
 import {TreatmentSchema} from '../treatment'
 import {
@@ -137,10 +138,7 @@ async function mergeExperimentOutputFiles({
         throw new Error(`Cannot merge experiment output files: duplicate trial ID found: ${key}`)
       }
 
-      const filepath = path.join(outputDirectory, value)
-      if (!host.existsSync(filepath)) {
-        throw new Error(`Cannot merge experiment output files: trial artifacts file does not exist: ${filepath}`)
-      }
+      const filepath = await resolveTrialArtifactsPath(host, outputDirectory, value)
 
       const contents = await host.fs.readFile(filepath, 'utf-8')
       const trialOutput = ExperimentTrialOutputSchema.parse(JSON.parse(contents))

@@ -607,7 +607,7 @@ describe('run reports', () => {
   })
 })
 
-describe.each(['benchmark'] as Array<'benchmark' | 'experiment'>)('%s trial artifact paths', kind => {
+describe.each(['benchmark', 'experiment'] as const)('%s trial artifact paths', kind => {
   const mergeOutputFiles = kind === 'benchmark' ? mergeBenchmarkOutputFiles : mergeExperimentOutputFiles
 
   test.each([

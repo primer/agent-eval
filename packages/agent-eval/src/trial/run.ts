@@ -650,5 +650,12 @@ const saveStage = {
   },
 }
 
-export {TrialAgentSchema, TrialArtifactsSchema, TrialJudgesSchema, TrialWalkthroughSchema, runTrial}
+export {
+  TrialAgentSchema,
+  TrialArtifactsSchema,
+  TrialJudgesSchema,
+  TrialWalkthroughSchema,
+  runTrial,
+  RunTrialResultSchema,
+}
 export type {RunTrialResult}

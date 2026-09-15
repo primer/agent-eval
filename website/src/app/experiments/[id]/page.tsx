@@ -17,13 +17,12 @@ export default async function ExperimentPage(props: ExperimentPageProps) {
     <Page
       experiment={experiment}
       runs={runs.map(run => {
-        const trials = run.output ? [...run.output.trials.values()] : null
+        const trials = [...run.output.trials.values()]
         return {
           id: run.id,
           name: run.name,
-          resultCount: trials?.length ?? null,
-          checks: trials ? formatChecks(summarizeTrials(trials)) : 'Unavailable',
-          unavailableReason: run.unavailableReason,
+          resultCount: trials.length,
+          checks: formatChecks(summarizeTrials(trials)),
         }
       })}
     />

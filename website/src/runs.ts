@@ -3,7 +3,7 @@ import {existsSync, type Dirent} from 'node:fs'
 import path from 'node:path'
 
 import type {ExperimentOutput} from '@primer/agent-eval'
-import {readExperimentOutput, type Bundle} from './result-files'
+import {readExperimentOutput} from './result-files'
 
 const RESULTS_DIR = path.resolve(process.cwd(), '..', 'results', 'experiments')
 
@@ -13,7 +13,8 @@ type Run = {
   name: string
   directory: string
   date: Date
-} & Omit<Bundle<ExperimentOutput>, 'id'>
+  output: ExperimentOutput
+}
 
 function isRunName(name: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(name)) {
@@ -104,9 +105,12 @@ async function find(experimentId: string, name: string): Promise<Run | null> {
   }
 
   const outputFile = path.join(directory, 'output.json')
-  const bundle = await readExperimentOutput(outputFile)
-  if (bundle.id !== experimentId) {
-    throw new Error(`Experiment ID "${bundle.id}" does not match "${experimentId}" in ${outputFile}`)
+  const output = await readExperimentOutput(outputFile)
+  if (output === null) {
+    return null
+  }
+  if (output.id !== experimentId) {
+    throw new Error(`Experiment ID "${output.id}" does not match "${experimentId}" in ${outputFile}`)
   }
 
   return {
@@ -115,8 +119,7 @@ async function find(experimentId: string, name: string): Promise<Run | null> {
     name,
     directory,
     date: new Date(`${name}T00:00:00.000Z`),
-    output: bundle.output,
-    unavailableReason: bundle.unavailableReason,
+    output,
   }
 }
 

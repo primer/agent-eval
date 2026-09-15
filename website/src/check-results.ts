@@ -28,10 +28,10 @@ function formatChecks(summary: TrialSummary, control?: TrialSummary): string {
   return String(formatted.Checks ?? 'N/A')
 }
 
-function sortTrialGroups(
-  groups: Array<Array<ExperimentTrialOutput>>,
+function sortTrialGroups<Trial extends ExperimentTrialOutput>(
+  groups: Array<Array<Trial>>,
   treatmentId: string,
-): Array<Array<ExperimentTrialOutput>> {
+): Array<Array<Trial>> {
   const entries = groups.map(group => {
     return {
       group,

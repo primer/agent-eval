@@ -12,6 +12,7 @@ type Comparison = BenchmarkPageResults['comparison']
 
 type TableResult = {
   id: string
+  capability: string
   scenario: string
   scenarioId?: string
   model: string
@@ -22,38 +23,52 @@ type TableResult = {
 type BenchmarkRun = {
   id: string
   name: string
-  resultCount: number | null
+  resultCount: number
   checks: string
-  unavailableReason?: string
 }
 
 function createTableResults(results: BenchmarkPageResults): Array<TableResult> {
   return [
     {
       id: 'all',
+      capability: 'All capabilities',
       scenario: 'All scenarios',
       model: 'All models',
       reasoningEffort: '',
       comparison: results.comparison,
     },
-    ...results.scenarios.flatMap(scenario => {
+    ...results.capabilities.flatMap(capability => {
       return [
         {
-          id: scenario.id,
-          scenario: scenario.id,
-          scenarioId: scenario.id,
+          id: capability.id,
+          capability: capability.name,
+          scenario: 'All scenarios',
           model: 'All models',
           reasoningEffort: '',
-          comparison: scenario.comparison,
+          comparison: capability.comparison,
         },
-        ...scenario.models.map(model => {
-          return {
-            id: `${scenario.id}-${model.id}`,
-            scenario: '',
-            model: model.model,
-            reasoningEffort: model.reasoningEffort,
-            comparison: model.comparison,
-          }
+        ...capability.scenarios.flatMap(scenario => {
+          return [
+            {
+              id: `${capability.id}-${scenario.id}`,
+              capability: '',
+              scenario: scenario.id,
+              scenarioId: scenario.id,
+              model: 'All models',
+              reasoningEffort: '',
+              comparison: scenario.comparison,
+            },
+            ...scenario.models.map(model => {
+              return {
+                id: `${capability.id}-${scenario.id}-${model.id}`,
+                capability: '',
+                scenario: '',
+                model: model.model,
+                reasoningEffort: model.reasoningEffort,
+                comparison: model.comparison,
+              }
+            }),
+          ]
         }),
       ]
     }),
@@ -83,10 +98,6 @@ export function Page({
         <h1>{benchmark.name}</h1>
         <p>{benchmark.description}</p>
       </header>
-      <p className="bg-attention-muted border border-attention-muted rounded-md p-4">
-        Capability-level results are unavailable because the current result format does not record each trial&apos;s
-        capability. Results below aggregate trials by scenario and model without inferring capability membership.
-      </p>
       <section>
         <h2 className="text-title-medium pb-4">Runs</h2>
         {runs.length > 0 ? (
@@ -112,23 +123,12 @@ export function Page({
                   header: 'Results',
                   field: 'resultCount',
                   align: 'end',
-                  renderCell: row => {
-                    return row.resultCount ?? 'N/A'
-                  },
                 },
                 {
                   id: 'checks',
                   header: 'Checks',
                   field: 'checks',
                   align: 'end',
-                },
-                {
-                  id: 'status',
-                  header: 'Status',
-                  field: 'unavailableReason',
-                  renderCell: row => {
-                    return row.unavailableReason ?? 'Available'
-                  },
                 },
               ]}
               data={runs}
@@ -143,28 +143,35 @@ export function Page({
       </section>
       {results ? (
         <Table.Container>
-          <Table.Title as="h2" id="scenario-results-heading">
-            Scenario performance
+          <Table.Title as="h2" id="capability-results-heading">
+            Capability performance
           </Table.Title>
-          <Table.Subtitle as="p" id="scenario-results-description">
-            Benchmark results are shown first, followed by the percent change from Control in parentheses. Checks
-            average per-check, per-trial pass percentages or measurement means, keeping units and directions separate.
-            Skips and errors are excluded from values and shown separately. Latest results:{' '}
+          <Table.Subtitle as="p" id="capability-results-description">
+            Capability rows aggregate their scenarios and models. Benchmark results are shown first, followed by the
+            percent change from Control in parentheses. Checks average per-check, per-trial pass percentages or
+            measurement means, keeping units and directions separate. Skips and errors are excluded from values and
+            shown separately. Latest results:{' '}
             <Link href={`/benchmarks/${benchmark.id}/runs/${results.date}` as Route}>
               <time dateTime={results.date}>{results.date}</time>
             </Link>
             .
           </Table.Subtitle>
           <DataTable
-            aria-describedby="scenario-results-description"
-            aria-labelledby="scenario-results-heading"
+            aria-describedby="capability-results-description"
+            aria-labelledby="capability-results-heading"
             cellPadding="condensed"
             columns={[
+              {
+                id: 'capability',
+                header: 'Capability',
+                field: 'capability',
+                rowHeader: true,
+                maxWidth: '32ch',
+              },
               {
                 id: 'scenario',
                 header: 'Scenario',
                 field: 'scenario',
-                rowHeader: true,
                 maxWidth: '1fr',
                 renderCell: row => {
                   return row.scenarioId ? (

@@ -375,13 +375,16 @@ function TrendChart({
 }
 
 export function BenchmarkTrends({
+  capabilities,
   metrics: allMetrics,
   points,
 }: {
+  capabilities: Array<{id: string; name: string}>
   metrics: Array<BenchmarkTrendMetricDefinition>
   points: Array<BenchmarkTrendPoint>
 }) {
   const [tableMetricId, setTableMetricId] = useState<BenchmarkTrendMetricId>('outputTokens')
+  const [selectedCapabilityId, setSelectedCapabilityId] = useState('')
   const [selectedScenarioId, setSelectedScenarioId] = useState('')
   const [selectedSeries, setSelectedSeries] = useState<string | null>(null)
   const [hoveredSeries, setHoveredSeries] = useState<string | null>(null)
@@ -389,16 +392,23 @@ export function BenchmarkTrends({
   const [hoveredTreatment, setHoveredTreatment] = useState<TrendTreatment | null>(null)
   const scenarios = [
     ...new Set(
-      points.flatMap(point => {
-        return point.scenarioId === null ? [] : [point.scenarioId]
-      }),
+      points
+        .filter(point => {
+          return point.capabilityId === (selectedCapabilityId || null)
+        })
+        .flatMap(point => {
+          return point.scenarioId === null ? [] : [point.scenarioId]
+        }),
     ),
   ].toSorted()
   const filteredPoints = points.filter(point => {
-    return point.scenarioId === (selectedScenarioId || null)
+    return point.capabilityId === (selectedCapabilityId || null) && point.scenarioId === (selectedScenarioId || null)
   })
   const metrics = allMetrics.filter(metric => {
-    return !selectedScenarioId || !metric.scenarioId || metric.scenarioId === selectedScenarioId
+    return (
+      !metric.scenarioId ||
+      (scenarios.includes(metric.scenarioId) && (!selectedScenarioId || metric.scenarioId === selectedScenarioId))
+    )
   })
   const dates = [
     ...new Set(
@@ -456,11 +466,37 @@ export function BenchmarkTrends({
             </Heading>
             <Text as="p" className={styles.description}>
               Strong lines show Benchmark results and muted lines show Control over time. Check charts average each
-              check&apos;s per-trial values; skipped outcomes and errors are excluded. Capability filtering is
-              unavailable because trial capability IDs are not recorded.
+              check&apos;s per-trial values; skipped outcomes and errors are excluded.
             </Text>
           </Stack>
           <div className={styles.filters}>
+            <FormControl>
+              <FormControl.Label>Capability</FormControl.Label>
+              <Select
+                value={selectedCapabilityId}
+                onChange={event => {
+                  const capabilityId = event.currentTarget.value
+                  setSelectedCapabilityId(capabilityId)
+                  if (
+                    selectedScenarioId &&
+                    !points.some(point => {
+                      return point.capabilityId === (capabilityId || null) && point.scenarioId === selectedScenarioId
+                    })
+                  ) {
+                    setSelectedScenarioId('')
+                  }
+                }}
+              >
+                <Select.Option value="">All capabilities</Select.Option>
+                {capabilities.map(capability => {
+                  return (
+                    <Select.Option key={capability.id} value={capability.id}>
+                      {capability.name}
+                    </Select.Option>
+                  )
+                })}
+              </Select>
+            </FormControl>
             <FormControl>
               <FormControl.Label>Scenario</FormControl.Label>
               <Select
@@ -480,6 +516,7 @@ export function BenchmarkTrends({
               </Select>
             </FormControl>
           </div>
+          {filteredPoints.length === 0 ? <p role="status">No results were recorded for the selected filters.</p> : null}
         </div>
         <Stack gap="normal">
           <div className={styles.legendGroups}>

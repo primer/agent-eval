@@ -9,6 +9,7 @@ import {
   createBenchmarkOutput,
   listBenchmarkOutputFiles,
   mergeBenchmarkOutputFiles,
+  parseBenchmarkTrialOutput,
   writeBenchmarkOutput,
 } from './benchmark/output'
 import {createBenchmarkReport} from './benchmark/report'
@@ -68,6 +69,7 @@ function createResult({
   treatment = 'Benchmark',
   model = {name: 'gpt-5.5', reasoningEffort: 'medium'},
   outputTokens = 10,
+  capabilityId = 'capability',
 }: {
   id?: string
   checks?: Array<CheckOutput>
@@ -75,6 +77,7 @@ function createResult({
   treatment?: string
   model?: ModelVariant
   outputTokens?: number
+  capabilityId?: string
 } = {}): RunPlanResult<BenchmarkTrial>['results'][number] {
   const scenario = {
     id: scenarioId,
@@ -89,7 +92,7 @@ function createResult({
     scenario,
     treatment: createTreatment({name: treatment}),
     model,
-    capability: {id: 'capability', name: 'Capability', scenarios: [scenario]},
+    capability: {id: capabilityId, name: 'Capability', scenarios: [scenario]},
   }
   return {
     trial,
@@ -660,12 +663,13 @@ describe.each(['benchmark', 'experiment'] as const)('%s check result bundles', k
     })
   })
 
-  test('accepts older trial artifacts without checks', async () => {
+  test('defaults omitted checks to an empty list', async () => {
     const results = [createResult({treatment: ControlTreatment.name})]
     const {result, trial} = results[0]
     const host = VirtualHost.create({
       '/output/artifacts/trial/trial.json': JSON.stringify({
         id: trial.id,
+        capabilityId: trial.capability.id,
         agent: result.agent,
         artifacts: result.artifacts,
         judges: result.judges,
@@ -678,8 +682,71 @@ describe.each(['benchmark', 'experiment'] as const)('%s check result bundles', k
     const file = {id: 'example', scenarios: {}, treatments: {}, trials: {trial: 'artifacts/trial/trial.json'}}
     const merged =
       kind === 'benchmark'
-        ? await mergeBenchmarkOutputFiles({host, outputs: [{...file, capabilities: {}}], outputDirectory: '/output'})
+        ? await mergeBenchmarkOutputFiles({
+            host,
+            outputs: [
+              {
+                ...file,
+                capabilities: {
+                  capability: {id: 'capability', name: 'Capability', scenarioIds: ['example']},
+                },
+              },
+            ],
+            outputDirectory: '/output',
+          })
         : await mergeExperimentOutputFiles({host, outputs: [file], outputDirectory: '/output'})
     expect(merged.trials.get('trial')?.checks).toEqual([])
+  })
+})
+
+describe('benchmark capability output', () => {
+  test('preserves explicit capability IDs through creation, serialization, and shard merging', async () => {
+    const results = [createResult({id: 'first', capabilityId: 'a'}), createResult({id: 'second', capabilityId: 'b'})]
+    const host = VirtualHost.create()
+    for (const [index, result] of results.entries()) {
+      await host.fs.mkdir(result.result.artifacts.directory, {recursive: true})
+      const output = createBenchmarkOutput({benchmark: benchmark(results), runPlanResult: {results: [result]}})
+      expect(output.trials.get(result.trial.id)?.capabilityId).toBe(result.trial.capability.id)
+      await writeBenchmarkOutput({host, output, outputPath: `/output/output-${index}.json`})
+    }
+    const files = await listBenchmarkOutputFiles({host, outputDirectory: '/output'})
+    const merged = await mergeBenchmarkOutputFiles({
+      host,
+      outputs: files.map(([file]) => {
+        return file
+      }),
+      outputDirectory: '/output',
+    })
+    expect(merged.trials.get('first')?.capabilityId).toBe('a')
+    expect(merged.trials.get('second')?.capabilityId).toBe('b')
+    await writeBenchmarkOutput({host, output: merged, outputPath: '/output/output.json'})
+    for (const {trial} of results) {
+      const json = JSON.parse(await host.fs.readFile(`/output/artifacts/${trial.id}/${trial.id}.json`, 'utf8'))
+      expect(json.capabilityId).toBe(trial.capability.id)
+    }
+  })
+
+  test('requires an explicit capability ID even when the metadata is unambiguous', () => {
+    const results = [createResult()]
+    const output = createBenchmarkOutput({benchmark: benchmark(results), runPlanResult: {results}})
+    const json: Record<string, unknown> = {...output.trials.get('trial')}
+    delete json.capabilityId
+    expect(() => {
+      return parseBenchmarkTrialOutput(json, output.capabilities)
+    }).toThrow('capabilityId')
+  })
+
+  test('rejects explicit unknown capability IDs and invalid scenario membership', () => {
+    const results = [createResult()]
+    const output = createBenchmarkOutput({benchmark: benchmark(results), runPlanResult: {results}})
+    const trial = output.trials.get('trial')
+    for (const json of [
+      {...trial, capabilityId: 'unknown'},
+      {...trial, scenarioId: 'other'},
+    ]) {
+      expect(() => {
+        return parseBenchmarkTrialOutput(json, output.capabilities)
+      }).toThrow('Invalid capability')
+    }
   })
 })

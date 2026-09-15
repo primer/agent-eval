@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import type {BenchmarkOutput, BenchmarkTrialOutput, CheckSummary} from '@primer/agent-eval'
-import {readBenchmarkOutput, type Bundle} from './result-files'
+import {readBenchmarkOutput} from './result-files'
 import {formatChecks, sortTrialGroups, summarizeTrials} from './check-results'
 
 const {getCheckValue} = await import(
@@ -26,6 +26,12 @@ export type BenchmarkPageResults = {
     id: string
     comparison: BenchmarkComparison
     models: Array<BenchmarkOverviewResult>
+  }>
+  capabilities: Array<{
+    id: string
+    name: string
+    comparison: BenchmarkComparison
+    scenarios: BenchmarkPageResults['scenarios']
   }>
 }
 
@@ -57,6 +63,7 @@ export type BenchmarkTrendMetric = {
 export type BenchmarkTrendPoint = {
   id: string
   date: string
+  capabilityId: string | null
   scenarioId: string | null
   model: string
   reasoningEffort: string
@@ -68,7 +75,7 @@ export type BenchmarkOverviewData = {
   results: Array<BenchmarkOverviewResult>
   trends: Array<BenchmarkTrendPoint>
   metrics: Array<BenchmarkTrendMetricDefinition>
-  unavailableRuns: Array<{date: string; reason: string}>
+  capabilities: Array<{id: string; name: string}>
 }
 
 type OutputCandidate = {
@@ -81,7 +88,8 @@ export type BenchmarkRun = {
   name: string
   directory: string
   date: Date
-} & Omit<Bundle<BenchmarkOutput>, 'id'>
+  output: BenchmarkOutput
+}
 
 function isRunDate(value: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
@@ -282,6 +290,7 @@ function createTrendPoint(
   date: string,
   trials: Array<BenchmarkTrialOutput>,
   output: BenchmarkOutput,
+  capabilityId: string | null,
   scenarioId: string | null,
   definitions: Map<string, BenchmarkTrendMetricDefinition>,
 ): BenchmarkTrendPoint {
@@ -328,8 +337,9 @@ function createTrendPoint(
     )
   }
   return {
-    id: JSON.stringify([date, scenarioId, model.name, model.reasoningEffort]),
+    id: JSON.stringify([date, capabilityId, scenarioId, model.name, model.reasoningEffort]),
     date,
+    capabilityId,
     scenarioId,
     model: model.name,
     reasoningEffort: model.reasoningEffort,
@@ -338,10 +348,15 @@ function createTrendPoint(
 }
 
 export function getBenchmarkOverviewData(runs: Array<BenchmarkRun>): BenchmarkOverviewData {
-  const available = runs.filter((run): run is BenchmarkRun & {output: BenchmarkOutput} => {
-    return run.output !== null
-  })
-  const latest = available[0]
+  const latest = runs[0]
+  const capabilities = new Map<string, {id: string; name: string}>()
+  for (const run of runs) {
+    for (const capability of run.output.capabilities.values()) {
+      if (!capabilities.has(capability.id)) {
+        capabilities.set(capability.id, {id: capability.id, name: capability.name})
+      }
+    }
+  }
   const definitions = new Map<string, BenchmarkTrendMetricDefinition>(
     [
       {id: 'outputTokens', label: 'Output tokens'},
@@ -352,22 +367,30 @@ export function getBenchmarkOverviewData(runs: Array<BenchmarkRun>): BenchmarkOv
       return [metric.id, metric]
     }),
   )
-  const trends = available.flatMap(run => {
+  const trends = runs.flatMap(run => {
     const trials = [...run.output.trials.values()]
-    const scenarioIds = new Set(
-      trials.map(trial => {
-        return trial.scenarioId
-      }),
-    )
-    return [null, ...scenarioIds].flatMap(scenarioId => {
-      const selected =
-        scenarioId === null
+    return [null, ...run.output.capabilities.keys()].flatMap(capabilityId => {
+      const capabilityTrials =
+        capabilityId === null
           ? trials
           : trials.filter(trial => {
-              return trial.scenarioId === scenarioId
+              return trial.capabilityId === capabilityId
             })
-      return groupTrialsByModel(selected).map(group => {
-        return createTrendPoint(run.name, group, run.output, scenarioId, definitions)
+      const scenarioIds = new Set(
+        capabilityTrials.map(trial => {
+          return trial.scenarioId
+        }),
+      )
+      return [null, ...scenarioIds].flatMap(scenarioId => {
+        const selected =
+          scenarioId === null
+            ? capabilityTrials
+            : capabilityTrials.filter(trial => {
+                return trial.scenarioId === scenarioId
+              })
+        return groupTrialsByModel(selected).map(group => {
+          return createTrendPoint(run.name, group, run.output, capabilityId, scenarioId, definitions)
+        })
       })
     })
   })
@@ -381,9 +404,7 @@ export function getBenchmarkOverviewData(runs: Array<BenchmarkRun>): BenchmarkOv
     results: latest ? createModelResults([...latest.output.trials.values()], latest.output) : [],
     trends,
     metrics: [...definitions.values()],
-    unavailableRuns: runs.flatMap(run => {
-      return run.unavailableReason ? [{date: run.name, reason: run.unavailableReason}] : []
-    }),
+    capabilities: [...capabilities.values()],
   }
 }
 
@@ -393,17 +414,19 @@ export async function listBenchmarkRuns(benchmarkId: string): Promise<Array<Benc
   })
   const runs: Array<BenchmarkRun> = []
   for (const candidate of candidates) {
-    const bundle = await readBenchmarkOutput(candidate.filepath)
-    if (bundle.id !== benchmarkId) {
-      throw new Error(`Benchmark ID "${bundle.id}" does not match "${benchmarkId}" in ${candidate.filepath}`)
+    const output = await readBenchmarkOutput(candidate.filepath)
+    if (output === null) {
+      continue
+    }
+    if (output.id !== benchmarkId) {
+      throw new Error(`Benchmark ID "${output.id}" does not match "${benchmarkId}" in ${candidate.filepath}`)
     }
     runs.push({
       id: candidate.date,
       name: candidate.date,
       directory: path.dirname(candidate.filepath),
       date: new Date(`${candidate.date}T00:00:00.000Z`),
-      output: bundle.output,
-      unavailableReason: bundle.unavailableReason,
+      output,
     })
   }
   return runs
@@ -421,28 +444,46 @@ export async function getBenchmarkRun(benchmarkId: string, date: string): Promis
   )
 }
 
+function createScenarioResults(
+  trials: Array<BenchmarkTrialOutput>,
+  output: BenchmarkOutput,
+  scenarioIds: Iterable<string> = new Set(
+    trials.map(trial => {
+      return trial.scenarioId
+    }),
+  ),
+): BenchmarkPageResults['scenarios'] {
+  return [...new Set(scenarioIds)].map(id => {
+    const scenarioTrials = trials.filter(trial => {
+      return trial.scenarioId === id
+    })
+    return {
+      id,
+      comparison: createComparison(scenarioTrials, output),
+      models: createModelResults(scenarioTrials, output),
+    }
+  })
+}
+
 export function getBenchmarkPageResults(run: BenchmarkRun | undefined): BenchmarkPageResults | null {
-  if (!run?.output) {
+  if (!run) {
     return null
   }
   const output = run.output
   const trials = [...output.trials.values()]
-  const scenarioIds = new Set(
-    trials.map(trial => {
-      return trial.scenarioId
-    }),
-  )
   return {
     date: run.name,
     comparison: createComparison(trials, output),
-    scenarios: [...scenarioIds].map(id => {
-      const scenarioTrials = trials.filter(trial => {
-        return trial.scenarioId === id
+    scenarios: createScenarioResults(trials, output),
+    capabilities: [...output.capabilities.values()].map(capability => {
+      const capabilityTrials = trials.filter(trial => {
+        return trial.capabilityId === capability.id
       })
       return {
-        id,
-        comparison: createComparison(scenarioTrials, output),
-        models: createModelResults(scenarioTrials, output),
+        id: capability.id,
+        name: capability.name,
+        comparison: createComparison(capabilityTrials, output),
+        scenarios: createScenarioResults(capabilityTrials, output, capability.scenarioIds),
       }
     }),
   }

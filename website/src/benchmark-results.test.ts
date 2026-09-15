@@ -66,12 +66,73 @@ test('compares and ranks models using check performance before implementation-on
   expect(overview.results[0].comparison).toMatchObject({checks: '100.0% (N/A)', outputTokens: '100 (0%)'})
   const page = getBenchmarkPageResults(run(output))
   expect(page?.scenarios).toHaveLength(1)
-  expect(page).not.toHaveProperty('capabilities')
+  expect(
+    page?.capabilities.map(capability => {
+      return capability.id
+    }),
+  ).toEqual(['a', 'b'])
   expect(
     overview.trends.every(point => {
-      return !('capabilityId' in point)
+      return point.capabilityId === null || point.capabilityId === 'a'
     }),
   ).toBe(true)
+})
+
+test('isolates capability comparisons and trends when the same scenario appears in multiple capabilities', () => {
+  const output = createBenchmarkOutput([
+    {
+      ...createTrial({
+        id: 'a-control',
+        checks: outcomes(['passed', 'failed']),
+        agent: {sessions: [{...session, outputTokens: 50}]},
+      }),
+      capabilityId: 'a',
+    },
+    {...createTrial({id: 'a-benchmark', treatmentId: 'benchmark', checks: outcomes(['passed'])}), capabilityId: 'a'},
+    {
+      ...createTrial({
+        id: 'b-control',
+        checks: outcomes(['passed']),
+        agent: {sessions: [{...session, outputTokens: 300}]},
+      }),
+      capabilityId: 'b',
+    },
+    {
+      ...createTrial({
+        id: 'b-benchmark',
+        treatmentId: 'benchmark',
+        checks: outcomes(['failed']),
+        agent: {sessions: [{...session, outputTokens: 400}]},
+      }),
+      capabilityId: 'b',
+    },
+  ])
+  const page = getBenchmarkPageResults(run(output))
+  expect(page?.comparison).toMatchObject({checks: '50.0% (-33.3%)', outputTokens: '500 (+42.9%)'})
+  expect(page?.capabilities[0].comparison).toMatchObject({checks: '100.0% (+100.0%)', outputTokens: '100 (+100.0%)'})
+  expect(page?.capabilities[1].comparison).toMatchObject({checks: '0.0% (-100.0%)', outputTokens: '400 (+33.3%)'})
+  for (const capability of page!.capabilities) {
+    expect(capability.scenarios).toHaveLength(1)
+    expect(capability.scenarios[0].models[0].comparison).toEqual(capability.comparison)
+  }
+  const overview = getBenchmarkOverviewData([run(output)])
+  expect(
+    new Set(
+      overview.trends.map(point => {
+        return point.id
+      }),
+    ).size,
+  ).toBe(overview.trends.length)
+  for (const scenarioId of [null, 'empty-state']) {
+    const a = overview.trends.find(point => {
+      return point.capabilityId === 'a' && point.scenarioId === scenarioId
+    })
+    const b = overview.trends.find(point => {
+      return point.capabilityId === 'b' && point.scenarioId === scenarioId
+    })
+    expect(a?.metrics.outputTokens).toMatchObject({value: 100, controlValue: 50, change: 100})
+    expect(b?.metrics.outputTokens).toMatchObject({value: 400, controlValue: 300})
+  }
 })
 
 test('charts measurements and outcomes separately and leaves absent treatments null, not zero', () => {
@@ -131,14 +192,11 @@ test('fills missing historical metric dimensions with null and keeps changed uni
   }
 })
 
-test('surfaces legacy runs and uses the latest available run without treating legacy data as zero', () => {
-  const overview = getBenchmarkOverviewData([
-    {...run(), output: null, unavailableReason: 'Legacy format'},
-    run(createBenchmarkOutput(), '2026-09-14'),
-  ])
+test('uses the latest loaded run and handles an empty run list', () => {
+  const overview = getBenchmarkOverviewData([run(createBenchmarkOutput(), '2026-09-14')])
   expect(overview.date).toBe('2026-09-14')
-  expect(overview.unavailableRuns).toEqual([{date: '2026-09-15', reason: 'Legacy format'}])
-  expect(getBenchmarkPageResults({...run(), output: null, unavailableReason: 'Legacy format'})).toBeNull()
+  expect(getBenchmarkOverviewData([])).toMatchObject({date: null, results: [], trends: []})
+  expect(getBenchmarkPageResults(undefined)).toBeNull()
 })
 
 test('shows empty current outputs as unmeasured without requiring treatment metadata', () => {
@@ -149,6 +207,10 @@ test('shows empty current outputs as unmeasured without requiring treatment meta
   expect(getBenchmarkPageResults(run(output))).toMatchObject({
     comparison: {checks: 'N/A', outputTokens: 'N/A'},
     scenarios: [],
+    capabilities: [
+      {id: 'a', scenarios: [{id: 'empty-state', comparison: {checks: 'N/A'}, models: []}]},
+      {id: 'b', scenarios: [{id: 'empty-state', comparison: {checks: 'N/A'}, models: []}]},
+    ],
   })
 })
 

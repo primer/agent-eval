@@ -198,6 +198,13 @@ and validate them with `BenchmarkTrialOutputSchema` or
 manifest key. The `BenchmarkOutput` and `ExperimentOutput` types describe hydrated
 results with `Map` collections, while the file schemas use JSON records.
 
+Benchmark trials include `capabilityId`, referencing the capability metadata in
+the output manifest. This association is preserved when writing and merging
+results, including when a scenario belongs to multiple capabilities.
+`parseBenchmarkTrialOutput(json, capabilities)` validates the current trial
+schema and this association. It requires an explicit `capabilityId`; older
+shapes are not upgraded and capability membership is never inferred.
+
 `CheckOutput` and `JudgeOutput` describe recorded evaluations.
 `createTrialSummary`, `addCheckResults`, `getCheckDimensions`, `getCheckValue`,
 `formatCheckSummaries`, and `createTrialSummaryComparator` support custom reports

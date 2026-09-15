@@ -30,8 +30,12 @@ test.each([
     directory: '/results/benchmark',
     output: createBenchmarkOutput(trials),
   })
-  expect(benchmark).toEqual(details)
-  expect(benchmark.results[0]).not.toHaveProperty('context')
+  expect(benchmark).toEqual({
+    ...details,
+    results: details.results.map(result => {
+      return {...result, capability: {id: 'a', name: 'First capability'}}
+    }),
+  })
 })
 
 test('keeps repeated trials and session transcripts distinct while aggregating implementation usage', async () => {
@@ -69,17 +73,4 @@ test('rejects trials with unknown treatments instead of labeling them as valid r
       '/results',
     ),
   ).rejects.toThrow('Unknown treatment')
-})
-
-test('preserves unavailable bundle reasons in benchmark details', async () => {
-  expect(
-    await createBenchmarkRunDetails({
-      id: '2026-09-15',
-      name: '2026-09-15',
-      date: new Date('2026-09-15'),
-      directory: '/results',
-      output: null,
-      unavailableReason: 'Old format',
-    }),
-  ).toEqual({date: '2026-09-15', results: [], unavailableReason: 'Old format'})
 })

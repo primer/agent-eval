@@ -8,19 +8,14 @@ async function getBenchmarkPageData(id: string) {
   return {
     benchmark,
     overview: getBenchmarkOverviewData(runs),
-    results: getBenchmarkPageResults(
-      runs.find(run => {
-        return run.output !== null
-      }),
-    ),
+    results: getBenchmarkPageResults(runs[0]),
     runs: runs.map(run => {
-      const trials = run.output ? [...run.output.trials.values()] : null
+      const trials = [...run.output.trials.values()]
       return {
         id: run.id,
         name: run.name,
-        resultCount: trials?.length ?? null,
-        checks: trials ? formatChecks(summarizeTrials(trials)) : 'Unavailable',
-        unavailableReason: run.unavailableReason,
+        resultCount: trials.length,
+        checks: formatChecks(summarizeTrials(trials)),
       }
     }),
   }

@@ -19,6 +19,7 @@ import {logger} from '../logger'
 const BenchmarkTrialOutputSchema = z.object({
   agent: TrialAgentSchema,
   artifacts: TrialArtifactsSchema,
+  capabilityId: z.string(),
   checks: z._default(TrialChecksSchema, []),
   id: z.string(),
   judges: TrialJudgesSchema,
@@ -74,6 +75,16 @@ type BenchmarkOutput = {
   trials: Map<string, BenchmarkTrialOutput>
 }
 
+function parseBenchmarkTrialOutput(json: unknown, capabilities: BenchmarkOutput['capabilities']): BenchmarkTrialOutput {
+  const trial = BenchmarkTrialOutputSchema.parse(json)
+  const {capabilityId} = trial
+  const capability = capabilities.get(capabilityId)
+  if (!capability || capability.id !== capabilityId || !capability.scenarioIds.includes(trial.scenarioId)) {
+    throw new Error(`Invalid capability "${capabilityId}" for scenario "${trial.scenarioId}" in trial "${trial.id}"`)
+  }
+  return trial
+}
+
 type CreateBenchmarkOutputOptions = {
   benchmark: Benchmark
   runPlanResult: RunPlanResult<BenchmarkTrial>
@@ -120,6 +131,7 @@ function createBenchmarkOutput({benchmark, runPlanResult}: CreateBenchmarkOutput
     result.trials.set(trial.id, {
       agent: trialResult.agent,
       artifacts: trialResult.artifacts,
+      capabilityId: trial.capability.id,
       checks: trialResult.checks,
       id: trial.id,
       judges: trialResult.judges,
@@ -188,7 +200,7 @@ async function mergeBenchmarkOutputFiles({
       }
 
       const contents = await host.fs.readFile(filepath, 'utf-8')
-      const trialOutput = BenchmarkTrialOutputSchema.parse(JSON.parse(contents))
+      const trialOutput = parseBenchmarkTrialOutput(JSON.parse(contents), new Map(Object.entries(output.capabilities)))
 
       logger.debug('Deleting trial artifact file: %s', filepath)
       await host.fs.unlink(filepath)
@@ -223,6 +235,7 @@ async function writeBenchmarkOutput({host = DefaultHost, output, outputPath}: Wr
     const trialFile: BenchmarkTrialOutput = {
       agent: trial.agent,
       artifacts: trial.artifacts,
+      capabilityId: trial.capabilityId,
       checks: trial.checks,
       id: trial.id,
       judges: trial.judges,
@@ -289,6 +302,7 @@ async function listBenchmarkOutputFiles({
 export {
   BenchmarkOutputFileSchema,
   BenchmarkTrialOutputSchema,
+  parseBenchmarkTrialOutput,
   createBenchmarkOutput,
   listBenchmarkOutputFiles,
   mergeBenchmarkOutputFiles,

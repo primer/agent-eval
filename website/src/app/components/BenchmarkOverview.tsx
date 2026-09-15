@@ -137,15 +137,8 @@ function BenchmarkResultsTable({
 export function BenchmarkOverview({benchmark, overview}: {benchmark: Benchmark; overview: BenchmarkOverviewData}) {
   return (
     <Stack padding="normal" gap="spacious">
-      {overview.unavailableRuns.map(run => {
-        return (
-          <p className="bg-attention-muted border border-attention-muted rounded-md p-4 m-0" key={run.date}>
-            <Link href={`/benchmarks/${benchmark.id}/runs/${run.date}` as Route}>{run.date}</Link>: {run.reason}
-          </p>
-        )
-      })}
       <BenchmarkResultsTable benchmark={benchmark} date={overview.date} results={overview.results} />
-      <BenchmarkTrends metrics={overview.metrics} points={overview.trends} />
+      <BenchmarkTrends capabilities={overview.capabilities} metrics={overview.metrics} points={overview.trends} />
     </Stack>
   )
 }

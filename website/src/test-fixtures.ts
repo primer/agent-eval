@@ -119,10 +119,17 @@ function createExperimentOutput(trials: Array<ExperimentTrialOutput> = [createTr
   }
 }
 
-function createBenchmarkOutput(trials?: Array<ExperimentTrialOutput>): BenchmarkOutput {
+function createBenchmarkOutput(
+  trials: Array<ExperimentTrialOutput & {capabilityId?: string}> = [createTrial()],
+): BenchmarkOutput {
   return {
     ...createExperimentOutput(trials),
     id: 'test-benchmark',
+    trials: new Map(
+      trials.map(trial => {
+        return [trial.id, {...trial, capabilityId: trial.capabilityId ?? 'a'}]
+      }),
+    ),
     capabilities: new Map([
       ['a', {id: 'a', name: 'First capability', scenarioIds: ['empty-state']}],
       ['b', {id: 'b', name: 'Overlapping capability', scenarioIds: ['empty-state']}],

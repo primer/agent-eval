@@ -10,9 +10,8 @@ import NextLink from 'next/link'
 type ExperimentRun = {
   id: string
   name: string
-  resultCount: number | null
+  resultCount: number
   checks: string
-  unavailableReason?: string
 }
 
 type Props = {
@@ -58,23 +57,12 @@ export function Page({experiment, runs}: Props) {
                   header: 'Results',
                   field: 'resultCount',
                   align: 'end',
-                  renderCell: row => {
-                    return row.resultCount ?? 'N/A'
-                  },
                 },
                 {
                   id: 'checks',
                   header: 'Checks',
                   field: 'checks',
                   align: 'end',
-                },
-                {
-                  id: 'status',
-                  header: 'Status',
-                  field: 'unavailableReason',
-                  renderCell: row => {
-                    return row.unavailableReason ?? 'Available'
-                  },
                 },
               ]}
               data={runs}

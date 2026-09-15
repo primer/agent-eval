@@ -13,7 +13,9 @@ import {CheckResults} from './CheckResults'
 type RunResult = RunDetails['results'][number]
 
 type ScenarioResultGroup = {
+  id: string
   scenarioId: string
+  capability?: RunResult['capability']
   results: [RunResult, ...Array<RunResult>]
 }
 
@@ -130,7 +132,9 @@ function ResultTabs({index, result}: {index: number; result: RunResult}) {
 
   return (
     <section className="bg-default border border-default rounded-lg overflow-hidden">
-      <UnderlineNav aria-label={`${result.scenarioId} result details`}>
+      <UnderlineNav
+        aria-label={`${result.capability ? `${result.capability.name} / ` : ''}${result.scenarioId} result details`}
+      >
         <UnderlineNav.Item
           aria-current={selectedTab === 'walkthrough' ? 'page' : undefined}
           href={`#result-${index}-walkthrough-panel`}
@@ -207,19 +211,25 @@ function groupResultsByScenario(results: Array<RunResult>): Array<ScenarioResult
   const groups = new Map<string, ScenarioResultGroup>()
 
   for (const result of results) {
-    const group = groups.get(result.scenarioId)
+    const id = JSON.stringify([result.capability?.id ?? null, result.scenarioId])
+    const group = groups.get(id)
     if (group) {
       group.results.push(result)
     } else {
-      groups.set(result.scenarioId, {
+      groups.set(id, {
+        id,
         scenarioId: result.scenarioId,
+        capability: result.capability,
         results: [result],
       })
     }
   }
 
   return Array.from(groups.values()).toSorted((firstGroup, secondGroup) => {
-    return firstGroup.scenarioId.localeCompare(secondGroup.scenarioId)
+    return (
+      (firstGroup.capability?.name ?? '').localeCompare(secondGroup.capability?.name ?? '') ||
+      firstGroup.scenarioId.localeCompare(secondGroup.scenarioId)
+    )
   })
 }
 
@@ -261,6 +271,7 @@ function ScenarioResults({group, index}: {group: ScenarioResultGroup; index: num
     <article aria-labelledby={resultHeadingId} className="flex flex-col gap-4">
       <header className="border-b border-default pb-3 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <h2 className="text-title-medium m-0" id={resultHeadingId}>
+          {group.capability ? `${group.capability.name} / ` : null}
           {group.scenarioId}
         </h2>
         <div className="flex flex-col sm:flex-row gap-3">
@@ -384,7 +395,17 @@ type Props = {
 }
 
 export function RunDetailsPage({resource, run}: Props) {
-  const resultGroups = groupResultsByScenario(run.results)
+  const [selectedCapabilityId, setSelectedCapabilityId] = useState('')
+  const capabilities = new Map(
+    run.results.flatMap(result => {
+      return result.capability ? [[result.capability.id, result.capability] as const] : []
+    }),
+  )
+  const resultGroups = groupResultsByScenario(
+    run.results.filter(result => {
+      return !selectedCapabilityId || result.capability?.id === selectedCapabilityId
+    }),
+  )
 
   return (
     <Stack padding="normal">
@@ -399,14 +420,30 @@ export function RunDetailsPage({resource, run}: Props) {
           <Breadcrumbs.Item selected>{run.date}</Breadcrumbs.Item>
         </Breadcrumbs>
         <h1 className="sr-only">Run results for {resource.name}</h1>
-        {run.unavailableReason ? (
-          <p className="bg-attention-muted border border-attention-muted rounded-md p-4">{run.unavailableReason}</p>
-        ) : resultGroups.length === 0 ? (
-          <p>No trial results were recorded.</p>
+        {capabilities.size > 0 ? (
+          <FormControl>
+            <FormControl.Label>Capability</FormControl.Label>
+            <Select
+              value={selectedCapabilityId}
+              onChange={event => {
+                setSelectedCapabilityId(event.currentTarget.value)
+              }}
+            >
+              <Select.Option value="">All capabilities</Select.Option>
+              {[...capabilities.values()].map(capability => {
+                return (
+                  <Select.Option key={capability.id} value={capability.id}>
+                    {capability.name}
+                  </Select.Option>
+                )
+              })}
+            </Select>
+          </FormControl>
         ) : null}
+        {resultGroups.length === 0 ? <p>No trial results were recorded.</p> : null}
         <div className="flex flex-col gap-8">
           {resultGroups.map((group, index) => {
-            return <ScenarioResults group={group} index={index} key={`${run.date}:${group.scenarioId}`} />
+            return <ScenarioResults group={group} index={index} key={`${run.date}:${group.id}`} />
           })}
         </div>
       </div>

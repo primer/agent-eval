@@ -1,7 +1,7 @@
 export {getBenchmark} from './benchmark/get'
 export {listBenchmarks} from './benchmark/list'
 export type {Benchmark} from './benchmark/benchmark'
-export {BenchmarkOutputFileSchema, BenchmarkTrialOutputSchema} from './benchmark/output'
+export {BenchmarkOutputFileSchema, BenchmarkTrialOutputSchema, parseBenchmarkTrialOutput} from './benchmark/output'
 export type {BenchmarkOutput, BenchmarkTrialOutput} from './benchmark/output'
 export {getExperiment} from './experiment/get'
 export {listExperiments} from './experiment/list'

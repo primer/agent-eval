@@ -29,6 +29,7 @@ type WalkthroughDataUrl =
 type RunResult = {
   id: string
   scenarioId: string
+  capability?: {id: string; name: string}
   treatment: string
   model: string
   reasoningEffort?: string
@@ -47,7 +48,6 @@ type RunResult = {
 type RunDetails = {
   date: string
   results: Array<RunResult>
-  unavailableReason?: string
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -367,10 +367,19 @@ function createJudgeDetails(judges: Array<JudgeOutput>): Array<JudgeDetails> {
 }
 
 async function createBenchmarkRunDetails(run: BenchmarkRun): Promise<RunDetails> {
-  if (run.output === null) {
-    return {date: run.name, results: [], unavailableReason: run.unavailableReason}
+  const output = run.output
+  const details = await createExperimentRunDetails(run.name, output, run.directory)
+  return {
+    ...details,
+    results: details.results.map(result => {
+      const trial = output.trials.get(result.id)
+      const capability = trial ? output.capabilities.get(trial.capabilityId) : undefined
+      if (!capability) {
+        throw new Error(`Unknown capability for benchmark trial "${result.id}"`)
+      }
+      return {...result, capability: {id: capability.id, name: capability.name}}
+    }),
   }
-  return createExperimentRunDetails(run.name, run.output, run.directory)
 }
 
 export {createBenchmarkRunDetails, createExperimentRunDetails, createTranscript, getWalkthroughDataUrls}

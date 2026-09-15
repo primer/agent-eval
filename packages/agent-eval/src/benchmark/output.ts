@@ -15,6 +15,7 @@ import type {Benchmark} from './benchmark'
 import {ModelVariantSchema} from '../model'
 import {DefaultHost, type Host} from '../host'
 import {logger} from '../logger'
+import {resolveTrialArtifactsPath} from '../result-path'
 
 const BenchmarkTrialOutputSchema = z.object({
   agent: TrialAgentSchema,
@@ -194,10 +195,7 @@ async function mergeBenchmarkOutputFiles({
         throw new Error(`Cannot merge benchmark output files: duplicate trial ID found: ${key}`)
       }
 
-      const filepath = path.join(outputDirectory, value)
-      if (!host.existsSync(filepath)) {
-        throw new Error(`Cannot merge benchmark output files: trial artifacts file does not exist: ${filepath}`)
-      }
+      const filepath = await resolveTrialArtifactsPath(host, outputDirectory, value)
 
       const contents = await host.fs.readFile(filepath, 'utf-8')
       const trialOutput = parseBenchmarkTrialOutput(JSON.parse(contents), new Map(Object.entries(output.capabilities)))

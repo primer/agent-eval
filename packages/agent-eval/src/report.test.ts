@@ -1,4 +1,4 @@
-import {describe, expect, test} from 'vitest'
+import {describe, expect, test, vi} from 'vitest'
 import type {CheckOutput} from './check'
 import type {ModelVariant} from './model'
 import {VirtualHost} from './host'
@@ -605,6 +605,101 @@ describe('run reports', () => {
     expect(createExperimentReport({experiment: experiment(results), runPlanResult: {results}})).not.toContain('Checks')
     expect(createBenchmarkReport({benchmark: benchmark(results), runPlanResult: {results}})).not.toContain('Checks')
   })
+})
+
+describe.each(['benchmark'] as Array<'benchmark' | 'experiment'>)('%s trial artifact paths', kind => {
+  const mergeOutputFiles = kind === 'benchmark' ? mergeBenchmarkOutputFiles : mergeExperimentOutputFiles
+
+  test.each([
+    '../outside/trial.json',
+    '../output-sibling/trial.json',
+    'artifacts/../../../outside/trial.json',
+    '/outside/trial.json',
+    '/output/artifacts/trial/trial.json',
+    '..',
+    '.',
+  ])('rejects invalid trial path %s without reading or deleting files', async relativePath => {
+    const host = VirtualHost.create({
+      '/output/artifacts/trial/trial.json': 'Do not read or delete',
+      '/outside/trial.json': 'Do not read or delete',
+      '/output-sibling/trial.json': 'Do not read or delete',
+    })
+    const before = host.vol.toJSON()
+    const readFile = vi.spyOn(host.fs, 'readFile')
+    const unlink = vi.spyOn(host.fs, 'unlink')
+    const file = {id: 'example', capabilities: {}, scenarios: {}, treatments: {}, trials: {trial: relativePath}}
+
+    await expect(mergeOutputFiles({host, outputs: [file], outputDirectory: '/output'})).rejects.toThrow(
+      /bundle-relative path|inside the result bundle/,
+    )
+    expect(readFile).not.toHaveBeenCalled()
+    expect(unlink).not.toHaveBeenCalled()
+    expect(host.vol.toJSON()).toEqual(before)
+  })
+
+  test.each(['file', 'directory'] as const)(
+    'rejects escaping %s symlinks before reading or deleting files',
+    async symlinkKind => {
+      const host = VirtualHost.create({
+        '/output/placeholder': '',
+        '/outside/trial.json': 'Do not read or delete',
+      })
+      const relativePath = symlinkKind === 'file' ? 'trial.json' : 'linked/trial.json'
+      await host.fs.symlink(
+        symlinkKind === 'file' ? '/outside/trial.json' : '/outside',
+        symlinkKind === 'file' ? '/output/trial.json' : '/output/linked',
+      )
+      const before = host.vol.toJSON()
+      const readFile = vi.spyOn(host.fs, 'readFile')
+      const unlink = vi.spyOn(host.fs, 'unlink')
+      const file = {id: 'example', capabilities: {}, scenarios: {}, treatments: {}, trials: {trial: relativePath}}
+
+      await expect(mergeOutputFiles({host, outputs: [file], outputDirectory: '/output'})).rejects.toThrow(
+        'inside the result bundle',
+      )
+      expect(readFile).not.toHaveBeenCalled()
+      expect(unlink).not.toHaveBeenCalled()
+      expect(host.vol.toJSON()).toEqual(before)
+    },
+  )
+
+  test.each(['normalized path', 'file symlink', 'directory symlink', 'bundle symlink'])(
+    'accepts a contained %s and preserves cleanup behavior',
+    async variant => {
+      const results = [createResult()]
+      const trial = createBenchmarkOutput({benchmark: benchmark(results), runPlanResult: {results}}).trials.get('trial')
+      const host = VirtualHost.create({
+        '/output/artifacts/trial/trial.json': JSON.stringify(trial),
+      })
+      let outputDirectory = '/output'
+      let relativePath = 'artifacts/trial/../trial/trial.json'
+      if (variant === 'file symlink') {
+        await host.fs.symlink('/output/artifacts/trial/trial.json', '/output/trial.json')
+        relativePath = 'trial.json'
+      } else if (variant === 'directory symlink') {
+        await host.fs.symlink('/output/artifacts/trial', '/output/linked')
+        relativePath = 'linked/trial.json'
+      } else if (variant === 'bundle symlink') {
+        await host.fs.symlink('/output', '/bundle')
+        outputDirectory = '/bundle'
+      }
+      const file = {
+        id: 'example',
+        capabilities: {capability: {id: 'capability', name: 'Capability', scenarioIds: ['example']}},
+        scenarios: {},
+        treatments: {},
+        trials: {trial: relativePath},
+      }
+
+      const merged = await mergeOutputFiles({host, outputs: [file], outputDirectory})
+
+      expect(merged.trials.get('trial')?.id).toBe('trial')
+      expect(host.existsSync(`${outputDirectory}/${relativePath}`)).toBe(kind === 'experiment')
+      expect(host.existsSync('/output/artifacts/trial/trial.json')).toBe(
+        kind === 'experiment' || variant === 'file symlink',
+      )
+    },
+  )
 })
 
 describe.each(['benchmark', 'experiment'] as const)('%s check result bundles', kind => {

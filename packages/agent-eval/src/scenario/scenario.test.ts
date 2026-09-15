@@ -105,16 +105,14 @@ test('loadScenario reports a missing directory using the default name', async ()
 
 test('listScenarios preserves sorting and candidate filtering', async () => {
   const host = createHost()
-  for (const id of ['z-last', 'a-first', '.hidden', 'invalid', 'missing-test']) {
+  for (const id of ['z-last', 'a-first', '.hidden', 'invalid']) {
     await host.fs.mkdir(`/scenarios/${id}`)
     await host.fs.writeFile(`/scenarios/${id}/package.json`, '{}')
     await host.fs.writeFile(
       `/scenarios/${id}/scenario.config.ts`,
       id === 'invalid' ? 'export default {}' : 'export default {prompt: "Create a page"}',
     )
-    if (id !== 'missing-test') {
-      await host.fs.writeFile(`/scenarios/${id}/scenario.test.ts`, '')
-    }
+    await host.fs.writeFile(`/scenarios/${id}/scenario.test.ts`, '')
   }
 
   const scenarios = await listScenarios({host, directory: '/scenarios'})

@@ -106,7 +106,7 @@ the experiment:
 
 ```bash
 export COPILOT_GITHUB_TOKEN=... # A GitHub token with access to the Copilot API
-npx @primer/agent-eval --experiments ./experiments --experiment example --scenarios ./scenarios
+npx @primer/agent-eval experiment run example --experiments ./experiments --scenarios ./scenarios
 ```
 
 ## CLI
@@ -114,32 +114,29 @@ npx @primer/agent-eval --experiments ./experiments --experiment example --scenar
 Install the package and run the `agent-eval` binary with a GitHub token:
 
 ```sh
-COPILOT_GITHUB_TOKEN=... agent-eval \
+COPILOT_GITHUB_TOKEN=... agent-eval experiment run example \
   --experiments ./experiments \
-  --scenarios ./scenarios \
-  --experiment example
+  --scenarios ./scenarios
 ```
 
 Use `--experiments` to load experiment files from a local directory. Experiment
-files may export an `experiment` named export or a default export. `--experiment`
-selects an experiment by its filename without the extension. The experiments
+files may export an `experiment` named export or a default export. The positional
+name selects an experiment by its filename without the extension. The experiments
 directory defaults to `./experiments`. Use `--scenarios` to set the directory
 containing scenario directories; it defaults to `./scenarios`.
 
-Use `--benchmark` to select a benchmark by filename and `--benchmarks` to set
+Use `benchmark run` to select a benchmark by filename and `--benchmarks` to set
 the benchmark directory:
 
 ```sh
-COPILOT_GITHUB_TOKEN=... agent-eval \
+COPILOT_GITHUB_TOKEN=... agent-eval benchmark run design-system \
   --benchmarks ./benchmarks \
-  --scenarios ./scenarios \
-  --benchmark design-system
+  --scenarios ./scenarios
 ```
 
 ### Result bundles
 
-Keep the output file and artifacts in one directory so results can be moved
-between machines without rewriting paths:
+Keep the output file and artifacts in one directory:
 
 ```text
 run/
@@ -150,18 +147,16 @@ run/
 ```
 
 ```sh
-agent-eval \
-  --experiment example \
+agent-eval experiment run example \
   --output-dir run
 ```
 
-`output.json` stores run metadata and maps each trial ID to its JSON file inside
-that trial's artifact directory. Each trial file contains agent, model, judge,
-test result, artifact, and walkthrough data. Artifact and walkthrough references
-are relative to the directory containing `output.json`. Upload or download the complete `run`
-directory to preserve those references. `--output-dir` creates `output.json`
-and `artifacts/` within the selected directory. When using `--output`, artifacts
-are written to an `artifacts/` directory beside the selected file.
+`output.json` stores the experiment's filename-based `id`, scenario and treatment
+metadata, and a map of trial IDs to JSON files relative to the output directory.
+Treatments use stable IDs derived from their names. Each trial file contains
+agent, model, judge, artifact, and walkthrough data. Artifact paths inside trial
+files retain their runtime locations. `--output-dir` creates `output.json` and
+`artifacts/` within the selected directory.
 
 Trials include a `judges` array. Each entry preserves the judge's `config`,
 `result`, and `agent.session` (including its messages and usage). Judge sessions
@@ -175,9 +170,8 @@ downloaded. Reports contain `score`, `rationale`, and `findings`; the runner add
 the result type. The original reports are also retained in the downloaded
 workspace as `judge-<sha256>-report.json`, using the SHA-256 hex digest of the
 judge's name to keep filenames path-safe. The original name is preserved in the
-judge configuration. Benchmark and experiment readers preserve judge results and scenario
-judge configurations. Older bundles without judge fields load with empty
-`judges` arrays.
+judge configuration. Experiment output preserves judge results and scenario
+judge configurations.
 
 ### Judge reference files
 
@@ -225,7 +219,7 @@ Create a durable, randomized trial plan before running an experiment or
 benchmark:
 
 ```sh
-agent-eval --experiment example --plan plan.json
+agent-eval experiment plan create example --output-path plan.json
 ```
 
 Plan creation does not require a Copilot token. The plan stores the ordered
@@ -237,25 +231,28 @@ Run deterministic shards from the shared plan, writing a distinct output file
 for each shard:
 
 ```sh
-COPILOT_GITHUB_TOKEN=... agent-eval \
-  --from-plan plan.json \
+COPILOT_GITHUB_TOKEN=... agent-eval experiment plan run \
+  --plan-path plan.json \
   --shard 1/4 \
   --output-dir run
 ```
 
-After all shards finish, merge the `output-*.json` files into one portable
+After all shards finish, merge the `output-*.json` files into one
 result:
 
 ```sh
-agent-eval --merge-results --output-dir run
+agent-eval experiment merge --output-dir run
 ```
 
-The merged `output.json` must stay in the same directory as the shard manifests
-so their per-trial file references remain portable.
+The merge writes `output.json` before removing the shard manifests. Trial
+artifact files remain in place.
 
-`--plan` and `--from-plan` default to `plan.json` when their path is omitted.
-With `--output-dir`, `--shard 1/4` writes `output-1.json`. `--shard` is only
-valid with `--from-plan`. Shard merging does not require a Copilot token.
+`--output-path` and `--plan-path` default to `plan.json`. With `--output-dir`,
+`--shard 1/4` writes `output-1.json`. `--shard` is only available on
+`experiment plan run`. Shard merging does not require a Copilot token.
+Use `--experiments` and `--scenarios` on both plan commands when loading
+configuration from custom directories. Benchmark commands use the same
+`benchmark plan create`, `benchmark plan run`, and `benchmark merge` structure.
 
 ## Scenario config authoring
 
@@ -294,6 +291,12 @@ export const experiment = defineConfig({
 
 Models can be specified by name to use the default `medium` reasoning effort or
 with a `name` and `reasoningEfforts` array to run multiple variants.
+
+Each model and scenario runs once per configured treatment and once with the
+automatic `Control` treatment. Treatment names must be unique; `Control` is
+reserved. A top-level `setup` runs before treatment setup for every trial,
+including control trials. Treatment configs only need a name and optional setup;
+IDs are assigned when the experiment is loaded.
 
 Scenarios can be selected by ID or loaded directly from a path:
 
@@ -396,15 +399,13 @@ marketplace `source` to install from a local marketplace.
 
 ## Programmatic APIs
 
-The package root exports explicitly named benchmark, experiment, scenario,
-treatment, and trial APIs. Domain entry points are available from
-`@primer/agent-eval/benchmark`, `@primer/agent-eval/experiment`,
-`@primer/agent-eval/scenario`, and `@primer/agent-eval/sandbox`.
+Use `defineConfig` from `@primer/agent-eval/benchmark` or
+`@primer/agent-eval/experiment` to author configuration. These entry points expose
+configuration helpers; use the CLI for discovery, execution, planning, and
+merging results.
 
-Use the benchmark and experiment entry points for configuration, discovery,
-execution, output creation, serialization, and deserialization. Use the
-sandbox entry point for `Sandbox`, `SystemSandbox`, `VirtualSandbox`, plugin and
-MCP configuration types, and sandbox constants.
+Scenario configuration is available from `@primer/agent-eval/scenario`. Use
+`@primer/agent-eval/sandbox` for sandbox runtime and types.
 
 The CLI is available through the `agent-eval` executable rather than a
 `@primer/agent-eval/cli` package entry point.

@@ -58,20 +58,57 @@ with portable relative paths. It cannot be combined with `--output` or
 ## Authoring scenarios
 
 Scenarios live in [`./scenarios`](./scenarios/). Each scenario has a
-`scenario.config.ts` file that defines the agent prompt and a `scenario.test.ts`
-file that grades the agent's output. Scenarios can also include an optional
-`browser.test.ts` file for checks that need a browser. The legacy
-`scenario.browser.test.ts` filename remains supported:
+`scenario.config.ts` file that defines the agent prompt and the `checks` that
+grade its output. The scenarios retain their `scenario.test.ts` files and run
+them through a Vitest-backed check, following [`000-checks`](./scenarios/000-checks/):
 
 ```ts
 import {defineConfig} from '@primer/agent-eval/scenario'
+import type {JsonTestResults} from 'vitest/reporters'
 
 export default defineConfig({
   description: 'Evaluate whether the agent uses a Primer button correctly',
   prompt: 'Update the index page to use a primary button',
   tags: ['baseline', 'button', 'primer'],
+  checks: [
+    {
+      name: 'node-tests',
+      files: ['vitest.config.scenario.ts', 'scenario.test.ts'],
+      async run({sandbox}) {
+        const result = await sandbox.runCommand('npx', ['vitest', 'run', '--config', 'vitest.config.scenario.ts'], {
+          allowNonZeroExitCode: true,
+        })
+        if (result.exitCode !== 0 && result.exitCode !== 1) {
+          throw new Error(`Vitest failed with exit code ${result.exitCode}: ${result.stderr}`)
+        }
+        const json: JsonTestResults = JSON.parse(await sandbox.readFile('vitest-scenario-report.json'))
+        if (result.exitCode !== 0 && json.numFailedTests === 0) {
+          throw new Error(`Vitest failed without reporting failed tests: ${result.stderr}`)
+        }
+        return {
+          outcomes: json.testResults.flatMap(({assertionResults}) => {
+            return assertionResults.map(assertion => {
+              return {
+                type: 'outcome',
+                id: assertion.fullName,
+                status: assertion.status === 'passed' ? 'passed' : assertion.status === 'failed' ? 'failed' : 'skipped',
+              }
+            })
+          }),
+        }
+      },
+    },
+  ],
 })
 ```
+
+Each scenario's `vitest.config.scenario.ts` selects `scenario.test.ts` and writes
+`vitest-scenario-report.json` with the JSON reporter. The check converts test
+results into outcomes, retaining test titles as IDs. Test failures become failed
+outcomes; runner failures are reported as errors rather than empty results.
+See [`000-checks`](./scenarios/000-checks/) for browser and ESLint checks.
+Test files are not discovered or run automatically by agent-eval; declare grader
+files in the check's `files` array and invoke Vitest in its `run` callback.
 
 ## Authoring experiments
 
@@ -143,7 +180,7 @@ export const experiment = defineConfig({
 
 Scenarios can also be defined inline in an experiment. Inline scenario paths
 resolve from the directory where the CLI is run, and use the same
-`scenario.config.ts`, `scenario.test.ts`, and optional browser test files as
+`scenario.config.ts` and its `checks` definitions as
 repository scenarios. Use `name` to override the scenario ID derived from the
 directory name:
 

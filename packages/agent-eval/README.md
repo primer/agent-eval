@@ -72,20 +72,56 @@ against:
 // scenarios/uses-button-from-primer/scenario.config.ts
 
 import {defineConfig} from '@primer/agent-eval/scenario'
+import type {JsonTestResults} from 'vitest/reporters'
 
 export default defineConfig({
   description: 'Evaluate whether the agent completes the example task',
   prompt: `Example scenario prompt that will instruct the agent to perform a task`,
   tags: ['baseline', 'button', 'primer'],
+  checks: [
+    {
+      name: 'node-tests',
+      files: ['vitest.config.scenario.ts', 'scenario.test.ts'],
+      async run({sandbox}) {
+        const result = await sandbox.runCommand('npx', ['vitest', 'run', '--config', 'vitest.config.scenario.ts'], {
+          allowNonZeroExitCode: true,
+        })
+        if (result.exitCode !== 0 && result.exitCode !== 1) {
+          throw new Error(`Vitest failed with exit code ${result.exitCode}: ${result.stderr}`)
+        }
+        const json: JsonTestResults = JSON.parse(await sandbox.readFile('vitest-scenario-report.json'))
+        if (result.exitCode !== 0 && json.numFailedTests === 0) {
+          throw new Error(`Vitest failed without reporting failed tests: ${result.stderr}`)
+        }
+        return {
+          outcomes: json.testResults.flatMap(({assertionResults}) => {
+            return assertionResults.map(assertion => {
+              return {
+                type: 'outcome',
+                id: assertion.fullName,
+                status: assertion.status === 'passed' ? 'passed' : assertion.status === 'failed' ? 'failed' : 'skipped',
+              }
+            })
+          }),
+        }
+      },
+    },
+  ],
 })
+```
 
-// scenarios/uses-button-from-primer/scenario.test.ts
-import fs from 'node:fs/promises'
-import path from 'node:path'
-import {expect, test} from 'vitest'
+Keep the assertions in `scenario.test.ts` and configure Vitest to write the
+report consumed by the check:
 
-test('example test to see if agent performed the task accurately', () => {
-  //
+```ts
+// scenarios/uses-button-from-primer/vitest.config.scenario.ts
+import {defineConfig} from 'vitest/config'
+
+export default defineConfig({
+  test: {
+    include: ['scenario.test.ts'],
+    reporters: [['json', {outputFile: 'vitest-scenario-report.json', includeTaskLocation: true}]],
+  },
 })
 ```
 
@@ -117,10 +153,15 @@ an `id` remains valid, and an empty array remains empty.
 
 ### Browser tests
 
-Add an optional `browser.test.ts` file when a scenario needs tests in a real
-browser. The legacy `scenario.browser.test.ts` filename remains supported.
-Agent eval runs browser tests with Playwright after `scenario.test.ts` and
-combines both results in the scenario score and test-results artifact.
+When a scenario needs tests in a real browser, define a check whose `files` list
+includes the browser tests and runner configuration. Its `run` callback should
+invoke the browser test runner through `sandbox.runCommand`, read the report,
+and return outcomes or measurements. Node-based tests use the same pattern.
+Test filenames do not trigger automatic execution.
+
+Keep assertions in the test files and convert the runner's JSON results into
+outcomes in the check callback. Outcome IDs identify the individual test names
+within a check.
 
 With everything in place, you can now use the `agent-eval` executable to run
 the experiment:

@@ -35,8 +35,7 @@ export default defineConfig({
         const json: TestResults = JSON.parse(contents)
 
         return {
-          type: 'outcomes',
-          results: json.testResults.flatMap(({assertionResults}) => {
+          outcomes: json.testResults.flatMap(({assertionResults}) => {
             return assertionResults.map(assertionResult => {
               return {
                 type: 'outcome',
@@ -75,8 +74,7 @@ export default defineConfig({
         const json: TestResults = JSON.parse(contents)
 
         return {
-          type: 'outcomes',
-          results: json.testResults.flatMap(({assertionResults}) => {
+          outcomes: json.testResults.flatMap(({assertionResults}) => {
             return assertionResults.map(assertionResult => {
               return {
                 type: 'outcome',
@@ -126,8 +124,7 @@ export default defineConfig({
         const results: Array<ESLint.LintResult> = JSON.parse(contents)
 
         return {
-          type: 'outcomes',
-          results: results.map(result => {
+          outcomes: results.map(result => {
             return {
               type: 'outcome',
               id: result.filePath,

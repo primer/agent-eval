@@ -3,6 +3,10 @@ import {DefaultHost, VirtualHost} from '../host'
 import {getScenario} from './get'
 import {listScenarios} from './list'
 import {loadScenario} from './load'
+import {defineConfig} from './config'
+import {ScenarioSchema} from './scenario'
+import {logger} from '../logger'
+import {VirtualSandbox} from '../sandbox'
 
 afterEach(() => {
   vi.restoreAllMocks()
@@ -50,6 +54,32 @@ test('loadScenario uses an explicit name as the scenario id', async () => {
   await expect(
     loadScenario({host: createHost(), directory: '/scenarios/example', name: 'custom'}),
   ).resolves.toMatchObject({id: 'custom', directory: '/scenarios/example'})
+})
+
+test('loadScenario normalizes check results after defineConfig and config parsing', async () => {
+  const host = createHost()
+  const config = defineConfig({
+    prompt: 'Create a page',
+    checks: [
+      {
+        name: 'example',
+        async run() {
+          return [
+            {id: 'tests', outcomes: [{type: 'outcome', status: 'passed'}]},
+            {id: 'score', measurements: [{type: 'measurement', value: 42}], unit: 'points'},
+          ]
+        },
+      },
+    ],
+  })
+  vi.spyOn(host, 'loadModule').mockResolvedValue({default: config})
+  const scenario = ScenarioSchema.parse(await loadScenario({host, directory: '/scenarios/example'}))
+  await using sandbox = await VirtualSandbox.create()
+
+  await expect(scenario.checks[0]!.run({logger, sandbox})).resolves.toEqual([
+    {type: 'outcomes', id: 'tests', results: [{type: 'outcome', status: 'passed'}]},
+    {type: 'measurements', id: 'score', results: [{type: 'measurement', value: 42}], unit: 'points'},
+  ])
 })
 
 test('getScenario reports a missing name with the supplied directory', async () => {

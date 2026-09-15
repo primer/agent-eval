@@ -56,17 +56,63 @@ const CheckRunReturnSchema = z.union([
   ),
 ])
 
+const CheckRunInputSchema = z.tuple([
+  z.object({
+    logger: z.custom<typeof logger>(),
+    sandbox: SandboxSchema,
+  }),
+])
+
 const CheckRunSchema = z.function({
-  input: [
-    z.object({
-      logger: z.custom<typeof logger>(),
-      sandbox: SandboxSchema,
-    }),
-  ],
+  input: CheckRunInputSchema,
   output: z.promise(CheckRunReturnSchema),
 })
 
 type CheckRun = z.infer<typeof CheckRunSchema>
+
+const CheckConfigRunResultsSchema = z.union([
+  z.object({
+    measurements: z.array(z.union([MeasurementSchema, ErrorSchema])),
+    outcomes: z.optional(z.never()),
+    unit: z.optional(z.string()),
+    direction: z.optional(z.enum(['higher-is-better', 'lower-is-better'])),
+    id: z.optional(z.string()),
+  }),
+  z.object({
+    outcomes: z.array(z.union([OutcomeSchema, ErrorSchema])),
+    measurements: z.optional(z.never()),
+    id: z.optional(z.string()),
+  }),
+])
+
+const CheckConfigRunSchema = z.function({
+  input: CheckRunInputSchema,
+  output: z.promise(
+    z.union([
+      CheckConfigRunResultsSchema,
+      z.array(
+        z.intersection(
+          CheckConfigRunResultsSchema,
+          z.object({
+            id: z.string(),
+          }),
+        ),
+      ),
+    ]),
+  ),
+})
+
+function normalizeCheckResults(
+  result: z.infer<typeof CheckConfigRunResultsSchema>,
+): z.infer<typeof CheckRunResultsSchema> {
+  if (result.measurements !== undefined) {
+    const {measurements, ...metadata} = result
+    return {...metadata, type: 'measurements', results: measurements}
+  }
+
+  const {outcomes, ...metadata} = result
+  return {...metadata, type: 'outcomes', results: outcomes}
+}
 
 const CheckConfigFilesSchema = z._default(z.array(z.string()), [])
 
@@ -74,7 +120,7 @@ const CheckConfigSchema = z.object({
   name: z.string(),
   description: z.optional(z.string()),
   files: CheckConfigFilesSchema,
-  run: CheckRunSchema,
+  run: CheckConfigRunSchema,
 })
 
 type CheckConfig = z.infer<typeof CheckConfigSchema>
@@ -137,7 +183,19 @@ async function parseCheckConfig(host: Host, directory: string, json: unknown): P
     throw new Error(`Invalid check config: ${z.prettifyError(result.error)}`)
   }
 
-  return result.data
+  return {
+    ...result.data,
+    run: CheckRunSchema.parse(async (input: Parameters<CheckRun>[0]) => {
+      const results = await result.data.run(input)
+      if (Array.isArray(results)) {
+        return results.map(group => {
+          return {...normalizeCheckResults(group), id: group.id}
+        })
+      }
+
+      return normalizeCheckResults(results)
+    }),
+  }
 }
 
 const CheckSchema = z.object({

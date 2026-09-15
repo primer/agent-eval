@@ -1,5 +1,6 @@
 import {expect, test} from 'vitest'
-import {CheckRunSchema} from './check'
+import {CheckRunSchema, parseCheckConfig} from './check'
+import {VirtualHost} from './host'
 import {logger} from './logger'
 import {VirtualSandbox} from './sandbox'
 
@@ -42,4 +43,119 @@ test('check outcome IDs must be strings', async () => {
   await using sandbox = await VirtualSandbox.create()
 
   await expect(run({logger, sandbox})).rejects.toThrow()
+})
+
+test.each([
+  {
+    input: {
+      id: 'lint',
+      outcomes: [
+        {type: 'outcome', id: 'src/App.tsx', status: 'passed'},
+        {type: 'outcome', id: 'src/main.tsx', status: 'failed'},
+        {type: 'outcome', status: 'skipped'},
+        {type: 'error', message: 'Could not check file'},
+      ],
+    },
+    expected: {
+      type: 'outcomes',
+      id: 'lint',
+      results: [
+        {type: 'outcome', id: 'src/App.tsx', status: 'passed'},
+        {type: 'outcome', id: 'src/main.tsx', status: 'failed'},
+        {type: 'outcome', status: 'skipped'},
+        {type: 'error', message: 'Could not check file'},
+      ],
+    },
+  },
+  {
+    input: {
+      id: 'latency',
+      unit: 'ms',
+      direction: 'lower-is-better',
+      measurements: [
+        {type: 'measurement', value: 42},
+        {type: 'error', message: 'Timed out'},
+      ],
+    },
+    expected: {
+      type: 'measurements',
+      id: 'latency',
+      unit: 'ms',
+      direction: 'lower-is-better',
+      results: [
+        {type: 'measurement', value: 42},
+        {type: 'error', message: 'Timed out'},
+      ],
+    },
+  },
+  {input: {outcomes: []}, expected: {type: 'outcomes', results: []}},
+  {input: {measurements: []}, expected: {type: 'measurements', results: []}},
+  {
+    input: [
+      {id: 'tests', outcomes: [{type: 'outcome', status: 'passed'}]},
+      {id: 'score', measurements: [{type: 'measurement', value: 0}], direction: 'higher-is-better'},
+    ],
+    expected: [
+      {type: 'outcomes', id: 'tests', results: [{type: 'outcome', status: 'passed'}]},
+      {
+        type: 'measurements',
+        id: 'score',
+        results: [{type: 'measurement', value: 0}],
+        direction: 'higher-is-better',
+      },
+    ],
+  },
+  {input: [], expected: []},
+])('parsed checks normalize $input', async ({input, expected}) => {
+  const check = await parseCheckConfig(VirtualHost.create(), '/scenario', {
+    name: 'example',
+    async run() {
+      return input
+    },
+  })
+  await using sandbox = await VirtualSandbox.create()
+
+  await expect(check.run({logger, sandbox})).resolves.toEqual(expected)
+})
+
+test.each([
+  {},
+  {outcomes: [], measurements: []},
+  {type: 'outcomes', results: []},
+  {type: 'measurements', results: []},
+  {outcomes: [{type: 'outcome', id: 123, status: 'failed'}]},
+  {outcomes: [{type: 'outcome', status: 'invalid'}]},
+  {measurements: [{type: 'measurement', value: '42'}]},
+  {measurements: [], direction: 'invalid'},
+  {outcomes: [{type: 'measurement', value: 42}]},
+  {measurements: [{type: 'outcome', status: 'passed'}]},
+  {outcomes: [{type: 'error', message: 123}]},
+  [{outcomes: []}],
+  [{measurements: []}],
+  [{id: 123, outcomes: []}],
+])('parsed checks reject invalid results: %j', async result => {
+  const check = await parseCheckConfig(VirtualHost.create(), '/scenario', {
+    name: 'example',
+    async run() {
+      return result
+    },
+  })
+  await using sandbox = await VirtualSandbox.create()
+
+  await expect(check.run({logger, sandbox})).rejects.toThrow()
+})
+
+test('parsed checks preserve callback arguments and errors', async () => {
+  const error = new Error('Check failed')
+  await using sandbox = await VirtualSandbox.create()
+  const check = await parseCheckConfig(VirtualHost.create(), '/scenario', {
+    name: 'example',
+    async run(input: {logger: typeof logger; sandbox: typeof sandbox}) {
+      expect(input.logger).toBe(logger)
+      expect(input.sandbox).toBe(sandbox)
+      throw error
+    },
+  })
+
+  await expect(check.run({logger, sandbox})).rejects.toBe(error)
 })

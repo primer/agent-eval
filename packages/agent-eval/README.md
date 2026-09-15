@@ -96,10 +96,21 @@ agent sees the prompt for the scenario.
 
 ### Check outcomes
 
-A scenario check can return `{type: 'outcomes', results: [...]}`. Each entry in
-`results` has `type: 'outcome'`, a `passed`, `failed`, or `skipped` status, and an
+A scenario check can return `{outcomes: [...]}`. Each outcome has
+`type: 'outcome'`, a `passed`, `failed`, or `skipped` status, and an
 optional `id`. For per-file checks, return one entry per checked file and use
 its file path as the ID. Existing outcomes without IDs remain supported.
+
+For numeric results, return `{measurements: [...]}` with entries containing
+`type: 'measurement'` and a numeric `value`. Measurement groups can also include
+`unit` and `direction` (`higher-is-better` or `lower-is-better`).
+Both arrays support `{type: 'error', message: '...'}` entries.
+
+Return exactly one of `outcomes` or `measurements` per group, without a group-level
+`type`. A check can return one group with an optional `id`, or an array of groups
+with a required `id` on each. Config parsing wraps the check callback to normalize
+each returned group to the internal `{type: 'outcomes' | 'measurements', results: [...]}`
+shape.
 
 ### Browser tests
 

@@ -38,8 +38,8 @@ async function loadScenario({
     prompt: config.prompt,
     tags: config.tags,
     checks: await Promise.all(
-      config.checks.map(config => {
-        return parseCheckConfig(host, directory, config)
+      config.checks.map(checkConfig => {
+        return parseCheckConfig(host, directory, checkConfig)
       }),
     ),
     judges: await Promise.all(

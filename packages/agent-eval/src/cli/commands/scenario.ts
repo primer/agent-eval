@@ -1,7 +1,6 @@
 import path from 'node:path'
 import {defineCommand} from 'citty'
 import {logger} from '../../logger'
-import {getScenario} from '../../scenario/get'
 import {
   concurrencyOption,
   dockerImageOption,
@@ -11,10 +10,11 @@ import {
   outputDirectoryOption,
   scenariosOption,
 } from '../options'
+import {getScenario} from '../../scenario/get'
 import {createScenarioPlan} from '../../scenario/plan'
 import {runPlan} from '../../plan'
 
-export const scenario = defineCommand({
+const scenarioCommand = defineCommand({
   meta: {
     name: 'scenario',
   },
@@ -62,13 +62,13 @@ export const scenario = defineCommand({
         })
 
         if (args.check) {
-          const check = scenario.checks.find(check => {
-            return check.name === args.check
+          const check = scenario.checks.find(scenarioCheck => {
+            return scenarioCheck.name === args.check
           })
 
           if (!check) {
             throw new Error(
-              `Check "${args.check}" not found in scenario "${args.name}". Available checks: ${scenario.checks.map(check => check.name).join(', ')}`,
+              `Check "${args.check}" not found in scenario "${args.name}". Available checks: ${scenario.checks.map(scenarioCheck => scenarioCheck.name).join(', ')}`,
             )
           }
 
@@ -90,3 +90,5 @@ export const scenario = defineCommand({
     }),
   },
 })
+
+export {scenarioCommand as scenario}

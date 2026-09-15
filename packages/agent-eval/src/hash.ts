@@ -1,3 +1,5 @@
+/* eslint-disable */
+
 /**
  * JS Implementation of MurmurHash3 (r136) (as of May 20, 2011)
  *
@@ -11,7 +13,14 @@
  * @return 32-bit positive integer hash
  */
 export function hash(key: string, seed: number = 0): string {
-  let remainder, bytes, h1, h1b, c1, c2, k1, i
+  let remainder
+  let bytes
+  let h1
+  let h1b
+  let c1
+  let c2
+  let k1
+  let i
 
   remainder = key.length & 3 // key.length % 4
   bytes = key.length - remainder
@@ -62,5 +71,5 @@ export function hash(key: string, seed: number = 0): string {
   h1 = ((h1 & 0xffff) * 0xc2b2ae35 + ((((h1 >>> 16) * 0xc2b2ae35) & 0xffff) << 16)) & 0xffffffff
   h1 ^= h1 >>> 16
 
-  return (h1 >>> 0) + ''
+  return `${h1 >>> 0}`
 }

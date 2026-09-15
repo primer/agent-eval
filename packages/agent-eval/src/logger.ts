@@ -1,7 +1,6 @@
 import process from 'node:process'
 import pino from 'pino'
 import pretty from 'pino-pretty'
-import * as z from 'zod/mini'
 
 const CI = process.env.CI === 'true' || process.env.CI === '1' || process.env.GITHUB_ACTIONS === 'true'
 

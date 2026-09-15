@@ -1,6 +1,6 @@
 import path from 'node:path'
 import {DEFAULT_DOCKER_IMAGE} from '../sandbox'
-import {parseShard, type Shard} from '../shard'
+import type {Shard} from '../shard'
 
 const benchmarksOption = {
   type: 'string',

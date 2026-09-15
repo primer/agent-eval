@@ -26,7 +26,7 @@ import {
 import {createPlanFromManifest, runPlan} from '../../plan'
 import {DefaultHost as host} from '../../host'
 
-export const benchmark = defineCommand({
+const benchmarkCommand = defineCommand({
   meta: {
     name: 'benchmark',
   },
@@ -51,15 +51,15 @@ export const benchmark = defineCommand({
         const outputs = await listBenchmarkOutputFiles({
           outputDirectory,
         })
-        const outputFiles = outputs.map(output => {
-          return output[0]
+        const outputFiles = outputs.map(outputFile => {
+          return outputFile[0]
         })
         const output = await mergeBenchmarkOutputFiles({
           outputs: outputFiles,
           outputDirectory,
         })
-        const outputFilePaths = outputs.map(output => {
-          return output[1]
+        const outputFilePaths = outputs.map(outputFile => {
+          return outputFile[1]
         })
 
         for (const outputFilePath of outputFilePaths) {
@@ -281,3 +281,5 @@ export const benchmark = defineCommand({
     }),
   },
 })
+
+export {benchmarkCommand as benchmark}

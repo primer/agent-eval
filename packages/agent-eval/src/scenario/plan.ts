@@ -1,6 +1,6 @@
 import {randomUUID} from 'node:crypto'
 import {createPlan, type Plan} from '../plan'
-import {createTreatment, type Treatment} from '../treatment'
+import {createTreatment} from '../treatment'
 import type {Scenario} from './scenario'
 
 type CreateScenarioPlanOptions = {

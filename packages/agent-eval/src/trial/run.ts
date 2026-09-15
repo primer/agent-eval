@@ -139,6 +139,11 @@ const setupStage = {
         return filepath
       })
     })
+    const checkFiles = trial.scenario.checks.flatMap(check => {
+      return check.files.map(({relativePath}) => {
+        return relativePath
+      })
+    })
     const exclude = Array.from(
       new Set([
         'scenario.config.ts',
@@ -149,6 +154,7 @@ const setupStage = {
         '.next',
         'dist',
         ...judgeFiles,
+        ...checkFiles,
       ]),
     )
 
@@ -350,9 +356,9 @@ const judgeStage = {
             '-R',
             NODE_USER,
             '--',
-              ...judge.files.map(file => {
-                return file.relativePath
-              }),
+            ...judge.files.map(file => {
+              return file.relativePath
+            }),
           ],
           {
             user: 'root',

@@ -154,7 +154,7 @@ async function parseCheckConfig(host: Host, directory: string, json: unknown): P
                 return z.NEVER
               }
 
-              const stats = await host.fs.stat(filepath)
+              const stats = await host.fs.lstat(filepath)
               if (stats.isSymbolicLink()) {
                 ctx.issues.push({
                   code: 'custom',

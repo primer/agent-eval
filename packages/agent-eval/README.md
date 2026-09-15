@@ -98,7 +98,8 @@ To learn more about benchmarks, visit our [benchmark docs](../../docs/benchmarks
 
 Saved benchmark plans identify the benchmark by its filename without the
 extension. The display name is descriptive metadata, so changing it does not
-invalidate an existing plan.
+invalidate an existing plan. Each trial must have a unique ID; plans with
+duplicate trial IDs are rejected.
 
 ## Experiments
 

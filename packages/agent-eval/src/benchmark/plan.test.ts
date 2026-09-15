@@ -50,3 +50,16 @@ test('does not fall back to the display name when the benchmark plan ID is missi
     }),
   ).rejects.toThrow('Benchmark "missing" was not found in: /benchmarks')
 })
+
+test('rejects duplicate trial IDs in benchmark plans', async () => {
+  const host = createHost()
+  const options = {host, benchmarksDirectory: '/benchmarks', scenariosDirectory: '/scenarios'}
+  const benchmark = await getBenchmark({...options, name: 'design-system'})
+  const plan = createBenchmarkPlan({benchmark})
+  const manifest = createBenchmarkPlanManifest({benchmark, plan})
+  manifest.trials[1].id = manifest.trials[0].id
+
+  await expect(parseBenchmarkPlanManifest({...options, contents: JSON.stringify(manifest)})).rejects.toThrow(
+    `Duplicate trial ID in benchmark plan: ${manifest.trials[0].id}`,
+  )
+})

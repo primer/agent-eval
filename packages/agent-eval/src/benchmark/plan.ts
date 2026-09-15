@@ -131,10 +131,16 @@ async function parseBenchmarkPlanManifest({
       return [treatment.id, treatment]
     }),
   )
+  const trialIds = new Set<string>()
 
   return {
     benchmark,
     trials: result.trials.map(trial => {
+      if (trialIds.has(trial.id)) {
+        throw new Error(`Duplicate trial ID in benchmark plan: ${trial.id}`)
+      }
+      trialIds.add(trial.id)
+
       const capability = capabilities.get(trial.capabilityId)
       if (!capability) {
         throw new Error(`Capability not found for trial: ${trial.id}`)

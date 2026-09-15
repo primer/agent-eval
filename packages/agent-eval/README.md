@@ -94,6 +94,13 @@ projects, projects that use Next.js, or anything else. By default, the
 dependencies of scenarios are installed and the `build` task is run before the
 agent sees the prompt for the scenario.
 
+### Check outcomes
+
+A scenario check can return `{type: 'outcomes', results: [...]}`. Each entry in
+`results` has `type: 'outcome'`, a `passed`, `failed`, or `skipped` status, and an
+optional `id`. For per-file checks, return one entry per checked file and use
+its file path as the ID. Existing outcomes without IDs remain supported.
+
 ### Browser tests
 
 Add an optional `browser.test.ts` file when a scenario needs tests in a real

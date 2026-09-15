@@ -70,6 +70,12 @@ test('loadScenario normalizes check results after defineConfig and config parsin
           ]
         },
       },
+      {
+        name: 'single',
+        async run() {
+          return {outcomes: [{type: 'outcome', status: 'passed'}]}
+        },
+      },
     ],
   })
   vi.spyOn(host, 'loadModule').mockResolvedValue({default: config})
@@ -79,6 +85,9 @@ test('loadScenario normalizes check results after defineConfig and config parsin
   await expect(scenario.checks[0]!.run({logger, sandbox})).resolves.toEqual([
     {type: 'outcomes', id: 'tests', results: [{type: 'outcome', status: 'passed'}]},
     {type: 'measurements', id: 'score', results: [{type: 'measurement', value: 42}], unit: 'points'},
+  ])
+  await expect(scenario.checks[1]!.run({logger, sandbox})).resolves.toEqual([
+    {type: 'outcomes', results: [{type: 'outcome', status: 'passed'}]},
   ])
 })
 

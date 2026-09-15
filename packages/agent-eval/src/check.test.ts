@@ -1,5 +1,5 @@
-import {expect, test} from 'vitest'
-import {CheckRunSchema, parseCheckConfig} from './check'
+import {expect, expectTypeOf, test} from 'vitest'
+import {CheckRunSchema, parseCheckConfig, type CheckRunResult} from './check'
 import {VirtualHost} from './host'
 import {logger} from './logger'
 import {VirtualSandbox} from './sandbox'
@@ -13,11 +13,11 @@ test('check runs preserve a results array with a status for each file', async ()
     ],
   }
   const run = CheckRunSchema.parse(async () => {
-    return result
+    return [result]
   })
   await using sandbox = await VirtualSandbox.create()
 
-  await expect(run({logger, sandbox})).resolves.toEqual(result)
+  await expect(run({logger, sandbox})).resolves.toEqual([result])
 })
 
 test('check runs still accept outcomes without IDs', async () => {
@@ -26,19 +26,30 @@ test('check runs still accept outcomes without IDs', async () => {
     results: [{type: 'outcome' as const, status: 'passed' as const}],
   }
   const run = CheckRunSchema.parse(async () => {
-    return result
+    return [result]
   })
   await using sandbox = await VirtualSandbox.create()
 
-  await expect(run({logger, sandbox})).resolves.toEqual(result)
+  await expect(run({logger, sandbox})).resolves.toEqual([result])
 })
 
 test('check outcome IDs must be strings', async () => {
   const run = CheckRunSchema.parse(async () => {
-    return {
-      type: 'outcomes',
-      results: [{type: 'outcome', id: 123, status: 'failed'}],
-    }
+    return [
+      {
+        type: 'outcomes',
+        results: [{type: 'outcome', id: 123, status: 'failed'}],
+      },
+    ]
+  })
+  await using sandbox = await VirtualSandbox.create()
+
+  await expect(run({logger, sandbox})).rejects.toThrow()
+})
+
+test('runtime check runs require an array of result groups', async () => {
+  const run = CheckRunSchema.parse(async () => {
+    return {type: 'outcomes', results: []}
   })
   await using sandbox = await VirtualSandbox.create()
 
@@ -56,16 +67,18 @@ test.each([
         {type: 'error', message: 'Could not check file'},
       ],
     },
-    expected: {
-      type: 'outcomes',
-      id: 'lint',
-      results: [
-        {type: 'outcome', id: 'src/App.tsx', status: 'passed'},
-        {type: 'outcome', id: 'src/main.tsx', status: 'failed'},
-        {type: 'outcome', status: 'skipped'},
-        {type: 'error', message: 'Could not check file'},
-      ],
-    },
+    expected: [
+      {
+        type: 'outcomes',
+        id: 'lint',
+        results: [
+          {type: 'outcome', id: 'src/App.tsx', status: 'passed'},
+          {type: 'outcome', id: 'src/main.tsx', status: 'failed'},
+          {type: 'outcome', status: 'skipped'},
+          {type: 'error', message: 'Could not check file'},
+        ],
+      },
+    ],
   },
   {
     input: {
@@ -77,19 +90,29 @@ test.each([
         {type: 'error', message: 'Timed out'},
       ],
     },
-    expected: {
-      type: 'measurements',
-      id: 'latency',
-      unit: 'ms',
-      direction: 'lower-is-better',
-      results: [
-        {type: 'measurement', value: 42},
-        {type: 'error', message: 'Timed out'},
-      ],
-    },
+    expected: [
+      {
+        type: 'measurements',
+        id: 'latency',
+        unit: 'ms',
+        direction: 'lower-is-better',
+        results: [
+          {type: 'measurement', value: 42},
+          {type: 'error', message: 'Timed out'},
+        ],
+      },
+    ],
   },
-  {input: {outcomes: []}, expected: {type: 'outcomes', results: []}},
-  {input: {measurements: []}, expected: {type: 'measurements', results: []}},
+  {input: {outcomes: []}, expected: [{type: 'outcomes', results: []}]},
+  {input: {measurements: []}, expected: [{type: 'measurements', results: []}]},
+  {
+    input: {outcomes: [{type: 'outcome', status: 'passed'}]},
+    expected: [{type: 'outcomes', results: [{type: 'outcome', status: 'passed'}]}],
+  },
+  {
+    input: [{id: 'tests', outcomes: []}],
+    expected: [{type: 'outcomes', id: 'tests', results: []}],
+  },
   {
     input: [
       {id: 'tests', outcomes: [{type: 'outcome', status: 'passed'}]},
@@ -115,6 +138,7 @@ test.each([
   })
   await using sandbox = await VirtualSandbox.create()
 
+  expectTypeOf<Awaited<ReturnType<typeof check.run>>>().toEqualTypeOf<Array<CheckRunResult>>()
   await expect(check.run({logger, sandbox})).resolves.toEqual(expected)
 })
 

@@ -110,7 +110,9 @@ Return exactly one of `outcomes` or `measurements` per group, without a group-le
 `type`. A check can return one group with an optional `id`, or an array of groups
 with a required `id` on each. Config parsing wraps the check callback to normalize
 each returned group to the internal `{type: 'outcomes' | 'measurements', results: [...]}`
-shape.
+shape. The runtime `check.run` always returns an array of these normalized groups,
+even when the configured callback returns a single group. A single group without
+an `id` remains valid, and an empty array remains empty.
 
 ### Browser tests
 

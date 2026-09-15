@@ -16,6 +16,7 @@ import {
   type JudgeResult,
 } from '../judge'
 import {AgentSessionSchema, getAgentSession} from '../agent'
+import type {CheckRunResult} from '../check'
 
 const TrialWalkthroughSchema = z.discriminatedUnion('type', [
   z.object({type: z.literal('Unavailable')}),
@@ -81,7 +82,7 @@ async function runTrial({
     trial,
   })
 
-  await verifyStage.run({
+  const {results: checks} = await verifyStage.run({
     sandbox,
     trial,
   })
@@ -254,7 +255,7 @@ const verifyStage = {
   async run({sandbox, trial}: VerifyStageOptions) {
     logger.info('[%s] Running checks', trial.id)
 
-    // const results = []
+    const results: Array<CheckRunResult> = []
 
     for (const check of trial.scenario.checks) {
       const copied = new Set<string>()
@@ -271,13 +272,15 @@ const verifyStage = {
         })
       }
 
-      const result = await check.run({
+      const checkRunResults = await check.run({
         logger: logger.child({
           trialId: trial.id,
           check: check.name,
         }),
         sandbox,
       })
+
+      results.push(...checkRunResults)
 
       if (copied.size > 0) {
         logger.debug('[%s] Cleaning up check files: %o', trial.id, Array.from(copied))
@@ -287,9 +290,9 @@ const verifyStage = {
       }
     }
 
-    // return {
-    //   results,
-    // }
+    return {
+      results,
+    }
   },
 }
 

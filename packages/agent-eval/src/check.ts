@@ -29,7 +29,7 @@ const ErrorSchema = z.object({
   // annotations: z._default(z.array(AnnotationSchema), []),
 })
 
-const CheckRunResultsSchema = z.discriminatedUnion('type', [
+const CheckRunResultSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('measurements'),
     unit: z.optional(z.string()),
@@ -44,17 +44,9 @@ const CheckRunResultsSchema = z.discriminatedUnion('type', [
   }),
 ])
 
-const CheckRunReturnSchema = z.union([
-  CheckRunResultsSchema,
-  z.array(
-    z.intersection(
-      CheckRunResultsSchema,
-      z.object({
-        id: z.string(),
-      }),
-    ),
-  ),
-])
+type CheckRunResult = z.infer<typeof CheckRunResultSchema>
+
+const CheckRunReturnSchema = z.array(CheckRunResultSchema)
 
 const CheckRunInputSchema = z.tuple([
   z.object({
@@ -70,7 +62,7 @@ const CheckRunSchema = z.function({
 
 type CheckRun = z.infer<typeof CheckRunSchema>
 
-const CheckConfigRunResultsSchema = z.union([
+const CheckConfigRunResultSchema = z.union([
   z.object({
     measurements: z.array(z.union([MeasurementSchema, ErrorSchema])),
     outcomes: z.optional(z.never()),
@@ -89,10 +81,10 @@ const CheckConfigRunSchema = z.function({
   input: CheckRunInputSchema,
   output: z.promise(
     z.union([
-      CheckConfigRunResultsSchema,
+      CheckConfigRunResultSchema,
       z.array(
         z.intersection(
-          CheckConfigRunResultsSchema,
+          CheckConfigRunResultSchema,
           z.object({
             id: z.string(),
           }),
@@ -102,16 +94,22 @@ const CheckConfigRunSchema = z.function({
   ),
 })
 
-function normalizeCheckResults(
-  result: z.infer<typeof CheckConfigRunResultsSchema>,
-): z.infer<typeof CheckRunResultsSchema> {
+function parseCheckRunResult(result: z.infer<typeof CheckConfigRunResultSchema>): z.infer<typeof CheckRunResultSchema> {
   if (result.measurements !== undefined) {
     const {measurements, ...metadata} = result
-    return {...metadata, type: 'measurements', results: measurements}
+    return {
+      ...metadata,
+      type: 'measurements',
+      results: measurements,
+    }
   }
 
   const {outcomes, ...metadata} = result
-  return {...metadata, type: 'outcomes', results: outcomes}
+  return {
+    ...metadata,
+    type: 'outcomes',
+    results: outcomes,
+  }
 }
 
 const CheckConfigFilesSchema = z._default(z.array(z.string()), [])
@@ -187,13 +185,10 @@ async function parseCheckConfig(host: Host, directory: string, json: unknown): P
     ...result.data,
     run: CheckRunSchema.parse(async (input: Parameters<CheckRun>[0]) => {
       const results = await result.data.run(input)
-      if (Array.isArray(results)) {
-        return results.map(group => {
-          return {...normalizeCheckResults(group), id: group.id}
-        })
-      }
-
-      return normalizeCheckResults(results)
+      const groups = Array.isArray(results) ? results : [results]
+      return groups.map(group => {
+        return parseCheckRunResult(group)
+      })
     }),
   }
 }
@@ -224,5 +219,13 @@ const CheckOutputSchema = z.object({
 
 type CheckOutput = z.infer<typeof CheckOutputSchema>
 
-export {CheckConfigSchema, CheckSchema, CheckResultSchema, CheckRunSchema, CheckOutputSchema, parseCheckConfig}
-export type {CheckConfig, CheckResult, CheckRun, CheckOutput}
+export {
+  CheckConfigSchema,
+  CheckSchema,
+  CheckResultSchema,
+  CheckRunSchema,
+  CheckOutputSchema,
+  parseCheckConfig,
+  parseCheckRunResult,
+}
+export type {CheckConfig, CheckResult, CheckRun, CheckRunResult, CheckOutput}

@@ -1,107 +1,229 @@
 # @primer/agent-eval
 
-A library and CLI tool for creating and running experiments and benchmarks that
-evaluate agent behavior across different scenarios.
+A CLI tool and library for evaluating agent performance.
 
 ## Getting started
 
-To install `@primer/agent-eval` in your project, you will need to run the following
-command using [npm](https://www.npmjs.com/):
+Install `@primer/agent-eval` in your project by running the following command
+with [`npm`](https://npmjs.org):
 
 ```bash
-npm install -S @primer/agent-eval
+npm install @primer/agent-eval --save-dev
 ```
 
-This provides the `agent-eval` executable and the package's programmatic APIs.
-Typically, you'll first create an experiment:
+This package provides a CLI through `agent-eval` which allows you to create and
+run [benchmarks](#benchmarks) or [experiments](#experiments) to evaluate agent performance on a variety of
+tasks. Benchmarks are used to establish a baseline for agent performance on a given task, while experiments are used to test different approaches to improve performance on that task.
 
-```tsx
-// experiments/example.ts
+To learn more about the CLI or about how create benchmarks and experiments,
+check out the sections below.
 
-import {defineConfig} from '@primer/agent-eval/experiment'
+## CLI
 
-export const experiment = defineConfig({
-  name: 'Experiment name',
-  description: 'A description for the experiment',
+The main way you'll interact with `@primer/agent-eval` is through its CLI. It
+provides you access to create, run or plan [benchmarks](#benchmarks), [experiments](experiments), and [scenarios](#scenarios).
 
-  // An array of models and their reasoning efforts that you would like to evaluate against
-  models: [
-    'gpt-5.5',
+Typically, you will run either benchmarks with the command:
+
+```bash
+agent-eval benchmarks run <benchmark-name>
+```
+
+You will also run experiments with the following command:
+
+```bash
+agent-eval experiments run <experiment-name>
+```
+
+Both of these commands will kick-off the evaluation of the given benchmark or
+experiments. Under-the-hood, we are going through each scenario and setting up a
+sandbox where the agent executes within. When all evaluations are complete, a
+result is returned detailing how each agent performed relative to each other.
+
+### CLI options
+
+## Benchmarks
+
+Benchmarks are used to establish a baseline for agent performance on a given task. By default, they live in a `benchmarks` folder in your project. You can create a benchmark by importing and using `defineConfig` from
+`@primer/agent-eval/benchmark`. For example:
+
+```ts
+// benchmarks/example.ts
+import {defineConfig} from '@primer/agent-eval/benchmark'
+
+export default defineConfig({
+  name: 'Example benchmark',
+  description: 'An illustrative benchmark showing how to use @primer/agent-eval',
+  models: ['gpt-5.6-sol', 'claude-opus-5'],
+  async setup({sandox}) {
+    // Run the setup necessary for your benchmark, like adding an MCP server
+    await sandbox.addMcpServer('acme', {
+      type: 'local',
+      command: 'npx',
+      args: ['@acme/mcp'],
+      tools: ['*'],
+    })
+  },
+  capabilities: [
     {
-      name: 'claude-opus-4.8',
-      reasoningEfforts: ['medium', 'high'],
+      name: 'Example capability',
+      scenarios: ['001-agent-scenario'],
     },
   ],
+})
+```
 
-  // An array of scenarios that setup tasks for your agent to perform and
-  // for you to evaluate their performance
-  scenarios: ['uses-button-from-primer'],
+Benchmarks describe a set of capabilities that are evaluated against the
+different models provided. The goal is to use these to establish a base set of
+results that you can measure over time.
 
-  // An array of treatments. Each treatment is tested and compared against
-  // each other and to the control for the experiment. A treatment represents a
-  // series of steps to setup the environment that an agent runs within. For
-  // example, it may add agent instructions, MCP servers, skill, etc.
-  //
-  // Multiple treatments may be used if you want to compare two approaches
-  // against each other, for example an MCP server vs a skill, for the scenarios
-  // you are testing against
+The `setup` that you provide is used to setup the internal sandbox with your current LLM setup, such as your skills or
+MCP server. This setup is compared against a control to gauge how much better
+the agent performs with your current setup compared to no setup.
+
+Each capability is made up of [scenarios](#scenarios). These are the folder
+names of scenarios that are in a `scenarios` folder by default. These scenarios
+are used by the capability to evaluate its performance in different areas.
+
+For example, you might have a capability that looks to see if the icons from
+your design system are used appropriately. Each scenario in that capability may
+test a different thing, from testing that it uses icons from default to
+inferring the correct semantic meaning of an icon in a new context.
+
+You can run benchmarks using the CLI by running the following command:
+
+```bash
+agent-eval benchmarks run <benchmark-name>
+```
+
+To learn more about benchmarks, visit our [benchmark docs](../../docs/benchmarks.md).
+
+## Experiments
+
+Experiments are used to test different approaches to improve performance on a set of tasks. By default, they live in an `experiments` folder in your project. You can create an experiment by importing and using `defineConfig` from
+`@primer/agent-eval/experiment`. For example:
+
+```ts
+// experiments/example.ts
+import {defineConfig} from '@primer/agent-eval/experiment'
+
+export default defineConfig({
+  name: 'Example experiment',
+  description: 'An illustrative experiment showing how to use @primer/agent-eval',
+  models: ['gpt-5.6-sol', 'claude-opus-5'],
+  scenarios: ['001-agent-scenario', '002-agent-scenario', '003-agent-scenario'],
   treatments: [
     {
-      name: 'With MCP Server',
+      name: 'MCP',
       async setup({sandbox}) {
-        await sandbox.addAgentInstruction(
-          `For any UI-related change, React component change, styling change, accessibility change, icon change, or design-system question, use the Primer MCP server before editing.`,
-        )
-        await sandbox.runCommand('npm', ['install', '-g', '@primer/mcp@latest'])
-        await sandbox.addMcpServer('primer', {
+        await sandbox.addMcpServer('acme', {
           type: 'local',
           command: 'npx',
-          args: ['--no-install', '@primer/mcp'],
+          args: ['@acme/mcp'],
           tools: ['*'],
         })
+      },
+    },
+    {
+      name: 'Skill',
+      async setup({sandbox}) {
+        await sandbox.addAgentSkill('acme', 'acme skill description', 'acme skill contents')
       },
     },
   ],
 })
 ```
 
-Then, you will create your scenarios that you are testing the agent behavior
-against:
+In this experiment, we're looking at two treatments to see which one performs
+best against the given scenarios.
 
-```tsx
-// scenarios/uses-button-from-primer/scenario.config.ts
+You can run experiments using the CLI by running the following command:
 
+```bash
+agent-eval experiments run <experiment-name>
+```
+
+When an experiment is run, each treatment is evaluated against the given scenarios. The results are then compared to see which treatment performed best.
+
+To learn more about experiments, visit our [experiment docs](../../docs/experiments.md).
+
+## Scenarios
+
+Scenarios are used to evaluate agent performance on a given task. By default, they live in a `scenarios` folder in your project. You can create a scenario by creating a folder with the name of the scenario and adding a `scenario.config.ts` file. In that file, you can import and use `defineConfig` from `@primer/agent-eval/scenario`. For example:
+
+```ts
 import {defineConfig} from '@primer/agent-eval/scenario'
-import type {JsonTestResults} from 'vitest/reporters'
 
 export default defineConfig({
-  description: 'Evaluate whether the agent completes the example task',
-  prompt: `Example scenario prompt that will instruct the agent to perform a task`,
-  tags: ['baseline', 'button', 'primer'],
+  prompt: 'Prompt for the scenario that is passed to the agent',
+  description: 'A description of the scenario and what it tests for',
+})
+```
+
+The contents of the scenario are copied into the sandbox and passed to the agent as a prompt. The agent's response is then evaluated against the expected output to see how well it performed.
+
+To evaluate how well the agent performed on the task, you can use the [`checks`](#checks) config option for
+deterministic verification or the [`judges`](#judges) config option for non-deterministic
+verification.
+
+To learn more about scenarios, visit our [scenario docs](../../docs/scenarios.md).
+
+### Checks
+
+Checks are used to deterministically evaluate how well an agent performed on a
+task. You can use them to run tools like vitest or eslint and report back their
+results. You can also use them as general scripts to run your own checks, such
+as:
+
+- Figuring out how different the scenario is from a baseline snapshot
+- Figuring how much files include (or don't include) an import statement (useful
+  for migration work)
+- Figuring out how similar a generated file is from a baseline file
+
+Checks are available as an option on scenarios with the `checks` option:
+
+```ts
+import {defineConfig} from '@primer/agent-eval/scenario'
+
+export default defineConfig({
+  prompt: 'Prompt for the scenario that is passed to the agent',
+  description: 'A description of the scenario and what it tests for',
   checks: [
     {
-      name: 'node-tests',
-      files: ['vitest.config.scenario.ts', 'scenario.test.ts'],
+      name: 'tests',
+      description: 'Verify that the agent output passes the tests',
+      files: ['vitest.config.ts', 'scenario.test.ts'],
       async run({sandbox}) {
-        const result = await sandbox.runCommand('npx', ['vitest', 'run', '--config', 'vitest.config.scenario.ts'], {
-          allowNonZeroExitCode: true,
-        })
-        if (result.exitCode !== 0 && result.exitCode !== 1) {
-          throw new Error(`Vitest failed with exit code ${result.exitCode}: ${result.stderr}`)
-        }
-        const json: JsonTestResults = JSON.parse(await sandbox.readFile('vitest-scenario-report.json'))
-        if (result.exitCode !== 0 && json.numFailedTests === 0) {
-          throw new Error(`Vitest failed without reporting failed tests: ${result.stderr}`)
-        }
+        // Run vitest and return the result
+      },
+    },
+  ],
+})
+```
+
+Checks can return outcomes or measurements. Outcomes are used to determine if the agent passed or failed the check, while measurements are used to determine how well the agent performed on the check.
+
+In the case above, we might return something like:
+
+```ts
+import {defineConfig} from '@primer/agent-eval/scenario'
+
+export default defineConfig({
+  prompt: 'Prompt for the scenario that is passed to the agent',
+  description: 'A description of the scenario and what it tests for',
+  checks: [
+    {
+      name: 'tests',
+      description: 'Verify that the agent output passes the tests',
+      files: ['vitest.config.ts', 'scenario.test.ts'],
+      async run({sandbox}) {
+        // ...
         return {
-          outcomes: json.testResults.flatMap(({assertionResults}) => {
-            return assertionResults.map(assertion => {
-              return {
-                type: 'outcome',
-                id: assertion.fullName,
-                status: assertion.status === 'passed' ? 'passed' : assertion.status === 'failed' ? 'failed' : 'skipped',
-              }
-            })
+          outcomes: testResults.map(testResult => {
+            return {
+              type: 'outcome',
+              status: testResult.status,
+            }
           }),
         }
       },
@@ -110,487 +232,10 @@ export default defineConfig({
 })
 ```
 
-Keep the assertions in `scenario.test.ts` and configure Vitest to write the
-report consumed by the check:
+### Judges
 
-```ts
-// scenarios/uses-button-from-primer/vitest.config.scenario.ts
-import {defineConfig} from 'vitest/config'
+## Programmatic usage
 
-export default defineConfig({
-  test: {
-    include: ['scenario.test.ts'],
-    reporters: [['json', {outputFile: 'vitest-scenario-report.json', includeTaskLocation: true}]],
-  },
-})
-```
+## License
 
-Scenarios are packages with a `package.json` file. They can be standalone
-projects, projects that use Next.js, or anything else. By default, the
-dependencies of scenarios are installed and the `build` task is run before the
-agent sees the prompt for the scenario.
-
-### Check outcomes
-
-A scenario check can return `{outcomes: [...]}`. Each outcome has
-`type: 'outcome'`, a `passed`, `failed`, or `skipped` status, and an
-optional `id`. For per-file checks, return one entry per checked file and use
-its file path as the ID. Existing outcomes without IDs remain supported.
-
-For numeric results, return `{measurements: [...]}` with entries containing
-`type: 'measurement'` and a numeric `value`. Measurement groups can also include
-`unit` and `direction` (`higher-is-better` or `lower-is-better`).
-Both arrays support `{type: 'error', message: '...'}` entries.
-
-Return exactly one of `outcomes` or `measurements` per group, without a group-level
-`type`. A check can return one group with an optional `id`, or an array of groups
-with a required `id` on each. Config parsing wraps the check callback to normalize
-each returned group to `{type: 'outcomes', outcomes: [...]}` or
-`{type: 'measurements', measurements: [...]}`.
-The runtime `check.run` always returns an array of these normalized groups,
-even when the configured callback returns a single group. A single group without
-an `id` remains valid, and an empty array remains empty.
-
-### Browser tests
-
-When a scenario needs tests in a real browser, define a check whose `files` list
-includes the browser tests and runner configuration. Its `run` callback should
-invoke the browser test runner through `sandbox.runCommand`, read the report,
-and return outcomes or measurements. Node-based tests use the same pattern.
-Test filenames do not trigger automatic execution.
-
-Keep assertions in the test files and convert the runner's JSON results into
-outcomes in the check callback. Outcome IDs identify the individual test names
-within a check.
-
-With everything in place, you can now use the `agent-eval` executable to run
-the experiment:
-
-```bash
-export COPILOT_GITHUB_TOKEN=... # A GitHub token with access to the Copilot API
-npx @primer/agent-eval experiment run example --experiments ./experiments --scenarios ./scenarios
-```
-
-## Programmatic reporting APIs
-
-Import discovery and reporting APIs from the package root. Configuration helpers
-remain in the `/benchmark`, `/experiment`, and `/scenario` entry points.
-
-```ts
-import {getExperiment, listScenarios} from '@primer/agent-eval'
-
-const scenarios = await listScenarios({directory: './scenarios'})
-const experiment = await getExperiment({
-  name: 'example',
-  experimentsDirectory: './experiments',
-  scenariosDirectory: './scenarios',
-})
-```
-
-The root also exports `getBenchmark`, `listBenchmarks`, `listExperiments`,
-`getScenario`, and the corresponding `Benchmark`, `Experiment`, and `Scenario`
-types. Getters select resources by `name` (the filename or directory name).
-
-For saved results, validate manifests with `BenchmarkOutputFileSchema` or
-`ExperimentOutputFileSchema`, then read the bundle-relative files in `trials`
-and validate them with `BenchmarkTrialOutputSchema` or
-`ExperimentTrialOutputSchema`. Check that each parsed trial's `id` matches its
-manifest key. The `BenchmarkOutput` and `ExperimentOutput` types describe hydrated
-results with `Map` collections, while the file schemas use JSON records.
-
-Benchmark trials include `capabilityId`, referencing the capability metadata in
-the output manifest. This association is preserved when writing and merging
-results, including when a scenario belongs to multiple capabilities.
-`parseBenchmarkTrialOutput(json, capabilities)` validates the current trial
-schema and this association. It requires an explicit `capabilityId`; older
-shapes are not upgraded and capability membership is never inferred.
-
-`CheckOutput` and `JudgeOutput` describe recorded evaluations.
-`createTrialSummary`, `addCheckResults`, `getCheckDimensions`, `getCheckValue`,
-`formatCheckSummaries`, and `createTrialSummaryComparator` support custom reports
-with the same aggregation and ordering as the CLI. When assembling a
-`TrialSummary`, record the trial count in `runs`, per-scenario counts in
-`scenarioRuns`, check results in `checks`, and implementation-session usage
-totals. Do not include judge-session usage in those totals.
-
-## CLI
-
-Install the package and run the `agent-eval` binary with a GitHub token:
-
-```sh
-COPILOT_GITHUB_TOKEN=... agent-eval experiment run example \
-  --experiments ./experiments \
-  --scenarios ./scenarios
-```
-
-Use `--experiments` to load experiment files from a local directory. Experiment
-files may export an `experiment` named export or a default export. The positional
-name selects an experiment by its filename without the extension. The experiments
-directory defaults to `./experiments`. Use `--scenarios` to set the directory
-containing scenario directories; it defaults to `./scenarios`.
-
-Use `benchmark run` to select a benchmark by filename and `--benchmarks` to set
-the benchmark directory:
-
-```sh
-COPILOT_GITHUB_TOKEN=... agent-eval benchmark run design-system \
-  --benchmarks ./benchmarks \
-  --scenarios ./scenarios
-```
-
-### Concurrency
-
-All run commands (`scenario run`, `experiment run`, `benchmark run`, and
-experiment/benchmark `plan run`) accept two independent concurrency limits:
-
-- `--copilot-concurrency`, or `-c`, limits concurrent Copilot sessions (default: `1`).
-- `--container-concurrency` limits concurrently running trial containers (default: `5`).
-
-Both values must be positive integers. The Copilot queue is shared by
-implementation, judge, and walkthrough sessions. A container slot covers the
-entire trial, including setup and cleanup, so additional containers can prepare
-or run checks while other trials use Copilot. Limits apply to each running CLI
-process, not across shards.
-
-```sh
-agent-eval experiment run example --copilot-concurrency 2 --container-concurrency 5
-```
-
-Replace the former `--concurrency` option with `--copilot-concurrency`.
-Programmatic `runPlan` calls now take `copilotConcurrency` and
-`containerConcurrency` instead of `concurrency`.
-
-### Run reports
-
-Both `run` and `plan run` commands print a report after saving their result
-bundle. Experiment reports group results by treatment, scenario, and model.
-Benchmark reports group results by capability, scenario, and model, with usage
-and check changes relative to the control treatment. Plan-run reports cover only the
-selected shard.
-
-Each check contributes a comparison dimension identified by its scenario ID,
-check name, and optional result group ID. Named groups are separate dimensions,
-and identically named checks in different scenarios remain separate in the saved
-data and ordering. CLI tables display a single `Checks` column instead of
-individual check names. A dimension must keep the same result type, unit, and direction
-across trials. Duplicate groups within a trial or incompatible metadata produce
-an error instead of combining unrelated values.
-
-The `Checks` column shows `passed / (passed + failed)` as a percentage for each
-check in each trial, then averages those percentages across checks and trials.
-Measurements average valid values within each check in each trial, then average
-those means across checks and trials with the same unit and direction. Different
-units or directions appear as separate values within the cell rather than being
-combined. This gives each check result equal influence even when its collection
-has a different size. Individual outcomes and measurements remain in the saved
-trial data. Skipped outcomes and errors do not contribute
-to either average; reports show their counts separately, including control-side
-counts in benchmark reports. Empty or missing values display as `N/A`, and
-partial coverage displays the number of check results with values compared with
-the expected number across the relevant scenario runs.
-
-Treatments and models are ordered using equal-weight ranks across shared check
-dimensions. Each dimension ranks the compared summaries by its value, with ties
-receiving the average of their positions. The ranks are summed, with lower totals
-first; raw percentages and measurements with different units are never added
-together. Outcome percentages use higher-is-better ordering. Measurements use
-their declared `direction`; without it, they are displayed but not ranked.
-A dimension participates in ordering only when every compared summary has a
-value for every trial of that scenario and no check errors. Otherwise it still
-contributes to the displayed rollup but does not affect ordering. Usage breaks ties, and remains the ordering
-when no checks are comparable. Check dimensions have equal weight; there is no
-weight configuration.
-
-Usage columns sum `outputTokens`, `premiumRequests`, `sessionDurationMs`, and
-`totalApiDurationMs` across each trial's `agent.sessions`. Judge sessions are
-excluded. Benchmark percentage changes use `(benchmark - control) / control`;
-a missing comparison side or a zero baseline with a nonzero treatment value
-is shown as `N/A`. Run counts are included so unequal shard sizes are visible.
-
-Benchmark check changes apply the same percentage-change formula to the
-per-dimension averages, not collection totals. Reports include run counts,
-check dimensions, and agent usage, without judge scores or a combined raw check
-score.
-
-### Result bundles
-
-Keep the output file and artifacts in one directory:
-
-```text
-run/
-├── output.json
-└── artifacts/
-    └── <trial-id>/
-        ├── <trial-id>.json
-```
-
-```sh
-agent-eval experiment run example \
-  --output-dir run
-```
-
-`output.json` stores the experiment's filename-based `id`, scenario and treatment
-metadata, and a map of trial IDs to JSON files relative to the output directory.
-Treatments use stable IDs derived from their names. Each trial file contains
-agent, model, check, judge, artifact, and walkthrough data. Artifact paths inside trial
-files retain their runtime locations. `--output-dir` creates `output.json` and
-`artifacts/` within the selected directory.
-
-Trials include a `checks` array containing each check's metadata and normalized
-result group, including outcome IDs, measurements, units, directions, and error
-messages. These results are preserved when merging shards. Older trial files
-without `checks` are treated as having no check results, not as zero scores.
-
-Trials include a `judges` array. Each entry preserves the `judge` configuration,
-`result`, and `agent.session` (including its messages and usage). Judge sessions
-are separate from the implementation agent's sessions. Successful results have
-`type: "result"` with a `score`, `rationale`, and file-backed `findings`. Missing
-reports have `type: "unknown"`; malformed reports and scores outside the
-configured scale have `type: "error"` with a diagnostic `message`.
-
-Judge reports are read from the sandbox workspace before artifacts are
-downloaded. Reports contain `score`, `rationale`, and `findings`; the runner adds
-the result type. The original reports are also retained in the downloaded
-workspace as `judge-<sha256>-report.json`, using the SHA-256 hex digest of the
-judge's name to keep filenames path-safe. The original name is preserved in the
-judge configuration. Experiment output preserves judge results and scenario
-judge configurations.
-
-### Judge reference files
-
-Use `files` on a judge entry to provide reference screenshots, text files, or
-directories:
-
-```ts
-import {defineConfig} from '@primer/agent-eval/scenario'
-
-export default defineConfig({
-  prompt: 'Build a project overview page.',
-  judges: [
-    {
-      name: 'visual-match',
-      files: ['screenshots', 'references/notes.txt'],
-      judge: {
-        instructions: 'Compare the implementation with the reference screenshots and notes.',
-      },
-      scores: [
-        {value: 0, description: 'The implementation does not match the references.'},
-        {value: 1, description: 'The implementation matches the references.'},
-      ],
-    },
-  ],
-})
-```
-
-Paths are relative to the scenario directory and use forward slashes. These are
-literal file or directory paths, not glob patterns. Directories are copied
-recursively. References are excluded from the implementation workspace and
-copied to the same relative workspace paths during the judge phase, after
-deterministic tests finish. The judge prompt identifies them as reference
-material, not implementation output. Shared references are copied once.
-
-Use dedicated reference paths that the implementation will not create.
-Missing references, symbolic links, absolute paths, parent traversal, and paths
-that would overwrite existing workspace content fail the trial explicitly.
-Reference files remain in the downloaded workspace, and `files` is preserved in
-saved judge configurations. For findings based on images, judges use an empty
-`snippet` and describe the visual evidence in `explanation`.
-
-### Plans and sharding
-
-Create a durable, randomized trial plan before running an experiment or
-benchmark:
-
-```sh
-agent-eval experiment plan create example --output-path plan.json
-```
-
-Plan creation does not require a Copilot token. The plan stores the ordered
-trial IDs and references needed to reload the experiment or benchmark. Keep the
-same experiment, benchmark, and scenario configuration available when running
-the plan.
-
-Run deterministic shards from the shared plan, writing a distinct output file
-for each shard:
-
-```sh
-COPILOT_GITHUB_TOKEN=... agent-eval experiment plan run \
-  --plan-path plan.json \
-  --shard 1/4 \
-  --output-dir run
-```
-
-After all shards finish, merge the `output-*.json` files into one
-result:
-
-```sh
-agent-eval experiment merge --output-dir run
-```
-
-The merge writes `output.json` before removing the shard manifests. Trial
-artifact files remain in place.
-
-`--output-path` and `--plan-path` default to `plan.json`. With `--output-dir`,
-`--shard 1/4` writes `output-1.json`. `--shard` is only available on
-`experiment plan run`. Shard merging does not require a Copilot token.
-Use `--experiments` and `--scenarios` on both plan commands when loading
-configuration from custom directories. Benchmark commands use the same
-`benchmark plan create`, `benchmark plan run`, and `benchmark merge` structure.
-
-## Scenario config authoring
-
-Use `defineConfig` from `@primer/agent-eval/scenario` in each
-`scenario.config.ts` file:
-
-```ts
-import {defineConfig} from '@primer/agent-eval/scenario'
-
-export default defineConfig({
-  description: 'Evaluate whether the agent uses a Primer button correctly',
-  prompt: 'Update the index page to use a primary button',
-  tags: ['baseline', 'button', 'primer'],
-})
-```
-
-Scenario descriptions and tags are optional. Use `description` to explain what
-the scenario tests.
-
-## Experiment config authoring
-
-Use `defineConfig` from `@primer/agent-eval/experiment` to keep local experiment
-files typed:
-
-```ts
-import {defineConfig} from '@primer/agent-eval/experiment'
-
-export const experiment = defineConfig({
-  name: 'Example experiment',
-  description: 'Compare treatment behavior',
-  models: [{name: 'gpt-5.5', reasoningEfforts: ['low', 'medium', 'high']}],
-  scenarios: ['001-agent-uses-button-from-primer'],
-  treatments: [],
-})
-```
-
-Models can be specified by name to use the default `medium` reasoning effort or
-with a `name` and `reasoningEfforts` array to run multiple variants.
-
-Each model and scenario runs once per configured treatment and once with the
-automatic `Control` treatment. Treatment names must be unique; `Control` is
-reserved. A top-level `setup` runs before treatment setup for every trial,
-including control trials. Treatment configs only need a name and optional setup;
-IDs are assigned when the experiment is loaded.
-
-Scenarios can be selected by ID or loaded directly from a path:
-
-```ts
-scenarios: [
-  '001-agent-uses-button-from-primer',
-  {
-    name: 'local-button',
-    path: './scenarios/local-button-scenario',
-  },
-]
-```
-
-## Benchmark config authoring
-
-Use `defineConfig` from `@primer/agent-eval/benchmark` to group scenarios into
-capabilities:
-
-```ts
-import {defineConfig} from '@primer/agent-eval/benchmark'
-
-export const benchmark = defineConfig({
-  name: 'Design system',
-  description: 'Measure agent performance across design system tasks',
-  models: ['gpt-5.6-sol'],
-  async setup({sandbox}) {
-    await sandbox.addAgentSkill('design-system', 'Uses the design system', 'Follow the design system guidance.')
-  },
-  capabilities: [
-    {
-      name: 'Uses components',
-      scenarios: ['001-agent-uses-button-from-primer'],
-      async setup({sandbox}) {
-        await sandbox.writeFile('/root/.copilot/component-guidance.md', 'Prefer existing components.')
-      },
-    },
-  ],
-})
-```
-
-The top-level setup runs first for every benchmark treatment trial. A
-capability setup runs next for treatment trials in that capability. Control
-trials do not run either setup.
-
-Treatment setup can add custom Copilot sub-agents to `~/.copilot/agents`:
-
-```ts
-await sandbox.addCustomAgent('test-specialist', 'Focuses on test coverage', 'Write focused tests.', {
-  tools: ['read', 'search', 'edit'],
-  files: [
-    {sourcePath: './docs/testing.md', destinationPath: 'test-specialist/testing.md'},
-    {path: 'test-specialist/context.md', content: 'Prioritize deterministic tests.'},
-  ],
-})
-```
-
-Treatment setup can also add Copilot skills to `~/.agents/skills` with
-additional files next to `SKILL.md`:
-
-```ts
-await sandbox.addAgentSkill('test-planning', 'Plans test coverage', 'Create focused test plans.', {
-  files: [
-    {sourcePath: './docs/testing.md', destinationPath: 'testing.md'},
-    {path: 'context.md', content: 'Prioritize deterministic tests.'},
-  ],
-})
-```
-
-Treatment setup can install Copilot plugins from remote Git repositories, local
-directories, or remote and local plugin marketplaces. A remote plugin can
-optionally specify a branch or tag with `version`:
-
-```ts
-await sandbox.addCopilotPlugin({
-  type: 'remote',
-  url: 'https://github.com/example/copilot-plugin.git',
-  version: 'v1.2.3',
-})
-
-await sandbox.addCopilotPlugin({
-  type: 'local',
-  sourcePath: './plugins/copilot-plugin',
-})
-
-await sandbox.addCopilotPlugin({
-  type: 'marketplace',
-  name: 'example-plugin',
-  marketplace: {
-    name: 'example-marketplace',
-    source: {
-      type: 'remote',
-      url: 'https://github.com/example/copilot-marketplace.git',
-    },
-  },
-})
-```
-
-Use `{type: 'local', sourcePath: './plugins/local-marketplace'}` as the
-marketplace `source` to install from a local marketplace.
-
-## Programmatic APIs
-
-Use `defineConfig` from `@primer/agent-eval/benchmark` or
-`@primer/agent-eval/experiment` to author configuration. These entry points expose
-configuration helpers; use the CLI for discovery, execution, planning, and
-merging results.
-
-The scenario entry point, `@primer/agent-eval/scenario`, exports only
-`defineConfig`. Scenario loading, discovery, schemas, and runtime types are
-internal; select scenarios through benchmark or experiment configuration.
-Use `@primer/agent-eval/sandbox` for sandbox runtime and types.
-
-The CLI is available through the `agent-eval` executable rather than a
-`@primer/agent-eval/cli` package entry point.
+Licensed under the [MIT License](../../LICENSE).

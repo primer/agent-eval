@@ -2,14 +2,15 @@
 
 import {CopilotIcon, PersonIcon} from '@primer/octicons-react'
 import {Breadcrumbs, Button, FormControl, Select, Stack, UnderlineNav} from '@primer/react'
-import type {RunDetails, TranscriptEntry, WalkthroughUrls} from '../../run-details'
+import type {RunDetails, TranscriptEntry} from '../../run-details'
 import {loadTrialDetails, loadTrialTranscript} from '../../run-data-client'
 import type {Route} from 'next'
 import Link from 'next/link'
-import Image from 'next/image'
 import {useEffect, useState, type ReactNode} from 'react'
 import {JudgeResults} from './JudgeResults'
 import {CheckResults} from './CheckResults'
+import {RunDetailsLoading, type ResultTab} from './RunDetailsLoading'
+import {UiWalkthrough} from './UiWalkthrough'
 
 type RunResult = RunDetails['results'][number]
 
@@ -76,84 +77,17 @@ function Transcript({entries}: {entries: Array<TranscriptEntry>}) {
   )
 }
 
-function BrowserScreenshot({alt, source, eager}: {alt: string; source: string; eager: boolean}) {
-  return (
-    <div className="border border-default rounded-md overflow-hidden w-fit max-w-full">
-      <div className="bg-muted border-b border-default flex gap-2 p-3" aria-hidden="true">
-        <span className="bg-danger-emphasis rounded-full size-3" />
-        <span className="bg-attention-emphasis rounded-full size-3" />
-        <span className="bg-success-emphasis rounded-full size-3" />
-      </div>
-      <Image
-        alt={alt}
-        className="block max-w-full h-auto"
-        height={900}
-        loading={eager ? 'eager' : 'lazy'}
-        src={source}
-        unoptimized
-        width={1440}
-      />
-    </div>
-  )
-}
-
-export function UiWalkthrough({
-  scenarioId,
-  walkthrough,
-  eager,
-}: {
-  scenarioId: string
-  walkthrough: WalkthroughUrls
-  eager: boolean
-}) {
-  if (walkthrough.type === 'Video') {
-    return (
-      <video
-        className="border border-default rounded-2 w-full h-auto"
-        controls
-        height={900}
-        preload="none"
-        src={walkthrough.video}
-        width={1440}
-      />
-    )
-  }
-
-  if (walkthrough.type === 'Screenshots') {
-    return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {walkthrough.screenshots.map((source, index) => {
-          return (
-            <BrowserScreenshot
-              alt={`UI walkthrough step ${index + 1} for ${scenarioId}`}
-              eager={eager && index === 0}
-              key={source}
-              source={source}
-            />
-          )
-        })}
-      </div>
-    )
-  }
-
-  if (walkthrough.type === 'Screenshot') {
-    return <BrowserScreenshot alt={`UI walkthrough for ${scenarioId}`} eager={eager} source={walkthrough.screenshot} />
-  }
-
-  return <p>No UI walkthrough was recorded.</p>
-}
-
-type ResultTab = 'walkthrough' | 'checks' | 'judges' | 'transcript'
-
 function AsyncContent<T>({
   url,
   load,
   label,
+  fallback,
   children,
 }: {
   url: string
   load: (url: string) => Promise<T>
   label: string
+  fallback: ReactNode
   children: (data: T) => ReactNode
 }) {
   const [state, setState] = useState<
@@ -181,7 +115,7 @@ function AsyncContent<T>({
   }, [url, load, attempt])
 
   if (state.status === 'loading') {
-    return <p role="status">Loading {label}...</p>
+    return fallback
   }
   if (state.status === 'error') {
     return (
@@ -275,6 +209,7 @@ function ResultTabs({index, result}: {index: number; result: RunResult}) {
             url={result.transcriptUrl}
             load={loadTrialTranscript}
             label="transcript"
+            fallback={<RunDetailsLoading tab="transcript" result={result} />}
           >
             {entries => {
               return (
@@ -285,7 +220,13 @@ function ResultTabs({index, result}: {index: number; result: RunResult}) {
             }}
           </AsyncContent>
         ) : (
-          <AsyncContent key={result.detailsUrl} url={result.detailsUrl} load={loadTrialDetails} label="trial details">
+          <AsyncContent
+            key={result.detailsUrl}
+            url={result.detailsUrl}
+            load={loadTrialDetails}
+            label="trial details"
+            fallback={<RunDetailsLoading tab={selectedTab} result={result} />}
+          >
             {details => {
               if (selectedTab === 'checks') {
                 return <CheckResults checks={details.checks} />

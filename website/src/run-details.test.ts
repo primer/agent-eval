@@ -28,6 +28,7 @@ test.each([
     totalApiDurationMs: 200,
     sessionDurationMs: 300,
     counts: {checks: checks.length, transcript: 0, judges: judgeOutputs.length},
+    walkthroughPreview: {type: 'Unavailable', count: 0},
     detailsUrl: `${baseUrl}/details.json`,
     transcriptUrl: `${baseUrl}/transcript.json`,
   })
@@ -123,7 +124,17 @@ test('keeps heavy trial bodies out of the initial run summaries', async () => {
   })
   const run = await createExperimentRunDetails('2026-09-15', createExperimentOutput([trial]))
   expect(JSON.stringify(run)).not.toContain(marker)
+  expect(run.results[0].walkthroughPreview).toEqual({type: 'Screenshot', count: 1})
   for (const field of ['checks', 'judges', 'transcript', 'walkthrough']) {
     expect(run.results[0]).not.toHaveProperty(field)
   }
+})
+
+test('provides only the gallery shape needed to reserve the initial loading layout', async () => {
+  const run = await createExperimentRunDetails(
+    '2026-09-15',
+    createExperimentOutput([createTrial({walkthrough: {type: 'Screenshots', screenshots: ['one.png', 'two.png']}})]),
+  )
+  expect(run.results[0].walkthroughPreview).toEqual({type: 'Screenshots', count: 2})
+  expect(JSON.stringify(run)).not.toContain('one.png')
 })

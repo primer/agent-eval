@@ -40,6 +40,7 @@ type RunResult = {
   totalApiDurationMs: number
   sessionDurationMs: number
   counts: {checks: number; transcript: number; judges: number}
+  walkthroughPreview: {type: Walkthrough['type']; count: number}
   detailsUrl: string
   transcriptUrl: string
 }
@@ -378,6 +379,15 @@ async function createExperimentRunDetails(
           checks: result.checks.length,
           transcript: createTrialTranscript(result).length,
           judges: result.judges.length,
+        },
+        walkthroughPreview: {
+          type: result.walkthrough.type,
+          count:
+            result.walkthrough.type === 'Screenshots'
+              ? result.walkthrough.screenshots.length
+              : result.walkthrough.type === 'Unavailable'
+                ? 0
+                : 1,
         },
         detailsUrl: `${baseUrl}/details.json`,
         transcriptUrl: `${baseUrl}/transcript.json`,

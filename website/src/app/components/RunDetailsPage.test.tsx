@@ -3,7 +3,9 @@ import type {Route} from 'next'
 import {expect, test} from 'vitest'
 import {createBenchmarkRunDetails, createExperimentRunDetails} from '../../run-details'
 import {createBenchmarkOutput, createExperimentOutput, createTrial} from '../../test-fixtures'
-import {RunDetailsPage, UiWalkthrough} from './RunDetailsPage'
+import {RunDetailsPage} from './RunDetailsPage'
+import {UiWalkthrough} from './UiWalkthrough'
+import {RunDetailsLoading} from './RunDetailsLoading'
 
 const resource = {
   id: 'noop',
@@ -23,7 +25,7 @@ test('provides a selector for every repeated trial and the new checks tab', asyn
   expect(html).toContain('Trial 2 (trial-2)')
   expect(html).toContain('result-0-checks-tab')
   expect(html).not.toContain('Tests passed')
-  expect(html).toContain('Loading trial details')
+  expect(html).toContain('No UI walkthrough was recorded.')
   expect(html).not.toContain('empty state renders')
 })
 
@@ -59,7 +61,7 @@ test('keeps a shared scenario separate per capability and exposes capability fil
   expect(html).toContain('value="b"')
 })
 
-test.each([true, false])('uses eager loading only for the leading walkthrough image when eager is %s', eager => {
+test.each([true, false])('reserves image placeholders before determining viewport loading when eager is %s', eager => {
   const html = renderToStaticMarkup(
     <UiWalkthrough
       scenarioId="example"
@@ -67,11 +69,15 @@ test.each([true, false])('uses eager loading only for the leading walkthrough im
       walkthrough={{type: 'Screenshots', screenshots: ['/media/first.png', '/media/second.png']}}
     />,
   )
-  const images = html.match(/<img[^>]+>/g)
-  expect(images).toHaveLength(2)
-  expect(images?.[0]).toContain(`loading="${eager ? 'eager' : 'lazy'}"`)
-  expect(images?.[1]).toContain('loading="lazy"')
+  const images = html.match(/<img[^>]+>/g) ?? []
+  expect(images).toHaveLength(eager ? 1 : 0)
+  if (eager) {
+    expect(images[0]).toContain('loading="eager"')
+  }
   expect(html).not.toContain('data:image')
+  expect(html.match(/data-component="Spinner"/g)).toHaveLength(2)
+  expect(html.match(/role="status"/g)).toHaveLength(2)
+  expect(html.match(/aspect-\[8\/5\]/g)).toHaveLength(2)
 })
 
 test('does not preload the bytes of an external walkthrough video', () => {
@@ -80,4 +86,33 @@ test('does not preload the bytes of an external walkthrough video', () => {
   )
   expect(html).toContain('preload="none"')
   expect(html).toContain('src="/media/video.webm"')
+  expect(html).toContain('aspect-[8/5]')
+  expect(html).not.toContain('data-component="Spinner"')
 })
+
+test('reserves matching browser frames and gallery columns while walkthrough details load', async () => {
+  const run = await createExperimentRunDetails(
+    '2026-09-15',
+    createExperimentOutput([createTrial({walkthrough: {type: 'Screenshots', screenshots: ['one.png', 'two.png']}})]),
+  )
+  const html = renderToStaticMarkup(<RunDetailsPage resource={resource} run={run} />)
+  expect(html).toContain('grid-cols-1 sm:grid-cols-2')
+  expect(html.match(/data-component="Spinner"/g)).toHaveLength(2)
+  expect(html.match(/aspect-\[8\/5\]/g)).toHaveLength(2)
+  expect(html).toContain('Loading walkthrough image 1')
+  expect(html).not.toContain('<img')
+})
+
+test.each(['checks', 'judges', 'transcript'] as const)(
+  'uses Primer skeletons and an accessible spinner for %s',
+  async tab => {
+    const run = await createExperimentRunDetails('2026-09-15', createExperimentOutput())
+    const html = renderToStaticMarkup(<RunDetailsLoading tab={tab} result={run.results[0]} />)
+    expect(html).toContain('role="status"')
+    expect(html).toContain(`Loading ${tab}`)
+    expect(html).toContain('data-component="Spinner"')
+    expect(html).toContain('data-component="SkeletonBox"')
+    expect(html).toContain('aria-hidden="true"')
+    expect(html).toContain('min-h-64')
+  },
+)

@@ -56,8 +56,12 @@ and cached during the browser session; failures show an error and a retry button
 Changing the selection cannot display a previous trial's pending response.
 
 Screenshots and videos are served as separate files, not embedded base64 data.
-The first walkthrough image on the page loads eagerly; subsequent images load
-lazily, and videos use `preload="none"`.
+The first walkthrough image and any images in the viewport load eagerly;
+offscreen images load lazily, and videos use `preload="none"`.
+Walkthrough loading placeholders reserve the preview's aspect ratio and gallery
+layout, using Primer spinners until images finish loading. Other tabs use Primer
+skeletons and loading indicators. Media failures offer a retry; idle videos do
+not show a spinner until playback is buffering.
 
 The `/run-data/...` GET route generates per-trial JSON and media files during
 `next build` and serves them during development. These files are included in

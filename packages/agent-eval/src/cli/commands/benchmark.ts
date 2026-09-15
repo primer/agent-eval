@@ -37,9 +37,7 @@ export const benchmark = defineCommand({
         description: 'Merge benchmark results from a sharded plan into a single result',
       },
       args: {
-        // benchmarks: benchmarksOption,
         'output-dir': outputDirectoryOption,
-        // scenarios: scenariosOption,
       },
       async run({args}) {
         const outputDirectory = path.resolve(args['output-dir'])
@@ -76,7 +74,6 @@ export const benchmark = defineCommand({
         logger.info('Successfully merged benchmark results into: %s', path.relative(process.cwd(), outputPath))
       },
     }),
-
     plan: defineCommand({
       meta: {
         name: 'plan',

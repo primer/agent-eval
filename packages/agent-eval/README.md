@@ -207,6 +207,10 @@ export default defineConfig({
 Files listed in a check's `files` option are withheld from the agent's initial
 workspace and copied in before that check runs.
 
+Check and judge reference paths must stay inside the scenario directory, both
+as written and after resolving symlinks. The referenced entry itself must not
+be a symlink.
+
 Checks can return outcomes or measurements. Outcomes are used to determine if the agent passed or failed the check, while measurements are used to determine how well the agent performed on the check.
 
 In the case above, we might return something like:

@@ -5,6 +5,7 @@ import {ModelVariantSchema, type ModelVariant} from './model'
 import type {Trial} from './trial/trial'
 import {AgentSessionSchema} from './agent'
 import type {Host} from './host'
+import {isPathInside} from './path'
 
 const JudgeConfigFilesSchema = z._default(z.array(z.string()), [])
 
@@ -62,7 +63,7 @@ async function parseJudgeConfig(host: Host, directory: string, json: unknown): P
                 return z.NEVER
               }
 
-              if (!filepath.startsWith(directory)) {
+              if (!isPathInside(directory, filepath)) {
                 ctx.issues.push({
                   code: 'custom',
                   message: `Judge config file path must be inside the scenario directory: ${input}`,
@@ -71,11 +72,22 @@ async function parseJudgeConfig(host: Host, directory: string, json: unknown): P
                 return z.NEVER
               }
 
-              const stats = await host.fs.stat(filepath)
+              const stats = await host.fs.lstat(filepath)
               if (stats.isSymbolicLink()) {
                 ctx.issues.push({
                   code: 'custom',
                   message: `Judge config file path must not be a symbolic link: ${input}`,
+                  input,
+                })
+                return z.NEVER
+              }
+
+              const realDirectory = await host.fs.realpath(directory)
+              const realFilepath = await host.fs.realpath(filepath)
+              if (!isPathInside(realDirectory, realFilepath)) {
+                ctx.issues.push({
+                  code: 'custom',
+                  message: `Judge config file path must be inside the scenario directory: ${input}`,
                   input,
                 })
                 return z.NEVER

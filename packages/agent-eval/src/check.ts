@@ -3,6 +3,7 @@ import * as z from 'zod/mini'
 import {SandboxSchema} from './sandbox'
 import type {Host} from './host'
 import type {logger} from './logger'
+import {isPathInside} from './path'
 
 // const AnnotationSchema = z.object({
 //   context: z.optional(z.string()),
@@ -144,8 +145,7 @@ async function parseCheckConfig(host: Host, directory: string, json: unknown): P
                 return z.NEVER
               }
 
-              const relative = path.relative(directory, filepath)
-              if (relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+              if (!isPathInside(directory, filepath)) {
                 ctx.issues.push({
                   code: 'custom',
                   message: `Check config file path must be inside the scenario directory: ${input}`,
@@ -159,6 +159,17 @@ async function parseCheckConfig(host: Host, directory: string, json: unknown): P
                 ctx.issues.push({
                   code: 'custom',
                   message: `Check config file path must not be a symbolic link: ${input}`,
+                  input,
+                })
+                return z.NEVER
+              }
+
+              const realDirectory = await host.fs.realpath(directory)
+              const realFilepath = await host.fs.realpath(filepath)
+              if (!isPathInside(realDirectory, realFilepath)) {
+                ctx.issues.push({
+                  code: 'custom',
+                  message: `Check config file path must be inside the scenario directory: ${input}`,
                   input,
                 })
                 return z.NEVER

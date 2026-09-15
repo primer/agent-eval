@@ -41,11 +41,6 @@ async function listScenarios({directory, host = DefaultHost}: ListScenariosOptio
       return false
     }
 
-    const testPath = path.join(directory, entry.name, 'scenario.test.ts')
-    if (!host.existsSync(testPath)) {
-      return false
-    }
-
     return true
   })
   const scenarios: Array<Scenario> = []

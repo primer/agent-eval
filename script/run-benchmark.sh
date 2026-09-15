@@ -34,7 +34,7 @@ fi
 case "$mode" in
   run)
     node "$repository_root/packages/agent-eval/bin/agent-eval" \
-      --benchmark "$benchmark_name" \
+      benchmark run "$benchmark_name" \
       --benchmarks "$repository_root/benchmarks" \
       --copilot-concurrency "${COPILOT_CONCURRENCY:-1}" \
       --container-concurrency "${CONTAINER_CONCURRENCY:-5}" \
@@ -45,9 +45,9 @@ case "$mode" in
     ;;
   plan)
     node "$repository_root/packages/agent-eval/bin/agent-eval" \
-      --benchmark "$benchmark_name" \
+      benchmark plan create "$benchmark_name" \
       --benchmarks "$repository_root/benchmarks" \
-      --plan "$plan_path" \
+      --output-path "$plan_path" \
       --scenarios "$repository_root/scenarios" \
       "$@"
     ;;
@@ -58,11 +58,12 @@ case "$mode" in
     fi
 
     node "$repository_root/packages/agent-eval/bin/agent-eval" \
+      benchmark plan run \
       --benchmarks "$repository_root/benchmarks" \
       --copilot-concurrency "${COPILOT_CONCURRENCY:-1}" \
       --container-concurrency "${CONTAINER_CONCURRENCY:-5}" \
       --docker-image "${DOCKER_IMAGE:-node:26.5.0-slim}" \
-      --from-plan "$plan_path" \
+      --plan-path "$plan_path" \
       --output-dir "$run_directory" \
       --scenarios "$repository_root/scenarios" \
       --shard "$SHARD" \
@@ -70,10 +71,9 @@ case "$mode" in
     ;;
   merge)
     node "$repository_root/packages/agent-eval/bin/agent-eval" \
-      --merge-results \
+      benchmark merge \
       --output-dir "$run_directory" \
       "$@"
-    rm -f "$run_directory"/output-*.json
     ;;
   *)
     echo "Mode must be one of: run, plan, shard, merge" >&2

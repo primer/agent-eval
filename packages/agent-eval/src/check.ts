@@ -144,7 +144,8 @@ async function parseCheckConfig(host: Host, directory: string, json: unknown): P
                 return z.NEVER
               }
 
-              if (!filepath.startsWith(directory)) {
+              const relative = path.relative(directory, filepath)
+              if (relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
                 ctx.issues.push({
                   code: 'custom',
                   message: `Check config file path must be inside the scenario directory: ${input}`,

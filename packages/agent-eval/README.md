@@ -40,8 +40,6 @@ experiments. Under-the-hood, we are going through each scenario and setting up a
 sandbox where the agent executes within. When all evaluations are complete, a
 result is returned detailing how each agent performed relative to each other.
 
-### CLI options
-
 ## Benchmarks
 
 Benchmarks are used to establish a baseline for agent performance on a given task. By default, they live in a `benchmarks` folder in your project. You can create a benchmark by importing and using `defineConfig` from

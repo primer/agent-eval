@@ -7,11 +7,9 @@ const ScenarioSchema = z.object({
   directory: z.string(),
   prompt: z.string(),
   description: z.optional(z.string()),
-  tags: z.array(z.string()),
-  testPath: z.string(),
-  browserTestPath: z.optional(z.string()),
+  tags: z._default(z.array(z.string()), []),
   checks: z._default(z.array(CheckConfigSchema), []),
-  judges: z.array(JudgeSchema),
+  judges: z._default(z.array(JudgeSchema), []),
 })
 
 type Scenario = z.infer<typeof ScenarioSchema>

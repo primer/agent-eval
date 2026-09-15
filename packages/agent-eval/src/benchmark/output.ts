@@ -2,7 +2,13 @@ import path from 'node:path'
 import * as z from 'zod/mini'
 import type {BenchmarkTrial} from './plan'
 import type {RunPlanResult} from '../plan'
-import {TrialAgentSchema, TrialArtifactsSchema, TrialJudgesSchema, TrialWalkthroughSchema} from '../trial/run'
+import {
+  TrialAgentSchema,
+  TrialArtifactsSchema,
+  TrialChecksSchema,
+  TrialJudgesSchema,
+  TrialWalkthroughSchema,
+} from '../trial/run'
 import {ScenarioSchema} from '../scenario/scenario'
 import {TreatmentSchema} from '../treatment'
 import type {Benchmark} from './benchmark'
@@ -13,6 +19,7 @@ import {logger} from '../logger'
 const BenchmarkTrialOutputSchema = z.object({
   agent: TrialAgentSchema,
   artifacts: TrialArtifactsSchema,
+  checks: z._default(TrialChecksSchema, []),
   id: z.string(),
   judges: TrialJudgesSchema,
   model: ModelVariantSchema,
@@ -113,6 +120,7 @@ function createBenchmarkOutput({benchmark, runPlanResult}: CreateBenchmarkOutput
     result.trials.set(trial.id, {
       agent: trialResult.agent,
       artifacts: trialResult.artifacts,
+      checks: trialResult.checks,
       id: trial.id,
       judges: trialResult.judges,
       model: trial.model,
@@ -215,6 +223,7 @@ async function writeBenchmarkOutput({host = DefaultHost, output, outputPath}: Wr
     const trialFile: BenchmarkTrialOutput = {
       agent: trial.agent,
       artifacts: trial.artifacts,
+      checks: trial.checks,
       id: trial.id,
       judges: trial.judges,
       model: trial.model,

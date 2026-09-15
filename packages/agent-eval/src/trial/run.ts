@@ -653,6 +653,7 @@ const saveStage = {
 export {
   TrialAgentSchema,
   TrialArtifactsSchema,
+  TrialChecksSchema,
   TrialJudgesSchema,
   TrialWalkthroughSchema,
   runTrial,

@@ -5,13 +5,20 @@ import {ModelVariantSchema} from '../model'
 import type {RunPlanResult} from '../plan'
 import {ScenarioSchema} from '../scenario/scenario'
 import {TreatmentSchema} from '../treatment'
-import {TrialAgentSchema, TrialArtifactsSchema, TrialJudgesSchema, TrialWalkthroughSchema} from '../trial/run'
+import {
+  TrialAgentSchema,
+  TrialArtifactsSchema,
+  TrialChecksSchema,
+  TrialJudgesSchema,
+  TrialWalkthroughSchema,
+} from '../trial/run'
 import type {Experiment} from './experiment'
 import type {ExperimentTrial} from './plan'
 
 const ExperimentTrialOutputSchema = z.object({
   agent: TrialAgentSchema,
   artifacts: TrialArtifactsSchema,
+  checks: z._default(TrialChecksSchema, []),
   id: z.string(),
   judges: TrialJudgesSchema,
   model: ModelVariantSchema,
@@ -84,6 +91,7 @@ function createExperimentOutput({experiment, runPlanResult}: CreateExperimentOut
     result.trials.set(trial.id, {
       agent: trialResult.agent,
       artifacts: trialResult.artifacts,
+      checks: trialResult.checks,
       id: trial.id,
       judges: trialResult.judges,
       model: trial.model,

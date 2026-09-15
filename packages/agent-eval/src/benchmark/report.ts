@@ -1,11 +1,13 @@
 import type {ModelVariant} from '../model'
 import type {RunPlanResult} from '../plan'
 import {formatDuration, formatNumber, formatPercentDelta, formatTable, type TableRow} from '../report/format'
+import {formatCheckSummaries, getCheckDimensions, type CheckDimension} from '../report/checks'
 import {ControlTreatment, getTreatmentId} from '../treatment'
 import {
+  REPORT_CHECKS_NOTE,
   REPORT_USAGE_NOTE,
   addTrialResultToSummary,
-  compareTrialSummaries,
+  createTrialSummaryComparator,
   createTrialSummary,
   type TrialSummary,
 } from '../trial/report'
@@ -44,7 +46,11 @@ function formatBenchmarkValue(
   return `${value} (${delta})`
 }
 
-function formatBenchmarkComparison(benchmark: Benchmark, comparison: BenchmarkComparison): TableRow {
+function formatBenchmarkComparison(
+  benchmark: Benchmark,
+  comparison: BenchmarkComparison,
+  dimensions: Array<CheckDimension>,
+): TableRow {
   return {
     Benchmark: comparison.scenario ? '' : benchmark.name,
     Capability: comparison.scenario ? '' : comparison.capability.name,
@@ -53,6 +59,7 @@ function formatBenchmarkComparison(benchmark: Benchmark, comparison: BenchmarkCo
     'Reasoning Effort': comparison.model?.reasoningEffort ?? '',
     'Control Runs': comparison.control.runs,
     Runs: comparison.benchmarkTreatment.runs,
+    ...formatCheckSummaries(comparison.benchmarkTreatment, dimensions, comparison.control),
     'Output Tokens': formatBenchmarkValue(comparison, 'outputTokens', formatNumber),
     'Premium Requests': formatBenchmarkValue(comparison, 'premiumRequests', formatNumber),
     'Session Time': formatBenchmarkValue(comparison, 'sessionDurationMs', formatDuration),
@@ -110,7 +117,27 @@ function createBenchmarkReport({benchmark, runPlanResult}: CreateBenchmarkReport
       ]
     }),
   )
+  const dimensions = getCheckDimensions(
+    [...comparisons.values()].flatMap(comparison => {
+      return [comparison.control, comparison.benchmarkTreatment]
+    }),
+  )
+  const modelGroups = new Map<string, Array<TrialSummary>>()
+  for (const comparison of comparisons.values()) {
+    if (comparison.model) {
+      const key = JSON.stringify([comparison.capability.id, comparison.scenario])
+      const summaries = modelGroups.get(key) ?? []
+      summaries.push(comparison.benchmarkTreatment)
+      modelGroups.set(key, summaries)
+    }
+  }
+  const modelComparators = new Map(
+    [...modelGroups].map(([key, summaries]) => {
+      return [key, createTrialSummaryComparator(summaries)]
+    }),
+  )
   const ordered = [...comparisons.values()].toSorted((a, b) => {
+    const compareModels = modelComparators.get(JSON.stringify([a.capability.id, a.scenario]))
     return (
       (capabilityOrder.get(a.capability.id) ?? Number.MAX_SAFE_INTEGER) -
         (capabilityOrder.get(b.capability.id) ?? Number.MAX_SAFE_INTEGER) ||
@@ -120,13 +147,13 @@ function createBenchmarkReport({benchmark, runPlanResult}: CreateBenchmarkReport
         (scenarioOrder.get(b.capability.id)?.get(b.scenario ?? '') ?? Number.MAX_SAFE_INTEGER) ||
       (a.scenario ?? '').localeCompare(b.scenario ?? '') ||
       Number(a.model !== undefined) - Number(b.model !== undefined) ||
-      compareTrialSummaries(a.benchmarkTreatment, b.benchmarkTreatment) ||
+      (a.model && b.model && compareModels ? compareModels(a.benchmarkTreatment, b.benchmarkTreatment) : 0) ||
       (a.model?.name ?? '').localeCompare(b.model?.name ?? '') ||
       (a.model?.reasoningEffort ?? '').localeCompare(b.model?.reasoningEffort ?? '')
     )
   })
   const rows = ordered.map(comparison => {
-    return formatBenchmarkComparison(benchmark, comparison)
+    return formatBenchmarkComparison(benchmark, comparison, dimensions)
   })
   const sections = [
     formatTable(rows, [
@@ -137,12 +164,20 @@ function createBenchmarkReport({benchmark, runPlanResult}: CreateBenchmarkReport
       'Reasoning Effort',
       'Control Runs',
       'Runs',
+      ...dimensions.map(dimension => {
+        return dimension.column
+      }),
       'Output Tokens',
       'Premium Requests',
       'Session Time',
       'API Time',
     ]),
-    `${REPORT_USAGE_NOTE}\nPercent changes compare benchmark totals with control totals; missing baselines are N/A.`,
+    ...(dimensions.length > 0 ? [REPORT_CHECKS_NOTE] : []),
+    `${REPORT_USAGE_NOTE}\n${
+      dimensions.length > 0
+        ? 'Percent changes compare check averages and usage totals with control; missing baselines are N/A.'
+        : 'Percent changes compare benchmark totals with control totals; missing baselines are N/A.'
+    }`,
   ]
   return sections.join('\n\n')
 }

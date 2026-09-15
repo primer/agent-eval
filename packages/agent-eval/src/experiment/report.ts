@@ -1,11 +1,13 @@
 import type {ModelVariant} from '../model'
 import type {RunPlanResult} from '../plan'
 import {formatTable, type TableRow} from '../report/format'
+import {getCheckDimensions, type CheckDimension} from '../report/checks'
 import {
+  REPORT_CHECKS_NOTE,
   REPORT_USAGE_NOTE,
   TRIAL_SUMMARY_COLUMNS,
   addTrialResultToSummary,
-  compareTrialSummaries,
+  createTrialSummaryComparator,
   createTrialSummary,
   formatTrialSummary,
   type TrialSummary,
@@ -25,9 +27,8 @@ type CreateExperimentReportOptions = {
   runPlanResult: RunPlanResult<ExperimentTrial>
 }
 
-function compareExperimentSummaries(a: ExperimentSummary, b: ExperimentSummary): number {
+function compareExperimentNames(a: ExperimentSummary, b: ExperimentSummary): number {
   return (
-    compareTrialSummaries(a, b) ||
     a.treatment.localeCompare(b.treatment) ||
     (a.scenario ?? '').localeCompare(b.scenario ?? '') ||
     (a.model?.name ?? '').localeCompare(b.model?.name ?? '') ||
@@ -35,10 +36,18 @@ function compareExperimentSummaries(a: ExperimentSummary, b: ExperimentSummary):
   )
 }
 
+function sortExperimentSummaries(summaries: Array<ExperimentSummary>): Array<ExperimentSummary> {
+  const compare = createTrialSummaryComparator(summaries)
+  return summaries.toSorted((a, b) => {
+    return compare(a, b) || compareExperimentNames(a, b)
+  })
+}
+
 function formatExperimentSummary(
   experiment: Experiment,
   summary: ExperimentSummary,
   level: 'treatment' | 'scenario' | 'model',
+  dimensions: Array<CheckDimension>,
 ): TableRow {
   return {
     Experiment: level === 'treatment' ? experiment.name : '',
@@ -46,7 +55,7 @@ function formatExperimentSummary(
     Scenario: level === 'treatment' ? 'All scenarios' : level === 'scenario' ? `  ${summary.scenario}` : '',
     Model: level === 'model' ? `    ${summary.model?.name}` : 'All models',
     'Reasoning Effort': level === 'model' ? (summary.model?.reasoningEffort ?? '') : '',
-    ...formatTrialSummary(summary),
+    ...formatTrialSummary(summary, dimensions),
   }
 }
 
@@ -91,25 +100,38 @@ function createExperimentReport({experiment, runPlanResult}: CreateExperimentRep
   }
 
   const rows: Array<TableRow> = []
-  for (const treatment of [...treatmentSummaries.values()].toSorted(compareExperimentSummaries)) {
-    rows.push(formatExperimentSummary(experiment, treatment, 'treatment'))
+  const dimensions = getCheckDimensions([...treatmentSummaries.values()])
+  for (const treatment of sortExperimentSummaries([...treatmentSummaries.values()])) {
+    rows.push(formatExperimentSummary(experiment, treatment, 'treatment', dimensions))
     const scenarios = [...scenarioSummaries.values()].filter(summary => {
       return summary.treatmentId === treatment.treatmentId
     })
 
-    for (const scenario of scenarios.toSorted(compareExperimentSummaries)) {
-      rows.push(formatExperimentSummary(experiment, scenario, 'scenario'))
+    for (const scenario of sortExperimentSummaries(scenarios)) {
+      rows.push(formatExperimentSummary(experiment, scenario, 'scenario', dimensions))
       const models = [...modelSummaries.values()].filter(summary => {
         return summary.treatmentId === treatment.treatmentId && summary.scenario === scenario.scenario
       })
-      for (const model of models.toSorted(compareExperimentSummaries)) {
-        rows.push(formatExperimentSummary(experiment, model, 'model'))
+      for (const model of sortExperimentSummaries(models)) {
+        rows.push(formatExperimentSummary(experiment, model, 'model', dimensions))
       }
     }
   }
 
   const sections = [
-    formatTable(rows, ['Experiment', 'Treatment', 'Scenario', 'Model', 'Reasoning Effort', ...TRIAL_SUMMARY_COLUMNS]),
+    formatTable(rows, [
+      'Experiment',
+      'Treatment',
+      'Scenario',
+      'Model',
+      'Reasoning Effort',
+      ...TRIAL_SUMMARY_COLUMNS.slice(0, 1),
+      ...dimensions.map(dimension => {
+        return dimension.column
+      }),
+      ...TRIAL_SUMMARY_COLUMNS.slice(1),
+    ]),
+    ...(dimensions.length > 0 ? [REPORT_CHECKS_NOTE] : []),
     REPORT_USAGE_NOTE,
   ]
   return sections.join('\n\n')

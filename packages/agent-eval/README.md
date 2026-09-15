@@ -160,8 +160,37 @@ COPILOT_GITHUB_TOKEN=... agent-eval benchmark run design-system \
 Both `run` and `plan run` commands print a report after saving their result
 bundle. Experiment reports group results by treatment, scenario, and model.
 Benchmark reports group results by capability, scenario, and model, with usage
-changes relative to the control treatment. Plan-run reports cover only the
+and check changes relative to the control treatment. Plan-run reports cover only the
 selected shard.
+
+Each check contributes a comparison dimension identified by its scenario ID,
+check name, and optional result group ID. Named groups are separate dimensions,
+and identically named checks in different scenarios remain separate. Columns
+use `Check ["scenario", "check", "group"]` labels (without the group element for
+unnamed results). A dimension must keep the same result type, unit, and direction
+across trials. Duplicate groups within a trial or incompatible metadata produce
+an error instead of combining unrelated values.
+
+Outcome dimensions show `passed / (passed + failed)` as a percentage for each
+trial, then average those percentages across trials. Measurement dimensions
+average valid measurements within each trial, then average the trial means,
+preserving the unit. This gives trials equal influence even when their
+collections have different sizes. Skipped outcomes and errors do not contribute
+to either average; reports show their counts separately, including control-side
+counts in benchmark reports. Empty or missing values display as `N/A`, and
+partial coverage displays the number of runs with values.
+
+Treatments and models are ordered using equal-weight ranks across shared check
+dimensions. Each dimension ranks the compared summaries by its value, with ties
+receiving the average of their positions. The ranks are summed, with lower totals
+first; raw percentages and measurements with different units are never added
+together. Outcome percentages use higher-is-better ordering. Measurements use
+their declared `direction`; without it, they are displayed but not ranked.
+A dimension participates in ordering only when every compared summary has a
+value for every trial of that scenario and no check errors. Otherwise it remains
+visible but does not affect ordering. Usage breaks ties, and remains the ordering
+when no checks are comparable. Check dimensions have equal weight; there is no
+weight configuration.
 
 Usage columns sum `outputTokens`, `premiumRequests`, `sessionDurationMs`, and
 `totalApiDurationMs` across each trial's `agent.sessions`. Judge sessions are
@@ -169,8 +198,10 @@ excluded. Benchmark percentage changes use `(benchmark - control) / control`;
 a missing comparison side or a zero baseline with a nonzero treatment value
 is shown as `N/A`. Run counts are included so unequal shard sizes are visible.
 
-Reports currently include run counts and agent usage only, without judge scores
-or test results.
+Benchmark check changes apply the same percentage-change formula to the
+per-dimension averages, not collection totals. Reports include run counts,
+check dimensions, and agent usage, without judge scores or a combined raw check
+score.
 
 ### Result bundles
 
@@ -192,9 +223,14 @@ agent-eval experiment run example \
 `output.json` stores the experiment's filename-based `id`, scenario and treatment
 metadata, and a map of trial IDs to JSON files relative to the output directory.
 Treatments use stable IDs derived from their names. Each trial file contains
-agent, model, judge, artifact, and walkthrough data. Artifact paths inside trial
+agent, model, check, judge, artifact, and walkthrough data. Artifact paths inside trial
 files retain their runtime locations. `--output-dir` creates `output.json` and
 `artifacts/` within the selected directory.
+
+Trials include a `checks` array containing each check's metadata and normalized
+result group, including outcome IDs, measurements, units, directions, and error
+messages. These results are preserved when merging shards. Older trial files
+without `checks` are treated as having no check results, not as zero scores.
 
 Trials include a `judges` array. Each entry preserves the `judge` configuration,
 `result`, and `agent.session` (including its messages and usage). Judge sessions

@@ -350,9 +350,9 @@ const judgeStage = {
             '-R',
             NODE_USER,
             '--',
-            ...judge.files.map(file => {
-              return file.filepath
-            }),
+              ...judge.files.map(file => {
+                return file.relativePath
+              }),
           ],
           {
             user: 'root',

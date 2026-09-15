@@ -1,26 +1,23 @@
-import type {Host} from '../host'
+import {DefaultHost, type Host} from '../host'
 import {listScenarios} from './list'
 import type {Scenario} from './scenario'
-import {getScenarioSource, type ScenarioSourceOptions} from './source'
 
-async function getScenario(options: ScenarioSourceOptions & {id: string}): Promise<Scenario>
-async function getScenario(host: Host, directory: string, id: string): Promise<Scenario>
-async function getScenario(
-  hostOrOptions: Host | (ScenarioSourceOptions & {id: string}),
-  directory?: string,
-  id?: string,
-): Promise<Scenario> {
-  const source = getScenarioSource(hostOrOptions, directory)
-  id = id ?? (hostOrOptions as ScenarioSourceOptions & {id: string}).id
-  const scenarios = await listScenarios(source)
+type GetScenarioOptions = {
+  directory: string
+  host?: Host
+  name: string
+}
+
+async function getScenario({directory, host = DefaultHost, name}: GetScenarioOptions): Promise<Scenario> {
+  const scenarios = await listScenarios({directory, host})
   const scenario = scenarios.find(candidate => {
-    return candidate.id === id
+    return candidate.id === name
   })
   if (scenario) {
     return scenario
   }
 
-  throw new Error(`Scenario "${id}" was not found in: ${source.directory}`)
+  throw new Error(`Scenario "${name}" was not found in: ${directory}`)
 }
 
 export {getScenario}

@@ -82,6 +82,7 @@ async function runTrial({
   })
 
   await verifyStage.run({
+    sandbox,
     trial,
   })
 
@@ -201,7 +202,7 @@ type RunStageOptions = {
 const taskStage = {
   name: 'Task',
   async run({copilotQueue, copilotToken, sandbox, trial}: RunStageOptions) {
-    logger.info('%s Running agent', trial.id)
+    logger.info('[%s] Running agent', trial.id)
 
     const copilotOutput = await copilotQueue.add(async () => {
       return await sandbox.runCommand(
@@ -244,13 +245,51 @@ const taskStage = {
 }
 
 type VerifyStageOptions = {
+  sandbox: Sandbox
   trial: Trial
 }
 
 const verifyStage = {
   name: 'Verify',
-  async run({trial}: VerifyStageOptions) {
-    logger.info('[%s] Verifying', trial.id)
+  async run({sandbox, trial}: VerifyStageOptions) {
+    logger.info('[%s] Running checks', trial.id)
+
+    // const results = []
+
+    for (const check of trial.scenario.checks) {
+      const copied = new Set<string>()
+
+      for (const {filepath, relativePath} of check.files) {
+        logger.debug('[%s] Copying check file: %s to %s', trial.id, filepath, relativePath)
+        await sandbox.copy(filepath, relativePath)
+        copied.add(relativePath)
+      }
+
+      if (copied.size > 0) {
+        await sandbox.runCommand('chown', ['-R', NODE_USER, '--', ...Array.from(copied)], {
+          user: 'root',
+        })
+      }
+
+      const result = await check.run({
+        logger: logger.child({
+          trialId: trial.id,
+          check: check.name,
+        }),
+        sandbox,
+      })
+
+      if (copied.size > 0) {
+        logger.debug('[%s] Cleaning up check files: %o', trial.id, Array.from(copied))
+        await sandbox.runCommand('rm', ['-rf', ...Array.from(copied)], {
+          user: NODE_USER,
+        })
+      }
+    }
+
+    // return {
+    //   results,
+    // }
   },
 }
 

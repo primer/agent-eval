@@ -71,7 +71,7 @@ async function listBenchmarks({
       config.capabilities.map(async capability => {
         const scenarios = await Promise.all(
           capability.scenarios.map(scenario => {
-            return getScenario(host, scenariosDirectory, scenario)
+            return getScenario({host, directory: scenariosDirectory, name: scenario})
           }),
         )
 

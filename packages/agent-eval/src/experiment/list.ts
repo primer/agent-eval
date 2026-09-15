@@ -65,11 +65,11 @@ async function listExperiments({
     const scenarios = await Promise.all(
       config.scenarios.map(scenario => {
         if (typeof scenario === 'string') {
-          return getScenario(host, scenariosDirectory, scenario)
+          return getScenario({host, directory: scenariosDirectory, name: scenario})
         }
 
         const directory = path.resolve(scenario.path)
-        return loadScenario(host, directory, scenario.name ?? path.basename(directory))
+        return loadScenario({host, directory, name: scenario.name})
       }),
     )
 

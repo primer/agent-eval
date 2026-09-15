@@ -11,7 +11,7 @@ import {selectShard, type Shard} from './shard'
  * through `createPlan` which ensures randomized order or through `createPlanFromManifest`
  * which assumes the trials have already been randomized.
  */
-type Plan<T extends Trial> = {
+type Plan<T extends Trial = Trial> = {
   trials: Array<T>
 }
 

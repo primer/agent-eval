@@ -5,19 +5,19 @@ import {JudgeConfigSchema} from '../judge'
 const ScenarioConfigSchema = z.object({
   description: z.optional(z.string()),
   prompt: z.string(),
-  tags: z._default(z.optional(z.array(z.string())), []),
-  checks: z.optional(z.array(CheckConfigSchema)),
-  judges: z._default(z.optional(z.array(JudgeConfigSchema)), []),
+  tags: z._default(z.array(z.string()), []),
+  checks: z._default(z.array(CheckConfigSchema), []),
+  judges: z._default(z.array(JudgeConfigSchema), []),
 })
 
-type ScenarioConfig = z.infer<typeof ScenarioConfigSchema>
+type ScenarioConfig = z.output<typeof ScenarioConfigSchema>
 
 type ScenarioConfigModule = {
   default?: unknown
 }
 
-function defineConfig(config: ScenarioConfig): ScenarioConfig {
-  return config
+function defineConfig(config: z.input<typeof ScenarioConfigSchema>): ScenarioConfig {
+  return ScenarioConfigSchema.parse(config)
 }
 
 export {ScenarioConfigSchema, defineConfig}

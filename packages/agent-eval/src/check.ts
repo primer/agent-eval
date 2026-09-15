@@ -1,5 +1,8 @@
+import path from 'node:path'
 import * as z from 'zod/mini'
 import {SandboxSchema} from './sandbox'
+import type {Host} from './host'
+import type {logger} from './logger'
 
 // const AnnotationSchema = z.object({
 //   context: z.optional(z.string()),
@@ -55,6 +58,7 @@ const CheckRunReturnSchema = z.union([
 const CheckRunSchema = z.function({
   input: [
     z.object({
+      logger: z.custom<typeof logger>(),
       sandbox: SandboxSchema,
     }),
   ],
@@ -63,14 +67,91 @@ const CheckRunSchema = z.function({
 
 type CheckRun = z.infer<typeof CheckRunSchema>
 
+const CheckConfigFilesSchema = z._default(z.array(z.string()), [])
+
 const CheckConfigSchema = z.object({
   name: z.string(),
   description: z.optional(z.string()),
-  files: z._default(z.array(z.string()), []),
+  files: CheckConfigFilesSchema,
   run: CheckRunSchema,
 })
 
 type CheckConfig = z.infer<typeof CheckConfigSchema>
+
+async function parseCheckConfig(host: Host, directory: string, json: unknown): Promise<Check> {
+  const schema = z.extend(
+    z.omit(CheckConfigSchema, {
+      files: true,
+    }),
+    {
+      files: z.pipe(
+        CheckConfigFilesSchema,
+        z.transform(async (files, ctx) => {
+          return await Promise.all(
+            files.map(async input => {
+              const filepath = path.isAbsolute(input) ? input : path.resolve(directory, input)
+              if (!host.existsSync(filepath)) {
+                ctx.issues.push({
+                  code: 'custom',
+                  message: `Check config file does not exist: ${input}`,
+                  input,
+                })
+                return z.NEVER
+              }
+
+              if (!filepath.startsWith(directory)) {
+                ctx.issues.push({
+                  code: 'custom',
+                  message: `Check config file path must be inside the scenario directory: ${input}`,
+                  input,
+                })
+                return z.NEVER
+              }
+
+              const stats = await host.fs.stat(filepath)
+              if (stats.isSymbolicLink()) {
+                ctx.issues.push({
+                  code: 'custom',
+                  message: `Check config file path must not be a symbolic link: ${input}`,
+                  input,
+                })
+                return z.NEVER
+              }
+
+              const relativePath = path.posix.relative(directory, filepath)
+
+              return {
+                filepath,
+                relativePath,
+              }
+            }),
+          )
+        }),
+      ),
+    },
+  )
+
+  const result = await schema.safeParseAsync(json)
+  if (!result.success) {
+    throw new Error(`Invalid check config: ${z.prettifyError(result.error)}`)
+  }
+
+  return result.data
+}
+
+const CheckSchema = z.object({
+  name: z.string(),
+  description: z.optional(z.string()),
+  files: z.array(
+    z.object({
+      filepath: z.string(),
+      relativePath: z.string(),
+    }),
+  ),
+  run: CheckRunSchema,
+})
+
+type Check = z.infer<typeof CheckSchema>
 
 const CheckResultSchema = z.object({
   //
@@ -84,5 +165,5 @@ const CheckOutputSchema = z.object({
 
 type CheckOutput = z.infer<typeof CheckOutputSchema>
 
-export {CheckConfigSchema, CheckResultSchema, CheckRunSchema, CheckOutputSchema}
+export {CheckConfigSchema, CheckSchema, CheckResultSchema, CheckRunSchema, CheckOutputSchema, parseCheckConfig}
 export type {CheckConfig, CheckResult, CheckRun, CheckOutput}

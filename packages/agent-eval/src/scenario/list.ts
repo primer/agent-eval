@@ -1,19 +1,15 @@
 import path from 'node:path'
-import type {Host} from '../host'
+import {DefaultHost, type Host} from '../host'
 import {ScenarioConfigSchema, type ScenarioConfigModule} from './config'
 import {loadScenario} from './load'
 import type {Scenario} from './scenario'
-import {getScenarioSource, type ScenarioSourceOptions} from './source'
 
-async function listScenarios(options: ScenarioSourceOptions): Promise<Array<Scenario>>
-async function listScenarios(host: Host, directory: string): Promise<Array<Scenario>>
-async function listScenarios(
-  hostOrOptions: Host | ScenarioSourceOptions,
-  directory?: string,
-): Promise<Array<Scenario>> {
-  const source = getScenarioSource(hostOrOptions, directory)
-  const {host} = source
-  directory = source.directory
+type ListScenariosOptions = {
+  directory: string
+  host?: Host
+}
+
+async function listScenarios({directory, host = DefaultHost}: ListScenariosOptions): Promise<Array<Scenario>> {
   const stats = await host.fs.stat(directory)
   if (!stats.isDirectory()) {
     throw new Error('Expected scenarios path to be a directory')
@@ -61,7 +57,7 @@ async function listScenarios(
       continue
     }
 
-    scenarios.push(await loadScenario(host, scenarioDirectory, entry.name))
+    scenarios.push(await loadScenario({host, directory: scenarioDirectory, name: entry.name}))
   }
 
   return scenarios

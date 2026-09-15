@@ -229,6 +229,7 @@ type WriteBenchmarkOutputOptions = {
 async function writeBenchmarkOutput({host = DefaultHost, output, outputPath}: WriteBenchmarkOutputOptions) {
   const outputDirectory = path.dirname(outputPath)
   const trials = new Map<string, string>()
+  await host.fs.mkdir(outputDirectory, {recursive: true})
 
   for (const trial of output.trials.values()) {
     const trialFilePath = path.join(trial.artifacts.directory, `${trial.id}.json`)

@@ -8,6 +8,7 @@ import {TreatmentSchema} from '../treatment'
 import type {Benchmark} from './benchmark'
 import {ModelVariantSchema} from '../model'
 import {DefaultHost, type Host} from '../host'
+import {logger} from '../logger'
 
 const BenchmarkTrialOutputSchema = z.object({
   agent: TrialAgentSchema,
@@ -124,10 +125,79 @@ function createBenchmarkOutput({benchmark, runPlanResult}: CreateBenchmarkOutput
   return result
 }
 
-type ParseBenchmarkOutputOptions = {}
+type MergeBenchmarkOutputFilesOptions = {
+  host?: Host
+  outputs: Array<BenchmarkOutputFile>
+  outputDirectory: string
+}
 
-async function parseBenchmarkOutput(options: ParseBenchmarkOutputOptions): Promise<BenchmarkOutputFile> {
-  throw new Error('unimplemented')
+async function mergeBenchmarkOutputFiles({
+  host = DefaultHost,
+  outputs,
+  outputDirectory,
+}: MergeBenchmarkOutputFilesOptions): Promise<BenchmarkOutput> {
+  if (outputs.length === 0) {
+    throw new Error('Cannot merge benchmark output files: no outputs provided')
+  }
+
+  const capabilities = new Map<string, CapabilityOutput>()
+  const scenarios = new Map<string, ScenarioOutput>()
+  const treatments = new Map<string, TreatmentOutput>()
+  const trials = new Map<string, BenchmarkTrialOutput>()
+  const id = outputs[0].id
+
+  for (const output of outputs) {
+    if (id !== output.id) {
+      throw new Error(`Cannot merge benchmark output files: mismatched benchmark IDs (${id} !== ${output.id})`)
+    }
+
+    for (const [key, value] of Object.entries(output.capabilities)) {
+      if (!capabilities.has(key)) {
+        capabilities.set(key, value)
+      }
+    }
+
+    for (const [key, value] of Object.entries(output.scenarios)) {
+      if (!scenarios.has(key)) {
+        scenarios.set(key, value)
+      }
+    }
+
+    for (const [key, value] of Object.entries(output.treatments)) {
+      if (!treatments.has(key)) {
+        treatments.set(key, value)
+      }
+    }
+
+    for (const [key, value] of Object.entries(output.trials)) {
+      if (trials.has(key)) {
+        throw new Error(`Cannot merge benchmark output files: duplicate trial ID found: ${key}`)
+      }
+
+      const filepath = path.join(outputDirectory, value)
+      if (!host.existsSync(filepath)) {
+        throw new Error(`Cannot merge benchmark output files: trial artifacts file does not exist: ${filepath}`)
+      }
+
+      const contents = await host.fs.readFile(filepath, 'utf-8')
+      const trialOutput = BenchmarkTrialOutputSchema.parse(JSON.parse(contents))
+
+      logger.debug('Deleting trial artifact file: %s', filepath)
+      await host.fs.unlink(filepath)
+
+      trials.set(key, trialOutput)
+    }
+  }
+
+  const output: BenchmarkOutput = {
+    id,
+    capabilities,
+    scenarios,
+    treatments,
+    trials,
+  }
+
+  return output
 }
 
 type WriteBenchmarkOutputOptions = {
@@ -169,4 +239,42 @@ async function writeBenchmarkOutput({host = DefaultHost, output, outputPath}: Wr
   await host.fs.writeFile(outputPath, JSON.stringify(benchmarkFile, null, 2), 'utf-8')
 }
 
-export {createBenchmarkOutput, writeBenchmarkOutput}
+type ListBenchmarkOutputFilesOptions = {
+  host?: Host
+  outputDirectory: string
+}
+
+const OUTPUT_FILE_NAME_PATTERN = /output-[0-9]+$/
+
+async function listBenchmarkOutputFiles({
+  host = DefaultHost,
+  outputDirectory,
+}: ListBenchmarkOutputFilesOptions): Promise<Array<[output: BenchmarkOutputFile, filepath: string]>> {
+  const entries = await host.fs.readdir(outputDirectory, {
+    withFileTypes: true,
+  })
+  const outputFiles: Array<[output: BenchmarkOutputFile, filepath: string]> = []
+
+  for (const entry of entries) {
+    if (!entry.isFile()) {
+      continue
+    }
+
+    if (path.extname(entry.name) !== '.json') {
+      continue
+    }
+
+    if (!OUTPUT_FILE_NAME_PATTERN.test(path.basename(entry.name, '.json'))) {
+      continue
+    }
+
+    const filepath = path.join(outputDirectory, entry.name)
+    const contents = await host.fs.readFile(filepath, 'utf-8')
+    const outputFile = BenchmarkOutputFileSchema.parse(JSON.parse(contents))
+    outputFiles.push([outputFile, filepath])
+  }
+
+  return outputFiles
+}
+
+export {createBenchmarkOutput, listBenchmarkOutputFiles, mergeBenchmarkOutputFiles, writeBenchmarkOutput}

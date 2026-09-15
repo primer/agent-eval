@@ -1,5 +1,6 @@
 import path from 'node:path'
 import {defineCommand} from 'citty'
+import {getBenchmark} from '../../benchmark'
 import {
   benchmarksOption,
   concurrencyOption,
@@ -14,9 +15,13 @@ import {
 } from '../options'
 import {logger} from '../../logger'
 import {parseShard} from '../../shard'
-import {getBenchmark} from '../../benchmark'
 import {createBenchmarkPlan, createBenchmarkPlanManifest, parseBenchmarkPlanManifest} from '../../benchmark/plan'
-import {createBenchmarkOutput, writeBenchmarkOutput} from '../../benchmark/output'
+import {
+  createBenchmarkOutput,
+  listBenchmarkOutputFiles,
+  mergeBenchmarkOutputFiles,
+  writeBenchmarkOutput,
+} from '../../benchmark/output'
 import {createPlanFromManifest, runPlan} from '../../plan'
 import {DefaultHost as host} from '../../host'
 
@@ -25,6 +30,53 @@ export const benchmark = defineCommand({
     name: 'benchmark',
   },
   subCommands: {
+    merge: defineCommand({
+      meta: {
+        name: 'merge',
+        description: 'Merge benchmark results from a sharded plan into a single result',
+      },
+      args: {
+        // benchmarks: benchmarksOption,
+        'output-dir': outputDirectoryOption,
+        // scenarios: scenariosOption,
+      },
+      async run({args}) {
+        const outputDirectory = path.resolve(args['output-dir'])
+        const outputPath = getOutputPath(outputDirectory)
+
+        logger.debug({
+          outputDirectory,
+          outputPath,
+        })
+
+        const outputs = await listBenchmarkOutputFiles({
+          outputDirectory,
+        })
+        const outputFiles = outputs.map(output => {
+          return output[0]
+        })
+        const output = await mergeBenchmarkOutputFiles({
+          outputs: outputFiles,
+          outputDirectory,
+        })
+        const outputFilePaths = outputs.map(output => {
+          return output[1]
+        })
+
+        for (const outputFilePath of outputFilePaths) {
+          logger.debug('Deleting benchmark shard output file: %s', path.relative(process.cwd(), outputFilePath))
+          await host.fs.unlink(outputFilePath)
+        }
+
+        await writeBenchmarkOutput({
+          output,
+          outputPath,
+        })
+
+        logger.info('Successfully merged benchmark results into: %s', path.relative(process.cwd(), outputPath))
+      },
+    }),
+
     plan: defineCommand({
       meta: {
         name: 'plan',
@@ -136,7 +188,11 @@ export const benchmark = defineCommand({
               scenariosDirectory,
             })
 
-            logger.info('Running benchmark: %s', manifest.benchmark.name)
+            logger.info(
+              'Running benchmark: %s %s',
+              manifest.benchmark.name,
+              shard ? `(${shard.order}/${shard.total})` : '',
+            )
 
             const plan = createPlanFromManifest({
               shard,
@@ -177,7 +233,6 @@ export const benchmark = defineCommand({
         },
         'output-dir': outputDirectoryOption,
         scenarios: scenariosOption,
-        shard: shardOption,
         token: githubCopilotTokenOption,
       },
       async run({args}) {
@@ -188,8 +243,7 @@ export const benchmark = defineCommand({
         const scenariosDirectory = path.resolve(args.scenarios)
         const resultsDirectory = path.resolve(args['output-dir'])
         const artifactsDirectory = path.join(resultsDirectory, 'artifacts')
-        const shard = args.shard ? parseShard(args.shard) : undefined
-        const outputPath = getOutputPath(resultsDirectory, shard)
+        const outputPath = getOutputPath(resultsDirectory)
         const copilotToken = getCopilotToken(args.token)
 
         logger.debug({
@@ -199,7 +253,6 @@ export const benchmark = defineCommand({
           outputPath,
           resultsDirectory,
           scenariosDirectory,
-          shard,
         })
 
         const benchmark = await getBenchmark({

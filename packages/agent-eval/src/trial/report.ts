@@ -24,7 +24,8 @@ const TRIAL_SUMMARY_COLUMNS = ['Runs', 'Output Tokens', 'Premium Requests', 'Ses
 const REPORT_USAGE_NOTE = 'Usage totals include implementation-agent sessions only (judge sessions excluded).'
 
 const REPORT_CHECKS_NOTE =
-  'Checks show mean per-trial pass percentages or measurement means. Skipped outcomes and errors are excluded from values and shown separately. ' +
+  'Checks average per-check, per-trial pass percentages or measurement means, keeping different units and directions separate. ' +
+  'Skipped outcomes and errors are excluded from values and shown separately. ' +
   'Ordering uses equal-weight ranks across shared checks with values for every run and no errors; measurements without a direction are not ranked. Usage breaks ties.'
 
 function createTrialSummary(): TrialSummary {

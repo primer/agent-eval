@@ -228,20 +228,24 @@ selected shard.
 
 Each check contributes a comparison dimension identified by its scenario ID,
 check name, and optional result group ID. Named groups are separate dimensions,
-and identically named checks in different scenarios remain separate. Columns
-use `Check ["scenario", "check", "group"]` labels (without the group element for
-unnamed results). A dimension must keep the same result type, unit, and direction
+and identically named checks in different scenarios remain separate in the saved
+data and ordering. CLI tables display a single `Checks` column instead of
+individual check names. A dimension must keep the same result type, unit, and direction
 across trials. Duplicate groups within a trial or incompatible metadata produce
 an error instead of combining unrelated values.
 
-Outcome dimensions show `passed / (passed + failed)` as a percentage for each
-trial, then average those percentages across trials. Measurement dimensions
-average valid measurements within each trial, then average the trial means,
-preserving the unit. This gives trials equal influence even when their
-collections have different sizes. Skipped outcomes and errors do not contribute
+The `Checks` column shows `passed / (passed + failed)` as a percentage for each
+check in each trial, then averages those percentages across checks and trials.
+Measurements average valid values within each check in each trial, then average
+those means across checks and trials with the same unit and direction. Different
+units or directions appear as separate values within the cell rather than being
+combined. This gives each check result equal influence even when its collection
+has a different size. Individual outcomes and measurements remain in the saved
+trial data. Skipped outcomes and errors do not contribute
 to either average; reports show their counts separately, including control-side
 counts in benchmark reports. Empty or missing values display as `N/A`, and
-partial coverage displays the number of runs with values.
+partial coverage displays the number of check results with values compared with
+the expected number across the relevant scenario runs.
 
 Treatments and models are ordered using equal-weight ranks across shared check
 dimensions. Each dimension ranks the compared summaries by its value, with ties
@@ -250,8 +254,8 @@ first; raw percentages and measurements with different units are never added
 together. Outcome percentages use higher-is-better ordering. Measurements use
 their declared `direction`; without it, they are displayed but not ranked.
 A dimension participates in ordering only when every compared summary has a
-value for every trial of that scenario and no check errors. Otherwise it remains
-visible but does not affect ordering. Usage breaks ties, and remains the ordering
+value for every trial of that scenario and no check errors. Otherwise it still
+contributes to the displayed rollup but does not affect ordering. Usage breaks ties, and remains the ordering
 when no checks are comparable. Check dimensions have equal weight; there is no
 weight configuration.
 

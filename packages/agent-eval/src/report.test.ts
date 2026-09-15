@@ -170,13 +170,23 @@ describe('check dimensions', () => {
     const dimensions = getCheckDimensions([summary])
 
     expect(dimensions).toEqual([
-      {key: '["example","latency"]', column: 'Check ["example","latency"]'},
-      {key: '["example","tests"]', column: 'Check ["example","tests"]'},
+      {
+        key: '["example","latency"]',
+        scenarioId: 'example',
+        type: 'measurements',
+        unit: 'ms',
+        direction: 'lower-is-better',
+      },
+      {
+        key: '["example","tests"]',
+        scenarioId: 'example',
+        type: 'outcomes',
+        direction: 'higher-is-better',
+      },
     ])
     expect(formatTrialSummary(summary, dimensions)).toMatchObject({
       Runs: 2,
-      'Check ["example","tests"]': '75.0%',
-      'Check ["example","latency"]': '60 ms',
+      Checks: '60 ms; 75.0%',
       'Output Tokens': '20',
     })
   })
@@ -193,16 +203,14 @@ describe('check dimensions', () => {
   })
 
   test('preserves zero, negative, and small measurement values', () => {
-    const summary = summarize(
-      createResult({
-        checks: [measurements([0], 'zero'), measurements([-2, -4], 'negative'), measurements([0.00001], 'small')],
-      }),
-    )
-    expect(formatCheckSummaries(summary, getCheckDimensions([summary]))).toEqual({
-      'Check ["example","negative"]': '-3 ms',
-      'Check ["example","small"]': '0.00001 ms',
-      'Check ["example","zero"]': '0 ms',
-    })
+    for (const [values, expected] of [
+      [[0], '0 ms'],
+      [[-2, -4], '-3 ms'],
+      [[0.00001], '0.00001 ms'],
+    ] as const) {
+      const summary = summarize(createResult({checks: [measurements([...values])]}))
+      expect(formatCheckSummaries(summary, getCheckDimensions([summary]))).toEqual({Checks: expected})
+    }
   })
 
   test('excludes skips and errors from values and reports them explicitly', () => {
@@ -235,8 +243,7 @@ describe('check dimensions', () => {
       }),
     )
     expect(formatCheckSummaries(summary, getCheckDimensions([summary]))).toEqual({
-      'Check ["example","measurements"]': '4 [1 error]',
-      'Check ["example","tests"]': '50.0% [1 skipped; 1 error]',
+      Checks: '4 [1 error]; 50.0% [1 skipped; 1 error]',
     })
   })
 
@@ -258,12 +265,105 @@ describe('check dimensions', () => {
     const absent = summarize(createResult())
     const dimensions = getCheckDimensions([summary])
     expect(formatCheckSummaries(summary, dimensions)).toEqual({
-      'Check ["example","empty"]': 'N/A [0/2 runs with values]',
-      'Check ["example","errors"]': 'N/A [0/2 runs with values; 1 error]',
-      'Check ["example","partial"]': '100.0% [1/2 runs with values]',
-      'Check ["example","skipped"]': 'N/A [0/2 runs with values; 1 skipped]',
+      Checks: 'N/A [0/2 check results with values; 1 error]; 100.0% [1/6 check results with values; 1 skipped]',
     })
-    expect(Object.values(formatCheckSummaries(absent, dimensions))).toEqual(['N/A', 'N/A', 'N/A', 'N/A'])
+    expect(formatCheckSummaries(absent, dimensions)).toEqual({
+      Checks: 'N/A [0/1 check results with values]; N/A [0/3 check results with values]',
+    })
+  })
+
+  test('rolls up checks, named groups, and scenarios without pooling collection values', () => {
+    const summary = summarize(
+      createResult({
+        checks: [
+          outcomes(['passed', 'failed'], 'tests', 'unit'),
+          outcomes(['passed'], 'tests', 'integration'),
+          measurements([10, 30]),
+          measurements([40], 'render'),
+        ],
+      }),
+      createResult({
+        checks: [
+          outcomes(['failed'], 'tests', 'unit'),
+          outcomes(['passed'], 'tests', 'integration'),
+          measurements([80]),
+          measurements([100], 'render'),
+        ],
+      }),
+      createResult({
+        scenarioId: 'other',
+        checks: [outcomes(['failed', 'failed']), measurements([60])],
+      }),
+    )
+
+    expect(formatCheckSummaries(summary, getCheckDimensions([summary]))).toEqual({
+      Checks: '60 ms; 50.0%',
+    })
+    expect(summary.checks.size).toBe(6)
+  })
+
+  test('keeps incompatible units and directions separate without individual check names', () => {
+    const summary = summarize(
+      createResult({
+        checks: [
+          measurements([10], 'latency'),
+          measurements([30], 'render'),
+          measurements([5], 'duration', 'higher-is-better'),
+          measurements([7], 'size', 'lower-is-better', 'bytes'),
+          {
+            check: {name: 'score', files: []},
+            result: {type: 'measurements', measurements: [{type: 'measurement', value: 2}]},
+          },
+        ],
+      }),
+    )
+
+    const row = formatCheckSummaries(summary, getCheckDimensions([summary]))
+    expect(Object.keys(row)).toEqual(['Checks'])
+    expect(String(row.Checks).split('; ')).toEqual(
+      expect.arrayContaining(['20 ms [lower-is-better]', '5 ms [higher-is-better]', '7 bytes', '2']),
+    )
+    expect(String(row.Checks).split('; ')).toHaveLength(4)
+  })
+
+  test('does not include checks from unrelated scenarios in a scenario row', () => {
+    const first = summarize(createResult({checks: [outcomes(['passed'])]}))
+    const second = summarize(createResult({scenarioId: 'other', checks: [measurements([20])]}))
+    const dimensions = getCheckDimensions([first, second])
+
+    expect(formatCheckSummaries(first, dimensions)).toEqual({Checks: '100.0%'})
+    expect(formatCheckSummaries(second, dimensions)).toEqual({Checks: '20 ms'})
+  })
+
+  test('reports missing check results instead of hiding partial rollup coverage', () => {
+    const complete = summarize(createResult({checks: [outcomes(['passed']), outcomes(['failed'], 'other')]}))
+    const partial = summarize(createResult({checks: [outcomes(['passed'])]}))
+
+    expect(formatCheckSummaries(partial, getCheckDimensions([complete, partial]))).toEqual({
+      Checks: '100.0% [1/2 check results with values]',
+    })
+  })
+
+  test('compares aggregate check means with aggregate control means', () => {
+    const control = summarize(
+      createResult({checks: [outcomes(['passed', 'failed']), outcomes(['passed'], 'other'), measurements([20])]}),
+    )
+    const treatment = summarize(
+      createResult({checks: [outcomes(['passed']), outcomes(['passed'], 'other'), measurements([10])]}),
+    )
+    expect(formatCheckSummaries(treatment, getCheckDimensions([control, treatment]), control)).toEqual({
+      Checks: '10 ms (-50.0%); 100.0% (+33.3%)',
+    })
+  })
+
+  test('shows unavailable values for missing benchmark or control check results', () => {
+    const present = summarize(createResult({checks: [outcomes(['passed'])]}))
+    const absent = createTrialSummary()
+    const dimensions = getCheckDimensions([present])
+
+    expect(formatCheckSummaries(absent, dimensions, present)).toEqual({Checks: 'N/A (N/A)'})
+    expect(formatCheckSummaries(present, dimensions, absent)).toEqual({Checks: '100.0% (N/A)'})
+    expect(formatCheckSummaries(absent, dimensions)).toEqual({Checks: 'N/A'})
   })
 
   test('rejects duplicate groups within one trial', () => {
@@ -415,7 +515,9 @@ describe('run reports', () => {
       createResult({id: 'b', treatment: 'Better', checks: [outcomes(['passed'])], outputTokens: 100}),
     ]
     const report = createExperimentReport({experiment: experiment(results), runPlanResult: {results}})
-    expect(report).toContain('Check ["example","tests"]')
+    expect(report.split('\n')[0].match(/\bChecks\b/g)).toHaveLength(1)
+    expect(report).not.toContain('Check [')
+    expect(report).not.toContain('"tests"')
     expect(report.match(/100\.0%/g)).toHaveLength(3)
     expect(report.indexOf('Better')).toBeLessThan(report.indexOf('Cheaper'))
     expect(report).toContain('equal-weight ranks')
@@ -429,6 +531,8 @@ describe('run reports', () => {
     const report = createBenchmarkReport({benchmark: benchmark(results), runPlanResult: {results}})
     expect(report.match(/100\.0% \(\+100\.0%\)/g)).toHaveLength(3)
     expect(report.match(/10 ms \(-50\.0%\)/g)).toHaveLength(3)
+    expect(report.split('\n')[0].match(/\bChecks\b/g)).toHaveLength(1)
+    expect(report).not.toContain('Check [')
     expect(report).toContain('Control Runs')
   })
 
@@ -484,7 +588,7 @@ describe('run reports', () => {
       createResult({id: 'benchmark', checks: [outcomes(['passed'])]}),
     ]
     const report = createBenchmarkReport({benchmark: benchmark(results), runPlanResult: {results}})
-    expect(report).toContain('100.0% (N/A) [control: 0/1 runs with values; 1 skipped; 1 error]')
+    expect(report).toContain('100.0% (N/A) [control: 0/1 check results with values; 1 skipped; 1 error]')
   })
 
   test('preserves empty and usage-only report behavior', () => {
@@ -495,8 +599,8 @@ describe('run reports', () => {
       'Benchmark: Example benchmark\nNo trial results.',
     )
     const results = [createResult()]
-    expect(createExperimentReport({experiment: experiment(results), runPlanResult: {results}})).not.toContain('Check ')
-    expect(createBenchmarkReport({benchmark: benchmark(results), runPlanResult: {results}})).not.toContain('Check ')
+    expect(createExperimentReport({experiment: experiment(results), runPlanResult: {results}})).not.toContain('Checks')
+    expect(createBenchmarkReport({benchmark: benchmark(results), runPlanResult: {results}})).not.toContain('Checks')
   })
 })
 

@@ -126,9 +126,7 @@ function createExperimentReport({experiment, runPlanResult}: CreateExperimentRep
       'Model',
       'Reasoning Effort',
       ...TRIAL_SUMMARY_COLUMNS.slice(0, 1),
-      ...dimensions.map(dimension => {
-        return dimension.column
-      }),
+      ...(dimensions.length > 0 ? ['Checks'] : []),
       ...TRIAL_SUMMARY_COLUMNS.slice(1),
     ]),
     ...(dimensions.length > 0 ? [REPORT_CHECKS_NOTE] : []),

@@ -14,9 +14,8 @@ type CheckSummary = {
   errors: number
 }
 
-type CheckDimension = {
+type CheckDimension = Pick<CheckSummary, 'scenarioId' | 'type' | 'unit' | 'direction'> & {
   key: string
-  column: string
 }
 
 function assertCompatibleChecks(a: CheckSummary, b: CheckSummary): void {
@@ -91,17 +90,25 @@ function getCheckDimensions(summaries: Array<{checks: Map<string, CheckSummary>}
     }
   }
 
-  return [...checks.keys()].sort().map(key => {
-    return {key, column: `Check ${key}`}
-  })
+  return [...checks]
+    .sort(([a], [b]) => {
+      return a.localeCompare(b)
+    })
+    .map(([key, {scenarioId, type, unit, direction}]) => {
+      return {key, scenarioId, type, unit, direction}
+    })
 }
 
-function formatCheckSummary(summary: CheckSummary | undefined): string {
-  const value = getCheckValue(summary)
-  if (value === null || !summary) {
+type CheckRollup = Pick<CheckSummary, 'type' | 'unit' | 'direction' | 'sum' | 'count' | 'skipped' | 'errors'> & {
+  expected: number
+}
+
+function formatCheckSummary(summary: CheckRollup): string {
+  if (summary.count === 0) {
     return 'N/A'
   }
 
+  const value = summary.sum / summary.count
   if (summary.type === 'outcomes') {
     return `${value.toFixed(1)}%`
   }
@@ -113,15 +120,26 @@ type CheckSummarySource = {
   scenarioRuns: Map<string, number>
 }
 
-function getCheckNotes(source: CheckSummarySource, check: CheckSummary | undefined): Array<string> {
-  const notes: Array<string> = []
-  if (!check) {
-    return notes
+function rollupChecks(source: CheckSummarySource, dimensions: Array<CheckDimension>): CheckRollup {
+  const {type, unit, direction} = dimensions[0]
+  const rollup: CheckRollup = {type, unit, direction, sum: 0, count: 0, skipped: 0, errors: 0, expected: 0}
+  for (const {key, scenarioId} of dimensions) {
+    rollup.expected += source.scenarioRuns.get(scenarioId) ?? 0
+    const check = source.checks.get(key)
+    if (check) {
+      rollup.sum += check.sum
+      rollup.count += check.count
+      rollup.skipped += check.skipped
+      rollup.errors += check.errors
+    }
   }
+  return rollup
+}
 
-  const runs = source.scenarioRuns.get(check.scenarioId) ?? 0
-  if (check.count !== runs) {
-    notes.push(`${check.count}/${runs} runs with values`)
+function getCheckNotes(check: CheckRollup): Array<string> {
+  const notes: Array<string> = []
+  if (check.count !== check.expected) {
+    notes.push(`${check.count}/${check.expected} check results with values`)
   }
   if (check.skipped > 0) {
     notes.push(`${check.skipped} skipped`)
@@ -137,20 +155,48 @@ function formatCheckSummaries(
   dimensions: Array<CheckDimension>,
   control?: CheckSummarySource,
 ): TableRow {
-  return Object.fromEntries(
-    dimensions.map(({key, column}) => {
-      const check = summary.checks.get(key)
+  if (dimensions.length === 0) {
+    return {}
+  }
+
+  const groups = new Map<string, Array<CheckDimension>>()
+  for (const dimension of dimensions) {
+    if (!summary.scenarioRuns.has(dimension.scenarioId) && !control?.scenarioRuns.has(dimension.scenarioId)) {
+      continue
+    }
+    const key = JSON.stringify([dimension.type, dimension.unit, dimension.direction])
+    const group = groups.get(key) ?? []
+    group.push(dimension)
+    groups.set(key, group)
+  }
+
+  const values = [...groups]
+    .sort(([a], [b]) => {
+      return a.localeCompare(b)
+    })
+    .map(([, group]) => {
+      const check = rollupChecks(summary, group)
       let value = formatCheckSummary(check)
       if (control) {
-        const baseline = getCheckValue(control.checks.get(key))
-        const current = getCheckValue(check)
-        const delta = baseline === null || current === null ? 'N/A' : formatPercentDelta(baseline, current)
+        const baseline = rollupChecks(control, group)
+        const delta =
+          baseline.count === 0 || check.count === 0
+            ? 'N/A'
+            : formatPercentDelta(baseline.sum / baseline.count, check.sum / check.count)
         value += ` (${delta})`
       }
 
-      const notes = getCheckNotes(summary, check)
+      const notes = getCheckNotes(check)
+      if (
+        check.type === 'measurements' &&
+        [...groups.values()].some(other => {
+          return other !== group && other[0].type === check.type && other[0].unit === check.unit
+        })
+      ) {
+        notes.unshift(check.direction ?? 'no direction')
+      }
       if (control) {
-        const controlNotes = getCheckNotes(control, control.checks.get(key))
+        const controlNotes = getCheckNotes(rollupChecks(control, group))
         if (controlNotes.length > 0) {
           notes.push(`control: ${controlNotes.join('; ')}`)
         }
@@ -158,9 +204,9 @@ function formatCheckSummaries(
       if (notes.length > 0) {
         value += ` [${notes.join('; ')}]`
       }
-      return [column, value]
-    }),
-  )
+      return value
+    })
+  return {Checks: values.length > 0 ? values.join('; ') : 'N/A'}
 }
 
 export {addCheckResults, formatCheckSummaries, getCheckDimensions, getCheckValue}

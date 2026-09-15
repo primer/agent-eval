@@ -164,9 +164,7 @@ function createBenchmarkReport({benchmark, runPlanResult}: CreateBenchmarkReport
       'Reasoning Effort',
       'Control Runs',
       'Runs',
-      ...dimensions.map(dimension => {
-        return dimension.column
-      }),
+      ...(dimensions.length > 0 ? ['Checks'] : []),
       'Output Tokens',
       'Premium Requests',
       'Session Time',

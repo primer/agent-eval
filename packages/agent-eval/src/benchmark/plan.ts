@@ -111,7 +111,7 @@ async function parseBenchmarkPlanManifest({
   const benchmark = await getBenchmark({
     benchmarksDirectory,
     host,
-    name: result.name,
+    name: result.id,
     scenariosDirectory,
   })
   const capabilities = new Map(

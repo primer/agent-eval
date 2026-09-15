@@ -96,6 +96,10 @@ agent-eval benchmarks run <benchmark-name>
 
 To learn more about benchmarks, visit our [benchmark docs](../../docs/benchmarks.md).
 
+Saved benchmark plans identify the benchmark by its filename without the
+extension. The display name is descriptive metadata, so changing it does not
+invalidate an existing plan.
+
 ## Experiments
 
 Experiments are used to test different approaches to improve performance on a set of tasks. By default, they live in an `experiments` folder in your project. You can create an experiment by importing and using `defineConfig` from

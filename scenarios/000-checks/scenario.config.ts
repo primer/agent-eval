@@ -101,7 +101,18 @@ export default defineConfig({
 
         const commandResult = await sandbox.runCommand(
           'npx',
-          ['eslint', '--config', 'eslint.config.scenario.js', 'src', '--format', 'json', '--max-warnings', '0'],
+          [
+            'eslint',
+            '--config',
+            'eslint.config.scenario.js',
+            'src',
+            '--format',
+            'json',
+            '--output-file',
+            'eslint-scenario-report.json',
+            '--max-warnings',
+            '0',
+          ],
           {
             allowNonZeroExitCode: true,
           },
@@ -111,7 +122,8 @@ export default defineConfig({
           throw new Error(`ESLint failed with exit code ${commandResult.exitCode}: ${commandResult.stderr}`)
         }
 
-        const results: Array<ESLint.LintResult> = JSON.parse(commandResult.stdout)
+        const contents = await sandbox.readFile('eslint-scenario-report.json')
+        const results: Array<ESLint.LintResult> = JSON.parse(contents)
 
         return {
           type: 'outcomes',

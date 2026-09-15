@@ -9,12 +9,12 @@ on:
       copilot-concurrency:
         description: Maximum number of Copilot sessions to run in parallel per shard
         required: false
-        default: '1'
+        default: '2'
         type: string
       container-concurrency:
         description: Maximum number of trial containers to run in parallel per shard
         required: false
-        default: '5'
+        default: '2'
         type: string
       docker-image:
         description: >-

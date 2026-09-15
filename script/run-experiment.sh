@@ -36,8 +36,8 @@ case "$mode" in
     node "$repository_root/packages/agent-eval/bin/agent-eval" \
       experiment run "$experiment_name" \
       --experiments "$repository_root/experiments" \
-      --copilot-concurrency "${COPILOT_CONCURRENCY:-1}" \
-      --container-concurrency "${CONTAINER_CONCURRENCY:-5}" \
+      --copilot-concurrency "${COPILOT_CONCURRENCY:-2}" \
+      --container-concurrency "${CONTAINER_CONCURRENCY:-2}" \
       --docker-image "${DOCKER_IMAGE:-node:26.5.0-slim}" \
       --output-dir "$run_directory" \
       --scenarios "$repository_root/scenarios" \
@@ -59,8 +59,8 @@ case "$mode" in
 
     node "$repository_root/packages/agent-eval/bin/agent-eval" \
       experiment plan run \
-      --copilot-concurrency "${COPILOT_CONCURRENCY:-1}" \
-      --container-concurrency "${CONTAINER_CONCURRENCY:-5}" \
+      --copilot-concurrency "${COPILOT_CONCURRENCY:-2}" \
+      --container-concurrency "${CONTAINER_CONCURRENCY:-2}" \
       --docker-image "${DOCKER_IMAGE:-node:26.5.0-slim}" \
       --experiments "$repository_root/experiments" \
       --plan-path "$plan_path" \

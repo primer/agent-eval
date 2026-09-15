@@ -3,7 +3,7 @@ import type {Route} from 'next'
 import {expect, test} from 'vitest'
 import {createBenchmarkRunDetails, createExperimentRunDetails} from '../../run-details'
 import {createBenchmarkOutput, createExperimentOutput, createTrial} from '../../test-fixtures'
-import {RunDetailsPage} from './RunDetailsPage'
+import {RunDetailsPage, UiWalkthrough} from './RunDetailsPage'
 
 const resource = {
   id: 'noop',
@@ -17,13 +17,14 @@ test('provides a selector for every repeated trial and the new checks tab', asyn
   const run = await createExperimentRunDetails(
     '2026-09-15',
     createExperimentOutput([createTrial(), createTrial({id: 'trial-2'})]),
-    '/results',
   )
   const html = renderToStaticMarkup(<RunDetailsPage resource={resource} run={run} />)
   expect(html).toContain('Trial 1 (trial-1)')
   expect(html).toContain('Trial 2 (trial-2)')
   expect(html).toContain('result-0-checks-tab')
   expect(html).not.toContain('Tests passed')
+  expect(html).toContain('Loading trial details')
+  expect(html).not.toContain('empty state renders')
 })
 
 test('renders an empty state for a current run without trials', () => {
@@ -56,4 +57,27 @@ test('keeps a shared scenario separate per capability and exposes capability fil
   expect(html).toContain('All capabilities')
   expect(html).toContain('value="a"')
   expect(html).toContain('value="b"')
+})
+
+test.each([true, false])('uses eager loading only for the leading walkthrough image when eager is %s', eager => {
+  const html = renderToStaticMarkup(
+    <UiWalkthrough
+      scenarioId="example"
+      eager={eager}
+      walkthrough={{type: 'Screenshots', screenshots: ['/media/first.png', '/media/second.png']}}
+    />,
+  )
+  const images = html.match(/<img[^>]+>/g)
+  expect(images).toHaveLength(2)
+  expect(images?.[0]).toContain(`loading="${eager ? 'eager' : 'lazy'}"`)
+  expect(images?.[1]).toContain('loading="lazy"')
+  expect(html).not.toContain('data:image')
+})
+
+test('does not preload the bytes of an external walkthrough video', () => {
+  const html = renderToStaticMarkup(
+    <UiWalkthrough scenarioId="example" eager walkthrough={{type: 'Video', video: '/media/video.webm'}} />,
+  )
+  expect(html).toContain('preload="none"')
+  expect(html).toContain('src="/media/video.webm"')
 })

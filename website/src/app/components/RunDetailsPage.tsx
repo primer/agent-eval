@@ -1,12 +1,13 @@
 'use client'
 
 import {CopilotIcon, PersonIcon} from '@primer/octicons-react'
-import {Breadcrumbs, FormControl, Select, Stack, UnderlineNav} from '@primer/react'
-import type {RunDetails, TranscriptEntry, WalkthroughDataUrl} from '../../run-details'
+import {Breadcrumbs, Button, FormControl, Select, Stack, UnderlineNav} from '@primer/react'
+import type {RunDetails, TranscriptEntry, WalkthroughUrls} from '../../run-details'
+import {loadTrialDetails, loadTrialTranscript} from '../../run-data-client'
 import type {Route} from 'next'
 import Link from 'next/link'
 import Image from 'next/image'
-import {useState} from 'react'
+import {useEffect, useState, type ReactNode} from 'react'
 import {JudgeResults} from './JudgeResults'
 import {CheckResults} from './CheckResults'
 
@@ -75,7 +76,7 @@ function Transcript({entries}: {entries: Array<TranscriptEntry>}) {
   )
 }
 
-function BrowserScreenshot({alt, source}: {alt: string; source: string}) {
+function BrowserScreenshot({alt, source, eager}: {alt: string; source: string; eager: boolean}) {
   return (
     <div className="border border-default rounded-md overflow-hidden w-fit max-w-full">
       <div className="bg-muted border-b border-default flex gap-2 p-3" aria-hidden="true">
@@ -83,18 +84,35 @@ function BrowserScreenshot({alt, source}: {alt: string; source: string}) {
         <span className="bg-attention-emphasis rounded-full size-3" />
         <span className="bg-success-emphasis rounded-full size-3" />
       </div>
-      <Image alt={alt} className="block max-w-full h-auto" height={900} src={source} unoptimized width={1440} />
+      <Image
+        alt={alt}
+        className="block max-w-full h-auto"
+        height={900}
+        loading={eager ? 'eager' : 'lazy'}
+        src={source}
+        unoptimized
+        width={1440}
+      />
     </div>
   )
 }
 
-function UiWalkthrough({scenarioId, walkthrough}: {scenarioId: string; walkthrough: WalkthroughDataUrl}) {
+export function UiWalkthrough({
+  scenarioId,
+  walkthrough,
+  eager,
+}: {
+  scenarioId: string
+  walkthrough: WalkthroughUrls
+  eager: boolean
+}) {
   if (walkthrough.type === 'Video') {
     return (
       <video
         className="border border-default rounded-2 w-full h-auto"
         controls
         height={900}
+        preload="none"
         src={walkthrough.video}
         width={1440}
       />
@@ -104,21 +122,88 @@ function UiWalkthrough({scenarioId, walkthrough}: {scenarioId: string; walkthrou
   if (walkthrough.type === 'Screenshots') {
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {walkthrough.screenshots.map((source, index) => (
-          <BrowserScreenshot alt={`UI walkthrough step ${index + 1} for ${scenarioId}`} key={source} source={source} />
-        ))}
+        {walkthrough.screenshots.map((source, index) => {
+          return (
+            <BrowserScreenshot
+              alt={`UI walkthrough step ${index + 1} for ${scenarioId}`}
+              eager={eager && index === 0}
+              key={source}
+              source={source}
+            />
+          )
+        })}
       </div>
     )
   }
 
   if (walkthrough.type === 'Screenshot') {
-    return <BrowserScreenshot alt={`UI walkthrough for ${scenarioId}`} source={walkthrough.screenshot} />
+    return <BrowserScreenshot alt={`UI walkthrough for ${scenarioId}`} eager={eager} source={walkthrough.screenshot} />
   }
 
   return <p>No UI walkthrough was recorded.</p>
 }
 
 type ResultTab = 'walkthrough' | 'checks' | 'judges' | 'transcript'
+
+function AsyncContent<T>({
+  url,
+  load,
+  label,
+  children,
+}: {
+  url: string
+  load: (url: string) => Promise<T>
+  label: string
+  children: (data: T) => ReactNode
+}) {
+  const [state, setState] = useState<
+    {status: 'loading'} | {status: 'loaded'; data: T} | {status: 'error'; message: string}
+  >({status: 'loading'})
+  const [attempt, setAttempt] = useState(0)
+
+  useEffect(() => {
+    let active = true
+    load(url).then(
+      data => {
+        if (active) {
+          setState({status: 'loaded', data})
+        }
+      },
+      error => {
+        if (active) {
+          setState({status: 'error', message: error instanceof Error ? error.message : String(error)})
+        }
+      },
+    )
+    return () => {
+      active = false
+    }
+  }, [url, load, attempt])
+
+  if (state.status === 'loading') {
+    return <p role="status">Loading {label}...</p>
+  }
+  if (state.status === 'error') {
+    return (
+      <div role="alert">
+        <p>
+          Could not load {label}: {state.message}
+        </p>
+        <Button
+          onClick={() => {
+            setState({status: 'loading'})
+            setAttempt(previous => {
+              return previous + 1
+            })
+          }}
+        >
+          Retry
+        </Button>
+      </div>
+    )
+  }
+  return children(state.data)
+}
 
 function ResultTabs({index, result}: {index: number; result: RunResult}) {
   const [selectedTab, setSelectedTab] = useState<ResultTab>('walkthrough')
@@ -148,7 +233,7 @@ function ResultTabs({index, result}: {index: number; result: RunResult}) {
         </UnderlineNav.Item>
         <UnderlineNav.Item
           aria-current={selectedTab === 'checks' ? 'page' : undefined}
-          counter={result.checks.length}
+          counter={result.counts.checks}
           href={`#result-${index}-checks-panel`}
           id={tabIds.checks}
           onSelect={event => {
@@ -160,7 +245,7 @@ function ResultTabs({index, result}: {index: number; result: RunResult}) {
         </UnderlineNav.Item>
         <UnderlineNav.Item
           aria-current={selectedTab === 'judges' ? 'page' : undefined}
-          counter={result.judges.length}
+          counter={result.counts.judges}
           href={`#result-${index}-judges-panel`}
           id={tabIds.judges}
           onSelect={event => {
@@ -172,7 +257,7 @@ function ResultTabs({index, result}: {index: number; result: RunResult}) {
         </UnderlineNav.Item>
         <UnderlineNav.Item
           aria-current={selectedTab === 'transcript' ? 'page' : undefined}
-          counter={result.transcript.length}
+          counter={result.counts.transcript}
           href={`#result-${index}-transcript-panel`}
           id={tabIds.transcript}
           onSelect={event => {
@@ -184,16 +269,36 @@ function ResultTabs({index, result}: {index: number; result: RunResult}) {
         </UnderlineNav.Item>
       </UnderlineNav>
       <div aria-labelledby={tabIds[selectedTab]} className="p-4" id={panelId} role="region">
-        {selectedTab === 'walkthrough' ? (
-          <UiWalkthrough scenarioId={result.scenarioId} walkthrough={result.walkthrough} />
-        ) : null}
-        {selectedTab === 'checks' ? <CheckResults checks={result.checks} /> : null}
-        {selectedTab === 'judges' ? <JudgeResults judges={result.judges} /> : null}
         {selectedTab === 'transcript' ? (
-          <div className="w-full max-w-3xl mx-auto">
-            <Transcript entries={result.transcript} />
-          </div>
-        ) : null}
+          <AsyncContent
+            key={result.transcriptUrl}
+            url={result.transcriptUrl}
+            load={loadTrialTranscript}
+            label="transcript"
+          >
+            {entries => {
+              return (
+                <div className="w-full max-w-3xl mx-auto">
+                  <Transcript entries={entries} />
+                </div>
+              )
+            }}
+          </AsyncContent>
+        ) : (
+          <AsyncContent key={result.detailsUrl} url={result.detailsUrl} load={loadTrialDetails} label="trial details">
+            {details => {
+              if (selectedTab === 'checks') {
+                return <CheckResults checks={details.checks} />
+              }
+              if (selectedTab === 'judges') {
+                return <JudgeResults judges={details.judges} />
+              }
+              return (
+                <UiWalkthrough scenarioId={result.scenarioId} walkthrough={details.walkthrough} eager={index === 0} />
+              )
+            }}
+          </AsyncContent>
+        )}
       </div>
     </section>
   )

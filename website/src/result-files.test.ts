@@ -4,7 +4,7 @@ import type {BenchmarkOutput, ExperimentOutput} from '@primer/agent-eval'
 import {afterEach, expect, onTestFinished, test, vi} from 'vitest'
 import {readBenchmarkOutput, readExperimentOutput} from './result-files'
 import {createBenchmarkOutput, createExperimentOutput, createTrial} from './test-fixtures'
-import {createExperimentRunDetails, getWalkthroughDataUrls} from './run-details'
+import {createExperimentRunDetails, getWalkthroughAssets} from './run-details'
 
 afterEach(() => {
   vi.restoreAllMocks()
@@ -62,8 +62,8 @@ test.each(['benchmark', 'experiment'] as const)(
     if (bundle === null) {
       throw new Error('Expected an available bundle')
     }
-    const details = await createExperimentRunDetails('2026-09-15', bundle, directory)
-    expect(details.results[0].checks).toEqual([...output.trials.values()][0].checks)
+    const details = await createExperimentRunDetails('2026-09-15', bundle)
+    expect(details.results[0].counts.checks).toEqual([...output.trials.values()][0].checks.length)
   },
 )
 
@@ -179,45 +179,60 @@ test('rejects missing trial files, mismatched IDs, and paths outside the bundle'
   await expect(readExperimentOutput(filepath)).rejects.toThrow('outside the result bundle')
 })
 
-test('loads screenshot and video artifacts relative to a relocated run', async () => {
+test('references screenshot and video files relative to a relocated run without embedding their contents', async () => {
   const directory = await createDirectory()
   const media = 'artifacts/trial-1/walkthrough/image.jpg'
   await fs.mkdir(path.dirname(path.join(directory, media)), {recursive: true})
   await fs.writeFile(path.join(directory, media), 'image')
-  expect(await getWalkthroughDataUrls({type: 'Screenshot', filepath: media}, directory)).toEqual({
+  const baseUrl = '/run-data/benchmarks/example/2026-09-15/trial-1'
+  const assets = await getWalkthroughAssets({type: 'Screenshot', filepath: media}, directory, baseUrl)
+  expect(assets.walkthrough).toEqual({
     type: 'Screenshot',
-    screenshot: `data:image/jpeg;base64,${Buffer.from('image').toString('base64')}`,
+    screenshot: `${baseUrl}/media-0.jpg`,
   })
+  expect(assets.media).toEqual([{name: 'media-0.jpg', filepath: path.join(directory, media), mimeType: 'image/jpeg'}])
   const artifacts = '/another-machine/results/artifacts/trial-1/walkthrough'
   expect(
-    await getWalkthroughDataUrls({type: 'Screenshot', filepath: 'walkthrough/image.jpg'}, directory, artifacts),
+    (await getWalkthroughAssets({type: 'Screenshot', filepath: 'walkthrough/image.jpg'}, directory, baseUrl, artifacts))
+      .walkthrough,
   ).toEqual({
     type: 'Screenshot',
-    screenshot: `data:image/jpeg;base64,${Buffer.from('image').toString('base64')}`,
+    screenshot: `${baseUrl}/media-0.jpg`,
   })
-  expect(await getWalkthroughDataUrls({type: 'Screenshots', screenshots: [media]}, directory)).toEqual({
+  expect(
+    (await getWalkthroughAssets({type: 'Screenshots', screenshots: [media]}, directory, baseUrl)).walkthrough,
+  ).toEqual({
     type: 'Screenshots',
-    screenshots: [`data:image/jpeg;base64,${Buffer.from('image').toString('base64')}`],
+    screenshots: [`${baseUrl}/media-0.jpg`],
   })
   const video = 'artifacts/trial-1/walkthrough/video.webm'
   await fs.writeFile(path.join(directory, video), 'video')
-  expect(await getWalkthroughDataUrls({type: 'Video', filepath: video}, directory)).toEqual({
+  expect((await getWalkthroughAssets({type: 'Video', filepath: video}, directory, baseUrl)).walkthrough).toEqual({
     type: 'Video',
-    video: `data:video/webm;base64,${Buffer.from('video').toString('base64')}`,
+    video: `${baseUrl}/media-0.webm`,
   })
   expect(
-    await getWalkthroughDataUrls({type: 'Screenshots', screenshots: ['walkthrough/image.jpg']}, directory, artifacts),
+    (
+      await getWalkthroughAssets(
+        {type: 'Screenshots', screenshots: ['walkthrough/image.jpg']},
+        directory,
+        baseUrl,
+        artifacts,
+      )
+    ).walkthrough,
   ).toEqual({
     type: 'Screenshots',
-    screenshots: [`data:image/jpeg;base64,${Buffer.from('image').toString('base64')}`],
+    screenshots: [`${baseUrl}/media-0.jpg`],
   })
   expect(
-    await getWalkthroughDataUrls({type: 'Video', filepath: 'walkthrough/video.webm'}, directory, artifacts),
+    (await getWalkthroughAssets({type: 'Video', filepath: 'walkthrough/video.webm'}, directory, baseUrl, artifacts))
+      .walkthrough,
   ).toEqual({
     type: 'Video',
-    video: `data:video/webm;base64,${Buffer.from('video').toString('base64')}`,
+    video: `${baseUrl}/media-0.webm`,
   })
-  expect(await getWalkthroughDataUrls({type: 'Screenshot', filepath: 'missing.png'}, directory)).toEqual({
-    type: 'Unavailable',
+  expect(await getWalkthroughAssets({type: 'Screenshot', filepath: 'missing.png'}, directory, baseUrl)).toEqual({
+    walkthrough: {type: 'Unavailable'},
+    media: [],
   })
 })

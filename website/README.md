@@ -4,11 +4,6 @@
 
 Run `pnpm --dir website dev` from the repository root.
 
-Development response compression is disabled to avoid an upstream Next.js
-streaming/compression bug that retains `drain` listeners on large responses.
-This avoids the affected code path rather than increasing the listener limit.
-Production compression settings and the static export are unchanged.
-
 The root layout renders the attributes that Primer's `focus-visible` polyfill
 adds before hydration, so the server and client markup match without suppressing
 hydration warnings.
@@ -53,6 +48,22 @@ and inconsistent IDs remain errors.
 Move or upload result directories as complete bundles. Trial walkthrough paths
 such as `walkthrough/screenshot.png` are resolved through
 `artifacts.walkthroughDirectory` into the bundle's `artifacts/` directory.
+
+Run pages initially include only trial summaries, tab counts, and data URLs.
+Selecting a trial loads its checks, judges, and walkthrough URLs from a separate
+JSON file. Transcripts load only when their tab is opened. Requests are shared
+and cached during the browser session; failures show an error and a retry button.
+Changing the selection cannot display a previous trial's pending response.
+
+Screenshots and videos are served as separate files, not embedded base64 data.
+The first walkthrough image on the page loads eagerly; subsequent images load
+lazily, and videos use `preload="none"`.
+
+The `/run-data/...` GET route generates per-trial JSON and media files during
+`next build` and serves them during development. These files are included in
+`website/out` and respect `PAGES_BASE_PATH`. Deploy the entire static export
+together so page summaries and their linked assets remain consistent. No API
+server is needed in production.
 
 Benchmark and experiment run details include a **Checks** tab for outcomes,
 measurements, group IDs, units, scoring directions, and errors. Skipped outcomes

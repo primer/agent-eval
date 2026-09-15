@@ -1,6 +1,6 @@
 import type {BenchmarkConfig} from './config'
 import {type ModelVariant} from '../model'
-import type {Scenario} from '../scenario'
+import type {Scenario} from '../scenario/scenario'
 import type {TreatmentSetup} from '../treatment'
 import {hash} from '../hash'
 

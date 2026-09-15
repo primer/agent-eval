@@ -1,5 +1,5 @@
 import * as z from 'zod/mini'
-import {ScenarioSchema} from '../scenario'
+import {ScenarioSchema} from '../scenario/scenario'
 import {ModelVariantSchema} from '../model'
 import {TreatmentSchema, TreatmentSetupSchema} from '../treatment'
 // import type {Host} from '../host'

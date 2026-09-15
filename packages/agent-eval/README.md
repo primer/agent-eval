@@ -404,8 +404,10 @@ Use `defineConfig` from `@primer/agent-eval/benchmark` or
 configuration helpers; use the CLI for discovery, execution, planning, and
 merging results.
 
-Scenario configuration is available from `@primer/agent-eval/scenario`. Use
-`@primer/agent-eval/sandbox` for sandbox runtime and types.
+The scenario entry point, `@primer/agent-eval/scenario`, exports only
+`defineConfig`. Scenario loading, discovery, schemas, and runtime types are
+internal; select scenarios through benchmark or experiment configuration.
+Use `@primer/agent-eval/sandbox` for sandbox runtime and types.
 
 The CLI is available through the `agent-eval` executable rather than a
 `@primer/agent-eval/cli` package entry point.

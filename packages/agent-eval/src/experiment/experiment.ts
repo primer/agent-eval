@@ -1,6 +1,6 @@
 import type {ExperimentConfig} from './config'
 import type {ModelVariant} from '../model'
-import type {Scenario} from '../scenario'
+import type {Scenario} from '../scenario/scenario'
 import type {Treatment, TreatmentSetup} from '../treatment'
 
 type Experiment = {

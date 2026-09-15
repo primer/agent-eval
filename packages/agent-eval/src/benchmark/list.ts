@@ -4,7 +4,7 @@ import {BenchmarkConfigSchema} from './config'
 import {DefaultHost, type Host} from '../host'
 import {logger} from '../logger'
 import {getModelVariants} from '../model'
-import {getScenario} from '../scenario'
+import {getScenario} from '../scenario/get'
 import {prettifyError} from 'zod/mini'
 
 const BENCHMARK_FILE_EXTENSIONS = new Set(['.cjs', '.js', '.mjs', '.ts'])

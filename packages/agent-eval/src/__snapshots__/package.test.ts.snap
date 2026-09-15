@@ -17,10 +17,5 @@ exports[`@primer/agent-eval/experiment exports 1`] = `
 exports[`@primer/agent-eval/scenario exports 1`] = `
 [
   "defineConfig",
-  "listScenarios",
-  "getScenario",
-  "loadScenario",
-  "ScenarioSchema",
-  "ScenarioConfigSchema",
 ]
 `;

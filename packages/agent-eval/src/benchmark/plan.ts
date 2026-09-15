@@ -5,8 +5,9 @@ import type {Plan} from '../plan'
 import {ControlTreatment, createTreatment} from '../treatment'
 import type {Trial} from '../trial/trial'
 import type {Benchmark, Capability} from './benchmark'
-import type {Shard} from '../shard'
 import {ModelVariantSchema} from '../model'
+import type {Host} from '../host'
+import {getBenchmark} from '../benchmark'
 
 type CreateBenchmarkPlanOptions = {
   benchmark: Benchmark
@@ -89,24 +90,76 @@ function createBenchmarkPlanManifest({benchmark, plan}: CreateBenchmarkPlanManif
 }
 
 type BenchmarkPlanManifest = {
+  benchmark: Benchmark
   trials: Array<BenchmarkTrial>
 }
 
-type CreateBenchmarkPlanFromManifestOptions = {
-  manifest: BenchmarkPlanManifest
-  shard?: Shard
+type ParseBenchmarkPlanManifestOptions = {
+  benchmarksDirectory: string
+  contents: string
+  host?: Host
+  scenariosDirectory: string
 }
 
-function createBenchmarkPlanFromManifest({
-  manifest,
-  shard,
-}: CreateBenchmarkPlanFromManifestOptions): Plan<BenchmarkTrial> {
-  throw new Error('unimplemented')
+async function parseBenchmarkPlanManifest({
+  benchmarksDirectory,
+  contents,
+  host,
+  scenariosDirectory,
+}: ParseBenchmarkPlanManifestOptions): Promise<BenchmarkPlanManifest> {
+  const result = BenchmarkPlanManifestFileSchema.parse(JSON.parse(contents))
+  const benchmark = await getBenchmark({
+    benchmarksDirectory,
+    host,
+    name: result.name,
+    scenariosDirectory,
+  })
+  const capabilities = new Map(
+    benchmark.capabilities.map(capability => {
+      return [capability.id, capability]
+    }),
+  )
+  const scenarios = new Map(
+    benchmark.capabilities.flatMap(capability => {
+      return capability.scenarios.map(scenario => {
+        return [scenario.id, scenario]
+      })
+    }),
+  )
+  const treatments = new Map(
+    [ControlTreatment, createTreatment({name: 'Benchmark', setup: benchmark.setup})].map(treatment => {
+      return [treatment.id, treatment]
+    }),
+  )
+
+  return {
+    benchmark,
+    trials: result.trials.map(trial => {
+      const capability = capabilities.get(trial.capabilityId)
+      if (!capability) {
+        throw new Error(`Capability not found for trial: ${trial.id}`)
+      }
+
+      const scenario = scenarios.get(trial.scenarioId)
+      if (!scenario) {
+        throw new Error(`Scenario not found for trial: ${trial.id}`)
+      }
+
+      const treatment = treatments.get(trial.treatmentId)
+      if (!treatment) {
+        throw new Error(`Treatment not found for trial: ${trial.id}`)
+      }
+
+      return {
+        id: trial.id,
+        capability,
+        model: trial.model,
+        scenario,
+        treatment,
+      }
+    }),
+  }
 }
 
-function parseBenchmarkPlanManifest(contents: string): BenchmarkPlanManifest {
-  throw new Error('unimplemented')
-}
-
-export {createBenchmarkPlan, createBenchmarkPlanManifest, createBenchmarkPlanFromManifest, parseBenchmarkPlanManifest}
+export {createBenchmarkPlan, createBenchmarkPlanManifest, parseBenchmarkPlanManifest}
 export type {BenchmarkTrial}

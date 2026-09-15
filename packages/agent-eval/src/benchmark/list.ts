@@ -31,7 +31,7 @@ type ListBenchmarksOptions = {
   scenariosDirectory: string
 }
 
-async function list({
+async function listBenchmarks({
   benchmarksDirectory,
   host = DefaultHost,
   scenariosDirectory,
@@ -106,4 +106,4 @@ function isBenchmarkFile(filename: string): boolean {
   return !filename.endsWith('.d.ts') && filename !== 'index.ts' && BENCHMARK_FILE_EXTENSIONS.has(path.extname(filename))
 }
 
-export {list}
+export {listBenchmarks}

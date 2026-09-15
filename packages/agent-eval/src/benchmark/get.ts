@@ -1,6 +1,6 @@
 import {DefaultHost, type Host} from '../host'
 import type {Benchmark} from './benchmark'
-import {list} from './list'
+import {listBenchmarks} from './list'
 
 type GetBenchmarkOptions = {
   /**
@@ -28,13 +28,13 @@ type GetBenchmarkOptions = {
 /**
  * Get a benchmark by name
  */
-async function get({
+async function getBenchmark({
   benchmarksDirectory,
   host = DefaultHost,
   name,
   scenariosDirectory,
 }: GetBenchmarkOptions): Promise<Benchmark> {
-  const benchmarks = await list({
+  const benchmarks = await listBenchmarks({
     host,
     benchmarksDirectory,
     scenariosDirectory,
@@ -47,4 +47,4 @@ async function get({
   throw new Error(`Benchmark "${name}" was not found in: ${benchmarksDirectory}`)
 }
 
-export {get}
+export {getBenchmark}

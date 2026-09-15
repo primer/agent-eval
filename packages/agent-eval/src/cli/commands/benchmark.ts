@@ -1,6 +1,6 @@
 import path from 'node:path'
 import {defineCommand} from 'citty'
-import {getBenchmark} from '../../benchmark'
+import {getBenchmark} from '../../benchmark/get'
 import {
   benchmarksOption,
   concurrencyOption,

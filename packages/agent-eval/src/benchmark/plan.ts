@@ -7,7 +7,7 @@ import type {Trial} from '../trial/trial'
 import type {Benchmark, Capability} from './benchmark'
 import {ModelVariantSchema} from '../model'
 import type {Host} from '../host'
-import {getBenchmark} from '../benchmark'
+import {getBenchmark} from './get'
 
 type CreateBenchmarkPlanOptions = {
   benchmark: Benchmark

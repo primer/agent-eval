@@ -69,6 +69,10 @@ The `/run-data/...` GET route generates per-trial JSON and media files during
 together so page summaries and their linked assets remain consistent. No API
 server is needed in production.
 
+Public trial details use scenario-relative paths for check and judge reference
+files. Host filesystem paths are not included in that reference metadata, and
+the original result bundles are left unchanged.
+
 Benchmark and experiment run details include a **Checks** tab for outcomes,
 measurements, group IDs, units, scoring directions, and errors. Skipped outcomes
 use a neutral skip icon, alongside the green pass and red fail icons. The trial

@@ -335,7 +335,12 @@ async function createTrialDetails(
   )
   return {
     id: result.id,
-    checks: result.checks,
+    checks: result.checks.map(check => {
+      return {
+        ...check,
+        check: {...check.check, files: createReferenceFiles(check.check.files)},
+      }
+    }),
     walkthrough,
     judges: createJudgeDetails(result.judges),
   }
@@ -399,9 +404,15 @@ async function createExperimentRunDetails(
 function createJudgeDetails(judges: Array<JudgeOutput>): Array<JudgeDetails> {
   return judges.map(judge => {
     return {
-      judge: judge.judge,
+      judge: {...judge.judge, files: createReferenceFiles(judge.judge.files)},
       result: judge.result,
     }
+  })
+}
+
+function createReferenceFiles(files: CheckOutput['check']['files']): CheckOutput['check']['files'] {
+  return files.map(({relativePath}) => {
+    return {filepath: relativePath, relativePath}
   })
 }
 

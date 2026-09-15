@@ -5,7 +5,7 @@ import {getBenchmarkRun, listBenchmarkRuns} from './benchmark-results'
 import {list as listBenchmarks} from './benchmarks'
 import {get as getExperimentRun, list as listExperimentRuns} from './runs'
 import {getRunAsset, listRunAssetParams} from './run-assets'
-import {createBenchmarkOutput, createExperimentOutput, createTrial, session} from './test-fixtures'
+import {checks, createBenchmarkOutput, createExperimentOutput, createTrial, judges, session} from './test-fixtures'
 
 vi.mock('./benchmark-results', () => {
   return {getBenchmarkRun: vi.fn(), listBenchmarkRuns: vi.fn()}
@@ -124,6 +124,71 @@ test('handles empty run collections without inventing data', async () => {
   expect(await listRunAssetParams()).toEqual([{asset: ['__no-runs__']}])
   expect((await getRunAsset(['__no-runs__'])).status).toBe(404)
 })
+
+test.each(['benchmarks', 'experiments'] as const)(
+  'exports only scenario-relative reference paths for %s without mutating stored results',
+  async collection => {
+    const trial = createTrial({
+      checks: checks.map(check => {
+        return {
+          ...check,
+          check: {
+            ...check.check,
+            files: [{filepath: '/private/runner/scenario/check.ts', relativePath: 'check.ts'}],
+          },
+        }
+      }),
+      judges: judges.map(judge => {
+        return {
+          ...judge,
+          judge: {
+            ...judge.judge,
+            files: [
+              {
+                filepath: '/private/runner/scenario/references/expected.png',
+                relativePath: 'references/expected.png',
+              },
+            ],
+          },
+        }
+      }),
+    })
+    const before = structuredClone(trial)
+    const run = {id: '2026-09-15', name: '2026-09-15', date: new Date('2026-09-15'), directory: '/results'}
+    const output = collection === 'benchmarks' ? createBenchmarkOutput([trial]) : createExperimentOutput([trial])
+    if (collection === 'benchmarks') {
+      vi.mocked(getBenchmarkRun).mockResolvedValue({...run, output: createBenchmarkOutput([trial])})
+    } else {
+      vi.mocked(getExperimentRun).mockResolvedValue({...run, experimentId: output.id, output})
+    }
+
+    const response = await getRunAsset([collection, output.id, run.name, trial.id, 'details.json'])
+    const details = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(JSON.stringify(details)).not.toContain('/private/runner')
+    expect(details.checks).toEqual(
+      trial.checks.map(check => {
+        return {
+          ...check,
+          check: {...check.check, files: [{filepath: 'check.ts', relativePath: 'check.ts'}]},
+        }
+      }),
+    )
+    expect(details.judges).toEqual(
+      trial.judges.map(judge => {
+        return {
+          judge: {
+            ...judge.judge,
+            files: [{filepath: 'references/expected.png', relativePath: 'references/expected.png'}],
+          },
+          result: judge.result,
+        }
+      }),
+    )
+    expect(trial).toEqual(before)
+  },
+)
 
 test.each([
   ['other', 'id', '2026-09-15', 'trial', 'details.json'],

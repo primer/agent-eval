@@ -586,7 +586,7 @@ const saveStage = {
     logger.debug('[%s] Creating workspace directory: %s', trial.id, workspaceDirectory)
     await host.fs.mkdir(workspaceDirectory, {recursive: true})
 
-    logger.info('[%s] Downloading artifacts to: %s...', trial.id, artifactDirectory)
+    logger.info('[%s] Downloading artifacts to: %s', trial.id, artifactDirectory)
 
     logger.debug('[%s] Downloading agent workspace to: %s', trial.id, workspaceDirectory)
     const judgeFiles = Array.from(

@@ -1,9 +1,12 @@
 import {randomUUID} from 'node:crypto'
+import * as z from 'zod/mini'
 import {createPlan} from '../plan'
-import type {Plan, RunPlanResult} from '../plan'
+import type {Plan} from '../plan'
 import {ControlTreatment, createTreatment} from '../treatment'
 import type {Trial} from '../trial/trial'
 import type {Benchmark, Capability} from './benchmark'
+import type {Shard} from '../shard'
+import {ModelVariantSchema} from '../model'
 
 type CreateBenchmarkPlanOptions = {
   benchmark: Benchmark
@@ -46,5 +49,64 @@ function createBenchmarkPlan({benchmark}: CreateBenchmarkPlanOptions): Plan<Benc
   })
 }
 
-export {createBenchmarkPlan}
+const BenchmarkPlanManifestFileSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  trials: z.array(
+    z.object({
+      capabilityId: z.string(),
+      id: z.string(),
+      model: ModelVariantSchema,
+      scenarioId: z.string(),
+      treatmentId: z.string(),
+    }),
+  ),
+})
+
+type BenchmarkPlanManifestFile = z.infer<typeof BenchmarkPlanManifestFileSchema>
+
+type CreateBenchmarkPlanManifestOptions = {
+  benchmark: Benchmark
+  plan: Plan<BenchmarkTrial>
+}
+
+function createBenchmarkPlanManifest({benchmark, plan}: CreateBenchmarkPlanManifestOptions): BenchmarkPlanManifestFile {
+  const file: BenchmarkPlanManifestFile = {
+    id: benchmark.id,
+    name: benchmark.name,
+    trials: plan.trials.map(trial => {
+      return {
+        capabilityId: trial.capability.id,
+        id: trial.id,
+        model: trial.model,
+        scenarioId: trial.scenario.id,
+        treatmentId: trial.treatment.id,
+      }
+    }),
+  }
+
+  return file
+}
+
+type BenchmarkPlanManifest = {
+  trials: Array<BenchmarkTrial>
+}
+
+type CreateBenchmarkPlanFromManifestOptions = {
+  manifest: BenchmarkPlanManifest
+  shard?: Shard
+}
+
+function createBenchmarkPlanFromManifest({
+  manifest,
+  shard,
+}: CreateBenchmarkPlanFromManifestOptions): Plan<BenchmarkTrial> {
+  throw new Error('unimplemented')
+}
+
+function parseBenchmarkPlanManifest(contents: string): BenchmarkPlanManifest {
+  throw new Error('unimplemented')
+}
+
+export {createBenchmarkPlan, createBenchmarkPlanManifest, createBenchmarkPlanFromManifest, parseBenchmarkPlanManifest}
 export type {BenchmarkTrial}

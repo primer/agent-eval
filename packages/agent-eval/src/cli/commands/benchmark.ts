@@ -30,6 +30,7 @@ import {DefaultHost as host} from '../../host'
 const benchmarkCommand = defineCommand({
   meta: {
     name: 'benchmark',
+    description: 'Run and plan benchmarks',
   },
   subCommands: {
     merge: defineCommand({
@@ -78,6 +79,7 @@ const benchmarkCommand = defineCommand({
     plan: defineCommand({
       meta: {
         name: 'plan',
+        description: 'Create a plan for a benchmark run that can be ran later across machines',
       },
       subCommands: {
         create: defineCommand({

@@ -21,6 +21,7 @@ import type {RunTrialResult} from '../../trial/run'
 const scenarioCommand = defineCommand({
   meta: {
     name: 'scenario',
+    description: 'Run scenarios',
   },
   subCommands: {
     run: defineCommand({

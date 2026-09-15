@@ -55,6 +55,13 @@ Use `--output-dir <directory>` to keep `output.json` and its artifacts together
 with portable relative paths. It cannot be combined with `--output` or
 `--artifacts`.
 
+Run commands accept `--copilot-concurrency` (`-c`, default `1`) and
+`--container-concurrency` (default `5`) to limit Copilot sessions and trial
+containers independently. These replace the former `--concurrency` option.
+The benchmark and experiment scripts accept `COPILOT_CONCURRENCY` and
+`CONTAINER_CONCURRENCY`, and their workflows expose matching inputs. Each limit
+applies per process or workflow shard.
+
 ## Authoring scenarios
 
 Scenarios live in [`./scenarios`](./scenarios/). Each scenario has a

@@ -3,7 +3,8 @@ import {defineCommand} from 'citty'
 import {DefaultHost as host} from '../../host'
 import {logger} from '../../logger'
 import {
-  concurrencyOption,
+  copilotConcurrencyOption,
+  containerConcurrencyOption,
   dockerImageOption,
   getConcurrencyValue,
   getCopilotToken,
@@ -32,7 +33,8 @@ const scenarioCommand = defineCommand({
           type: 'string',
           description: 'The name of the check to run',
         },
-        concurrency: concurrencyOption,
+        'copilot-concurrency': copilotConcurrencyOption,
+        'container-concurrency': containerConcurrencyOption,
         'docker-image': dockerImageOption,
         name: {
           type: 'positional',
@@ -46,7 +48,8 @@ const scenarioCommand = defineCommand({
       async run({args}) {
         logger.info('Running scenario: %s', args.name)
 
-        const concurrency = getConcurrencyValue(args.concurrency)
+        const copilotConcurrency = getConcurrencyValue(args['copilot-concurrency'], 'copilot-concurrency')
+        const containerConcurrency = getConcurrencyValue(args['container-concurrency'], 'container-concurrency')
         const scenariosDirectory = path.resolve(args.scenarios)
         const resultsDirectory = path.resolve(args['output-dir'])
         const artifactsDirectory = path.join(resultsDirectory, 'artifacts')
@@ -55,7 +58,8 @@ const scenarioCommand = defineCommand({
 
         logger.debug({
           artifactsDirectory,
-          concurrency,
+          copilotConcurrency,
+          containerConcurrency,
           resultsDirectory,
           scenariosDirectory,
         })
@@ -85,7 +89,8 @@ const scenarioCommand = defineCommand({
 
         const {results} = await runPlan({
           artifactsDirectory,
-          concurrency,
+          copilotConcurrency,
+          containerConcurrency,
           copilotToken,
           dockerImage: args['docker-image'],
           plan,

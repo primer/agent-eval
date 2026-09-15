@@ -8,28 +8,23 @@ const benchmarksOption = {
   default: './benchmarks',
 } as const
 
-const DEFAULT_CONCURRENCY = 1
-
-const concurrencyOption = {
+const copilotConcurrencyOption = {
   type: 'string',
   alias: 'c',
-  description: 'The number of treatments to run in parallel',
+  description: 'The maximum number of Copilot sessions to run in parallel',
   default: '1',
 } as const
 
-function getConcurrencyValue(input: string): number {
-  const value = parseInt(input, 10)
+const containerConcurrencyOption = {
+  type: 'string',
+  description: 'The maximum number of trial containers to run in parallel',
+  default: '5',
+} as const
 
-  if (!Number.isFinite(value)) {
-    return DEFAULT_CONCURRENCY
-  }
-
-  if (!Number.isInteger(value)) {
-    return DEFAULT_CONCURRENCY
-  }
-
-  if (value < 1) {
-    return DEFAULT_CONCURRENCY
+function getConcurrencyValue(input: string, option: string): number {
+  const value = Number(input)
+  if (!/^\d+$/.test(input.trim()) || !Number.isSafeInteger(value) || value < 1) {
+    throw new Error(`Expected --${option} to be a positive integer, received: ${JSON.stringify(input)}`)
   }
 
   return value
@@ -102,7 +97,8 @@ const shardOption = {
 
 export {
   benchmarksOption,
-  concurrencyOption,
+  copilotConcurrencyOption,
+  containerConcurrencyOption,
   getConcurrencyValue,
   dockerImageOption,
   githubCopilotTokenOption,

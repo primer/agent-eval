@@ -4,7 +4,8 @@ import {getBenchmark} from '../../benchmark/get'
 import {createBenchmarkReport} from '../../benchmark/report'
 import {
   benchmarksOption,
-  concurrencyOption,
+  copilotConcurrencyOption,
+  containerConcurrencyOption,
   dockerImageOption,
   getConcurrencyValue,
   getOutputPath,
@@ -140,7 +141,8 @@ const benchmarkCommand = defineCommand({
           },
           args: {
             benchmarks: benchmarksOption,
-            concurrency: concurrencyOption,
+            'copilot-concurrency': copilotConcurrencyOption,
+            'container-concurrency': containerConcurrencyOption,
             'docker-image': dockerImageOption,
             'output-dir': outputDirectoryOption,
             'plan-path': {
@@ -154,7 +156,8 @@ const benchmarkCommand = defineCommand({
           },
           async run({args}) {
             const benchmarksDirectory = path.resolve(args.benchmarks)
-            const concurrency = getConcurrencyValue(args.concurrency)
+            const copilotConcurrency = getConcurrencyValue(args['copilot-concurrency'], 'copilot-concurrency')
+            const containerConcurrency = getConcurrencyValue(args['container-concurrency'], 'container-concurrency')
             const scenariosDirectory = path.resolve(args.scenarios)
             const resultsDirectory = path.resolve(args['output-dir'])
             const artifactsDirectory = path.join(resultsDirectory, 'artifacts')
@@ -166,7 +169,8 @@ const benchmarkCommand = defineCommand({
             logger.debug({
               artifactsDirectory,
               benchmarksDirectory,
-              concurrency,
+              copilotConcurrency,
+              containerConcurrency,
               outputPath,
               resultsDirectory,
               scenariosDirectory,
@@ -197,7 +201,8 @@ const benchmarkCommand = defineCommand({
             })
             const runPlanResult = await runPlan({
               artifactsDirectory,
-              concurrency,
+              copilotConcurrency,
+              containerConcurrency,
               copilotToken,
               dockerImage: args['docker-image'],
               plan,
@@ -222,7 +227,8 @@ const benchmarkCommand = defineCommand({
       },
       args: {
         benchmarks: benchmarksOption,
-        concurrency: concurrencyOption,
+        'copilot-concurrency': copilotConcurrencyOption,
+        'container-concurrency': containerConcurrencyOption,
         'docker-image': dockerImageOption,
         name: {
           type: 'positional',
@@ -237,7 +243,8 @@ const benchmarkCommand = defineCommand({
         logger.info(`Running benchmark: %s`, args.name)
 
         const benchmarksDirectory = path.resolve(args.benchmarks)
-        const concurrency = getConcurrencyValue(args.concurrency)
+        const copilotConcurrency = getConcurrencyValue(args['copilot-concurrency'], 'copilot-concurrency')
+        const containerConcurrency = getConcurrencyValue(args['container-concurrency'], 'container-concurrency')
         const scenariosDirectory = path.resolve(args.scenarios)
         const resultsDirectory = path.resolve(args['output-dir'])
         const artifactsDirectory = path.join(resultsDirectory, 'artifacts')
@@ -247,7 +254,8 @@ const benchmarkCommand = defineCommand({
         logger.debug({
           artifactsDirectory,
           benchmarksDirectory,
-          concurrency,
+          copilotConcurrency,
+          containerConcurrency,
           outputPath,
           resultsDirectory,
           scenariosDirectory,
@@ -263,7 +271,8 @@ const benchmarkCommand = defineCommand({
         })
         const runPlanResult = await runPlan({
           artifactsDirectory,
-          concurrency,
+          copilotConcurrency,
+          containerConcurrency,
           copilotToken,
           dockerImage: args['docker-image'],
           plan,

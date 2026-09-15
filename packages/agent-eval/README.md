@@ -196,6 +196,28 @@ COPILOT_GITHUB_TOKEN=... agent-eval benchmark run design-system \
   --scenarios ./scenarios
 ```
 
+### Concurrency
+
+All run commands (`scenario run`, `experiment run`, `benchmark run`, and
+experiment/benchmark `plan run`) accept two independent concurrency limits:
+
+- `--copilot-concurrency`, or `-c`, limits concurrent Copilot sessions (default: `1`).
+- `--container-concurrency` limits concurrently running trial containers (default: `5`).
+
+Both values must be positive integers. The Copilot queue is shared by
+implementation, judge, and walkthrough sessions. A container slot covers the
+entire trial, including setup and cleanup, so additional containers can prepare
+or run checks while other trials use Copilot. Limits apply to each running CLI
+process, not across shards.
+
+```sh
+agent-eval experiment run example --copilot-concurrency 2 --container-concurrency 5
+```
+
+Replace the former `--concurrency` option with `--copilot-concurrency`.
+Programmatic `runPlan` calls now take `copilotConcurrency` and
+`containerConcurrency` instead of `concurrency`.
+
 ### Run reports
 
 Both `run` and `plan run` commands print a report after saving their result

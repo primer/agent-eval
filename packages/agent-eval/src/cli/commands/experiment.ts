@@ -14,7 +14,8 @@ import {logger} from '../../logger'
 import {createPlanFromManifest, runPlan} from '../../plan'
 import {parseShard} from '../../shard'
 import {
-  concurrencyOption,
+  copilotConcurrencyOption,
+  containerConcurrencyOption,
   dockerImageOption,
   experimentsOption,
   getConcurrencyValue,
@@ -128,7 +129,8 @@ const experimentCommand = defineCommand({
           },
           args: {
             experiments: experimentsOption,
-            concurrency: concurrencyOption,
+            'copilot-concurrency': copilotConcurrencyOption,
+            'container-concurrency': containerConcurrencyOption,
             'docker-image': dockerImageOption,
             'output-dir': outputDirectoryOption,
             'plan-path': {
@@ -142,7 +144,8 @@ const experimentCommand = defineCommand({
           },
           async run({args}) {
             const experimentsDirectory = path.resolve(args.experiments)
-            const concurrency = getConcurrencyValue(args.concurrency)
+            const copilotConcurrency = getConcurrencyValue(args['copilot-concurrency'], 'copilot-concurrency')
+            const containerConcurrency = getConcurrencyValue(args['container-concurrency'], 'container-concurrency')
             const scenariosDirectory = path.resolve(args.scenarios)
             const resultsDirectory = path.resolve(args['output-dir'])
             const artifactsDirectory = path.join(resultsDirectory, 'artifacts')
@@ -154,7 +157,8 @@ const experimentCommand = defineCommand({
             logger.debug({
               artifactsDirectory,
               experimentsDirectory,
-              concurrency,
+              copilotConcurrency,
+              containerConcurrency,
               outputPath,
               resultsDirectory,
               scenariosDirectory,
@@ -182,7 +186,8 @@ const experimentCommand = defineCommand({
             const plan = createPlanFromManifest({shard, trials: manifest.trials})
             const runPlanResult = await runPlan({
               artifactsDirectory,
-              concurrency,
+              copilotConcurrency,
+              containerConcurrency,
               copilotToken,
               dockerImage: args['docker-image'],
               plan,
@@ -201,7 +206,8 @@ const experimentCommand = defineCommand({
       },
       args: {
         experiments: experimentsOption,
-        concurrency: concurrencyOption,
+        'copilot-concurrency': copilotConcurrencyOption,
+        'container-concurrency': containerConcurrencyOption,
         'docker-image': dockerImageOption,
         name: {
           type: 'positional',
@@ -216,7 +222,8 @@ const experimentCommand = defineCommand({
         logger.info('Running experiment: %s', args.name)
 
         const experimentsDirectory = path.resolve(args.experiments)
-        const concurrency = getConcurrencyValue(args.concurrency)
+        const copilotConcurrency = getConcurrencyValue(args['copilot-concurrency'], 'copilot-concurrency')
+        const containerConcurrency = getConcurrencyValue(args['container-concurrency'], 'container-concurrency')
         const scenariosDirectory = path.resolve(args.scenarios)
         const resultsDirectory = path.resolve(args['output-dir'])
         const artifactsDirectory = path.join(resultsDirectory, 'artifacts')
@@ -226,7 +233,8 @@ const experimentCommand = defineCommand({
         logger.debug({
           artifactsDirectory,
           experimentsDirectory,
-          concurrency,
+          copilotConcurrency,
+          containerConcurrency,
           outputPath,
           resultsDirectory,
           scenariosDirectory,
@@ -240,7 +248,8 @@ const experimentCommand = defineCommand({
         const plan = createExperimentPlan({experiment})
         const runPlanResult = await runPlan({
           artifactsDirectory,
-          concurrency,
+          copilotConcurrency,
+          containerConcurrency,
           copilotToken,
           dockerImage: args['docker-image'],
           plan,

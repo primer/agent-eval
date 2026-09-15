@@ -56,7 +56,8 @@ function createPlanFromManifest<T extends Trial>({shard, trials}: CreatePlanFrom
 
 type RunPlanOptions<T extends Trial> = {
   artifactsDirectory: string
-  concurrency: number
+  copilotConcurrency: number
+  containerConcurrency: number
   copilotToken: string
   dockerImage: string
   host?: Host
@@ -69,7 +70,8 @@ type RunPlanResult<T extends Trial> = {
 
 async function runPlan<T extends Trial>({
   artifactsDirectory,
-  concurrency,
+  copilotConcurrency,
+  containerConcurrency,
   copilotToken,
   dockerImage,
   host = DefaultHost,
@@ -82,10 +84,10 @@ async function runPlan<T extends Trial>({
   )
 
   const copilotQueue = new Queue({
-    concurrency,
+    concurrency: copilotConcurrency,
   })
   const containerQueue = new Queue({
-    concurrency: 5,
+    concurrency: containerConcurrency,
   })
 
   const results = await Promise.all(

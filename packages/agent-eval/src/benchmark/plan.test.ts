@@ -109,3 +109,41 @@ test('preserves capability setup for control and benchmark trials in created and
   expect(capabilitySetup).toHaveBeenCalledTimes(4)
   expect(benchmarkSetup).not.toHaveBeenCalled()
 })
+
+test.each([false, true])('validates capability-specific scenario membership (shared: %s)', async shared => {
+  const host = createHost()
+  await host.fs.mkdir('/scenarios/other')
+  await host.fs.writeFile('/scenarios/other/package.json', '{}')
+  await host.fs.writeFile('/scenarios/other/scenario.config.ts', 'export default {prompt: "Create another page"}')
+  await host.fs.writeFile(
+    '/benchmarks/design-system.ts',
+    `export default ${JSON.stringify({
+      name: 'Design System',
+      description: 'Example benchmark',
+      models: ['gpt-5.5'],
+      capabilities: [
+        {name: 'Components', scenarios: ['example']},
+        {name: 'Layouts', scenarios: [shared ? 'example' : 'other']},
+      ],
+    })}`,
+  )
+  const options = {host, benchmarksDirectory: '/benchmarks', scenariosDirectory: '/scenarios'}
+  const benchmark = await getBenchmark({...options, name: 'design-system'})
+  const plan = createBenchmarkPlan({benchmark})
+  const manifest = createBenchmarkPlanManifest({benchmark, plan})
+  expect(manifest.trials).toHaveLength(4)
+
+  if (shared) {
+    const parsed = await parseBenchmarkPlanManifest({...options, contents: JSON.stringify(manifest)})
+    expect(parsed.trials).toEqual(plan.trials)
+    for (const trial of parsed.trials) {
+      expect(trial.scenario).toBe(trial.capability.scenarios[0])
+    }
+  } else {
+    const trial = manifest.trials[0]
+    trial.scenarioId = trial.scenarioId === 'example' ? 'other' : 'example'
+    await expect(parseBenchmarkPlanManifest({...options, contents: JSON.stringify(manifest)})).rejects.toThrow(
+      `Scenario "${trial.scenarioId}" does not belong to capability "${trial.capabilityId}" for trial "${trial.id}"`,
+    )
+  }
+})

@@ -120,13 +120,6 @@ async function parseBenchmarkPlanManifest({
       return [capability.id, capability]
     }),
   )
-  const scenarios = new Map(
-    benchmark.capabilities.flatMap(capability => {
-      return capability.scenarios.map(scenario => {
-        return [scenario.id, scenario]
-      })
-    }),
-  )
   const treatments = new Map(
     [ControlTreatment, createTreatment({name: 'Benchmark', setup: benchmark.setup})].map(treatment => {
       return [treatment.id, treatment]
@@ -147,9 +140,13 @@ async function parseBenchmarkPlanManifest({
         throw new Error(`Capability not found for trial: ${trial.id}`)
       }
 
-      const scenario = scenarios.get(trial.scenarioId)
+      const scenario = capability.scenarios.find(candidate => {
+        return candidate.id === trial.scenarioId
+      })
       if (!scenario) {
-        throw new Error(`Scenario not found for trial: ${trial.id}`)
+        throw new Error(
+          `Scenario "${trial.scenarioId}" does not belong to capability "${capability.id}" for trial "${trial.id}"`,
+        )
       }
 
       const treatment = treatments.get(trial.treatmentId)

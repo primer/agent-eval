@@ -154,10 +154,17 @@ async function parseBenchmarkPlanManifest({
         throw new Error(`Treatment not found for trial: ${trial.id}`)
       }
 
+      const model = benchmark.models.find(candidate => {
+        return candidate.name === trial.model.name && candidate.reasoningEffort === trial.model.reasoningEffort
+      })
+      if (!model) {
+        throw new Error(`Model variant not found for trial: ${trial.id}`)
+      }
+
       return {
         id: trial.id,
         capability,
-        model: trial.model,
+        model,
         scenario,
         treatment,
         setup: capability.setup,

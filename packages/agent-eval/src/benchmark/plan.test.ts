@@ -147,3 +147,24 @@ test.each([false, true])('validates capability-specific scenario membership (sha
     )
   }
 })
+
+test.each([
+  {model: {name: 'gpt-5.5', reasoningEffort: 'medium'}, valid: true},
+  {model: {name: 'gpt-5.6-luna', reasoningEffort: 'medium'}, valid: false},
+  {model: {name: 'gpt-5.5', reasoningEffort: 'high'}, valid: false},
+] as const)('validates benchmark model variant $model (configured: $valid)', async ({model, valid}) => {
+  const host = createHost()
+  const options = {host, benchmarksDirectory: '/benchmarks', scenariosDirectory: '/scenarios'}
+  const benchmark = await getBenchmark({...options, name: 'design-system'})
+  const plan = createBenchmarkPlan({benchmark})
+  const manifest = createBenchmarkPlanManifest({benchmark, plan})
+  manifest.trials[0].model = model
+
+  const parsed = parseBenchmarkPlanManifest({...options, contents: JSON.stringify(manifest)})
+  if (valid) {
+    const result = await parsed
+    expect(result.trials[0].model).toBe(result.benchmark.models[0])
+  } else {
+    await expect(parsed).rejects.toThrow(`Model variant not found for trial: ${manifest.trials[0].id}`)
+  }
+})

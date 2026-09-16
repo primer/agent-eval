@@ -1,20 +1,25 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import type {ResolvedScenario} from '@primer/agent-eval/scenarios'
+import type {Scenario as AgentEvalScenario} from '@primer/agent-eval'
 
-const {listScenarios, findScenario} = await import(
+const {listScenarios, getScenario} = await import(
   /* turbopackIgnore: true */
-  '@primer/agent-eval/scenarios'
+  '@primer/agent-eval'
 )
 
 const SCENARIOS_DIR = path.resolve(process.cwd(), '..', 'scenarios')
 
-export type ScenarioSummary = Pick<ResolvedScenario['config'], 'prompt'> & {
-  id: string
-}
+export type ScenarioSummary = Pick<AgentEvalScenario, 'id' | 'prompt'>
 
 export type Scenario = ScenarioSummary & {
-  test: string
+  description?: string
+  tags: Array<string>
+  config: string
+  checks: Array<{
+    name: string
+    description?: string
+    files: Array<{path: string; contents: string | null}>
+  }>
 }
 
 export async function list(): Promise<Array<ScenarioSummary>> {
@@ -22,28 +27,42 @@ export async function list(): Promise<Array<ScenarioSummary>> {
     directory: SCENARIOS_DIR,
   })
 
-  return scenarios
-    .filter(scenario => !scenario.id.startsWith('000-'))
-    .map(scenario => {
-      return {
-        id: scenario.id,
-        prompt: scenario.config.prompt,
-      }
-    })
+  return scenarios.map(scenario => {
+    return {
+      id: scenario.id,
+      prompt: scenario.prompt,
+    }
+  })
 }
 
 export async function get(id: string): Promise<Scenario> {
-  const scenario = await findScenario(id, {
+  const scenario = await getScenario({
     directory: SCENARIOS_DIR,
+    name: id,
   })
-
-  if (!scenario) {
-    throw new Error(`Scenario "${id}" was not found in: ${SCENARIOS_DIR}`)
-  }
 
   return {
     id: scenario.id,
-    prompt: scenario.config.prompt,
-    test: await fs.readFile(scenario.testPath, 'utf8'),
+    prompt: scenario.prompt,
+    description: scenario.description,
+    tags: scenario.tags,
+    config: await fs.readFile(path.join(scenario.directory, 'scenario.config.ts'), 'utf8'),
+    checks: await Promise.all(
+      scenario.checks.map(async check => {
+        return {
+          name: check.name,
+          description: check.description,
+          files: await Promise.all(
+            check.files.map(async file => {
+              const textFile = /\.(?:[cm]?[jt]sx?|json|md|ya?ml|css|html|txt)$/.test(file.relativePath)
+              return {
+                path: file.relativePath,
+                contents: textFile ? await fs.readFile(file.filepath, 'utf8') : null,
+              }
+            }),
+          ),
+        }
+      }),
+    ),
   }
 }

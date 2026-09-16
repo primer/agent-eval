@@ -13,21 +13,21 @@
     "type-check": "tsc --noEmit"
   },
   "devDependencies": {
-    "@changesets/cli": "^2.31.1",
+    "@changesets/cli": "^3.0.1",
     "@eslint/js": "10.0.1",
     "@github/prettier-config": "^0.0.6",
     "@primer/agent-eval": "workspace:*",
-    "@types/node": "^26.1.2",
-    "eslint": "^10.8.1",
+    "@types/node": "^26.4.0",
+    "eslint": "^10.9.1",
     "eslint-plugin-github": "^6.1.2",
     "globals": "^17.9.0",
-    "playwright": "1.61.1",
+    "playwright": "1.62.1",
     "prettier": "^3.8.3",
-    "rolldown": "^1.2.4",
+    "rolldown": "^1.2.6",
     "turbo": "^2.10.6",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.67.0",
-    "vitest": "^4.1.8"
+    "vitest": "^4.1.11"
   },
-  "packageManager": "pnpm@11.17.0+sha512.cca3cea332ad254bb84145f966d19f4879615210346fc92c79a047f23a0d7b3cca3c3792f0076ba1f1831d277efbcf0a9119b31a9a60eca7fb3d6231f331ef72"
+  "packageManager": "pnpm@12.3.4+sha512.961aa41fb077da3a04a441d9f8e15ebc0c96da8ef710b2eb67bf9ee7cb0610eabd48f1fd85f51cffe73846785fa0f87c56a3a872a1d893f8446741b5cce45457"
 }

@@ -60,6 +60,36 @@ describe(parseMessage, () => {
       parentId: '080d2918-29d2-4da6-b115-3fe37825b5d2',
     },
     {
+      type: 'model.message',
+      data: {
+        kind: 'message',
+        turn: 0,
+        message: {
+          role: 'assistant',
+          content: 'Done.',
+          outputTokens: 42,
+        },
+      },
+      ephemeral: true,
+      id: 'dbf7cd98-649a-44c2-b013-680c902773ac',
+      timestamp: '2026-09-04T01:06:13.385Z',
+      parentId: '7e3943af-9aca-4042-b1fd-92a390203597',
+    },
+    {
+      type: 'user.message',
+      data: {
+        content: "Update the index page to use a primary button with the text 'Submit'",
+        transformedContent: "Update the index page to use a primary button with the text 'Submit'",
+        supportedNativeDocumentMimeTypes: [],
+        agentMode: 'autopilot',
+        interactionId: '40a03f57-636f-41be-bef9-cfe71591862a',
+        parentAgentTaskId: 'b5c96c9d-a61b-4689-9720-455a5a1e2644',
+      },
+      id: '30d361b9-068e-4ebe-bef0-857a8d92e5ab',
+      timestamp: '2026-09-01T21:29:34.818Z',
+      parentId: '0344de20-b203-4642-a644-4cc19a9283ac',
+    },
+    {
       type: 'assistant.turn_start',
       data: {
         turnId: '10',
@@ -169,6 +199,32 @@ describe(parseMessage, () => {
       parentId: '2b1722fe-509e-4368-8c8b-2ae8985099b6',
     },
     {
+      type: 'assistant.message',
+      data: {
+        messageId: '99e762aa-0196-42be-8756-39ba3c294a07',
+        content: '',
+        toolRequests: [
+          {
+            toolCallId: 'call_oLjXYouZFO1PA5D6u8d54cFX',
+            name: 'glob',
+            arguments: {
+              pattern: '**/*',
+              paths: '/home/sandbox/workspace',
+            },
+            type: 'function',
+            intentionSummary: '**/*',
+          },
+        ],
+        interactionId: 'feb477c9-0fb1-47d5-bd08-b397389ec2da',
+        turnId: '0',
+        reasoningOpaque: 'opaque',
+        encryptedContent: 'encrypted',
+      },
+      id: '0c89050a-a6f6-4cd5-8ded-7e25d70b01bc',
+      timestamp: '2026-09-01T21:35:25.627Z',
+      parentId: '2ac75cd3-5bf3-4986-a5b2-00cfa4b6e9f5',
+    },
+    {
       type: 'assistant.idle',
       data: {},
       ephemeral: true,
@@ -221,6 +277,29 @@ describe(parseMessage, () => {
     }
 
     expect(parseMessage(message)).toEqual(message)
+  })
+
+  test('parses sub-agent user messages without an agent mode', () => {
+    const message = {
+      type: 'user.message',
+      data: {
+        content: 'Run the build command `npm run build` to see if it succeeds.',
+        transformedContent:
+          '<current_datetime>2026-09-04T00:43:56.551+00:00</current_datetime>\n\nRun the build command `npm run build` to see if it succeeds.',
+        source: 'agent-f13fa250-5bee-4bfc-8356-5b91a7f72f05',
+        supportedNativeDocumentMimeTypes: [],
+        delivery: 'idle',
+        interactionId: '0c57cce9-3187-4397-b4ae-d6131b882626',
+        turnId: '0',
+        parentAgentTaskId: '5bbe4674-f7e7-4ef2-a532-29eaef862529',
+      },
+      agentId: 'f55e8634-e6a7-4b8c-a002-8fa22e9a55cd',
+      id: 'b8d674d7-f16c-455c-83f5-a7366407445a',
+      timestamp: '2026-09-04T00:43:56.551Z',
+      parentId: 'b390bc41-c964-4e13-b3a3-12fb8f2e6303',
+    }
+
+    expect(parseMessage(message)).toMatchObject(message)
   })
 
   test('does not treat malformed known messages as unrecognized', () => {

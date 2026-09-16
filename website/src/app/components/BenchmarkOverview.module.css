@@ -1,0 +1,8 @@
+.metric {
+  font: var(--text-codeInline-shorthand);
+  white-space: nowrap;
+}
+
+.change {
+  color: var(--fgColor-muted);
+}

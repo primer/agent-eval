@@ -1,7 +1,7 @@
-import {getBaselinePageData} from '../baseline-results'
-import {BaselineOverview} from './components/BaselineOverview'
+import {getBenchmarkPageData} from '../benchmark-page-data'
+import {BenchmarkOverview} from './components/BenchmarkOverview'
 
 export default async function IndexPage() {
-  const {aggregateResults, aggregateTrends} = await getBaselinePageData()
-  return <BaselineOverview results={aggregateResults} trends={aggregateTrends} />
+  const {benchmark, overview} = await getBenchmarkPageData('design-system')
+  return <BenchmarkOverview benchmark={benchmark} overview={overview} />
 }

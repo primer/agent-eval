@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+if [[ $# -lt 1 ]]; then
+  echo "Usage: $0 <experiment-name> [run|plan|shard|merge] [agent-eval-options...]" >&2
+  exit 1
+fi
+
+experiment_name="$1"
+shift
+mode="run"
+if [[ $# -gt 0 && "$1" != --* ]]; then
+  mode="$1"
+  shift
+fi
+
+run_date="${RUN_DATE:-$(date -u +%F)}"
+run_directory="$repository_root/results/experiments/$experiment_name/$run_date"
+plan_path="$run_directory/plan.json"
+
+if [[ ! "$experiment_name" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
+  echo "Experiment name must be a file name without its extension" >&2
+  exit 1
+fi
+
+if [[ ! "$run_date" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
+  echo "RUN_DATE must use the YYYY-MM-DD format" >&2
+  exit 1
+fi
+
+case "$mode" in
+  run)
+    node "$repository_root/packages/agent-eval/bin/agent-eval" \
+      experiment run "$experiment_name" \
+      --experiments "$repository_root/experiments" \
+      --copilot-concurrency "${COPILOT_CONCURRENCY:-2}" \
+      --container-concurrency "${CONTAINER_CONCURRENCY:-2}" \
+      --docker-image "${DOCKER_IMAGE:-node:26.5.0-slim}" \
+      --output-dir "$run_directory" \
+      --scenarios "$repository_root/scenarios" \
+      "$@"
+    ;;
+  plan)
+    node "$repository_root/packages/agent-eval/bin/agent-eval" \
+      experiment plan create "$experiment_name" \
+      --experiments "$repository_root/experiments" \
+      --output-path "$plan_path" \
+      --scenarios "$repository_root/scenarios" \
+      "$@"
+    ;;
+  shard)
+    if [[ ! "${SHARD:-}" =~ ^([1-9][0-9]*)/([1-9][0-9]*)$ ]]; then
+      echo "SHARD must use the order/total format" >&2
+      exit 1
+    fi
+
+    node "$repository_root/packages/agent-eval/bin/agent-eval" \
+      experiment plan run \
+      --copilot-concurrency "${COPILOT_CONCURRENCY:-2}" \
+      --container-concurrency "${CONTAINER_CONCURRENCY:-2}" \
+      --docker-image "${DOCKER_IMAGE:-node:26.5.0-slim}" \
+      --experiments "$repository_root/experiments" \
+      --plan-path "$plan_path" \
+      --output-dir "$run_directory" \
+      --scenarios "$repository_root/scenarios" \
+      --shard "$SHARD" \
+      "$@"
+    ;;
+  merge)
+    node "$repository_root/packages/agent-eval/bin/agent-eval" \
+      experiment merge \
+      --output-dir "$run_directory" \
+      "$@"
+    ;;
+  *)
+    echo "Mode must be one of: run, plan, shard, merge" >&2
+    exit 1
+    ;;
+esac

@@ -1,50 +1,45 @@
-import type {CopilotRunner, ExperimentConfig, TreatmentConfig} from './experiment-config'
-import type {Model, ReasoningEffort} from './model'
-import type {Message} from './copilot-cli'
-import type {ResolvedScenario} from './resolve-experiment-scenario'
+import * as z from 'zod/mini'
+import {hash} from './hash'
+import {SandboxSchema} from './sandbox'
 
-type Treatment = {
-  config: TreatmentConfig
-  scenario: ResolvedScenario
-  experiment: ExperimentConfig
-  id: string
-  model: Model
-  reasoningEffort?: ReasoningEffort
-  runner: CopilotRunner
-}
+const TreatmentSetupSchema = z.function({
+  input: [
+    z.object({
+      sandbox: SandboxSchema,
+    }),
+  ],
+  output: z.promise(z.void()),
+})
 
-type TreatmentResult = {
-  id: string
-  treatment: Treatment
-  artifacts: {
-    copilotConfigPath: string
-    directory: string
-    skillsConfigPath: string
-    testResultsPath: string
-    workspacePath: string
-  }
-  assistant: {
-    logs: Array<Message>
-    turns: number
-    outputTokens: number
-    premiumRequests: number
-    totalApiDurationMs: number
-    sessionDurationMs: number
-    tools: Record<string, number>
-  }
-  testResults: {
-    numTotalTests: number
-    numPassedTests: number
-    numFailedTests: number
-    numPendingTests: number
-    numTodoTests: number
-    tests: Array<{
-      title: string
-      fullName: string
-      status: 'passed' | 'failed' | 'skipped' | 'pending' | 'todo' | 'disabled'
-      description?: string
-    }>
+type TreatmentSetup = z.infer<typeof TreatmentSetupSchema>
+
+const TreatmentConfigSchema = z.object({
+  name: z.string(),
+  setup: z.optional(TreatmentSetupSchema),
+})
+
+type TreatmentConfig = z.infer<typeof TreatmentConfigSchema>
+
+const TreatmentSchema = z.extend(TreatmentConfigSchema, {
+  id: z.string(),
+})
+
+type Treatment = z.infer<typeof TreatmentSchema>
+
+function createTreatment(config: TreatmentConfig): Treatment {
+  return {
+    ...config,
+    id: getTreatmentId(config.name),
   }
 }
 
-export type {Treatment, TreatmentResult}
+const ControlTreatment = createTreatment({
+  name: 'Control',
+})
+
+function getTreatmentId(name: string): string {
+  return hash(`Treatment:${name}`)
+}
+
+export {ControlTreatment, TreatmentConfigSchema, TreatmentSchema, TreatmentSetupSchema, createTreatment, getTreatmentId}
+export type {TreatmentConfig, Treatment, TreatmentSetup}

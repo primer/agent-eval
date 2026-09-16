@@ -1,4 +1,5 @@
 import './globals.css'
+import {BaseStyles} from '@primer/react'
 import {PageHeader} from './components/PageHeader'
 
 export const metadata = {
@@ -6,15 +7,25 @@ export const metadata = {
     default: 'primer / agent-eval',
     template: '%s · primer / agent-eval',
   },
-  description: 'View results of experiments with agents across different scenarios with Primer',
+  description: 'View design system benchmark and experiment results for coding agents',
 }
 
 export default function Layout({children}: {children: React.ReactNode}) {
   return (
-    <html lang="en" data-color-mode="light" data-light-theme="light" data-dark-theme="dark">
+    // BaseStyles loads focus-visible, which adds these root attributes before hydration.
+    <html
+      lang="en"
+      className="js-focus-visible"
+      data-js-focus-visible=""
+      data-color-mode="auto"
+      data-light-theme="light"
+      data-dark-theme="dark"
+    >
       <body>
-        <PageHeader />
-        <main>{children}</main>
+        <BaseStyles>
+          <PageHeader />
+          <main>{children}</main>
+        </BaseStyles>
       </body>
     </html>
   )

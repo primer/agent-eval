@@ -15,6 +15,9 @@
     "//#lint": {
       "outputs": []
     },
+    "//#test": {
+      "dependsOn": ["^build"]
+    },
     "@primer/agent-eval#lint:npm": {
       "dependsOn": ["build"],
       "outputs": []

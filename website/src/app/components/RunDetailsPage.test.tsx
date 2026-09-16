@@ -1,11 +1,25 @@
 import {renderToStaticMarkup} from 'react-dom/server'
 import type {Route} from 'next'
-import {expect, test} from 'vitest'
+import {afterEach, expect, test, vi} from 'vitest'
 import {createBenchmarkRunDetails, createExperimentRunDetails} from '../../run-details'
 import {createBenchmarkOutput, createExperimentOutput, createTrial} from '../../test-fixtures'
 import {RunDetailsPage} from './RunDetailsPage'
+import {RunDetailsView} from './RunDetailsView'
 import {UiWalkthrough} from './UiWalkthrough'
 import {RunDetailsLoading} from './RunDetailsLoading'
+
+vi.mock('server-only', () => {
+  return {}
+})
+vi.mock('./RunDetailsView', async importOriginal => {
+  const original = await importOriginal<typeof import('./RunDetailsView')>()
+  return {RunDetailsView: vi.fn(original.RunDetailsView)}
+})
+
+afterEach(() => {
+  vi.unstubAllEnvs()
+  vi.clearAllMocks()
+})
 
 const resource = {
   id: 'noop',
@@ -24,6 +38,7 @@ test('provides a selector for every repeated trial and the new checks tab', asyn
   expect(html).toContain('Trial 1 (trial-1)')
   expect(html).toContain('Trial 2 (trial-2)')
   expect(html).toContain('result-0-checks-tab')
+  expect(html).toContain('result-0-code-tab')
   expect(html).not.toContain('Tests passed')
   expect(html).toContain('No UI walkthrough was recorded.')
   expect(html).not.toContain('empty state renders')
@@ -39,8 +54,53 @@ test('renders an empty state for a current run without trials', () => {
       }}
     />,
   )
+
   expect(html).toContain('No trial results were recorded.')
 })
+
+test.each(['benchmarks', 'experiments'] as const)(
+  'passes lightweight %s preview references instead of file contents or tokens',
+  async collection => {
+    vi.stubEnv('PAGES_BASE_PATH', '/agent-eval')
+    const content = 'const generatedSource = "not part of the run payload"\n'.repeat(1000)
+    const run = await createExperimentRunDetails(
+      '2026-09-03',
+      createExperimentOutput([createTrial({id: 'trial 1'})]),
+      collection,
+    )
+    run.results[0].workspace = {
+      type: 'available',
+      truncated: false,
+      entries: [
+        {
+          type: 'directory',
+          name: 'src',
+          path: 'src',
+          children: [
+            {
+              type: 'file',
+              name: 'index.ts',
+              path: 'src/index.ts',
+              size: content.length,
+              preview: {type: 'text', content},
+            },
+          ],
+        },
+      ],
+    }
+    renderToStaticMarkup(
+      <RunDetailsPage resource={{...resource, id: 'test-id', collectionHref: `/${collection}`}} run={run} />,
+    )
+    const props = vi.mocked(RunDetailsView).mock.calls[0][0]
+    const payload = JSON.stringify(props.run)
+    expect(payload).not.toContain('generatedSource')
+    expect(payload).not.toContain('--shiki-')
+    expect(payload).toContain(`/agent-eval/file-previews/${collection}/test-id/2026-09-03/trial%201/`)
+    expect(payload).toContain('/preview.json')
+    expect(payload).toContain(`/agent-eval/run-data/${collection}/`)
+    expect(Buffer.byteLength(payload)).toBeLessThan(2000)
+  },
+)
 
 test('keeps a shared scenario separate per capability and exposes capability filtering', async () => {
   const run = await createBenchmarkRunDetails({

@@ -3,9 +3,10 @@ import path from 'node:path'
 import type {CheckOutput, ExperimentOutput, ExperimentTrialOutput, JudgeOutput} from '@primer/agent-eval'
 import type {BenchmarkRun} from './benchmark-results'
 import {formatChecks, summarizeTrials} from './check-results'
+import {getWorkspaceFiles, type WorkspaceFiles} from './workspace-files'
+import {getArtifactCandidates, isWithinDirectory, LEGACY_ARTIFACTS_DIRECTORY} from './artifacts'
 
 const REPOSITORY_ROOT = path.resolve(process.cwd(), '..')
-const LEGACY_ARTIFACTS_DIRECTORY = path.join(REPOSITORY_ROOT, 'artifacts')
 
 type LogMessage = ExperimentTrialOutput['agent']['sessions'][number]['messages'][number]
 type Walkthrough = ExperimentTrialOutput['walkthrough']
@@ -43,6 +44,7 @@ type RunResult = {
   walkthroughPreview: {type: Walkthrough['type']; count: number}
   detailsUrl: string
   transcriptUrl: string
+  workspace: WorkspaceFiles
 }
 
 type TrialDetails = {
@@ -194,40 +196,6 @@ function createTranscript(logs: Array<LogMessage>): Array<TranscriptEntry> {
   })
 }
 
-function isWithinDirectory(directory: string, filepath: string): boolean {
-  const relativePath = path.relative(directory, filepath)
-  return relativePath !== '..' && !relativePath.startsWith(`..${path.sep}`) && !path.isAbsolute(relativePath)
-}
-
-function getArtifactCandidates(artifactPath: string, runDirectory: string): Array<string> {
-  const runArtifactsDirectory = path.join(runDirectory, 'artifacts')
-
-  if (!path.isAbsolute(artifactPath)) {
-    const candidate = path.resolve(runDirectory, artifactPath)
-    return isWithinDirectory(runArtifactsDirectory, candidate) ? [candidate] : []
-  }
-
-  if (isWithinDirectory(LEGACY_ARTIFACTS_DIRECTORY, artifactPath)) {
-    return [artifactPath]
-  }
-
-  const segments = artifactPath.split(/[\\/]+/)
-  const artifactsIndex = segments.lastIndexOf('artifacts')
-  if (artifactsIndex === -1) {
-    return []
-  }
-
-  const artifactSegments = segments.slice(artifactsIndex + 1)
-  return [
-    path.join(runArtifactsDirectory, ...artifactSegments),
-    path.join(LEGACY_ARTIFACTS_DIRECTORY, ...artifactSegments),
-  ].filter(candidate => {
-    return (
-      isWithinDirectory(runArtifactsDirectory, candidate) || isWithinDirectory(LEGACY_ARTIFACTS_DIRECTORY, candidate)
-    )
-  })
-}
-
 async function getArtifactFile(
   artifactPath: string | undefined,
   runDirectory: string,
@@ -363,6 +331,7 @@ async function createExperimentRunDetails(
   date: string,
   output: ExperimentOutput,
   collection: RunCollection = 'experiments',
+  runDirectory: string = path.join(REPOSITORY_ROOT, 'results', collection, output.id, date),
 ): Promise<RunDetails> {
   const treatments = new Map(
     [...output.treatments].map(([id, treatment]) => {
@@ -370,48 +339,48 @@ async function createExperimentRunDetails(
     }),
   )
 
-  return {
-    date,
-    results: [...output.trials.values()].map(result => {
-      const summary = summarizeTrials([result])
-      const treatment = treatments.get(result.treatmentId)
-      if (treatment === undefined) {
-        throw new Error(`Unknown treatment "${result.treatmentId}" for trial "${result.id}"`)
-      }
-      const baseUrl = getTrialDataUrl(collection, output.id, date, result.id)
-      return {
-        id: result.id,
-        scenarioId: result.scenarioId,
-        treatment,
-        model: result.model.name,
-        reasoningEffort: result.model.reasoningEffort,
-        checkSummary: formatChecks(summary),
-        turns: result.agent.sessions.reduce((total, session) => {
-          return total + session.turns
-        }, 0),
-        outputTokens: summary.outputTokens,
-        premiumRequests: summary.premiumRequests,
-        totalApiDurationMs: summary.totalApiDurationMs,
-        sessionDurationMs: summary.sessionDurationMs,
-        counts: {
-          checks: result.checks.length,
-          transcript: createTrialTranscript(result).length,
-          judges: result.judges.length,
-        },
-        walkthroughPreview: {
-          type: result.walkthrough.type,
-          count:
-            result.walkthrough.type === 'Screenshots'
-              ? result.walkthrough.screenshots.length
-              : result.walkthrough.type === 'Unavailable'
-                ? 0
-                : 1,
-        },
-        detailsUrl: `${baseUrl}/details.json`,
-        transcriptUrl: `${baseUrl}/transcript.json`,
-      }
-    }),
+  const results: Array<RunResult> = []
+  for (const result of output.trials.values()) {
+    const summary = summarizeTrials([result])
+    const treatment = treatments.get(result.treatmentId)
+    if (treatment === undefined) {
+      throw new Error(`Unknown treatment "${result.treatmentId}" for trial "${result.id}"`)
+    }
+    const baseUrl = getTrialDataUrl(collection, output.id, date, result.id)
+    results.push({
+      id: result.id,
+      scenarioId: result.scenarioId,
+      treatment,
+      model: result.model.name,
+      reasoningEffort: result.model.reasoningEffort,
+      checkSummary: formatChecks(summary),
+      turns: result.agent.sessions.reduce((total, session) => {
+        return total + session.turns
+      }, 0),
+      outputTokens: summary.outputTokens,
+      premiumRequests: summary.premiumRequests,
+      totalApiDurationMs: summary.totalApiDurationMs,
+      sessionDurationMs: summary.sessionDurationMs,
+      counts: {
+        checks: result.checks.length,
+        transcript: createTrialTranscript(result).length,
+        judges: result.judges.length,
+      },
+      walkthroughPreview: {
+        type: result.walkthrough.type,
+        count:
+          result.walkthrough.type === 'Screenshots'
+            ? result.walkthrough.screenshots.length
+            : result.walkthrough.type === 'Unavailable'
+              ? 0
+              : 1,
+      },
+      detailsUrl: `${baseUrl}/details.json`,
+      transcriptUrl: `${baseUrl}/transcript.json`,
+      workspace: await getWorkspaceFiles(result.artifacts.workspaceDirectory, runDirectory),
+    })
   }
+  return {date, results}
 }
 
 function createJudgeDetails(judges: Array<JudgeOutput>): Array<JudgeDetails> {
@@ -431,7 +400,7 @@ function createReferenceFiles(files: CheckOutput['check']['files']): CheckOutput
 
 async function createBenchmarkRunDetails(run: BenchmarkRun): Promise<RunDetails> {
   const output = run.output
-  const details = await createExperimentRunDetails(run.name, output, 'benchmarks')
+  const details = await createExperimentRunDetails(run.name, output, 'benchmarks', run.directory)
   return {
     ...details,
     results: details.results.map(result => {

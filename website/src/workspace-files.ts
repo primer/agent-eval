@@ -1,0 +1,169 @@
+import fs from 'node:fs/promises'
+import {isUtf8} from 'node:buffer'
+import path from 'node:path'
+import {getArtifactCandidates, isWithinDirectory, LEGACY_ARTIFACTS_DIRECTORY} from './artifacts'
+
+const MAX_FILE_BYTES = 256 * 1024
+const MAX_WORKSPACE_BYTES = 2 * 1024 * 1024
+const MAX_ENTRIES = 2000
+const MAX_DEPTH = 50
+const EXCLUDED_DIRECTORIES = new Set(['.git', '.next', '.turbo', 'node_modules', 'dist'])
+
+type WorkspacePreview = {type: 'text'; content: string} | {type: 'unavailable'; reason: string}
+
+type WorkspaceFile<Preview = WorkspacePreview> = {
+  type: 'file'
+  name: string
+  path: string
+  size: number
+  preview: Preview
+}
+
+type WorkspaceEntry<Preview = WorkspacePreview> =
+  | WorkspaceFile<Preview>
+  | {
+      type: 'directory'
+      name: string
+      path: string
+      children: Array<WorkspaceEntry<Preview>>
+    }
+
+type WorkspaceFiles<Preview = WorkspacePreview> =
+  | {type: 'unavailable'; reason: string}
+  | {type: 'available'; entries: Array<WorkspaceEntry<Preview>>; truncated: boolean}
+
+async function readWorkspace(directory: string): Promise<WorkspaceFiles> {
+  let entryCount = 0
+  let previewBytes = 0
+  let truncated = false
+
+  async function readDirectory(relativePath: string, depth: number): Promise<Array<WorkspaceEntry>> {
+    const entries = await fs.readdir(path.join(directory, relativePath), {withFileTypes: true})
+    const sortedEntries = entries
+      .filter(entry => {
+        return !entry.isDirectory() || !EXCLUDED_DIRECTORIES.has(entry.name)
+      })
+      .sort((first, second) => {
+        return (
+          Number(second.isDirectory()) - Number(first.isDirectory()) ||
+          first.name.localeCompare(second.name, 'en', {numeric: true})
+        )
+      })
+    const result: Array<WorkspaceEntry> = []
+
+    for (const entry of sortedEntries) {
+      if (entry.isDirectory() && depth >= MAX_DEPTH) {
+        truncated = true
+        continue
+      }
+      if (entryCount >= MAX_ENTRIES) {
+        truncated = true
+        break
+      }
+      entryCount++
+      const entryPath = relativePath ? `${relativePath}/${entry.name}` : entry.name
+
+      if (entry.isDirectory()) {
+        result.push({
+          type: 'directory',
+          name: entry.name,
+          path: entryPath,
+          children: await readDirectory(entryPath, depth + 1),
+        })
+        continue
+      }
+
+      const file: WorkspaceFile = {
+        type: 'file',
+        name: entry.name,
+        path: entryPath,
+        size: 0,
+        preview: {type: 'unavailable', reason: 'Symbolic links and special files are not previewed.'},
+      }
+      result.push(file)
+      if (!entry.isFile()) {
+        continue
+      }
+
+      const filepath = path.join(directory, entryPath)
+      const stats = await fs.stat(filepath)
+      file.size = stats.size
+      if (stats.size > MAX_FILE_BYTES) {
+        file.preview = {type: 'unavailable', reason: 'This file exceeds the 256 KiB preview limit.'}
+        continue
+      }
+      if (previewBytes + stats.size > MAX_WORKSPACE_BYTES) {
+        file.preview = {type: 'unavailable', reason: 'The 2 MiB workspace preview limit has been reached.'}
+        continue
+      }
+
+      const contents = await fs.readFile(filepath)
+      if (contents.includes(0) || !isUtf8(contents)) {
+        file.preview = {type: 'unavailable', reason: 'Binary files cannot be previewed.'}
+        continue
+      }
+      previewBytes += contents.byteLength
+      file.preview = {type: 'text', content: contents.toString('utf8')}
+    }
+
+    return result
+  }
+
+  const entries = await readDirectory('', 0)
+  return {type: 'available', entries, truncated}
+}
+
+async function getWorkspaceFiles(
+  workspaceDirectory: string | undefined,
+  runDirectory: string,
+): Promise<WorkspaceFiles> {
+  if (!workspaceDirectory) {
+    return {type: 'unavailable', reason: 'No generated workspace was recorded for this trial.'}
+  }
+
+  let reason = 'The generated workspace is missing from this result bundle.'
+  for (const candidate of getArtifactCandidates(workspaceDirectory, runDirectory)) {
+    let realDirectory: string
+    let valid = true
+    try {
+      const runArtifactsDirectory = path.join(runDirectory, 'artifacts')
+      const artifactRoot = isWithinDirectory(runArtifactsDirectory, candidate)
+        ? runArtifactsDirectory
+        : LEGACY_ARTIFACTS_DIRECTORY
+      realDirectory = await fs.realpath(path.dirname(artifactRoot))
+      const segments = [
+        path.basename(artifactRoot),
+        ...path.relative(artifactRoot, candidate).split(path.sep).filter(Boolean),
+      ]
+      // Check each component before descending so even in-root links are never followed.
+      for (const segment of segments) {
+        realDirectory = path.join(realDirectory, segment)
+        const stats = await fs.lstat(realDirectory)
+        if (stats.isSymbolicLink()) {
+          reason = 'The generated workspace path contains a symbolic link.'
+          valid = false
+          break
+        }
+        if (!stats.isDirectory()) {
+          reason = 'The generated workspace is not a directory.'
+          valid = false
+          break
+        }
+      }
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        continue
+      }
+      throw error
+    }
+
+    if (valid) {
+      return readWorkspace(realDirectory)
+    }
+  }
+
+  return {type: 'unavailable', reason}
+}
+
+export {getWorkspaceFiles}
+export type {WorkspaceEntry, WorkspaceFile, WorkspaceFiles}

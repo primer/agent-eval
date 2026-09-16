@@ -1,11 +1,15 @@
 import {renderToStaticMarkup} from 'react-dom/server'
 import type {Route} from 'next'
-import {expect, test} from 'vitest'
+import {expect, test, vi} from 'vitest'
 import {getExperimentResults} from '../../experiment-results'
 import {createExperimentRunDetails} from '../../run-details'
 import {createResult, createRun} from '../../test/experiment'
 import {LatestExperimentResults} from './ExperimentResults'
 import {RunDetailsPage} from './RunDetailsPage'
+
+vi.mock('server-only', () => {
+  return {}
+})
 
 test.each(['001-button', 'space / literal%20 # caf\u00e9'])(
   'links to the rendered scenario target for %s',

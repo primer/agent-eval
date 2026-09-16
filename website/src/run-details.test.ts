@@ -31,6 +31,7 @@ test.each([
     walkthroughPreview: {type: 'Unavailable', count: 0},
     detailsUrl: `${baseUrl}/details.json`,
     transcriptUrl: `${baseUrl}/transcript.json`,
+    workspace: {type: 'unavailable', reason: 'The generated workspace is missing from this result bundle.'},
   })
   const trial = await createTrialDetails(trials[0], '/results/experiment', baseUrl)
   expect(trial).toEqual({

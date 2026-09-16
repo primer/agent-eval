@@ -123,6 +123,33 @@ and file-backed findings with code snippets. Scores use the judge's configured
 scale, not a shared pass/fail threshold. Judge errors and missing results are
 shown separately from scored results.
 
+Each trial's **Code** tab shows the saved `artifacts.workspaceDirectory` as an
+expandable file tree with read-only UTF-8 text previews. This is the final saved
+workspace, including starter files, rather than a diff of the agent's changes.
+Workspaces are read at build time, so the explorer also works in the static export.
+Missing workspaces have an unavailable message.
+
+Recognized file types use Shiki syntax highlighting with GitHub light and dark
+themes that follow the website's color mode. Unknown file types remain plain text.
+Previews are highlighted on the server and exported as individual JSON assets.
+The explorer fetches a preview only when its file is selected, keeping file contents,
+tokens, Shiki, and language grammars out of the initial results page. Highlighting
+runs at build time for the static export, or on request during local development.
+The browser renders the returned tokens as escaped text, not generated HTML.
+Production export workers reuse a bounded index of up to eight workspaces,
+including in-flight reads, so generating each file preview does not rescan its
+workspace. Each index retains only the files allowed by the preview limits below.
+Local development bypasses this cache so edits are visible on the next request.
+
+Dependency, build, and Git directories (`node_modules`, `.next`, `.turbo`, `dist`,
+and `.git`) are omitted. Symbolic links and binary files cannot be previewed.
+Workspace paths containing a symbolic link at or below the artifacts directory
+are rejected, even if the link points to another directory inside the same bundle.
+Previews are limited to 256 KiB per file and 2 MiB per workspace; the tree is limited
+to 2,000 entries and 50 directory levels. Limits are indicated in the explorer.
+Review workspace contents before publishing a result bundle, as previewable files
+are included in the website.
+
 Scenario pages show configured checks, text previews of their reference files
 (including test sources), and `scenario.config.ts`. There is no longer an
 implicit `testPath` or a guaranteed Vitest report; outcome IDs replace test names,

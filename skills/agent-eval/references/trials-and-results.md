@@ -1,8 +1,17 @@
 # Trials and results
 
-A trial is one scenario, treatment, model variant, and implementation runner.
-Benchmark trials also belong to a capability. It has its own ID, sandbox, agent
-execution, evaluation, and artifacts.
+**Use when:** reading a completed evaluation, diagnosing failures, or comparing
+treatments. Each trial has its own ID, sandbox, execution, and evidence.
+
+## Contract
+
+| Item                        | Rule                                                                       |
+| :-------------------------- | :------------------------------------------------------------------------- |
+| Trial identity              | Scenario, treatment, model variant, runner; also capability for benchmarks |
+| Benchmark/experiment output | `output.json` manifest with `trials` mapping IDs to relative file paths    |
+| Trial result location       | `artifacts/<trial-id>/<trial-id>.json`                                     |
+| Scenario output             | `{id, results}`, with embedded results rather than a trial-file manifest   |
+| Quality evidence            | Check outcomes/measurements and judge results, not command exit alone      |
 
 ## Lifecycle
 
@@ -18,7 +27,7 @@ Configure a check for that. The walkthrough is additional review evidence, not
 a replacement for checks or judges. Capture is attempted even for non-UI
 projects and can be unavailable.
 
-## Result bundles
+## Read a result bundle
 
 Benchmark and experiment output directories contain:
 
@@ -61,17 +70,21 @@ judges, walkthrough capture, setup, and container execution also have costs.
 Keep usage units explicit and do not translate them into money without a
 verified pricing basis.
 
-## Interpretation
+## Verify
 
-Inspect each check's outcomes or measurements and each judge's result,
-rationale, and findings. The CLI completing successfully does not mean the
-agent met every requirement. A `failed` assertion, an evaluator `error`, a
-`skipped` assertion, and an unavailable walkthrough have different meanings.
+- Confirm the result IDs and dimensions match the planned trial selection.
+- Resolve every trial file and inspect checks, judge findings, and artifact paths.
+- Distinguish failed assertions, skipped assertions, evaluator errors, and
+  unavailable walkthroughs. Do not aggregate them as equivalent failures.
+- Support causal explanations with saved workspace and session evidence.
 
 Compare like-for-like scenario/model/effort/runner groups across treatments.
 Look at granular regressions before an aggregate score. Explain failures using
 saved source and sessions rather than speculating from a summary.
 
-For close comparisons, repeat with separate output directories. Record what
-changed, what remained fixed, and the evidence supporting the conclusion.
+## Pitfalls
+
+The CLI completing successfully does not establish agent quality or complete
+coverage. For close comparisons, repeat with separate output directories.
+Record what changed, what remained fixed, and the evidence supporting the conclusion.
 Call a promising result "best observed" rather than universally better.

@@ -1,8 +1,14 @@
 # CLI
 
+**Use when:** selecting a command, checking flags, or diagnosing execution errors.
+
+## Contract
+
 Run from your evaluation project's root with `npx agent-eval`. Names are
 configuration filenames without extensions for benchmarks/experiments and
 folder names for scenarios, not display names or paths to `.ts` files.
+Use a fresh output directory per run. Execution requires Docker and
+`COPILOT_GITHUB_TOKEN` or `--token`; planning and merge do not require a token.
 
 ## Commands
 
@@ -62,7 +68,12 @@ login alone does not satisfy this check. Plan creation and merge do not require
 a token. Avoid putting token values on command lines, in logs, or in shell
 history.
 
-## Typical commands
+## Command templates
+
+These are independent examples, not a sequence to execute unchanged. Substitute
+existing configuration IDs and paths. The shard command executes only `1/2`;
+collect all expected shards and artifacts before using merge, which overwrites
+the combined output and removes shard manifests.
 
 ```sh
 npx agent-eval experiment run comparison --output-dir ./results/comparison-01
@@ -71,8 +82,15 @@ npx agent-eval benchmark plan run --plan-path ./baseline-plan.json --shard 1/2 -
 npx agent-eval benchmark merge --output-dir ./results/baseline-01
 ```
 
-The merge example assumes all shards and their artifacts have been collected.
-See [plans](plans.md) for the complete workflow.
+See [plans](plans.md) for the complete workflow or
+[getting started](getting-started.md) for commands tied to a runnable fixture.
+
+## Verify
+
+Match the requested command against installed `--help`. After planning, inspect
+trial combinations. After execution, read trial-level results rather than
+inferring quality from exit status. After merge, confirm coverage against the
+intended plan and verify all result paths resolve.
 
 ## Troubleshooting
 

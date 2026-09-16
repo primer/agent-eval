@@ -1,17 +1,30 @@
 # Checks
 
-Checks deterministically evaluate the completed workspace. Use them for runtime
-tests, linting, builds, source conventions that cannot be verified at runtime,
-or numeric measurements. A check lives in a scenario's `checks` array.
+**Use when:** verifying deterministic behavior, builds, lint rules, source
+conventions that runtime tests cannot establish, or numeric measurements.
+Use a [judge](judges.md) only for criteria that need model-based judgment.
 
-A check has `name`, optional `description`, optional `files`, and
-`async run({sandbox, logger})`. `files` are private evaluation inputs restored
-before that check. Keep assertions in test files and have `run` invoke the
-tool, then translate its output into evaluation results.
+## Contract
 
-## Return shapes
+| Item            | Rule                                                         |
+| :-------------- | :----------------------------------------------------------- |
+| Location        | Scenario `checks` array                                      |
+| Required fields | `name`, `async run({sandbox, logger})`                       |
+| Optional fields | `description`, `files`                                       |
+| Private inputs  | List tests, runner configs, and helpers in `files`           |
+| Return          | One group, or an array of groups with an `id` on every group |
+| Group contents  | Either `outcomes` or `measurements`, never both              |
 
-Return a group of outcomes:
+Keep assertions in test files. Have `run` invoke the tool and translate observed
+results into outcomes or measurements. Throw when evaluation cannot execute;
+do not substitute passing or empty results.
+
+## Return fragments
+
+The following fragments illustrate return shapes inside `run`, not complete
+checks. Derive actual values from evidence; do not copy the example verdicts.
+
+An outcome group:
 
 ```ts
 return {
@@ -34,7 +47,6 @@ return {
 }
 ```
 
-These values illustrate the shape; derive real values from observed evidence.
 Measurements may specify `higher-is-better` or `lower-is-better`. Omit direction
 when neither is inherently preferable.
 
@@ -45,7 +57,7 @@ type and value. Either collection can contain `{type: 'error', message: '...'}`.
 Do not add the internal group discriminant `type: 'outcomes'` or
 `type: 'measurements'` to authored return values; the library normalizes them.
 
-## Vitest pattern
+## Run
 
 Use `scenario.test.ts`, a dedicated `vitest.config.scenario.ts` with a JSON
 reporter, and `files` listing both plus any private helpers. See the complete
@@ -61,12 +73,20 @@ Return one outcome per assertion, using its full test name as the ID.
 This preserves attribution when one part of a task fails. Use runtime behavior
 instead of broad source-string matches when possible.
 
-## Validate the grader
+## Verify
 
-Check the untouched fixture fails intentionally and a correct implementation
-passes. Check alternative valid implementations too. A missing feature should
-not cause all unrelated tests to fail during module import; use dynamic lookup
-or independent assertions where needed.
+- The untouched fixture fails the intended assertions, rather than failing to
+  start the test runner.
+- A correct implementation passes, including plausible alternatives.
+- Each assertion has an attributable outcome; an unrelated missing export does
+  not prevent independent checks from running.
+- Missing or malformed reports, zero tests, and unexpected exits surface as
+  evaluation errors.
+
+## Pitfalls
+
+Use dynamic lookup or independent assertions when a missing feature would
+otherwise cause a suite-wide module import failure.
 
 For browser behavior, explicitly configure browser tests and their dependencies.
 A saved screenshot or walkthrough is not an automated behavioral assertion.

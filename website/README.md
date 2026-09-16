@@ -118,9 +118,15 @@ The explorer fetches a preview only when its file is selected, keeping file cont
 tokens, Shiki, and language grammars out of the initial results page. Highlighting
 runs at build time for the static export, or on request during local development.
 The browser renders the returned tokens as escaped text, not generated HTML.
+Production export workers reuse a bounded index of up to eight workspaces,
+including in-flight reads, so generating each file preview does not rescan its
+workspace. Each index retains only the files allowed by the preview limits below.
+Local development bypasses this cache so edits are visible on the next request.
 
 Dependency, build, and Git directories (`node_modules`, `.next`, `.turbo`, `dist`,
 and `.git`) are omitted. Symbolic links and binary files cannot be previewed.
+Workspace paths containing a symbolic link at or below the artifacts directory
+are rejected, even if the link points to another directory inside the same bundle.
 Previews are limited to 256 KiB per file and 2 MiB per workspace; the tree is limited
 to 2,000 entries and 50 directory levels. Limits are indicated in the explorer.
 Review workspace contents before publishing a result bundle, as previewable files

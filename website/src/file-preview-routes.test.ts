@@ -1,4 +1,4 @@
-import {beforeEach, expect, test, vi} from 'vitest'
+import {afterEach, beforeEach, expect, test, vi} from 'vitest'
 import {getFilePreviewKey} from './file-preview-key'
 import {generateFilePreviewParams, getFilePreview, type FilePreviewParams} from './file-preview-routes'
 import {
@@ -100,6 +100,7 @@ function params(collection = 'benchmarks'): FilePreviewParams {
 
 beforeEach(() => {
   vi.resetAllMocks()
+  vi.resetModules()
   mocks.listBenchmarks.mockResolvedValue([{id: 'example'}])
   mocks.listBenchmarkRuns.mockResolvedValue([benchmarkRun])
   mocks.getBenchmarkRun.mockResolvedValue(benchmarkRun)
@@ -112,6 +113,10 @@ beforeEach(() => {
     return workspace
   })
   mocks.highlightFile.mockResolvedValue({type: 'highlighted', content: 'export {}\n', tokens: []})
+})
+
+afterEach(() => {
+  vi.unstubAllEnvs()
 })
 
 test('enumerates both collections and nested files without highlighting or overlapping workspace reads', async () => {
@@ -231,12 +236,93 @@ test('uses the sentinel when there are no saved runs', async () => {
   expect(mocks.getWorkspaceFiles).not.toHaveBeenCalled()
 })
 
-test('does not cache previews across calls', async () => {
+test('does not cache development previews across calls', async () => {
+  vi.stubEnv('NODE_ENV', 'development')
   await getFilePreview(params())
   mocks.getWorkspaceFiles.mockResolvedValue({type: 'unavailable', reason: 'Workspace removed.'})
   expect(await getFilePreview(params())).toBeNull()
   expect(mocks.getBenchmarkRun).toHaveBeenCalledTimes(2)
   expect(mocks.highlightFile).toHaveBeenCalledTimes(1)
+})
+
+test('indexes a 2,000-file workspace once when generating production previews', async () => {
+  vi.stubEnv('NODE_ENV', 'production')
+  const routes = await import('./file-preview-routes')
+  const entries = Array.from({length: 2000}, (_, index) => {
+    return {...otherFile, path: `file-${index}.ts`, name: `file-${index}.ts`}
+  })
+  mocks.getWorkspaceFiles.mockResolvedValue({type: 'available', entries, truncated: false})
+  mocks.listBenchmarkRuns.mockResolvedValue([
+    {...benchmarkRun, output: {trials: new Map([['trial 1', benchmarkRun.output.trials.get('not-the-trial-id')]])}},
+  ])
+  mocks.listExperimentRuns.mockResolvedValue([])
+
+  const generated = await routes.generateFilePreviewParams()
+  expect(generated).toHaveLength(2000)
+  for (const location of generated) {
+    expect(await routes.getFilePreview(location)).not.toBeNull()
+  }
+  expect(mocks.getWorkspaceFiles).toHaveBeenCalledTimes(1)
+  expect(mocks.highlightFile).toHaveBeenCalledTimes(2000)
+  expect(mocks.highlightFile).toHaveBeenLastCalledWith(entries[1999])
+  expect(await routes.getFilePreview({...params(), file: getFilePreviewKey('not-indexed.ts')})).toBeNull()
+  expect(mocks.getWorkspaceFiles).toHaveBeenCalledTimes(1)
+})
+
+test('shares in-flight production workspace reads across preview requests', async () => {
+  vi.stubEnv('NODE_ENV', 'production')
+  const routes = await import('./file-preview-routes')
+  const pending = Promise.withResolvers<WorkspaceFiles>()
+  mocks.getWorkspaceFiles.mockReturnValueOnce(pending.promise)
+  const requests = Promise.all([
+    routes.getFilePreview(params()),
+    routes.getFilePreview({...params(), file: getFilePreviewKey('missing.ts')}),
+  ])
+  await vi.waitFor(() => {
+    expect(mocks.getBenchmarkRun).toHaveBeenCalledTimes(2)
+    expect(mocks.getWorkspaceFiles).toHaveBeenCalledTimes(1)
+  })
+  expect(mocks.highlightFile).not.toHaveBeenCalled()
+  pending.resolve(workspace)
+  expect(await requests).toEqual([{type: 'highlighted', content: 'export {}\n', tokens: []}, null])
+  expect(mocks.getWorkspaceFiles).toHaveBeenCalledTimes(1)
+  expect(mocks.highlightFile).toHaveBeenCalledTimes(1)
+})
+
+test('bounds production indexes and keeps recently used workspaces', async () => {
+  vi.stubEnv('NODE_ENV', 'production')
+  const routes = await import('./file-preview-routes')
+  mocks.getBenchmarkRun.mockImplementation(async (id: string) => {
+    return {...benchmarkRun, directory: `/saved/${id}`}
+  })
+  for (let index = 0; index < 8; index++) {
+    await routes.getFilePreview({...params(), id: `run-${index}`})
+  }
+  await routes.getFilePreview({...params(), id: 'run-0'})
+  expect(mocks.getWorkspaceFiles).toHaveBeenCalledTimes(8)
+  await routes.getFilePreview({...params(), id: 'run-8'})
+  await routes.getFilePreview({...params(), id: 'run-0'})
+  expect(mocks.getWorkspaceFiles).toHaveBeenCalledTimes(9)
+  await routes.getFilePreview({...params(), id: 'run-1'})
+  expect(mocks.getWorkspaceFiles).toHaveBeenCalledTimes(10)
+})
+
+test('isolates production indexes by workspace within each run', async () => {
+  vi.stubEnv('NODE_ENV', 'production')
+  const routes = await import('./file-preview-routes')
+  await routes.getFilePreview(params())
+  expect(await routes.getFilePreview({...params(), trial: 'trial 2'})).toBeNull()
+  expect(mocks.getWorkspaceFiles).toHaveBeenCalledTimes(2)
+  expect(mocks.highlightFile).toHaveBeenCalledTimes(1)
+})
+
+test('retries failed production index reads instead of caching errors', async () => {
+  vi.stubEnv('NODE_ENV', 'production')
+  const routes = await import('./file-preview-routes')
+  mocks.getWorkspaceFiles.mockRejectedValueOnce(new Error('Permission denied'))
+  await expect(routes.getFilePreview(params())).rejects.toThrow('Permission denied')
+  expect(await routes.getFilePreview(params())).not.toBeNull()
+  expect(mocks.getWorkspaceFiles).toHaveBeenCalledTimes(2)
 })
 
 test('does not hide unexpected reader or highlighting failures', async () => {

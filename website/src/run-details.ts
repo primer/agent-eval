@@ -4,9 +4,9 @@ import type {CheckOutput, ExperimentOutput, ExperimentTrialOutput, JudgeOutput} 
 import type {BenchmarkRun} from './benchmark-results'
 import {formatChecks, summarizeTrials} from './check-results'
 import {getWorkspaceFiles, type WorkspaceFiles} from './workspace-files'
+import {getArtifactCandidates, isWithinDirectory, LEGACY_ARTIFACTS_DIRECTORY} from './artifacts'
 
 const REPOSITORY_ROOT = path.resolve(process.cwd(), '..')
-const LEGACY_ARTIFACTS_DIRECTORY = path.join(REPOSITORY_ROOT, 'artifacts')
 
 type LogMessage = ExperimentTrialOutput['agent']['sessions'][number]['messages'][number]
 type Walkthrough = ExperimentTrialOutput['walkthrough']
@@ -193,40 +193,6 @@ function createTranscript(logs: Array<LogMessage>): Array<TranscriptEntry> {
 
   return entries.filter(entry => {
     return entry.content.length > 0
-  })
-}
-
-function isWithinDirectory(directory: string, filepath: string): boolean {
-  const relativePath = path.relative(directory, filepath)
-  return relativePath !== '..' && !relativePath.startsWith(`..${path.sep}`) && !path.isAbsolute(relativePath)
-}
-
-function getArtifactCandidates(artifactPath: string, runDirectory: string): Array<string> {
-  const runArtifactsDirectory = path.join(runDirectory, 'artifacts')
-
-  if (!path.isAbsolute(artifactPath)) {
-    const candidate = path.resolve(runDirectory, artifactPath)
-    return isWithinDirectory(runArtifactsDirectory, candidate) ? [candidate] : []
-  }
-
-  if (isWithinDirectory(LEGACY_ARTIFACTS_DIRECTORY, artifactPath)) {
-    return [artifactPath]
-  }
-
-  const segments = artifactPath.split(/[\\/]+/)
-  const artifactsIndex = segments.lastIndexOf('artifacts')
-  if (artifactsIndex === -1) {
-    return []
-  }
-
-  const artifactSegments = segments.slice(artifactsIndex + 1)
-  return [
-    path.join(runArtifactsDirectory, ...artifactSegments),
-    path.join(LEGACY_ARTIFACTS_DIRECTORY, ...artifactSegments),
-  ].filter(candidate => {
-    return (
-      isWithinDirectory(runArtifactsDirectory, candidate) || isWithinDirectory(LEGACY_ARTIFACTS_DIRECTORY, candidate)
-    )
   })
 }
 

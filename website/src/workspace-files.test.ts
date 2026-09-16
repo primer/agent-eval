@@ -2,7 +2,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import {afterEach, beforeEach, expect, test, vi} from 'vitest'
 import {getWorkspaceFiles, type WorkspaceEntry, type WorkspaceFile} from './workspace-files'
-import {getArtifactCandidates} from './artifacts'
+import * as artifacts from './artifacts'
 import {createBenchmarkRunDetails, createExperimentRunDetails} from './run-details'
 import {createBenchmarkOutput, createExperimentOutput, createTrial} from './test-fixtures'
 
@@ -127,9 +127,9 @@ test('resolves relocated absolute artifact paths', async () => {
 })
 
 test('rejects paths outside artifact roots and sibling paths with matching prefixes', async () => {
-  expect(getArtifactCandidates('../outside', directory)).toEqual([])
-  expect(getArtifactCandidates('artifacts/../../outside', directory)).toEqual([])
-  expect(getArtifactCandidates('artifacts-other/workspace', directory)).toEqual([])
+  expect(artifacts.getArtifactCandidates('../outside', directory)).toEqual([])
+  expect(artifacts.getArtifactCandidates('artifacts/../../outside', directory)).toEqual([])
+  expect(artifacts.getArtifactCandidates('artifacts-other/workspace', directory)).toEqual([])
   expect(await getWorkspaceFiles('../outside', directory)).toMatchObject({type: 'unavailable'})
 })
 
@@ -140,7 +140,7 @@ test('does not follow workspace symlinks outside the artifact root', async () =>
   await fs.symlink(outside, path.join(directory, 'artifacts/linked'))
   expect(await getWorkspaceFiles('artifacts/linked', directory)).toEqual({
     type: 'unavailable',
-    reason: 'The generated workspace points outside the result artifacts.',
+    reason: 'The generated workspace path contains a symbolic link.',
   })
 })
 
@@ -149,7 +149,7 @@ test('does not follow a symlinked artifacts directory', async () => {
   await fs.symlink(path.join(directory, 'outside'), path.join(directory, 'artifacts'))
   expect(await getWorkspaceFiles('artifacts/trial/workspace', directory)).toMatchObject({
     type: 'unavailable',
-    reason: 'The generated workspace points outside the result artifacts.',
+    reason: 'The generated workspace path contains a symbolic link.',
   })
 })
 
@@ -163,6 +163,49 @@ test('does not follow file links, directory links, or symlink loops', async () =
     expect(entry).toMatchObject({type: 'file', preview: {type: 'unavailable'}})
     expect(JSON.stringify(entry)).not.toContain('not part of the workspace')
   }
+})
+
+test.each(['workspace', 'ancestor', 'dangling', 'loop'])(
+  'rejects a %s symlink before reading workspace contents',
+  async kind => {
+    await writeFile('private.txt', 'another trial')
+    let candidate = 'artifacts/linked'
+    if (kind === 'ancestor') {
+      await fs.symlink(path.dirname(workspace), path.join(directory, candidate))
+      candidate += '/workspace'
+    } else {
+      const target =
+        kind === 'workspace'
+          ? workspace
+          : kind === 'loop'
+            ? path.join(directory, candidate)
+            : path.join(directory, 'missing')
+      await fs.symlink(target, path.join(directory, candidate))
+    }
+    const readFile = vi.spyOn(fs, 'readFile')
+    const readDirectory = vi.spyOn(fs, 'readdir')
+    expect(await getWorkspaceFiles(candidate, directory)).toEqual({
+      type: 'unavailable',
+      reason: 'The generated workspace path contains a symbolic link.',
+    })
+    expect(readFile).not.toHaveBeenCalled()
+    expect(readDirectory).not.toHaveBeenCalled()
+  },
+)
+
+test.each(['symlink', 'file'])('tries later relocation candidates after an invalid %s', async kind => {
+  await writeFile('README.md', 'portable')
+  const invalid = path.join(directory, 'artifacts/invalid')
+  if (kind === 'symlink') {
+    await fs.symlink(workspace, invalid)
+  } else {
+    await fs.writeFile(invalid, 'not a directory')
+  }
+  vi.spyOn(artifacts, 'getArtifactCandidates').mockReturnValue([invalid, workspace])
+  expect(await getWorkspaceFiles('/old/runner/artifacts/trial/workspace', directory)).toMatchObject({
+    type: 'available',
+    entries: [{name: 'README.md', preview: {type: 'text', content: 'portable'}}],
+  })
 })
 
 test('identifies binary and non-UTF-8 files without corrupting previews', async () => {
@@ -247,6 +290,11 @@ test('reports a file used as a workspace', async () => {
 
 test('propagates unexpected filesystem errors instead of reporting missing files', async () => {
   vi.spyOn(fs, 'readdir').mockRejectedValueOnce(new Error('Permission denied'))
+  await expect(getWorkspaceFiles('artifacts/trial/workspace', directory)).rejects.toThrow('Permission denied')
+})
+
+test('propagates errors while checking workspace path components', async () => {
+  vi.spyOn(fs, 'lstat').mockRejectedValueOnce(Object.assign(new Error('Permission denied'), {code: 'EACCES'}))
   await expect(getWorkspaceFiles('artifacts/trial/workspace', directory)).rejects.toThrow('Permission denied')
 })
 

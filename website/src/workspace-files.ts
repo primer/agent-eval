@@ -121,10 +121,35 @@ async function getWorkspaceFiles(
     return {type: 'unavailable', reason: 'No generated workspace was recorded for this trial.'}
   }
 
+  let reason = 'The generated workspace is missing from this result bundle.'
   for (const candidate of getArtifactCandidates(workspaceDirectory, runDirectory)) {
     let realDirectory: string
+    let valid = true
     try {
-      realDirectory = await fs.realpath(candidate)
+      const runArtifactsDirectory = path.join(runDirectory, 'artifacts')
+      const artifactRoot = isWithinDirectory(runArtifactsDirectory, candidate)
+        ? runArtifactsDirectory
+        : LEGACY_ARTIFACTS_DIRECTORY
+      realDirectory = await fs.realpath(path.dirname(artifactRoot))
+      const segments = [
+        path.basename(artifactRoot),
+        ...path.relative(artifactRoot, candidate).split(path.sep).filter(Boolean),
+      ]
+      // Check each component before descending so even in-root links are never followed.
+      for (const segment of segments) {
+        realDirectory = path.join(realDirectory, segment)
+        const stats = await fs.lstat(realDirectory)
+        if (stats.isSymbolicLink()) {
+          reason = 'The generated workspace path contains a symbolic link.'
+          valid = false
+          break
+        }
+        if (!stats.isDirectory()) {
+          reason = 'The generated workspace is not a directory.'
+          valid = false
+          break
+        }
+      }
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
         continue
@@ -132,20 +157,12 @@ async function getWorkspaceFiles(
       throw error
     }
 
-    const artifactRoot = isWithinDirectory(path.join(runDirectory, 'artifacts'), candidate)
-      ? path.join(await fs.realpath(runDirectory), 'artifacts')
-      : path.join(await fs.realpath(path.dirname(LEGACY_ARTIFACTS_DIRECTORY)), 'artifacts')
-    if (!isWithinDirectory(artifactRoot, realDirectory)) {
-      return {type: 'unavailable', reason: 'The generated workspace points outside the result artifacts.'}
+    if (valid) {
+      return readWorkspace(realDirectory)
     }
-
-    if (!(await fs.stat(realDirectory)).isDirectory()) {
-      return {type: 'unavailable', reason: 'The generated workspace is not a directory.'}
-    }
-    return readWorkspace(realDirectory)
   }
 
-  return {type: 'unavailable', reason: 'The generated workspace is missing from this result bundle.'}
+  return {type: 'unavailable', reason}
 }
 
 export {getWorkspaceFiles}

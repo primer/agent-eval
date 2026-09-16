@@ -22,6 +22,9 @@ const EMPTY_PREVIEW_PARAMS: FilePreviewParams = {
   file: '__no-runs__',
 }
 
+const MAX_CACHED_WORKSPACES = 8
+const workspaceIndexes = new Map<string, Promise<Map<string, WorkspaceFile>>>()
+
 function isSafeSegment(value: string): boolean {
   return (
     value.length > 0 &&
@@ -49,6 +52,48 @@ function* previewableFiles(entries: Array<WorkspaceEntry>): Generator<WorkspaceF
     } else if (entry.preview.type === 'text' && entry.preview.content.length > 0) {
       yield entry
     }
+  }
+}
+
+async function getWorkspaceIndex(
+  workspaceDirectory: string | undefined,
+  runDirectory: string,
+): Promise<Map<string, WorkspaceFile>> {
+  const cacheKey = JSON.stringify([runDirectory, workspaceDirectory])
+  const cacheEnabled = process.env.NODE_ENV === 'production'
+  const cached = cacheEnabled ? workspaceIndexes.get(cacheKey) : undefined
+  if (cached) {
+    workspaceIndexes.delete(cacheKey)
+    workspaceIndexes.set(cacheKey, cached)
+    return cached
+  }
+
+  const index = getWorkspaceFiles(workspaceDirectory, runDirectory).then(workspace => {
+    const files = new Map<string, WorkspaceFile>()
+    if (workspace.type === 'available') {
+      for (const file of previewableFiles(workspace.entries)) {
+        files.set(getFilePreviewKey(file.path), file)
+      }
+    }
+    return files
+  })
+  if (cacheEnabled) {
+    workspaceIndexes.set(cacheKey, index)
+    if (workspaceIndexes.size > MAX_CACHED_WORKSPACES) {
+      const oldestKey = workspaceIndexes.keys().next().value
+      if (oldestKey !== undefined) {
+        workspaceIndexes.delete(oldestKey)
+      }
+    }
+  }
+
+  try {
+    return await index
+  } catch (error) {
+    if (workspaceIndexes.get(cacheKey) === index) {
+      workspaceIndexes.delete(cacheKey)
+    }
+    throw error
   }
 }
 
@@ -105,15 +150,11 @@ async function getFilePreview(params: FilePreviewParams): Promise<FilePreviewDat
   if (!trial) {
     return null
   }
-  const workspace = await getWorkspaceFiles(trial.workspaceDirectory, trial.directory)
-  if (workspace.type === 'unavailable') {
-    return null
-  }
-  for (const file of previewableFiles(workspace.entries)) {
-    if (getFilePreviewKey(file.path) === params.file) {
-      const {highlightFile} = await import('./file-highlighting')
-      return highlightFile(file)
-    }
+  const files = await getWorkspaceIndex(trial.workspaceDirectory, trial.directory)
+  const file = files.get(params.file)
+  if (file) {
+    const {highlightFile} = await import('./file-highlighting')
+    return highlightFile(file)
   }
   return null
 }
@@ -129,11 +170,9 @@ async function generateFilePreviewParams(): Promise<Array<FilePreviewParams>> {
     if (!isSafeSegment(location.id) || !isSafeSegment(location.trial) || !isRunDate(location.date)) {
       throw new Error(`Invalid file preview route parameters: ${JSON.stringify(location)}`)
     }
-    const workspace = await getWorkspaceFiles(workspaceDirectory, runDirectory)
-    if (workspace.type === 'available') {
-      for (const file of previewableFiles(workspace.entries)) {
-        params.push({...location, file: getFilePreviewKey(file.path)})
-      }
+    const files = await getWorkspaceIndex(workspaceDirectory, runDirectory)
+    for (const file of files.keys()) {
+      params.push({...location, file})
     }
   }
 

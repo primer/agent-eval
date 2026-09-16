@@ -19,7 +19,7 @@ function FileExplorer({workspace}: {workspace: WorkspaceFiles<FilePreviewReferen
   function renderEntry(entry: WorkspaceEntry<FilePreviewReference>) {
     if (entry.type === 'directory') {
       return (
-        <TreeView.Item id={`${id}-${entry.path}`} key={entry.path}>
+        <TreeView.Item id={`${id}-${encodeURIComponent(entry.path)}`} key={entry.path}>
           <TreeView.LeadingVisual>
             <TreeView.DirectoryIcon />
           </TreeView.LeadingVisual>
@@ -32,7 +32,7 @@ function FileExplorer({workspace}: {workspace: WorkspaceFiles<FilePreviewReferen
     return (
       <TreeView.Item
         current={selectedFile?.path === entry.path}
-        id={`${id}-${entry.path}`}
+        id={`${id}-${encodeURIComponent(entry.path)}`}
         key={entry.path}
         onSelect={() => {
           setSelectedFile(entry)

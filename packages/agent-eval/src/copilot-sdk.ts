@@ -161,9 +161,13 @@ async function runCopilotSdk({
   copilotToken: string
 }): Promise<Array<Message>> {
   logger.info('Installing copilot sdk...')
-  await sandbox.runCommand('npm', ['install', '-g', `@github/copilot-sdk@${COPILOT_SDK_VERSION}`], {
-    user: NODE_USER,
-  })
+  await sandbox.runCommand(
+    'npm',
+    ['install', '-g', '--allow-scripts=koffi', `@github/copilot-sdk@${COPILOT_SDK_VERSION}`],
+    {
+      user: NODE_USER,
+    },
+  )
   await sandbox.writeFile(COPILOT_SDK_RUNNER_PATH, getCopilotSdkRunnerScript())
   await sandbox.writeFile(
     COPILOT_SDK_RUNNER_CONFIG_PATH,

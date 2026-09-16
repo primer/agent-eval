@@ -153,7 +153,7 @@ test.each([false, true])('executes the SDK script and surfaces failures (failed:
   }
 })
 
-test('installs and runs the SDK inside the sandbox without writing the token to disk', async () => {
+test('allows only koffi install scripts when installing the SDK without writing the token to disk', async () => {
   await using sandbox = await VirtualSandbox.create()
   const runCommand = vi.spyOn(sandbox, 'runCommand').mockResolvedValue({stdout: '', stderr: '', exitCode: 0})
   const writeFile = vi.spyOn(sandbox, 'writeFile')
@@ -163,9 +163,14 @@ test('installs and runs the SDK inside the sandbox without writing the token to 
     prompt: 'Build a page',
     model: {name: 'gpt-5.5', reasoningEffort: 'high'},
   })
-  expect(runCommand).toHaveBeenNthCalledWith(1, 'npm', ['install', '-g', '@github/copilot-sdk@1.0.11'], {
-    user: NODE_USER,
-  })
+  expect(runCommand).toHaveBeenNthCalledWith(
+    1,
+    'npm',
+    ['install', '-g', '--allow-scripts=koffi', '@github/copilot-sdk@1.0.11'],
+    {
+      user: NODE_USER,
+    },
+  )
   expect(runCommand).toHaveBeenNthCalledWith(
     2,
     'node',

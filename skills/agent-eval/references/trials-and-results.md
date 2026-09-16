@@ -60,10 +60,16 @@ public exports rather than assuming all result shapes are interchangeable.
 
 ## Agent sessions
 
-Sessions record messages, turns, output tokens, premium requests, API duration,
+Sessions record messages, turns, output tokens, premium requests, AI credits, API duration,
 session duration, and tool call counts. Judge outputs have their own sessions.
 Use session evidence to establish whether a skill or tool was actually used,
 not simply installed.
+
+`aiCredits` is optional: older sessions and responses without usage totals omit
+it rather than reporting zero. When available, it is the latest session-wide
+`totalNanoAiu` from usage checkpoints or shutdown, divided by 1,000,000,000.
+These totals already include subagents; do not sum cumulative checkpoints or
+add subagent totals again. Premium requests remain a separate metric.
 
 Implementation-session usage is not automatically a full evaluation bill:
 judges, walkthrough capture, setup, and container execution also have costs.

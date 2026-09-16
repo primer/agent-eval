@@ -5,6 +5,7 @@ const AgentSessionSchema = z.object({
   turns: z.number(),
   outputTokens: z.number(),
   premiumRequests: z.number(),
+  aiCredits: z.optional(z.number()),
   totalApiDurationMs: z.number(),
   sessionDurationMs: z.number(),
   tools: z.record(z.string(), z.number()),
@@ -19,8 +20,18 @@ function getAgentSession(messages: Array<Message>): AgentSession {
   let assistantOutputTokens = 0
   let modelOutputTokens = 0
   let hasModelOutput = false
+  let totalNanoAiu: number | undefined
 
   for (const message of messages) {
+    if (
+      (isMessageType(message, 'session.usage_checkpoint') || isMessageType(message, 'session.shutdown')) &&
+      !message.agentId &&
+      message.data.totalNanoAiu !== undefined
+    ) {
+      // These totals already include subagents and replace earlier checkpoints.
+      totalNanoAiu = message.data.totalNanoAiu
+    }
+
     if (isMessageType(message, 'assistant.turn_start')) {
       turns.add(message.data.turnId)
     }
@@ -49,6 +60,7 @@ function getAgentSession(messages: Array<Message>): AgentSession {
     messages,
     outputTokens: hasModelOutput ? modelOutputTokens : assistantOutputTokens,
     premiumRequests: result.usage.premiumRequests,
+    ...(totalNanoAiu === undefined ? {} : {aiCredits: totalNanoAiu / 1_000_000_000}),
     sessionDurationMs: result.usage.sessionDurationMs,
     tools: Object.fromEntries(toolCalls),
     totalApiDurationMs: result.usage.totalApiDurationMs,

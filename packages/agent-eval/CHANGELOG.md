@@ -1,5 +1,13 @@
 # @primer/agent-eval
 
+## 0.6.0
+
+### Minor Changes
+
+- 28c6103: Update agent-eval cli to a sub-command based setup instead of flags based
+- 28c6103: Add support for LLM-as-a-judge through the new "judges" option in scenario config files
+- 28c6103: Add support for deterministic checks through the new "checks" option in scenario config files. This replaces the previous scenario.test.ts and scenario.browser.test.ts conventions
+
 ## 0.5.0
 
 ### Minor Changes

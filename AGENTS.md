@@ -14,6 +14,11 @@
   using the package. Keep contributor and agent instructions elsewhere
 - Do not create changesets for updates to features, fixes, or other changes
   that have not been released yet
+- Keep the method overview in `docs/sandbox.md` in sync with the `Sandbox`
+  interface in `packages/agent-eval/src/sandbox/types.ts` whenever methods,
+  signatures, or behavior change. Exclude `[Symbol.asyncDispose]()` from the
+  table. List method names without arguments; rely on TypeScript for argument
+  details.
 
 ## Pull Requests
 

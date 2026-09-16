@@ -1,5 +1,11 @@
 # @primer/agent-eval
 
+## 0.6.1
+
+### Patch Changes
+
+- 14bed90: Artificial bump to sync docs to npm and bring in skills to git tag
+
 ## 0.6.0
 
 ### Minor Changes

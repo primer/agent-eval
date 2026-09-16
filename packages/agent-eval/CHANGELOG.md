@@ -1,5 +1,16 @@
 # @primer/agent-eval
 
+## 0.7.0
+
+### Minor Changes
+
+- 4cea504: Add support for Claude Fable 5, Claude Fable 5.1, and GPT-6 Astra in benchmarks,
+  experiments, and judges, with low, medium, high, xhigh, and max reasoning efforts.
+
+### Patch Changes
+
+- 7396a79: Fix missing `memfs` runtime dependency so the package can be used without installing development dependencies.
+
 ## 0.6.1
 
 ### Patch Changes

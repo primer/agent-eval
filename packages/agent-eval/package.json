@@ -50,6 +50,7 @@
     "url": "https://github.com/primer/agent-eval/issues"
   },
   "dependencies": {
+    "@balena/dockerignore": "^1.0.2",
     "citty": "^0.2.2",
     "dockerode": "^5.0.1",
     "memfs": "^4.68.1",

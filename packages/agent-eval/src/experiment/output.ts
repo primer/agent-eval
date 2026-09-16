@@ -39,6 +39,7 @@ const ScenarioOutputSchema = z.pick(ScenarioSchema, {
   description: true,
   tags: true,
   judges: true,
+  workspace: true,
 })
 
 type ScenarioOutput = z.infer<typeof ScenarioOutputSchema>

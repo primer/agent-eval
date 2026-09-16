@@ -23,6 +23,10 @@ has broad command permissions inside the container.
 The default runtime provides Node.js, npm, Git, Chromium, and Copilot tooling.
 A custom `--docker-image` must be a Debian-based Node image with npm, `apt-get`,
 and a `node` user; the harness layers its tools on top.
+Scenario [image-backed workspaces](scenarios.md#image-backed-workspaces) use the
+same image requirements and take precedence over `--docker-image`. The runtime
+resets the image's entrypoint and working directory. It preserves the
+image-provided project without copying or automatically installing the scenario.
 
 ## Methods
 

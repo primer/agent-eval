@@ -238,6 +238,9 @@ importers:
 
   packages/agent-eval:
     dependencies:
+      '@balena/dockerignore':
+        specifier: ^1.0.2
+        version: 1.0.2
       citty:
         specifier: ^0.2.2
         version: 0.2.2

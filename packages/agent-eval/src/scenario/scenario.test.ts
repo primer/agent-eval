@@ -56,6 +56,78 @@ test('loadScenario uses an explicit name as the scenario id', async () => {
   ).resolves.toMatchObject({id: 'custom', directory: '/scenarios/example'})
 })
 
+test.each([
+  {source: 'image', image: 'ghcr.io/example/project:latest'},
+  {source: 'image', dockerfile: './Dockerfile'},
+  {source: 'image', dockerfile: './docker/Dockerfile', context: '../'},
+] as const)('preserves image workspace configuration: %j', workspace => {
+  const config = defineConfig({prompt: 'Update the project', workspace})
+  expect(config.workspace).toEqual(workspace)
+  expect(
+    ScenarioSchema.parse({
+      id: 'example',
+      directory: '/scenarios/example',
+      ...config,
+    }).workspace,
+  ).toEqual(workspace)
+})
+
+test.each([
+  {source: 'image'},
+  {source: 'image', image: ''},
+  {source: 'image', image: '   '},
+  {source: 'image', dockerfile: ''},
+  {source: 'image', dockerfile: 'Dockerfile', context: ''},
+  {source: 'image', image: 'node:26', dockerfile: 'Dockerfile'},
+  {source: 'image', image: 'node:26', context: '.'},
+  {source: 'other', image: 'node:26'},
+])('rejects invalid workspace configuration: %j', workspace => {
+  expect(() => {
+    ScenarioSchema.parse({id: 'example', directory: '/scenarios/example', prompt: 'Update the project', workspace})
+  }).toThrow()
+})
+
+test('loads an existing image without requiring a local Dockerfile', async () => {
+  const host = createHost()
+  const workspace = {source: 'image', image: 'ghcr.io/example/project:latest'}
+  vi.spyOn(host, 'loadModule').mockResolvedValue({default: {prompt: 'Update the project', workspace}})
+
+  const scenario = await loadScenario({host, directory: '/scenarios/example'})
+
+  expect(scenario.workspace).toEqual(workspace)
+})
+
+test.each([undefined, '.', '..'])('loads a Dockerfile with scenario-relative context %s', async context => {
+  const host = createHost()
+  await host.fs.mkdir('/scenarios/example/docker')
+  await host.fs.writeFile('/scenarios/example/docker/Dockerfile', 'FROM node:26-slim')
+  const workspace = {source: 'image', dockerfile: './docker/Dockerfile', ...(context ? {context} : {})}
+  vi.spyOn(host, 'loadModule').mockResolvedValue({default: {prompt: 'Update the project', workspace}})
+
+  const scenario = await loadScenario({host, directory: '/scenarios/example'})
+
+  expect(scenario.workspace).toEqual(workspace)
+})
+
+test.each([
+  {dockerfile: 'missing', message: 'ENOENT'},
+  {dockerfile: '.', message: 'Dockerfile is not a file'},
+  {dockerfile: 'Dockerfile', context: 'missing', message: 'ENOENT'},
+  {dockerfile: 'Dockerfile', context: 'package.json', message: 'Docker build context is not a directory'},
+  {dockerfile: '../Dockerfile', message: 'Dockerfile must be inside the build context'},
+  {dockerfile: 'linked.Dockerfile', message: 'Dockerfile must be inside the build context'},
+])('rejects invalid local builds: %j', async ({message, ...build}) => {
+  const host = createHost()
+  await host.fs.writeFile('/scenarios/example/Dockerfile', 'FROM node:26-slim')
+  await host.fs.writeFile('/scenarios/Dockerfile', 'FROM node:26-slim')
+  await host.fs.symlink('/scenarios/Dockerfile', '/scenarios/example/linked.Dockerfile')
+  vi.spyOn(host, 'loadModule').mockResolvedValue({
+    default: {prompt: 'Update the project', workspace: {source: 'image', ...build}},
+  })
+
+  await expect(loadScenario({host, directory: '/scenarios/example'})).rejects.toThrow(message)
+})
+
 test('loadScenario normalizes check results after defineConfig and config parsing', async () => {
   const host = createHost()
   const config = defineConfig({

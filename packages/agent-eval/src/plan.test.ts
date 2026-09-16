@@ -6,6 +6,7 @@ import {VirtualSandbox} from './sandbox'
 import {ControlTreatment} from './treatment'
 import {runTrial} from './trial/run'
 import type {Trial} from './trial/trial'
+import type {SandboxCreateOptions} from './sandbox'
 
 const runnerTrials: Array<Trial> = ['copilot-cli', 'copilot-sdk', 'legacy', 'copilot-sdk'].map((runner, index) => {
   return {
@@ -50,6 +51,47 @@ vi.mock('./trial/run', () => {
 afterEach(() => {
   vi.restoreAllMocks()
   vi.mocked(runTrial).mockReset()
+})
+
+test('selects each scenario image over the fallback and reuses local build options within a run', async () => {
+  const host = VirtualHost.create()
+  const createSandbox = vi.spyOn(host, 'createSandbox')
+  const scenarios: Array<Trial['scenario']> = [
+    {...runnerTrials[0].scenario},
+    {...runnerTrials[0].scenario, workspace: {source: 'image', image: 'project:latest'}},
+    {...runnerTrials[0].scenario, workspace: {source: 'image', dockerfile: './docker/Dockerfile'}},
+    {...runnerTrials[0].scenario, workspace: {source: 'image', dockerfile: './Dockerfile', context: '..'}},
+  ]
+  const options = {
+    artifactsDirectory: '/artifacts',
+    copilotConcurrency: 1,
+    containerConcurrency: 1,
+    copilotToken: 'test-token',
+    dockerImage: 'fallback:latest',
+    host,
+    plan: {
+      trials: [...scenarios, scenarios[2]].map((scenario, index) => {
+        return {...runnerTrials[0], id: String(index), scenario}
+      }),
+    },
+  }
+
+  await runPlan(options)
+
+  const received: Array<SandboxCreateOptions | undefined> = createSandbox.mock.calls.map(([createOptions]) => {
+    return createOptions
+  })
+  expect(received).toEqual([
+    {dockerImage: 'fallback:latest'},
+    {dockerImage: 'project:latest'},
+    {dockerBuild: {dockerfile: '/scenario/docker/Dockerfile', context: '/scenario'}},
+    {dockerBuild: {dockerfile: '/scenario/Dockerfile', context: '/'}},
+    {dockerBuild: {dockerfile: '/scenario/docker/Dockerfile', context: '/scenario'}},
+  ])
+  expect(received[2]?.dockerBuild).toBe(received[4]?.dockerBuild)
+
+  await runPlan(options)
+  expect(createSandbox.mock.calls[7][0]?.dockerBuild).not.toBe(received[2]?.dockerBuild)
 })
 
 test.each([

@@ -23,6 +23,10 @@ type CommandResult = {
 
 type SandboxCreateOptions = {
   dockerImage?: string
+  dockerBuild?: {
+    dockerfile: string
+    context: string
+  }
   host?: Host
 }
 

@@ -42,12 +42,15 @@ import {VirtualSandbox} from './virtual'
 import {resolveContainerPath} from './path'
 import {logger} from '../logger'
 import {createCapturedStream} from './captured-stream'
+import {buildLocalDockerImage, waitForDockerBuild} from './build'
 
 const COPILOT_CLI_VERSION = '1.0.85'
 const NPM_VERSION = '12.0.2'
 const DOCKERFILE = `ARG BASE_IMAGE=node:26.5.0-slim
 
 FROM \${BASE_IMAGE} AS base
+
+USER root
 
 ARG NPM_VERSION
 ARG COPILOT_CLI_VERSION
@@ -81,6 +84,7 @@ FROM base AS sandbox
 
 WORKDIR /home/sandbox/workspace
 
+ENTRYPOINT []
 CMD ["sleep", "infinity"]
 `
 
@@ -88,13 +92,32 @@ const DEFAULT_MCP_CONFIG: McpConfigFile = {
   mcpServers: {},
 }
 
+const localDockerImageBuilds = new WeakMap<NonNullable<SandboxCreateOptions['dockerBuild']>, Promise<string>>()
+
 class SystemSandbox implements Sandbox {
   static async create(options: SandboxCreateOptions = {}) {
+    if (options.dockerBuild && options.dockerImage !== undefined) {
+      throw new Error('Specify either dockerImage or dockerBuild, not both')
+    }
+
+    const host = options.host ?? DefaultHost
     const docker = new Docker()
-    const baseDockerImage = options.dockerImage?.trim() || DEFAULT_DOCKER_IMAGE
+    let baseDockerImage = options.dockerImage?.trim() || DEFAULT_DOCKER_IMAGE
+    if (options.dockerBuild) {
+      const dockerBuild = options.dockerBuild
+      let build = localDockerImageBuilds.get(dockerBuild)
+      if (!build) {
+        build = buildLocalDockerImage(docker, host, dockerBuild).catch(error => {
+          localDockerImageBuilds.delete(dockerBuild)
+          throw error
+        })
+        localDockerImageBuilds.set(dockerBuild, build)
+      }
+      baseDockerImage = await build
+    }
     const dockerImage = await ensureDockerImage(docker, baseDockerImage)
     const container = await createContainer(docker, dockerImage)
-    return new SystemSandbox(options.host ?? DefaultHost, docker, container)
+    return new SystemSandbox(host, docker, container)
   }
 
   #container: Docker.Container
@@ -427,16 +450,7 @@ async function buildDockerImage(docker: Docker, baseDockerImage: string): Promis
     target: 'sandbox',
   })
 
-  await new Promise<void>((resolve, reject) => {
-    docker.modem.followProgress(stream, error => {
-      if (error) {
-        reject(error)
-        return
-      }
-
-      resolve()
-    })
-  })
+  await waitForDockerBuild(docker, stream)
 
   return dockerImage
 }

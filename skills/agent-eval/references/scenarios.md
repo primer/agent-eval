@@ -10,7 +10,7 @@ evaluation. Benchmarks and experiments reuse the same scenario across treatments
 | Required files    | `package.json` and `scenario.config.ts`                           |
 | Import and export | `defineConfig` from `@primer/agent-eval/scenario`; default export |
 | Required field    | `prompt`, passed to the implementation agent                      |
-| Optional fields   | `description`, `tags`, `checks`, `judges`                         |
+| Optional fields   | `description`, `tags`, `workspace`, `checks`, `judges`            |
 | Defaults          | Empty tags, checks, and judges                                    |
 | Identity          | Directory name by default                                         |
 | Evaluation files  | Declare in check/judge `files`; restored during evaluation        |
@@ -40,7 +40,7 @@ self-contained fixture; do not assume the upstream template exists locally.
 Replace upstream-only `workspace:*` dependency references before installing
 the fixture outside that workspace.
 
-The harness copies the scenario into the container, replaces the package name
+By default, the harness copies the scenario into the container, replaces the package name
 with the trial ID, removes `devDependencies.@primer/agent-eval`, and runs
 `npm install`. Do not use other unresolved workspace dependencies or require
 files outside the fixture. Dependencies for tests belong in the fixture
@@ -49,6 +49,28 @@ manifest even though their tests are withheld.
 After shared and treatment setup, `npm run build --if-present` runs before the
 agent task. The starting project must build successfully. This is not a
 post-implementation build check; configure that separately if needed.
+
+### Image-backed workspaces
+
+Set `workspace: {source: 'image', image: 'ghcr.io/example/project:tag'}` to use
+an image-provided project. Alternatively, set
+`workspace: {source: 'image', dockerfile: './Dockerfile', context: '.'}`.
+Specify exactly one of `image` and `dockerfile`. Both local paths are relative
+to the scenario directory; context defaults to that directory and must contain
+the Dockerfile. Its `.dockerignore` filters the build context.
+
+The image owns project layout, dependency installation, and the initial build
+at `/home/sandbox/workspace`. The harness skips the initial scenario copy,
+package rewriting, npm install, and npm build. Use Dockerfile `COPY` instructions
+to select fixture files without overwriting the project's manifest.
+Do not bake private grading files into the image.
+
+Shared/treatment hooks and check/judge file injection still run. Evaluation file
+paths remain relative to the container workspace root, regardless of where the
+Dockerfile places application files. Artifact collection is unchanged.
+Scenario images override `--docker-image`. Local images build once per scenario
+per run; later runs rebuild using Docker's cache.
+The image must satisfy the [sandbox runtime contract](sandbox.md).
 
 ## Keep grading private
 

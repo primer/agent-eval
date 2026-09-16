@@ -48,6 +48,7 @@ const ScenarioOutputSchema = z.pick(ScenarioSchema, {
   description: true,
   tags: true,
   judges: true,
+  workspace: true,
 })
 
 type ScenarioOutput = z.infer<typeof ScenarioOutputSchema>
@@ -113,14 +114,7 @@ function createBenchmarkOutput({benchmark, runPlanResult}: CreateBenchmarkOutput
     }
 
     if (!result.scenarios.has(trial.scenario.id)) {
-      result.scenarios.set(trial.scenario.id, {
-        id: trial.scenario.id,
-        directory: trial.scenario.directory,
-        prompt: trial.scenario.prompt,
-        description: trial.scenario.description,
-        tags: trial.scenario.tags,
-        judges: trial.scenario.judges,
-      })
+      result.scenarios.set(trial.scenario.id, ScenarioOutputSchema.parse(trial.scenario))
     }
 
     if (!result.treatments.has(trial.treatment.id)) {

@@ -137,6 +137,23 @@ function summarize(...results: Array<ReturnType<typeof createResult>>) {
   return summary
 }
 
+test.each([
+  {source: 'image', image: 'project:latest'},
+  {source: 'image', dockerfile: './Dockerfile', context: '.'},
+] as const)('retains workspace metadata in benchmark and experiment outputs: %j', workspace => {
+  const result = createResult()
+  result.trial.scenario.workspace = workspace
+  const results = [result]
+  expect(
+    createBenchmarkOutput({benchmark: benchmark(results), runPlanResult: {results}}).scenarios.get('example')
+      ?.workspace,
+  ).toEqual(workspace)
+  expect(
+    createExperimentOutput({experiment: experiment(results), runPlanResult: {results}}).scenarios.get('example')
+      ?.workspace,
+  ).toEqual(workspace)
+})
+
 function experiment(results: Array<ReturnType<typeof createResult>>): Experiment {
   return {
     id: 'example',

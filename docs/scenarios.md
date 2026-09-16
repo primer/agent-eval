@@ -24,6 +24,72 @@ The scenario's workspace files are copied into a [sandbox](./sandbox.md), where 
 
 Add `checks` for deterministic verification, `judges` for model-based evaluation, or both.
 
+### Image-backed workspaces
+
+Use `workspace.source: 'image'` when a Docker image provides the complete starting
+project at `/home/sandbox/workspace`:
+
+```ts
+import {defineConfig} from '@primer/agent-eval/scenario'
+
+export default defineConfig({
+  prompt: 'Add search to the existing application.',
+  workspace: {
+    source: 'image',
+    image: 'ghcr.io/example/project:latest',
+  },
+})
+```
+
+Alternatively, build a local Dockerfile:
+
+```ts
+workspace: {
+  source: 'image',
+  dockerfile: './Dockerfile',
+  context: '.',
+},
+```
+
+Specify either `image` or `dockerfile`, not both. Dockerfile and context paths
+are relative to the scenario directory. The context defaults to that directory;
+the Dockerfile must be inside it. Set `context` to a parent directory when the
+build needs other local project files. The context's `.dockerignore` controls
+which files are sent to Docker.
+
+The Dockerfile is responsible for placing files in the workspace, installing
+project dependencies, and any initial build. For example:
+
+```dockerfile
+FROM node:26.5.0-slim
+WORKDIR /home/sandbox/workspace
+COPY project/package.json project/package-lock.json ./
+RUN npm ci
+COPY project/ ./
+RUN npm run build --if-present
+```
+
+For these scenarios, the harness does not copy the scenario directory, rewrite
+`package.json`, install project dependencies, or run the project's build script.
+The local scenario `package.json` remains evaluation tooling unless the
+Dockerfile explicitly copies it. Shared and treatment setup still run per trial.
+Check and judge files are still injected for evaluation, using their
+workspace-relative paths. Do not bake private grading files into the image.
+
+The scenario image takes precedence over `--docker-image` in standalone runs,
+benchmarks, and experiments. Local builds are shared by trials of the same
+scenario within a run. A new run rebuilds against the current context using
+Docker's layer cache.
+
+Images must be Debian-based Node images with npm, `apt-get`, and a `node` user.
+The harness layers its runtime tooling on top, resets the entrypoint, and runs
+commands from `/home/sandbox/workspace` as `node`. This is not an option for
+running arbitrary images without modification.
+
+Omitting `workspace` preserves the default scenario copy, npm setup, and build.
+Artifact collection is unchanged and still downloads the workspace with its
+standard exclusions.
+
 ### Checks
 
 Checks are used to deterministically evaluate how well an agent performed on a task. They can run tools like Vitest or ESLint, compare files to a baseline, or collect measurements about the result.

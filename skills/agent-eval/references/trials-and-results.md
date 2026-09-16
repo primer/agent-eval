@@ -22,6 +22,10 @@ treatments. Each trial has its own ID, sandbox, execution, and evidence.
 5. Run judges against their rubrics.
 6. Attempt visual walkthrough capture, then save artifacts.
 
+For image-backed scenarios, the image provides the prepared workspace. Skip the
+initial fixture copy, package rewriting, dependency installation, and build;
+shared and treatment setup still run per trial.
+
 The pre-task build does not verify the agent's finished implementation.
 Configure a check for that. The walkthrough is additional review evidence, not
 a replacement for checks or judges. Capture is attempted even for non-UI

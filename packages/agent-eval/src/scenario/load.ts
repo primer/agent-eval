@@ -4,6 +4,7 @@ import {parseJudgeConfig} from '../judge'
 import {ScenarioConfigSchema, type ScenarioConfigModule} from './config'
 import type {Scenario} from './scenario'
 import {parseCheckConfig} from '../check'
+import {validateWorkspace} from './workspace'
 
 type LoadScenarioOptions = {
   directory: string
@@ -32,6 +33,9 @@ async function loadScenario({
 
   const data: ScenarioConfigModule = await host.loadModule(configPath)
   const config = ScenarioConfigSchema.parse(data.default)
+  if (config.workspace) {
+    await validateWorkspace(host, directory, config.workspace)
+  }
   const scenario: Scenario = {
     id: name,
     directory,
@@ -51,6 +55,10 @@ async function loadScenario({
 
   if (config.description) {
     scenario.description = config.description
+  }
+
+  if (config.workspace) {
+    scenario.workspace = config.workspace
   }
 
   return scenario

@@ -1,4 +1,5 @@
 import Queue from 'p-queue'
+import path from 'node:path'
 import type {CopilotRunner} from './copilot-runner'
 import {DefaultHost, type Host} from './host'
 import {logger} from './logger'
@@ -6,6 +7,7 @@ import type {Trial} from './trial/trial'
 import type {RunTrialResult} from './trial/run'
 import {runTrial} from './trial/run'
 import {selectShard, type Shard} from './shard'
+import type {SandboxCreateOptions} from './sandbox'
 
 /**
  * A Plan represents an ordered collection of trials to run. Plans are created
@@ -102,13 +104,30 @@ async function runPlan<T extends Trial>({
     concurrency: containerConcurrency,
   })
 
+  const sandboxOptions = new Map<Trial['scenario'], SandboxCreateOptions>()
+  for (const {scenario} of plan.trials) {
+    if (sandboxOptions.has(scenario)) {
+      continue
+    }
+    const workspace = scenario.workspace
+    sandboxOptions.set(
+      scenario,
+      workspace?.dockerfile !== undefined
+        ? {
+            dockerBuild: {
+              dockerfile: path.resolve(scenario.directory, workspace.dockerfile),
+              context: path.resolve(scenario.directory, workspace.context ?? '.'),
+            },
+          }
+        : {dockerImage: workspace?.image ?? dockerImage},
+    )
+  }
+
   const results = await Promise.all(
     plan.trials.map(trial => {
       return retry(() => {
         return containerQueue.add(async () => {
-          await using sandbox = await host.createSandbox({
-            dockerImage,
-          })
+          await using sandbox = await host.createSandbox(sandboxOptions.get(trial.scenario))
           const result = await runTrial({
             artifactsDirectory,
             copilotQueue,

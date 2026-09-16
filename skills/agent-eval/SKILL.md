@@ -20,6 +20,7 @@ not a prerequisite for every operation.
 | Establish a capability baseline                         | [Benchmarks](references/benchmarks.md), [capabilities](references/capabilities.md) |
 | Compare instructions, skills, agents, MCP, or plugins   | [Experiments](references/experiments.md), [treatments](references/treatments.md)   |
 | Create a task and its starting workspace                | [Scenarios](references/scenarios.md)                                               |
+| Use an image or local Dockerfile as the workspace       | [Scenarios](references/scenarios.md), [sandbox](references/sandbox.md)             |
 | Add deterministic grading or a subjective rubric        | [Checks](references/checks.md) or [judges](references/judges.md)                   |
 | Select models, effort, or execution backends            | [Models and runners](references/models-and-runners.md)                             |
 | Install resources or run commands in a trial            | [Sandbox](references/sandbox.md)                                                   |

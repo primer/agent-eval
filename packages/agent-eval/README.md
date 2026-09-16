@@ -166,6 +166,31 @@ verification.
 
 To learn more about scenarios, visit our [scenario docs](../../docs/scenarios.md).
 
+### Image-backed workspaces
+
+Set `workspace` when the starting project is already in a Docker image:
+
+```ts
+export default defineConfig({
+  prompt: 'Update the existing application.',
+  workspace: {
+    source: 'image',
+    image: 'ghcr.io/example/project:latest',
+  },
+})
+```
+
+To build locally, replace `image` with `dockerfile: './Dockerfile'` and optionally
+`context: '.'`. Both paths are relative to the scenario directory. The Dockerfile
+provides the project at `/home/sandbox/workspace`, including dependencies and any
+initial build. The harness skips automatic scenario copying and npm preparation
+but still runs setup hooks and injects evaluation files.
+
+The image must be a Debian-based Node image with npm, `apt-get`, and a `node`
+user; agent-eval layers its runtime tools on top. See
+[image-backed workspaces](../../docs/scenarios.md#image-backed-workspaces) for
+build context, grading, and image selection details.
+
 ### Checks
 
 Checks are used to deterministically evaluate how well an agent performed on a

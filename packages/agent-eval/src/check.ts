@@ -229,4 +229,4 @@ const CheckOutputSchema = z.object({
 type CheckOutput = z.infer<typeof CheckOutputSchema>
 
 export {CheckConfigSchema, CheckSchema, CheckRunSchema, CheckOutputSchema, parseCheckConfig, parseCheckRunResult}
-export type {CheckConfig, CheckRun, CheckRunResult, CheckOutput}
+export type {Check, CheckConfig, CheckRun, CheckRunResult, CheckOutput}

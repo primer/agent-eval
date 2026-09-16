@@ -1,6 +1,14 @@
 import * as z from 'zod/mini'
-import {CheckConfigSchema} from '../check'
-import {JudgeConfigSchema} from '../judge'
+import {CheckConfigSchema, type CheckConfig} from '../check'
+import {JudgeConfigSchema, type JudgeConfig} from '../judge'
+
+type ScenarioConfig = {
+  description?: string
+  prompt: string
+  tags: Array<string>
+  checks: Array<CheckConfig>
+  judges: Array<JudgeConfig>
+}
 
 const ScenarioConfigSchema = z.object({
   description: z.optional(z.string()),
@@ -8,9 +16,7 @@ const ScenarioConfigSchema = z.object({
   tags: z._default(z.array(z.string()), []),
   checks: z._default(z.array(CheckConfigSchema), []),
   judges: z._default(z.array(JudgeConfigSchema), []),
-})
-
-type ScenarioConfig = z.output<typeof ScenarioConfigSchema>
+}) satisfies z.ZodMiniType<ScenarioConfig>
 
 type ScenarioConfigModule = {
   default?: unknown

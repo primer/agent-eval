@@ -1,12 +1,33 @@
 import * as z from 'zod/mini'
-import {ModelVariantConfigSchema} from '../model'
-import {CopilotRunnerSchema} from '../copilot-runner'
-import {ControlTreatment, TreatmentConfigSchema, TreatmentSetupSchema} from '../treatment'
+import {ModelVariantConfigSchema, type ModelVariantConfig} from '../model'
+import {CopilotRunnerSchema, type CopilotRunner} from '../copilot-runner'
+import {
+  ControlTreatment,
+  TreatmentConfigSchema,
+  TreatmentSetupSchema,
+  type TreatmentConfig,
+  type TreatmentSetup,
+} from '../treatment'
+
+type InlineScenarioConfig = {
+  name?: string
+  path: string
+}
+
+type ExperimentConfig = {
+  name: string
+  description: string
+  models: Array<ModelVariantConfig>
+  runners?: Array<CopilotRunner>
+  scenarios: Array<string | InlineScenarioConfig>
+  setup?: TreatmentSetup
+  treatments: Array<TreatmentConfig>
+}
 
 const InlineScenarioConfigSchema = z.object({
   name: z.optional(z.string()),
   path: z.string(),
-})
+}) satisfies z.ZodMiniType<InlineScenarioConfig>
 
 const ExperimentConfigSchema = z.object({
   name: z.string(),
@@ -32,9 +53,7 @@ const ExperimentConfigSchema = z.object({
       },
     ),
   ),
-})
-
-type ExperimentConfig = z.infer<typeof ExperimentConfigSchema>
+}) satisfies z.ZodMiniType<ExperimentConfig>
 
 function defineConfig(config: ExperimentConfig): ExperimentConfig {
   return config

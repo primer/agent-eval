@@ -70,15 +70,18 @@ test('restores legacy plans without a runner as CLI trials', async () => {
   expect(parsed.trials).toEqual(plan.trials)
 })
 
-test('rejects runners that are no longer configured when restoring a plan', async () => {
+test('preserves an explicit runner override when restoring a plan', async () => {
   const options = {host: createHost(), experimentsDirectory: '/experiments', scenariosDirectory: '/scenarios'}
   const experiment = await getExperiment({...options, name: 'example'})
-  const plan = createExperimentPlan({experiment})
+  const plan = createExperimentPlan({experiment, runner: 'copilot-sdk'})
   const manifest = createExperimentPlanManifest({experiment, plan})
-  manifest.trials[0].runner = 'copilot-sdk'
-  await expect(parseExperimentPlanManifest({...options, contents: JSON.stringify(manifest)})).rejects.toThrow(
-    `Runner not found for trial: ${manifest.trials[0].id}`,
-  )
+  const parsed = await parseExperimentPlanManifest({...options, contents: JSON.stringify(manifest)})
+  expect(parsed.trials).toEqual(plan.trials)
+  expect(
+    parsed.trials.every(trial => {
+      return trial.runner === 'copilot-sdk'
+    }),
+  ).toBe(true)
 })
 
 test.each([{runners: []}, {runners: ['sdk']}, {runners: ['unknown']}])(

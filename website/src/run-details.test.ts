@@ -20,6 +20,7 @@ test.each([
     scenarioId: 'empty-state',
     model: 'gpt-5.6-sol',
     reasoningEffort: 'medium',
+    runner: 'copilot-cli',
     treatment: 'Control',
     checkSummary: '15 ms [1 error]; 50.0% [1 skipped; 1 error]',
     turns: 2,
@@ -98,6 +99,23 @@ test('rejects trials with unknown treatments instead of labeling them as valid r
     createExperimentRunDetails('2026-09-15', createExperimentOutput([createTrial({treatmentId: 'missing'})])),
   ).rejects.toThrow('Unknown treatment')
 })
+
+test.each([undefined, 'copilot-cli', 'copilot-sdk'] as const)(
+  'preserves runner metadata with a legacy CLI default: %s',
+  async runner => {
+    const output = createExperimentOutput([createTrial({runner})])
+    const details = await createExperimentRunDetails('2026-09-15', output)
+    expect(details.results[0].runner).toBe(runner ?? 'copilot-cli')
+    const benchmark = await createBenchmarkRunDetails({
+      id: '2026-09-15',
+      name: '2026-09-15',
+      date: new Date('2026-09-15'),
+      directory: '/results/benchmark',
+      output: createBenchmarkOutput([createTrial({runner})]),
+    })
+    expect(benchmark.results[0].runner).toBe(runner ?? 'copilot-cli')
+  },
+)
 
 test('includes the deployment base path and encodes identifiers in asset URLs', () => {
   vi.stubEnv('PAGES_BASE_PATH', '/agent-eval')

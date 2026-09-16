@@ -42,6 +42,27 @@ test('renders an empty state for a current run without trials', () => {
   expect(html).toContain('No trial results were recorded.')
 })
 
+test.each([
+  {runner: undefined, label: 'Copilot CLI'},
+  {runner: 'copilot-cli', label: 'Copilot CLI'},
+  {runner: 'copilot-sdk', label: 'Copilot SDK'},
+] as const)('labels the selected trial runner as $label ($runner)', async ({runner, label}) => {
+  const run = await createExperimentRunDetails('2026-09-15', createExperimentOutput([createTrial({runner})]))
+  const html = renderToStaticMarkup(<RunDetailsPage resource={resource} run={run} />)
+  expect(html).toContain(`aria-label="Runner: ${label}"`)
+  expect(html).toContain(`>${label}</span>`)
+})
+
+test('identifies each runner in the trial selector for a mixed run', async () => {
+  const run = await createExperimentRunDetails(
+    '2026-09-15',
+    createExperimentOutput([createTrial({runner: 'copilot-cli'}), createTrial({id: 'trial-2', runner: 'copilot-sdk'})]),
+  )
+  const html = renderToStaticMarkup(<RunDetailsPage resource={resource} run={run} />)
+  expect(html).toContain('Trial 1 (trial-1) - Copilot CLI')
+  expect(html).toContain('Trial 2 (trial-2) - Copilot SDK')
+})
+
 test('keeps a shared scenario separate per capability and exposes capability filtering', async () => {
   const run = await createBenchmarkRunDetails({
     id: '2026-09-15',

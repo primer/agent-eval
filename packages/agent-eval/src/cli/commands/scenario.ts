@@ -12,6 +12,7 @@ import {
   githubCopilotTokenOption,
   outputDirectoryOption,
   scenariosOption,
+  runnerOption,
 } from '../options'
 import {getScenario} from '../../scenario/get'
 import {createScenarioPlan} from '../../scenario/plan'
@@ -44,6 +45,7 @@ const scenarioCommand = defineCommand({
         },
         'output-dir': outputDirectoryOption,
         scenarios: scenariosOption,
+        runner: runnerOption,
         token: githubCopilotTokenOption,
       },
       async run({args}) {
@@ -86,6 +88,7 @@ const scenarioCommand = defineCommand({
 
         const plan = createScenarioPlan({
           scenario,
+          runner: args.runner,
         })
 
         const {results} = await runPlan({

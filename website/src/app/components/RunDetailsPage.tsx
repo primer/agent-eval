@@ -1,7 +1,7 @@
 'use client'
 
 import {CopilotIcon, PersonIcon} from '@primer/octicons-react'
-import {Breadcrumbs, Button, FormControl, Select, Stack, UnderlineNav} from '@primer/react'
+import {Breadcrumbs, Button, FormControl, Label, Select, Stack, UnderlineNav} from '@primer/react'
 import type {RunDetails, TranscriptEntry} from '../../run-details'
 import {loadTrialDetails, loadTrialTranscript} from '../../run-data-client'
 import type {Route} from 'next'
@@ -253,6 +253,10 @@ function getModelLabel(result: RunResult): string {
   return result.reasoningEffort ? `${result.model} (${result.reasoningEffort})` : result.model
 }
 
+function getRunnerLabel(result: RunResult): string {
+  return result.runner === 'copilot-sdk' ? 'Copilot SDK' : 'Copilot CLI'
+}
+
 function groupResultsByScenario(results: Array<RunResult>): Array<ScenarioResultGroup> {
   const groups = new Map<string, ScenarioResultGroup>()
 
@@ -378,7 +382,8 @@ function ScenarioResults({group, index}: {group: ScenarioResultGroup; index: num
                 {resultsForSelectedTreatment.map((result, trialIndex) => {
                   return (
                     <Select.Option key={result.id} value={result.id}>
-                      Trial {trialIndex + 1} ({result.id})
+                      Trial {trialIndex + 1} ({result.id}){' - '}
+                      {getRunnerLabel(result)}
                     </Select.Option>
                   )
                 })}
@@ -389,9 +394,12 @@ function ScenarioResults({group, index}: {group: ScenarioResultGroup; index: num
       </header>
       <div className="flex flex-col gap-4">
         <section className="bg-default border border-default rounded-lg p-4" aria-labelledby={summaryHeadingId}>
-          <h3 className="text-title-small mt-0 mb-3" id={summaryHeadingId}>
-            Run summary
-          </h3>
+          <div className="flex items-center flex-wrap gap-2 mb-3">
+            <h3 className="text-title-small m-0" id={summaryHeadingId}>
+              Run summary
+            </h3>
+            <Label aria-label={`Runner: ${getRunnerLabel(selectedResult)}`}>{getRunnerLabel(selectedResult)}</Label>
+          </div>
           <dl className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 m-0">
             <div className="bg-muted rounded-md p-3">
               <dt className="text-caption text-muted">Checks</dt>

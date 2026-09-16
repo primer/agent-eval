@@ -13,6 +13,7 @@ import {
   getCopilotToken,
   outputDirectoryOption,
   scenariosOption,
+  runnerOption,
   shardOption,
 } from '../options'
 import {logger} from '../../logger'
@@ -100,6 +101,7 @@ const benchmarkCommand = defineCommand({
               default: 'plan.json',
             },
             scenarios: scenariosOption,
+            runner: runnerOption,
           },
           async run({args}) {
             logger.info(`Planning benchmark: %s`, args.name)
@@ -121,6 +123,7 @@ const benchmarkCommand = defineCommand({
             })
             const plan = createBenchmarkPlan({
               benchmark,
+              runner: args.runner,
             })
             const manifest = createBenchmarkPlanManifest({
               benchmark,
@@ -153,6 +156,7 @@ const benchmarkCommand = defineCommand({
               default: './plan.json',
             },
             scenarios: scenariosOption,
+            runner: runnerOption,
             shard: shardOption,
             token: githubCopilotTokenOption,
           },
@@ -200,6 +204,7 @@ const benchmarkCommand = defineCommand({
             const plan = createPlanFromManifest({
               shard,
               trials: manifest.trials,
+              runner: args.runner,
             })
             const runPlanResult = await runPlan({
               artifactsDirectory,
@@ -239,6 +244,7 @@ const benchmarkCommand = defineCommand({
         },
         'output-dir': outputDirectoryOption,
         scenarios: scenariosOption,
+        runner: runnerOption,
         token: githubCopilotTokenOption,
       },
       async run({args}) {
@@ -270,6 +276,7 @@ const benchmarkCommand = defineCommand({
         })
         const plan = createBenchmarkPlan({
           benchmark,
+          runner: args.runner,
         })
         const runPlanResult = await runPlan({
           artifactsDirectory,

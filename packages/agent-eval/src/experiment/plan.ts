@@ -1,6 +1,6 @@
 import {randomUUID} from 'node:crypto'
 import * as z from 'zod/mini'
-import {CopilotRunnerSchema} from '../copilot-runner'
+import {CopilotRunnerSchema, type CopilotRunner} from '../copilot-runner'
 import type {Host} from '../host'
 import {ModelVariantSchema} from '../model'
 import {createPlan, type Plan} from '../plan'
@@ -13,6 +13,7 @@ type ExperimentTrial = Trial
 
 type CreateExperimentPlanOptions = {
   experiment: Experiment
+  runner?: CopilotRunner
 }
 
 function getExperimentTreatments(experiment: Experiment) {
@@ -30,13 +31,17 @@ function getExperimentTreatments(experiment: Experiment) {
   return treatments
 }
 
-function createExperimentPlan({experiment}: CreateExperimentPlanOptions): Plan<ExperimentTrial> {
+function createExperimentPlan({
+  experiment,
+  runner: selectedRunner,
+}: CreateExperimentPlanOptions): Plan<ExperimentTrial> {
   const treatments = [...getExperimentTreatments(experiment).values()]
+  const runners = selectedRunner ? [selectedRunner] : (experiment.runners ?? ['copilot-cli'])
 
   return createPlan({
     trials: experiment.models.flatMap(model => {
       return experiment.scenarios.flatMap(scenario => {
-        return [...new Set(experiment.runners ?? (['copilot-cli'] as const))].flatMap(runner => {
+        return [...new Set<CopilotRunner>(runners)].flatMap(runner => {
           return treatments.map(treatment => {
             return {
               id: randomUUID(),
@@ -149,10 +154,6 @@ async function parseExperimentPlanManifest({
       })
       if (!model) {
         throw new Error(`Model variant not found for trial: ${trial.id}`)
-      }
-
-      if (!(experiment.runners ?? ['copilot-cli']).includes(trial.runner)) {
-        throw new Error(`Runner not found for trial: ${trial.id}`)
       }
 
       return {

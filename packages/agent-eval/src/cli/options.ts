@@ -1,4 +1,5 @@
 import path from 'node:path'
+import {CopilotRunnerSchema} from '../copilot-runner'
 import {DEFAULT_DOCKER_IMAGE} from '../sandbox'
 import type {Shard} from '../shard'
 
@@ -90,6 +91,12 @@ const scenariosOption = {
   default: './scenarios',
 } as const
 
+const runnerOption = {
+  type: 'enum',
+  options: CopilotRunnerSchema.options,
+  description: 'The implementation runner to use (for saved plans, select trials with this runner)',
+} as const
+
 const shardOption = {
   type: 'string',
   description: 'The durable plan shard to run, formatted as order/total',
@@ -108,5 +115,6 @@ export {
   getOutputPath,
   planOption,
   scenariosOption,
+  runnerOption,
   shardOption,
 }

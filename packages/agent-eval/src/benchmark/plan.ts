@@ -1,5 +1,6 @@
 import {randomUUID} from 'node:crypto'
 import * as z from 'zod/mini'
+import {CopilotRunnerSchema, type CopilotRunner} from '../copilot-runner'
 import {createPlan} from '../plan'
 import type {Plan} from '../plan'
 import {ControlTreatment, createTreatment} from '../treatment'
@@ -11,6 +12,7 @@ import {getBenchmark} from './get'
 
 type CreateBenchmarkPlanOptions = {
   benchmark: Benchmark
+  runner?: CopilotRunner
 }
 
 type BenchmarkTrial = Trial & {
@@ -22,7 +24,7 @@ type BenchmarkTrial = Trial & {
  * combination of model, capability, scenario, and treatment (benchmark or
  * control).
  */
-function createBenchmarkPlan({benchmark}: CreateBenchmarkPlanOptions): Plan<BenchmarkTrial> {
+function createBenchmarkPlan({benchmark, runner = 'copilot-cli'}: CreateBenchmarkPlanOptions): Plan<BenchmarkTrial> {
   const treatments = [
     ControlTreatment,
     createTreatment({
@@ -41,6 +43,7 @@ function createBenchmarkPlan({benchmark}: CreateBenchmarkPlanOptions): Plan<Benc
               scenario,
               treatment,
               model,
+              runner,
               capability,
               setup: capability.setup,
             }
@@ -59,6 +62,7 @@ const BenchmarkPlanManifestFileSchema = z.object({
       capabilityId: z.string(),
       id: z.string(),
       model: ModelVariantSchema,
+      runner: z._default(CopilotRunnerSchema, 'copilot-cli'),
       scenarioId: z.string(),
       treatmentId: z.string(),
     }),
@@ -81,6 +85,7 @@ function createBenchmarkPlanManifest({benchmark, plan}: CreateBenchmarkPlanManif
         capabilityId: trial.capability.id,
         id: trial.id,
         model: trial.model,
+        runner: trial.runner ?? 'copilot-cli',
         scenarioId: trial.scenario.id,
         treatmentId: trial.treatment.id,
       }
@@ -165,6 +170,7 @@ async function parseBenchmarkPlanManifest({
         id: trial.id,
         capability,
         model,
+        runner: trial.runner,
         scenario,
         treatment,
         setup: capability.setup,

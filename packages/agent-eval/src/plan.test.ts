@@ -7,6 +7,42 @@ import {ControlTreatment} from './treatment'
 import {runTrial} from './trial/run'
 import type {Trial} from './trial/trial'
 
+const runnerTrials: Array<Trial> = ['copilot-cli', 'copilot-sdk', 'legacy', 'copilot-sdk'].map((runner, index) => {
+  return {
+    id: String(index),
+    scenario: {id: 'example', directory: '/scenario', prompt: 'Example', tags: [], checks: [], judges: []},
+    model: {name: 'gpt-5.5', reasoningEffort: 'medium'},
+    treatment: ControlTreatment,
+    runner: runner === 'copilot-sdk' ? 'copilot-sdk' : runner === 'legacy' ? undefined : 'copilot-cli',
+  }
+})
+
+test.each([1, 2])('filters saved runners after assigning shard %s without changing trial IDs or order', order => {
+  const shard = {order, total: 2}
+  const expected = createPlanFromManifest({trials: runnerTrials, shard}).trials.filter(trial => {
+    return trial.runner === 'copilot-sdk'
+  })
+  const plan = createPlanFromManifest({trials: runnerTrials, shard, runner: 'copilot-sdk'})
+  expect(plan.trials).toEqual(expected)
+  for (const trial of plan.trials) {
+    expect(runnerTrials).toContain(trial)
+  }
+})
+
+test('treats legacy trials as CLI when filtering a saved plan', () => {
+  expect(createPlanFromManifest({trials: runnerTrials, runner: 'copilot-cli'}).trials).toEqual([
+    runnerTrials[0],
+    runnerTrials[2],
+  ])
+})
+
+test('rejects a runner absent from a saved plan instead of rewriting trials', () => {
+  expect(() => {
+    createPlanFromManifest({trials: [runnerTrials[0]], runner: 'copilot-sdk'})
+  }).toThrow('Create a new plan with --runner copilot-sdk')
+  expect(runnerTrials[0].runner).toBe('copilot-cli')
+})
+
 vi.mock('./trial/run', () => {
   return {runTrial: vi.fn()}
 })

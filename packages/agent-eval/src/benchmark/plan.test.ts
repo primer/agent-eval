@@ -26,6 +26,39 @@ function createHost() {
   })
 }
 
+test.each([undefined, 'copilot-cli', 'copilot-sdk'] as const)(
+  'preserves benchmark runners in saved plans: %s',
+  async runner => {
+    const options = {host: createHost(), benchmarksDirectory: '/benchmarks', scenariosDirectory: '/scenarios'}
+    const benchmark = await getBenchmark({...options, name: 'design-system'})
+    const plan = createBenchmarkPlan({benchmark, runner})
+    const manifest = createBenchmarkPlanManifest({benchmark, plan})
+    const parsed = await parseBenchmarkPlanManifest({...options, contents: JSON.stringify(manifest)})
+    expect(parsed.trials).toEqual(plan.trials)
+    expect(
+      parsed.trials.every(trial => {
+        return trial.runner === (runner ?? 'copilot-cli')
+      }),
+    ).toBe(true)
+  },
+)
+
+test('defaults legacy benchmark plans to the CLI', async () => {
+  const options = {host: createHost(), benchmarksDirectory: '/benchmarks', scenariosDirectory: '/scenarios'}
+  const benchmark = await getBenchmark({...options, name: 'design-system'})
+  const plan = createBenchmarkPlan({benchmark})
+  const manifest = createBenchmarkPlanManifest({benchmark, plan})
+  const contents = JSON.stringify({
+    ...manifest,
+    trials: manifest.trials.map(({runner, ...trial}) => {
+      expect(runner).toBe('copilot-cli')
+      return trial
+    }),
+  })
+  const parsed = await parseBenchmarkPlanManifest({...options, contents})
+  expect(parsed.trials).toEqual(plan.trials)
+})
+
 test.each(['Design System', 'Renamed Design System'])(
   'loads a benchmark plan by ID with display name %s',
   async name => {

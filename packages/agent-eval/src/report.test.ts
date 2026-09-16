@@ -793,6 +793,31 @@ describe.each(['benchmark', 'experiment'] as const)('%s check result bundles', k
 })
 
 describe('benchmark shard merging', () => {
+  test.each([false, true])('rejects a mismatched manifest trial ID (duplicate actual ID: %s)', async duplicate => {
+    const results = [createResult({id: 'actual'})]
+    const output = createBenchmarkOutput({benchmark: benchmark(results), runPlanResult: {results}})
+    const relativePath = 'artifacts/actual/actual.json'
+    const host = VirtualHost.create({
+      [`/output/${relativePath}`]: JSON.stringify(output.trials.get('actual')),
+    })
+    const before = host.vol.toJSON()
+    const trials: Record<string, string> = duplicate
+      ? {actual: relativePath, expected: relativePath}
+      : {expected: relativePath}
+    const file = {
+      id: output.id,
+      capabilities: Object.fromEntries(output.capabilities),
+      scenarios: Object.fromEntries(output.scenarios),
+      treatments: Object.fromEntries(output.treatments),
+      trials,
+    }
+
+    await expect(mergeBenchmarkOutputFiles({host, outputs: [file], outputDirectory: '/output'})).rejects.toThrow(
+      'mismatched trial ID for: expected',
+    )
+    expect(host.vol.toJSON()).toEqual(before)
+  })
+
   test.each(['valid', 'malformed', 'duplicate'] as const)(
     'preserves shard files when the later shard is %s',
     async laterShard => {

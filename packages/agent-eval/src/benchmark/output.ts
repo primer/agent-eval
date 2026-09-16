@@ -198,6 +198,9 @@ async function mergeBenchmarkOutputFiles({
 
       const contents = await host.fs.readFile(filepath, 'utf-8')
       const trialOutput = parseBenchmarkTrialOutput(JSON.parse(contents), new Map(Object.entries(output.capabilities)))
+      if (trialOutput.id !== key) {
+        throw new Error(`Cannot merge benchmark output files: mismatched trial ID for: ${key}`)
+      }
 
       trials.set(key, trialOutput)
     }

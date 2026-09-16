@@ -793,6 +793,33 @@ describe.each(['benchmark', 'experiment'] as const)('%s check result bundles', k
 })
 
 describe('benchmark shard merging', () => {
+  test('discovers only complete benchmark shard filenames', async () => {
+    const shard = JSON.stringify({id: 'example', capabilities: {}, scenarios: {}, treatments: {}, trials: {}})
+    const host = VirtualHost.create({
+      '/output/output-1.json': shard,
+      '/output/output-20.json': shard,
+      '/output/debug-output-1.json': 'unrelated file',
+      '/output/output-3.json.bak': 'unrelated file',
+      '/output/output-3-extra.json': 'unrelated file',
+      '/output/output-4.txt': 'unrelated file',
+      '/output/output-5': 'unrelated file',
+      '/output/output.json': 'unrelated file',
+    })
+    await host.fs.mkdir('/output/output-2.json')
+    const before = host.vol.toJSON()
+
+    const files = await listBenchmarkOutputFiles({host, outputDirectory: '/output'})
+
+    expect(
+      files
+        .map(([, filepath]) => {
+          return filepath
+        })
+        .sort(),
+    ).toEqual(['/output/output-1.json', '/output/output-20.json'])
+    expect(host.vol.toJSON()).toEqual(before)
+  })
+
   test.each([false, true])('rejects a mismatched manifest trial ID (duplicate actual ID: %s)', async duplicate => {
     const results = [createResult({id: 'actual'})]
     const output = createBenchmarkOutput({benchmark: benchmark(results), runPlanResult: {results}})

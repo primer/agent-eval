@@ -264,7 +264,7 @@ type ListBenchmarkOutputFilesOptions = {
   outputDirectory: string
 }
 
-const OUTPUT_FILE_NAME_PATTERN = /output-[0-9]+$/
+const OUTPUT_FILE_NAME_PATTERN = /^output-[0-9]+$/
 
 async function listBenchmarkOutputFiles({
   host = DefaultHost,

@@ -61,9 +61,9 @@ test('builds each scenario image once per run and starts trials from the prepare
   })
   const scenarios: Array<Trial['scenario']> = [
     {...runnerTrials[0].scenario},
-    {...runnerTrials[0].scenario, workspace: {source: 'image', image: 'project:latest'}},
-    {...runnerTrials[0].scenario, workspace: {source: 'image', dockerfile: './docker/Dockerfile'}},
-    {...runnerTrials[0].scenario, workspace: {source: 'image', dockerfile: './Dockerfile', context: '..'}},
+    {...runnerTrials[0].scenario, image: 'project:latest'},
+    {...runnerTrials[0].scenario, image: {dockerfile: './docker/Dockerfile'}},
+    {...runnerTrials[0].scenario, image: {dockerfile: './Dockerfile', context: '..'}},
   ]
   const options = {
     artifactsDirectory: '/artifacts',

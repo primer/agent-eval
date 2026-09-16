@@ -28,7 +28,7 @@ Add `checks` for deterministic verification, `judges` for model-based evaluation
 
 ### Image-backed workspaces
 
-Use `workspace.source: 'image'` when a Docker image provides the complete starting
+Set `image` when a Docker image provides the complete starting
 project at `/home/sandbox/workspace`:
 
 ```ts
@@ -36,24 +36,21 @@ import {defineConfig} from '@primer/agent-eval/scenario'
 
 export default defineConfig({
   prompt: 'Add search to the existing application.',
-  workspace: {
-    source: 'image',
-    image: 'ghcr.io/example/project:latest',
-  },
+  image: 'ghcr.io/example/project:latest',
 })
 ```
 
 Alternatively, build a local Dockerfile:
 
 ```ts
-workspace: {
-  source: 'image',
+image: {
   dockerfile: './Dockerfile',
   context: '.',
 },
 ```
 
-Specify either `image` or `dockerfile`, not both. Dockerfile and context paths
+The `image` option accepts either an image reference string or an object with
+`dockerfile` and optional `context`. Dockerfile and context paths
 are relative to the scenario directory. The context defaults to that directory;
 the Dockerfile must be inside it. Set `context` to a parent directory when the
 build needs other local project files. The context's `.dockerignore` controls
@@ -88,7 +85,7 @@ The harness layers its runtime tooling on top, resets the entrypoint, and runs
 commands from `/home/sandbox/workspace` as `node`. This is not an option for
 running arbitrary images without modification.
 
-Omitting `workspace` generates a scenario image automatically, as described below.
+Omitting `image` generates a scenario image automatically, as described below.
 Artifact collection is unchanged and still downloads the workspace with its
 standard exclusions.
 
@@ -124,7 +121,7 @@ Both generated and explicitly configured images can be prebuilt. Builds use
 Docker's layer cache, so a later run with the same context and base image reuses
 the prepared layers. Source or dependency changes invalidate the relevant layers.
 To move an image to another machine, tag and push the returned image to your
-registry and reference it with `workspace.image`. An explicitly selected image
+registry and reference it with `image`. An explicitly selected image
 owns its initial build; it does not get the ordinary scenario's per-trial build.
 Prebuilding does not execute setup hooks, the per-trial build, checks, judges,
 or walkthrough capture.

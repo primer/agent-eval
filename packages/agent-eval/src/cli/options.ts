@@ -34,7 +34,7 @@ function getConcurrencyValue(input: string, option: string): number {
 const dockerImageOption = {
   type: 'string',
   description:
-    'The fallback Docker base image (Debian-based Node with npm, apt-get, and a node user); scenario workspace images take precedence',
+    'The fallback Docker base image (Debian-based Node with npm, apt-get, and a node user); scenario images take precedence',
   default: DEFAULT_DOCKER_IMAGE,
 } as const
 

@@ -10,7 +10,7 @@ evaluation. Benchmarks and experiments reuse the same scenario across treatments
 | Required files    | `package.json` and `scenario.config.ts`                           |
 | Import and export | `defineConfig` from `@primer/agent-eval/scenario`; default export |
 | Required field    | `prompt`, passed to the implementation agent                      |
-| Optional fields   | `description`, `tags`, `workspace`, `checks`, `judges`            |
+| Optional fields   | `description`, `tags`, `image`, `checks`, `judges`                |
 | Defaults          | Empty tags, checks, and judges                                    |
 | Identity          | Directory name by default                                         |
 | Evaluation files  | Declare in check/judge `files`; restored during evaluation        |
@@ -61,15 +61,15 @@ printed as JSON with `scenario` and `image`. The library equivalent is
 Later runs rebuild against current inputs using Docker's cached layers.
 Prebuilding does not run setup hooks or the post-setup build. Installation
 scripts execute during image construction and cannot depend on a trial ID.
-For cross-machine reuse, tag/push the returned image and set `workspace.image`;
+For cross-machine reuse, tag/push the returned image and set `image`;
 that explicit image must own its initial build.
 
 ### Image-backed workspaces
 
-Set `workspace: {source: 'image', image: 'ghcr.io/example/project:tag'}` to use
+Set `image: 'ghcr.io/example/project:tag'` to use
 an image-provided project. Alternatively, set
-`workspace: {source: 'image', dockerfile: './Dockerfile', context: '.'}`.
-Specify exactly one of `image` and `dockerfile`. Both local paths are relative
+`image: {dockerfile: './Dockerfile', context: '.'}`.
+Omit `image` to generate a scenario image automatically. Both local paths are relative
 to the scenario directory; context defaults to that directory and must contain
 the Dockerfile. Its `.dockerignore` filters the build context.
 

@@ -57,56 +57,62 @@ test('loadScenario uses an explicit name as the scenario id', async () => {
 })
 
 test.each([
-  {source: 'image', image: 'ghcr.io/example/project:latest'},
-  {source: 'image', dockerfile: './Dockerfile'},
-  {source: 'image', dockerfile: './docker/Dockerfile', context: '../'},
-] as const)('preserves image workspace configuration: %j', workspace => {
-  const config = defineConfig({prompt: 'Update the project', workspace})
-  expect(config.workspace).toEqual(workspace)
+  'ghcr.io/example/project:latest',
+  {dockerfile: './Dockerfile'},
+  {dockerfile: './docker/Dockerfile', context: '../'},
+] as const)('preserves image configuration: %j', image => {
+  const config = defineConfig({prompt: 'Update the project', image})
+  expect(config.image).toEqual(image)
   expect(
     ScenarioSchema.parse({
       id: 'example',
       directory: '/scenarios/example',
       ...config,
-    }).workspace,
-  ).toEqual(workspace)
+    }).image,
+  ).toEqual(image)
 })
 
 test.each([
-  {source: 'image'},
-  {source: 'image', image: ''},
-  {source: 'image', image: '   '},
-  {source: 'image', dockerfile: ''},
-  {source: 'image', dockerfile: 'Dockerfile', context: ''},
-  {source: 'image', image: 'node:26', dockerfile: 'Dockerfile'},
-  {source: 'image', image: 'node:26', context: '.'},
-  {source: 'other', image: 'node:26'},
-])('rejects invalid workspace configuration: %j', workspace => {
+  '',
+  '   ',
+  null,
+  false,
+  123,
+  {},
+  {dockerfile: ''},
+  {dockerfile: '   '},
+  {dockerfile: 'Dockerfile', context: ''},
+  {dockerfile: 'Dockerfile', context: '   '},
+  {image: 'node:26', dockerfile: 'Dockerfile'},
+  {context: '.'},
+  {source: 'image', image: 'node:26'},
+  {source: 'image', dockerfile: 'Dockerfile'},
+])('rejects invalid image configuration: %j', image => {
   expect(() => {
-    ScenarioSchema.parse({id: 'example', directory: '/scenarios/example', prompt: 'Update the project', workspace})
+    ScenarioSchema.parse({id: 'example', directory: '/scenarios/example', prompt: 'Update the project', image})
   }).toThrow()
 })
 
 test('loads an existing image without requiring a local Dockerfile', async () => {
   const host = createHost()
-  const workspace = {source: 'image', image: 'ghcr.io/example/project:latest'}
-  vi.spyOn(host, 'loadModule').mockResolvedValue({default: {prompt: 'Update the project', workspace}})
+  const image = 'ghcr.io/example/project:latest'
+  vi.spyOn(host, 'loadModule').mockResolvedValue({default: {prompt: 'Update the project', image}})
 
   const scenario = await loadScenario({host, directory: '/scenarios/example'})
 
-  expect(scenario.workspace).toEqual(workspace)
+  expect(scenario.image).toEqual(image)
 })
 
 test.each([undefined, '.', '..'])('loads a Dockerfile with scenario-relative context %s', async context => {
   const host = createHost()
   await host.fs.mkdir('/scenarios/example/docker')
   await host.fs.writeFile('/scenarios/example/docker/Dockerfile', 'FROM node:26-slim')
-  const workspace = {source: 'image', dockerfile: './docker/Dockerfile', ...(context ? {context} : {})}
-  vi.spyOn(host, 'loadModule').mockResolvedValue({default: {prompt: 'Update the project', workspace}})
+  const image = {dockerfile: './docker/Dockerfile', ...(context ? {context} : {})}
+  vi.spyOn(host, 'loadModule').mockResolvedValue({default: {prompt: 'Update the project', image}})
 
   const scenario = await loadScenario({host, directory: '/scenarios/example'})
 
-  expect(scenario.workspace).toEqual(workspace)
+  expect(scenario.image).toEqual(image)
 })
 
 test.each([
@@ -122,7 +128,7 @@ test.each([
   await host.fs.writeFile('/scenarios/Dockerfile', 'FROM node:26-slim')
   await host.fs.symlink('/scenarios/Dockerfile', '/scenarios/example/linked.Dockerfile')
   vi.spyOn(host, 'loadModule').mockResolvedValue({
-    default: {prompt: 'Update the project', workspace: {source: 'image', ...build}},
+    default: {prompt: 'Update the project', image: build},
   })
 
   await expect(loadScenario({host, directory: '/scenarios/example'})).rejects.toThrow(message)

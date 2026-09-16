@@ -118,117 +118,116 @@ test.each([undefined, 'copilot-cli', 'copilot-sdk'] as const)(
   },
 )
 
-test.each([
-  undefined,
-  {source: 'image', image: 'project:latest'},
-  {source: 'image', dockerfile: './Dockerfile'},
-] as const)('prepares only scenario-backed workspaces and still evaluates image workspaces: %j', async workspace => {
-  const host = VirtualHost.create({
-    '/scenarios/example/package.json': '{"name":"local-scenario"}',
-    '/scenarios/example/local-only.txt': 'not part of the image',
-    '/scenarios/example/scenario.test.ts': 'private check',
-    '/scenarios/example/reference.txt': 'private judge reference',
-    [`${CONTAINER_WORKDIR}/package.json`]: '{"name":"image-project"}',
-    [`${CONTAINER_WORKDIR}/apps/web/index.js`]: 'image source',
-    [`${CONTAINER_WORKDIR}/node_modules/example/index.js`]: 'installed dependency',
-    [`${COPILOT_DIR}/config.json`]: '{}',
-    [`${AGENTS_DIR}/config.json`]: '{}',
-  })
-  const setup = vi.fn(async () => {})
-  const treatmentSetup = vi.fn(async () => {})
-  const check = vi.fn(async () => {
-    await expect(sandbox.readFile('scenario.test.ts')).resolves.toBe('private check')
-    return [{type: 'outcomes' as const, outcomes: [{type: 'outcome' as const, status: 'passed' as const}]}]
-  })
-  const trial: Trial = {
-    id: 'trial',
-    model: {name: 'gpt-5.5', reasoningEffort: 'high'},
-    setup,
-    treatment: {...ControlTreatment, setup: treatmentSetup},
-    scenario: {
-      id: 'example',
-      directory: '/scenarios/example',
-      prompt: 'Update the image project',
-      workspace,
-      tags: [],
-      checks: [
-        {
-          name: 'check',
-          files: [{filepath: '/scenarios/example/scenario.test.ts', relativePath: 'scenario.test.ts'}],
-          run: check,
-        },
-      ],
-      judges: [],
-    },
-  }
-  const image = await buildScenarioImage({scenario: trial.scenario, host})
-  await using sandbox: Sandbox = await host.createSandbox({preparedImage: image})
-  const copy = vi.spyOn(sandbox, 'copy')
-  const runCommand = vi.spyOn(sandbox, 'runCommand').mockImplementation(async (command, args = []) => {
-    if (command === 'npm' && args[0] === 'run' && args[1] === 'build') {
-      expect(setup).toHaveBeenCalledOnce()
-      expect(treatmentSetup).toHaveBeenCalledOnce()
+test.each([undefined, 'project:latest', {dockerfile: './Dockerfile'}] as const)(
+  'prepares only generated images and still evaluates custom images: %j',
+  async image => {
+    const host = VirtualHost.create({
+      '/scenarios/example/package.json': '{"name":"local-scenario"}',
+      '/scenarios/example/local-only.txt': 'not part of the image',
+      '/scenarios/example/scenario.test.ts': 'private check',
+      '/scenarios/example/reference.txt': 'private judge reference',
+      [`${CONTAINER_WORKDIR}/package.json`]: '{"name":"image-project"}',
+      [`${CONTAINER_WORKDIR}/apps/web/index.js`]: 'image source',
+      [`${CONTAINER_WORKDIR}/node_modules/example/index.js`]: 'installed dependency',
+      [`${COPILOT_DIR}/config.json`]: '{}',
+      [`${AGENTS_DIR}/config.json`]: '{}',
+    })
+    const setup = vi.fn(async () => {})
+    const treatmentSetup = vi.fn(async () => {})
+    const check = vi.fn(async () => {
+      await expect(sandbox.readFile('scenario.test.ts')).resolves.toBe('private check')
+      return [{type: 'outcomes' as const, outcomes: [{type: 'outcome' as const, status: 'passed' as const}]}]
+    })
+    const trial: Trial = {
+      id: 'trial',
+      model: {name: 'gpt-5.5', reasoningEffort: 'high'},
+      setup,
+      treatment: {...ControlTreatment, setup: treatmentSetup},
+      scenario: {
+        id: 'example',
+        directory: '/scenarios/example',
+        prompt: 'Update the image project',
+        image,
+        tags: [],
+        checks: [
+          {
+            name: 'check',
+            files: [{filepath: '/scenarios/example/scenario.test.ts', relativePath: 'scenario.test.ts'}],
+            run: check,
+          },
+        ],
+        judges: [],
+      },
     }
-    if (command === 'copilot' && args.includes(trial.scenario.prompt)) {
-      await expect(sandbox.exists('scenario.test.ts')).resolves.toBe(false)
-      await expect(sandbox.readFile('apps/web/index.js')).resolves.toBe('image source')
-      await expect(sandbox.readFile('node_modules/example/index.js')).resolves.toBe('installed dependency')
-      await expect(sandbox.readFile('package.json')).resolves.toBe(
-        workspace ? '{"name":"image-project"}' : '{"name":"local-scenario"}',
-      )
-      await expect(sandbox.exists('local-only.txt')).resolves.toBe(!workspace)
-      expect(setup).toHaveBeenCalledOnce()
-      expect(treatmentSetup).toHaveBeenCalledOnce()
-    }
-    return {
-      exitCode: 0,
-      stderr: '',
-      stdout:
-        command === 'copilot'
-          ? JSON.stringify({
-              type: 'result',
-              timestamp: '2026-09-16T00:00:00.000Z',
-              sessionId: 'session',
-              exitCode: 0,
-              usage: {
-                premiumRequests: 0,
-                totalApiDurationMs: 0,
-                sessionDurationMs: 0,
-                codeChanges: {linesAdded: 0, linesRemoved: 0, filesModified: []},
-              },
-            })
-          : '',
-    }
-  })
+    const preparedImage = await buildScenarioImage({scenario: trial.scenario, host})
+    await using sandbox: Sandbox = await host.createSandbox({preparedImage})
+    const copy = vi.spyOn(sandbox, 'copy')
+    const runCommand = vi.spyOn(sandbox, 'runCommand').mockImplementation(async (command, args = []) => {
+      if (command === 'npm' && args[0] === 'run' && args[1] === 'build') {
+        expect(setup).toHaveBeenCalledOnce()
+        expect(treatmentSetup).toHaveBeenCalledOnce()
+      }
+      if (command === 'copilot' && args.includes(trial.scenario.prompt)) {
+        await expect(sandbox.exists('scenario.test.ts')).resolves.toBe(false)
+        await expect(sandbox.readFile('apps/web/index.js')).resolves.toBe('image source')
+        await expect(sandbox.readFile('node_modules/example/index.js')).resolves.toBe('installed dependency')
+        await expect(sandbox.readFile('package.json')).resolves.toBe(
+          image ? '{"name":"image-project"}' : '{"name":"local-scenario"}',
+        )
+        await expect(sandbox.exists('local-only.txt')).resolves.toBe(image === undefined)
+        expect(setup).toHaveBeenCalledOnce()
+        expect(treatmentSetup).toHaveBeenCalledOnce()
+      }
+      return {
+        exitCode: 0,
+        stderr: '',
+        stdout:
+          command === 'copilot'
+            ? JSON.stringify({
+                type: 'result',
+                timestamp: '2026-09-16T00:00:00.000Z',
+                sessionId: 'session',
+                exitCode: 0,
+                usage: {
+                  premiumRequests: 0,
+                  totalApiDurationMs: 0,
+                  sessionDurationMs: 0,
+                  codeChanges: {linesAdded: 0, linesRemoved: 0, filesModified: []},
+                },
+              })
+            : '',
+      }
+    })
 
-  await runTrial({
-    artifactsDirectory: '/artifacts',
-    copilotQueue: new Queue({concurrency: 1}),
-    copilotToken: 'test-token',
-    host,
-    sandbox,
-    trial,
-  })
+    await runTrial({
+      artifactsDirectory: '/artifacts',
+      copilotQueue: new Queue({concurrency: 1}),
+      copilotToken: 'test-token',
+      host,
+      sandbox,
+      trial,
+    })
 
-  expect(check).toHaveBeenCalledOnce()
-  expect(copy).toHaveBeenCalledWith('/scenarios/example/scenario.test.ts', 'scenario.test.ts')
-  expect(
-    copy.mock.calls.some(([source]) => {
-      return source === '/scenarios/example'
-    }),
-  ).toBe(false)
-  expect(runCommand).not.toHaveBeenCalledWith('npm', ['install'], {user: NODE_USER})
-  expect(runCommand).not.toHaveBeenCalledWith('npm', ['pkg', 'delete', 'devDependencies.@primer/agent-eval'], {
-    user: NODE_USER,
-  })
-  for (const args of [
-    ['pkg', 'set', 'name=trial'],
-    ['run', 'build', '--if-present'],
-  ]) {
-    if (workspace) {
-      expect(runCommand).not.toHaveBeenCalledWith('npm', args, {user: NODE_USER})
-    } else {
-      expect(runCommand).toHaveBeenCalledWith('npm', args, {user: NODE_USER})
+    expect(check).toHaveBeenCalledOnce()
+    expect(copy).toHaveBeenCalledWith('/scenarios/example/scenario.test.ts', 'scenario.test.ts')
+    expect(
+      copy.mock.calls.some(([source]) => {
+        return source === '/scenarios/example'
+      }),
+    ).toBe(false)
+    expect(runCommand).not.toHaveBeenCalledWith('npm', ['install'], {user: NODE_USER})
+    expect(runCommand).not.toHaveBeenCalledWith('npm', ['pkg', 'delete', 'devDependencies.@primer/agent-eval'], {
+      user: NODE_USER,
+    })
+    for (const args of [
+      ['pkg', 'set', 'name=trial'],
+      ['run', 'build', '--if-present'],
+    ]) {
+      if (image !== undefined) {
+        expect(runCommand).not.toHaveBeenCalledWith('npm', args, {user: NODE_USER})
+      } else {
+        expect(runCommand).toHaveBeenCalledWith('npm', args, {user: NODE_USER})
+      }
     }
-  }
-})
+  },
+)

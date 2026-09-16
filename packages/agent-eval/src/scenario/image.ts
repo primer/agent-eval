@@ -4,19 +4,18 @@ import {DEFAULT_DOCKER_IMAGE, type SandboxCreateOptions} from '../sandbox'
 import type {Scenario} from './scenario'
 
 function getScenarioImageOptions(scenario: Scenario, dockerImage: string): SandboxCreateOptions {
-  const workspace = scenario.workspace
-  if (workspace?.dockerfile !== undefined) {
+  const {image} = scenario
+  if (typeof image === 'string') {
+    return {dockerImage: image}
+  }
+  if (image !== undefined) {
     return {
       dockerBuild: {
-        dockerfile: path.resolve(scenario.directory, workspace.dockerfile),
-        context: path.resolve(scenario.directory, workspace.context ?? '.'),
+        dockerfile: path.resolve(scenario.directory, image.dockerfile),
+        context: path.resolve(scenario.directory, image.context ?? '.'),
       },
     }
   }
-  if (workspace) {
-    return {dockerImage: workspace.image}
-  }
-
   return {
     dockerImage,
     scenario: {

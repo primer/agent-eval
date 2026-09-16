@@ -133,7 +133,7 @@ const setupStage = {
   async run({sandbox, trial}: SetupStageOptions) {
     logger.info('[%s] Running setup', trial.id)
 
-    if (!trial.scenario.workspace) {
+    if (trial.scenario.image === undefined) {
       logger.info('[%s] Obfuscating package name', trial.id)
       await sandbox.runCommand('npm', ['pkg', 'set', `name=${trial.id}`], {
         user: NODE_USER,
@@ -154,7 +154,7 @@ const setupStage = {
       })
     }
 
-    if (!trial.scenario.workspace) {
+    if (trial.scenario.image === undefined) {
       logger.info('[%s] Running build script', trial.id)
       await sandbox.runCommand('npm', ['run', 'build', '--if-present'], {
         user: NODE_USER,

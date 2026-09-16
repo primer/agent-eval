@@ -42,6 +42,7 @@ function createBenchmarkPlan({benchmark}: CreateBenchmarkPlanOptions): Plan<Benc
               treatment,
               model,
               capability,
+              setup: capability.setup,
             }
           })
         })
@@ -162,6 +163,7 @@ async function parseBenchmarkPlanManifest({
         model: trial.model,
         scenario,
         treatment,
+        setup: capability.setup,
       }
     }),
   }

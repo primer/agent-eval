@@ -14,15 +14,22 @@
   using the package. Keep contributor and agent instructions elsewhere
 - Do not create changesets for updates to features, fixes, or other changes
   that have not been released yet
+- Update documentation and skill references only when a change affects how
+  consumers use the package or makes existing guidance inaccurate. Do not add
+  documentation for type inference or declaration portability fixes, internal
+  refactors, or regression tests that preserve existing usage, even when the
+  fix adds supporting type exports. The synchronization rules below apply only
+  when there is a usage or guidance change.
 - Keep the method overview in `docs/sandbox.md` in sync with the `Sandbox`
   interface in `packages/agent-eval/src/sandbox/types.ts` whenever methods,
   signatures, or behavior change. Exclude `[Symbol.asyncDispose]()` from the
   table. List method names without arguments; rely on TypeScript for argument
   details.
 - Keep `skills/agent-eval/SKILL.md` and its `references/` up-to-date in the same
-  change whenever project structure, methodology, domain models, public APIs,
-  CLI commands, or runtime requirements change. Keep `SKILL.md` concise, put
-  detailed guidance in references, and use npm/npx in skill examples.
+  change when changes to project structure, methodology, domain models, public
+  APIs, CLI commands, or runtime requirements affect their guidance. Keep
+  `SKILL.md` concise, put detailed guidance in references, and use npm/npx in
+  skill examples.
 
 ## Pull Requests
 

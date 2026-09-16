@@ -1,6 +1,7 @@
 import {get, list} from '../../../experiments'
 import {listForExperiment} from '../../../runs'
 import {Page} from './components/Page'
+import {formatChecks, summarizeTrials} from '../../../check-results'
 
 type ExperimentPageProps = {
   params: Promise<{
@@ -15,13 +16,15 @@ export default async function ExperimentPage(props: ExperimentPageProps) {
   return (
     <Page
       experiment={experiment}
-      runs={runs.map(run => ({
-        id: run.id,
-        name: run.name,
-        resultCount: run.output.results.length,
-        passedTests: run.output.results.reduce((total, result) => total + result.testResults.numPassedTests, 0),
-        totalTests: run.output.results.reduce((total, result) => total + result.testResults.numTotalTests, 0),
-      }))}
+      runs={runs.map(run => {
+        const trials = [...run.output.trials.values()]
+        return {
+          id: run.id,
+          name: run.name,
+          resultCount: trials.length,
+          checks: formatChecks(summarizeTrials(trials)),
+        }
+      })}
     />
   )
 }

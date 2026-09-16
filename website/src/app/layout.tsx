@@ -12,7 +12,15 @@ export const metadata = {
 
 export default function Layout({children}: {children: React.ReactNode}) {
   return (
-    <html lang="en" data-color-mode="auto" data-light-theme="light" data-dark-theme="dark">
+    // BaseStyles loads focus-visible, which adds these root attributes before hydration.
+    <html
+      lang="en"
+      className="js-focus-visible"
+      data-js-focus-visible=""
+      data-color-mode="auto"
+      data-light-theme="light"
+      data-dark-theme="dark"
+    >
       <body>
         <BaseStyles>
           <PageHeader />

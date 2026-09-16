@@ -14,6 +14,8 @@ if (!CI) {
   )
 }
 
+export const levels = ['trace', 'debug', 'info', 'warn', 'error', 'fatal'] as const
+
 export const logger = pino(
   {
     base: undefined,

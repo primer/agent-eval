@@ -7,10 +7,10 @@ export function JudgeResults({judges}: {judges: Array<JudgeDetails>}) {
 
   return (
     <div className="flex flex-col gap-6">
-      {judges.map(({config, result}, index) => {
+      {judges.map(({judge, result}, index) => {
         const selectedScore =
           result.type === 'result'
-            ? config.scores.find(score => {
+            ? judge.scores.find(score => {
                 return score.value === result.score
               })
             : undefined
@@ -18,14 +18,14 @@ export function JudgeResults({judges}: {judges: Array<JudgeDetails>}) {
         return (
           <section className="border-t border-default pt-6 first:border-t-0 first:pt-0 min-w-0" key={index}>
             <div className="flex flex-wrap items-start justify-between gap-3">
-              <h3 className="text-title-small m-0 break-words">{config.name}</h3>
+              <h3 className="text-title-small m-0 break-words">{judge.name}</h3>
               {result.type === 'result' ? (
                 <span className="bg-neutral-muted rounded-full px-3 py-1 text-body-medium whitespace-nowrap">
                   Score: {result.score}
                 </span>
               ) : null}
             </div>
-            {config.description ? <p className="text-muted mt-2 mb-0">{config.description}</p> : null}
+            {judge.description ? <p className="text-muted mt-2 mb-0">{judge.description}</p> : null}
             {result.type === 'error' ? (
               <div className="bg-danger-muted border border-danger-muted rounded-md p-3 mt-4">
                 <h4 className="text-body-medium text-danger mt-0 mb-2">Judge error</h4>
@@ -70,11 +70,9 @@ export function JudgeResults({judges}: {judges: Array<JudgeDetails>}) {
             ) : null}
             <details className="mt-4">
               <summary className="cursor-pointer text-body-medium">Scoring criteria</summary>
-              {config.judge.instructions ? (
-                <p className="whitespace-pre-wrap break-words">{config.judge.instructions}</p>
-              ) : null}
+              {judge.instructions ? <p className="whitespace-pre-wrap break-words">{judge.instructions}</p> : null}
               <dl className="flex flex-col gap-3 mb-0">
-                {config.scores.map((score, scoreIndex) => {
+                {judge.scores.map((score, scoreIndex) => {
                   return (
                     <div key={scoreIndex}>
                       <dt className="font-semibold">Score: {score.value}</dt>

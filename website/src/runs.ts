@@ -2,68 +2,18 @@ import fs from 'node:fs/promises'
 import {existsSync, type Dirent} from 'node:fs'
 import path from 'node:path'
 
-import type {ExperimentOutput} from '@primer/agent-eval/experiment'
-
-const {read} = await import(
-  /* turbopackIgnore: true */
-  '@primer/agent-eval/experiment'
-)
+import type {ExperimentOutput} from '@primer/agent-eval'
+import {readExperimentOutput} from './result-files'
 
 const RESULTS_DIR = path.resolve(process.cwd(), '..', 'results', 'experiments')
 
-type ExperimentOutputTrial = ExperimentOutput['trials'] extends Map<string, infer Trial> ? Trial : never
-
-type RunOutputResult = {
-  id: string
-  treatmentId: string
-  model: ExperimentOutputTrial['model']['name']
-  reasoningEffort: ExperimentOutputTrial['model']['reasoningEffort']
-  scenarioId: string
-  assistant: {
-    logs: ExperimentOutputTrial['agent']['sessions'][number]['messages']
-    turns: number
-    outputTokens: number
-    premiumRequests: number
-    totalApiDurationMs: number
-    sessionDurationMs: number
-    tools: Record<string, number>
-  }
-  testResults: ExperimentOutputTrial['testResults'] & {
-    tests: Array<{
-      title: string
-      fullName: string
-      status: string
-      description?: string
-    }>
-  }
-  walkthrough: ExperimentOutputTrial['walkthrough']
-  judges: ExperimentOutputTrial['judges']
-}
-
-type RunOutput = {
-  experiment: {
-    id: string
-    models: Array<{
-      name: ExperimentOutputTrial['model']['name']
-      reasoningEfforts: Array<ExperimentOutputTrial['model']['reasoningEffort']>
-    }>
-  }
-  scenarios: Array<ExperimentOutput['scenarios'] extends Map<string, infer Scenario> ? Scenario : never>
-  treatments: Array<{
-    id: string
-    config: {
-      name: string
-    }
-  }>
-  results: Array<RunOutputResult>
-}
-
 type Run = {
   id: string
+  experimentId: string
   name: string
   directory: string
   date: Date
-  output: RunOutput
+  output: ExperimentOutput
 }
 
 function isRunName(name: string): boolean {
@@ -155,13 +105,17 @@ async function find(experimentId: string, name: string): Promise<Run | null> {
   }
 
   const outputFile = path.join(directory, 'output.json')
-  const output = normalizeOutput(await read(outputFile))
-  if (output.experiment.id !== experimentId) {
+  const output = await readExperimentOutput(outputFile)
+  if (output === null) {
     return null
+  }
+  if (output.id !== experimentId) {
+    throw new Error(`Experiment ID "${output.id}" does not match "${experimentId}" in ${outputFile}`)
   }
 
   return {
     id: name,
+    experimentId,
     name,
     directory,
     date: new Date(`${name}T00:00:00.000Z`),
@@ -178,79 +132,5 @@ async function get(experimentId: string, name: string): Promise<Run> {
   return run
 }
 
-function normalizeOutput(output: ExperimentOutput): RunOutput {
-  const modelReasoningEfforts = new Map<
-    ExperimentOutputTrial['model']['name'],
-    Set<ExperimentOutputTrial['model']['reasoningEffort']>
-  >()
-
-  const results = [...output.trials.values()].map(trial => {
-    const reasoningEfforts = modelReasoningEfforts.get(trial.model.name) ?? new Set()
-    reasoningEfforts.add(trial.model.reasoningEffort)
-    modelReasoningEfforts.set(trial.model.name, reasoningEfforts)
-
-    const tools: Record<string, number> = {}
-    for (const session of trial.agent.sessions) {
-      for (const [name, count] of Object.entries(session.tools)) {
-        tools[name] = (tools[name] ?? 0) + count
-      }
-    }
-
-    return {
-      id: trial.id,
-      treatmentId: trial.treatmentId,
-      model: trial.model.name,
-      reasoningEffort: trial.model.reasoningEffort,
-      scenarioId: trial.scenarioId,
-      assistant: {
-        logs: trial.agent.sessions.flatMap(session => session.messages),
-        turns: trial.agent.sessions.reduce((total, session) => total + session.turns, 0),
-        outputTokens: trial.agent.sessions.reduce((total, session) => total + session.outputTokens, 0),
-        premiumRequests: trial.agent.sessions.reduce((total, session) => total + session.premiumRequests, 0),
-        totalApiDurationMs: trial.agent.sessions.reduce((total, session) => total + session.totalApiDurationMs, 0),
-        sessionDurationMs: trial.agent.sessions.reduce((total, session) => total + session.sessionDurationMs, 0),
-        tools,
-      },
-      testResults: {
-        ...trial.testResults,
-        tests: trial.testResults.testResults.flatMap(testResult => {
-          return testResult.assertionResults.map(assertion => {
-            return {
-              title: assertion.title,
-              fullName: assertion.fullName,
-              status: assertion.status,
-              description: assertion.meta.description,
-            }
-          })
-        }),
-      },
-      walkthrough: trial.walkthrough,
-      judges: trial.judges,
-    }
-  })
-
-  return {
-    experiment: {
-      id: output.experimentId,
-      models: [...modelReasoningEfforts].map(([name, reasoningEfforts]) => {
-        return {
-          name,
-          reasoningEfforts: [...reasoningEfforts],
-        }
-      }),
-    },
-    scenarios: [...output.scenarios.values()],
-    treatments: [...output.treatments].map(([id, treatment]) => {
-      return {
-        id,
-        config: {
-          name: treatment.name,
-        },
-      }
-    }),
-    results,
-  }
-}
-
-export {list, listForExperiment, get, normalizeOutput}
-export type {Run, RunOutput, RunOutputResult}
+export {list, listForExperiment, get}
+export type {Run}

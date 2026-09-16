@@ -26,13 +26,13 @@ provides you access to create, run or plan [benchmarks](#benchmarks), [experimen
 Typically, you will run either benchmarks with the command:
 
 ```bash
-agent-eval benchmarks run <benchmark-name>
+agent-eval benchmark run <benchmark-name>
 ```
 
 You will also run experiments with the following command:
 
 ```bash
-agent-eval experiments run <experiment-name>
+agent-eval experiment run <experiment-name>
 ```
 
 Both of these commands will kick-off the evaluation of the given benchmark or
@@ -114,6 +114,7 @@ export default defineConfig({
   name: 'Example experiment',
   description: 'An illustrative experiment showing how to use @primer/agent-eval',
   models: ['gpt-5.6-sol', 'claude-opus-5'],
+  runners: ['copilot-cli', 'copilot-sdk'],
   scenarios: ['001-agent-scenario', '002-agent-scenario', '003-agent-scenario'],
   treatments: [
     {
@@ -139,6 +140,35 @@ export default defineConfig({
 
 In this experiment, we're looking at two treatments to see which one performs
 best against the given scenarios.
+
+The optional `runners` array evaluates each model/scenario/treatment combination
+with `copilot-cli`, `copilot-sdk`, or both. Omitting it uses `copilot-cli`.
+Runner selection is preserved in saved plans and trial output, and reports keep
+CLI and SDK results separate. Existing plans without a runner use the CLI.
+The runner applies to the implementation task; judges and walkthrough capture
+continue to use the CLI.
+
+### Selecting a runner from the CLI
+
+Pass `--runner copilot-cli` or `--runner copilot-sdk` when running a benchmark,
+experiment, or scenario, or when creating a benchmark or experiment plan:
+
+```bash
+agent-eval experiment run example --runner copilot-sdk
+agent-eval benchmark run example --runner copilot-sdk
+agent-eval scenario run example --runner copilot-sdk
+agent-eval experiment plan create example --runner copilot-sdk --output-path plan.json
+agent-eval experiment plan run --plan-path plan.json
+```
+
+For new runs and plans, `--runner` overrides the experiment's configured runner
+dimension with one runner. Without it, experiments use their configuration and
+benchmarks and scenarios use the CLI. Plans and result bundles record the runner.
+
+For `benchmark plan run` and `experiment plan run`, `--runner` filters the trials
+already in the saved plan. It does not change their runners or IDs. Shards retain
+their original assignments before the runner filter is applied. To use a runner
+that is absent from a saved plan, create a new plan with that runner.
 
 You can run experiments using the CLI by running the following command:
 

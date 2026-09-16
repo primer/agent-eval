@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import type {CheckOutput, ExperimentOutput, ExperimentTrialOutput, JudgeOutput} from '@primer/agent-eval'
+import type {CheckOutput, CopilotRunner, ExperimentOutput, ExperimentTrialOutput, JudgeOutput} from '@primer/agent-eval'
 import type {BenchmarkRun} from './benchmark-results'
 import {formatChecks, summarizeTrials} from './check-results'
 import {getWorkspaceFiles, type WorkspaceFiles} from './workspace-files'
@@ -34,6 +34,7 @@ type RunResult = {
   treatment: string
   model: string
   reasoningEffort?: string
+  runner: CopilotRunner
   checkSummary: string
   turns: number
   outputTokens: number
@@ -353,6 +354,7 @@ async function createExperimentRunDetails(
       treatment,
       model: result.model.name,
       reasoningEffort: result.model.reasoningEffort,
+      runner: result.runner ?? 'copilot-cli',
       checkSummary: formatChecks(summary),
       turns: result.agent.sessions.reduce((total, session) => {
         return total + session.turns

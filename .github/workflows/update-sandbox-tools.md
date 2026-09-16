@@ -1,6 +1,6 @@
 ---
 name: update-sandbox-tools
-description: Keep the sandbox npm and GitHub Copilot CLI versions up to date
+description: Keep the sandbox npm, GitHub Copilot CLI, and Copilot SDK versions up to date
 on:
   schedule: weekly
   workflow_dispatch:
@@ -32,6 +32,8 @@ safe-outputs:
     allowed-files:
       - packages/agent-eval/src/sandbox/system.ts
       - packages/agent-eval/src/sandbox/system.test.ts
+      - packages/agent-eval/src/copilot-sdk.ts
+      - packages/agent-eval/src/copilot-sdk.test.ts
       - .changeset/*.md
   noop:
 timeout-minutes: 30
@@ -39,25 +41,28 @@ timeout-minutes: 30
 
 # Update sandbox tools
 
-Keep the stable versions of npm and GitHub Copilot CLI used by evaluation sandboxes up to date.
+Keep the stable versions of npm, GitHub Copilot CLI, and Copilot SDK used by evaluation sandboxes up to date.
 
 ## Version sources and pins
 
-| Tool               | Latest stable version                     | Current pin                                                          |
-| ------------------ | ----------------------------------------- | -------------------------------------------------------------------- |
-| npm                | `npm view npm@latest version`             | `NPM_VERSION` in `packages/agent-eval/src/sandbox/system.ts`         |
-| GitHub Copilot CLI | `npm view @github/copilot@latest version` | `COPILOT_CLI_VERSION` in `packages/agent-eval/src/sandbox/system.ts` |
+| Tool               | Latest stable version                         | Current pin                                                          |
+| ------------------ | --------------------------------------------- | -------------------------------------------------------------------- |
+| npm                | `npm view npm@latest version`                 | `NPM_VERSION` in `packages/agent-eval/src/sandbox/system.ts`         |
+| GitHub Copilot CLI | `npm view @github/copilot@latest version`     | `COPILOT_CLI_VERSION` in `packages/agent-eval/src/sandbox/system.ts` |
+| GitHub Copilot SDK | `npm view @github/copilot-sdk@latest version` | `COPILOT_SDK_VERSION` in `packages/agent-eval/src/copilot-sdk.ts`    |
 
 ## Required process
 
-1. Read both current pins before making changes.
-2. Query both version sources with these exact commands, run separately (no shell chaining like `;`/`&&` and no redirection):
+1. Read all three current pins before making changes.
+2. Query all three version sources with these exact commands, run separately (no shell chaining like `;`/`&&` and no redirection):
    - `npm view npm@latest version`
    - `npm view @github/copilot@latest version`
+   - `npm view @github/copilot-sdk@latest version`
      Only use the versions returned by the `latest` npm distribution tag. Do not select prerelease versions.
-3. If both current pins match their latest stable versions, call `noop` as the final action and report that both tools are current.
+3. If all three current pins match their latest stable versions, call `noop` as the final action and report that all tools are current.
 4. For each outdated tool:
    - Update only its documented pin.
+   - Update matching version expectations in `packages/agent-eval/src/sandbox/system.test.ts` or `packages/agent-eval/src/copilot-sdk.test.ts` when required. Preserve all other test behavior.
 5. Run `pnpm install --frozen-lockfile`.
 6. Run the repository CI commands:
    - `pnpm run build`

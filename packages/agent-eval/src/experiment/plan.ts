@@ -1,5 +1,6 @@
 import {randomUUID} from 'node:crypto'
 import * as z from 'zod/mini'
+import {CopilotRunnerSchema, type CopilotRunner} from '../copilot-runner'
 import type {Host} from '../host'
 import {ModelVariantSchema} from '../model'
 import {createPlan, type Plan} from '../plan'
@@ -12,6 +13,7 @@ type ExperimentTrial = Trial
 
 type CreateExperimentPlanOptions = {
   experiment: Experiment
+  runner?: CopilotRunner
 }
 
 function getExperimentTreatments(experiment: Experiment) {
@@ -29,20 +31,27 @@ function getExperimentTreatments(experiment: Experiment) {
   return treatments
 }
 
-function createExperimentPlan({experiment}: CreateExperimentPlanOptions): Plan<ExperimentTrial> {
+function createExperimentPlan({
+  experiment,
+  runner: selectedRunner,
+}: CreateExperimentPlanOptions): Plan<ExperimentTrial> {
   const treatments = [...getExperimentTreatments(experiment).values()]
+  const runners = selectedRunner ? [selectedRunner] : (experiment.runners ?? ['copilot-cli'])
 
   return createPlan({
     trials: experiment.models.flatMap(model => {
       return experiment.scenarios.flatMap(scenario => {
-        return treatments.map(treatment => {
-          return {
-            id: randomUUID(),
-            scenario,
-            treatment,
-            model,
-            setup: experiment.setup,
-          }
+        return [...new Set<CopilotRunner>(runners)].flatMap(runner => {
+          return treatments.map(treatment => {
+            return {
+              id: randomUUID(),
+              scenario,
+              treatment,
+              model,
+              runner,
+              setup: experiment.setup,
+            }
+          })
         })
       })
     }),
@@ -56,6 +65,7 @@ const ExperimentPlanManifestFileSchema = z.object({
     z.object({
       id: z.string(),
       model: ModelVariantSchema,
+      runner: z._default(CopilotRunnerSchema, 'copilot-cli'),
       scenarioId: z.string(),
       treatmentId: z.string(),
     }),
@@ -80,6 +90,7 @@ function createExperimentPlanManifest({
       return {
         id: trial.id,
         model: trial.model,
+        runner: trial.runner ?? 'copilot-cli',
         scenarioId: trial.scenario.id,
         treatmentId: trial.treatment.id,
       }
@@ -148,6 +159,7 @@ async function parseExperimentPlanManifest({
       return {
         id: trial.id,
         model,
+        runner: trial.runner,
         scenario,
         treatment,
         setup: experiment.setup,

@@ -1,6 +1,7 @@
 import {describe, expect, test, vi} from 'vitest'
 import type {CheckOutput} from './check'
 import type {ModelVariant} from './model'
+import type {CopilotRunner} from './copilot-runner'
 import {VirtualHost} from './host'
 import type {RunPlanResult} from './plan'
 import type {Benchmark} from './benchmark/benchmark'
@@ -70,6 +71,7 @@ function createResult({
   model = {name: 'gpt-5.5', reasoningEffort: 'medium'},
   outputTokens = 10,
   capabilityId = 'capability',
+  runner,
 }: {
   id?: string
   checks?: Array<CheckOutput>
@@ -78,6 +80,7 @@ function createResult({
   model?: ModelVariant
   outputTokens?: number
   capabilityId?: string
+  runner?: CopilotRunner
 } = {}): RunPlanResult<BenchmarkTrial>['results'][number] {
   const scenario = {
     id: scenarioId,
@@ -92,6 +95,7 @@ function createResult({
     scenario,
     treatment: createTreatment({name: treatment}),
     model,
+    runner,
     capability: {id: capabilityId, name: 'Capability', scenarios: [scenario]},
   }
   return {
@@ -512,6 +516,41 @@ describe('equal-weight check ordering', () => {
 })
 
 describe('run reports', () => {
+  test('keeps benchmark runners separate and compares each with its own control', () => {
+    const results = [
+      createResult({id: 'cli-control', treatment: 'Control', runner: 'copilot-cli', checks: [outcomes(['failed'])]}),
+      createResult({id: 'cli', runner: 'copilot-cli', checks: [outcomes(['failed'])]}),
+      createResult({id: 'sdk-control', treatment: 'Control', runner: 'copilot-sdk', checks: [outcomes(['passed'])]}),
+      createResult({id: 'sdk', runner: 'copilot-sdk', checks: [outcomes(['passed'])]}),
+    ]
+    const report = createBenchmarkReport({benchmark: benchmark(results), runPlanResult: {results}})
+    expect(report).toContain('Runner')
+    expect(report).toContain('copilot-cli')
+    expect(report).toContain('copilot-sdk')
+    expect(report.match(/100\.0% \(0%\)/g)).toHaveLength(3)
+    expect(report).not.toContain('50.0%')
+  })
+
+  test('keeps CLI and SDK results separate at every experiment report level', () => {
+    const results = [
+      createResult({id: 'cli', treatment: 'Control', runner: 'copilot-cli', checks: [outcomes(['failed'])]}),
+      createResult({id: 'sdk', treatment: 'Control', runner: 'copilot-sdk', checks: [outcomes(['passed'])]}),
+    ]
+    const report = createExperimentReport({experiment: experiment(results), runPlanResult: {results}})
+    expect(report).toContain('Runner')
+    expect(report).toContain('copilot-cli')
+    expect(report).toContain('copilot-sdk')
+    expect(report.match(/100\.0%/g)).toHaveLength(3)
+    expect(report).not.toContain('50.0%')
+    expect(report.match(/Control/g)).toHaveLength(2)
+  })
+
+  test('keeps the existing report columns for CLI-only experiments', () => {
+    const results = [createResult()]
+    const report = createExperimentReport({experiment: experiment(results), runPlanResult: {results}})
+    expect(report).not.toContain('Runner')
+  })
+
   test('experiment reports include checks at treatment, scenario, and model levels', () => {
     const results = [
       createResult({id: 'a', treatment: 'Cheaper', checks: [outcomes(['failed'])], outputTokens: 1}),
@@ -714,7 +753,7 @@ describe.each(['benchmark', 'experiment'] as const)('%s check result bundles', k
         result: {type: 'outcomes', outcomes: [{type: 'error', message: 'Could not run'}]},
       },
     ]
-    const results = [createResult({checks})]
+    const results = [createResult({checks, runner: 'copilot-sdk'})]
     const host = VirtualHost.create()
     await host.fs.mkdir('/output/artifacts/trial', {recursive: true})
 
@@ -731,6 +770,7 @@ describe.each(['benchmark', 'experiment'] as const)('%s check result bundles', k
         outputDirectory: '/output',
       })
       expect(merged.trials.get('trial')?.checks).toEqual(checks)
+      expect(merged.trials.get('trial')?.runner).toBe('copilot-sdk')
       await writeBenchmarkOutput({host, output: merged, outputPath: '/output/output.json'})
     } else {
       const output = createExperimentOutput({experiment: experiment(results), runPlanResult: {results}})
@@ -745,6 +785,7 @@ describe.each(['benchmark', 'experiment'] as const)('%s check result bundles', k
         outputDirectory: '/output',
       })
       expect(merged.trials.get('trial')?.checks).toEqual(checks)
+      expect(merged.trials.get('trial')?.runner).toBe('copilot-sdk')
       await writeExperimentOutput({host, output: merged, outputPath: '/output/output.json'})
     }
 

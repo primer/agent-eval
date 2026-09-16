@@ -9,6 +9,7 @@ type Experiment = {
   name: ExperimentConfig['name']
   description: ExperimentConfig['description']
   models: Array<ModelVariant>
+  runners?: ExperimentConfig['runners']
   scenarios: Array<Scenario>
   setup?: TreatmentSetup
   treatments: Array<Treatment>

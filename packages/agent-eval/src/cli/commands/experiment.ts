@@ -24,6 +24,7 @@ import {
   githubCopilotTokenOption,
   outputDirectoryOption,
   scenariosOption,
+  runnerOption,
   shardOption,
 } from '../options'
 
@@ -94,6 +95,7 @@ const experimentCommand = defineCommand({
               default: 'plan.json',
             },
             scenarios: scenariosOption,
+            runner: runnerOption,
           },
           async run({args}) {
             logger.info('Planning experiment: %s', args.name)
@@ -113,7 +115,7 @@ const experimentCommand = defineCommand({
               scenariosDirectory,
               name: args.name,
             })
-            const plan = createExperimentPlan({experiment})
+            const plan = createExperimentPlan({experiment, runner: args.runner})
             const manifest = createExperimentPlanManifest({experiment, plan})
 
             await host.fs.mkdir(path.dirname(outputPath), {recursive: true})
@@ -139,6 +141,7 @@ const experimentCommand = defineCommand({
               default: './plan.json',
             },
             scenarios: scenariosOption,
+            runner: runnerOption,
             shard: shardOption,
             token: githubCopilotTokenOption,
           },
@@ -183,7 +186,7 @@ const experimentCommand = defineCommand({
               shard ? `(${shard.order}/${shard.total})` : '',
             )
 
-            const plan = createPlanFromManifest({shard, trials: manifest.trials})
+            const plan = createPlanFromManifest({shard, trials: manifest.trials, runner: args.runner})
             const runPlanResult = await runPlan({
               artifactsDirectory,
               copilotConcurrency,
@@ -216,6 +219,7 @@ const experimentCommand = defineCommand({
         },
         'output-dir': outputDirectoryOption,
         scenarios: scenariosOption,
+        runner: runnerOption,
         token: githubCopilotTokenOption,
       },
       async run({args}) {
@@ -245,7 +249,7 @@ const experimentCommand = defineCommand({
           scenariosDirectory,
           name: args.name,
         })
-        const plan = createExperimentPlan({experiment})
+        const plan = createExperimentPlan({experiment, runner: args.runner})
         const runPlanResult = await runPlan({
           artifactsDirectory,
           copilotConcurrency,

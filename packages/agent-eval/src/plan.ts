@@ -1,4 +1,5 @@
 import Queue from 'p-queue'
+import type {CopilotRunner} from './copilot-runner'
 import {DefaultHost, type Host} from './host'
 import {logger} from './logger'
 import type {Trial} from './trial/trial'
@@ -32,6 +33,7 @@ function createPlan<T extends Trial>({trials}: CreatePlanOptions<T>): Plan<T> {
 type CreatePlanFromManifestOptions<T extends Trial> = {
   trials: Array<T>
   shard?: Shard
+  runner?: CopilotRunner
 }
 
 /**
@@ -42,15 +44,25 @@ type CreatePlanFromManifestOptions<T extends Trial> = {
  * When the `shard` option is provided, the plan will be filtered to only include trials
  * that match the shard's order and total.
  */
-function createPlanFromManifest<T extends Trial>({shard, trials}: CreatePlanFromManifestOptions<T>): Plan<T> {
-  if (shard) {
-    return {
-      trials: selectShard(trials, shard),
-    }
+function createPlanFromManifest<T extends Trial>({runner, shard, trials}: CreatePlanFromManifestOptions<T>): Plan<T> {
+  if (
+    runner &&
+    !trials.some(trial => {
+      return (trial.runner ?? 'copilot-cli') === runner
+    })
+  ) {
+    throw new Error(
+      `No trials found for runner "${runner}" in the saved plan. Create a new plan with --runner ${runner}.`,
+    )
   }
 
+  const selected = shard ? selectShard(trials, shard) : trials
   return {
-    trials,
+    trials: runner
+      ? selected.filter(trial => {
+          return (trial.runner ?? 'copilot-cli') === runner
+        })
+      : selected,
   }
 }
 

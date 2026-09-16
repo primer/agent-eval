@@ -80,6 +80,11 @@ selector exposes repeated trials for the same model and treatment. Benchmark run
 details can be filtered by capability, with shared scenarios displayed separately
 under each capability.
 
+Each selected trial shows a **Copilot CLI** or **Copilot SDK** label in its run
+summary. Trial selector options also identify the runner when comparing trials
+for the same model and treatment. Older results without runner metadata are
+displayed as Copilot CLI.
+
 Summaries use the package's reporting helpers: each check's value is its pass
 percentage or measurement mean for a trial, averaged across trials. Skips and
 errors do not contribute values; missing values, skips, and errors are reported

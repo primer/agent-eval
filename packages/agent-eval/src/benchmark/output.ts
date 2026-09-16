@@ -1,5 +1,6 @@
 import path from 'node:path'
 import * as z from 'zod/mini'
+import {CopilotRunnerSchema} from '../copilot-runner'
 import type {BenchmarkTrial} from './plan'
 import type {RunPlanResult} from '../plan'
 import {
@@ -24,6 +25,7 @@ const BenchmarkTrialOutputSchema = z.object({
   id: z.string(),
   judges: TrialJudgesSchema,
   model: ModelVariantSchema,
+  runner: z.optional(CopilotRunnerSchema),
   scenarioId: z.string(),
   treatmentId: z.string(),
   walkthrough: TrialWalkthroughSchema,
@@ -136,6 +138,7 @@ function createBenchmarkOutput({benchmark, runPlanResult}: CreateBenchmarkOutput
       id: trial.id,
       judges: trialResult.judges,
       model: trial.model,
+      runner: trial.runner ?? 'copilot-cli',
       scenarioId: trial.scenario.id,
       treatmentId: trial.treatment.id,
       walkthrough: trialResult.walkthrough,
@@ -239,6 +242,7 @@ async function writeBenchmarkOutput({host = DefaultHost, output, outputPath}: Wr
       judges: trial.judges,
       model: trial.model,
       scenarioId: trial.scenarioId,
+      runner: trial.runner ?? 'copilot-cli',
       treatmentId: trial.treatmentId,
       walkthrough: trial.walkthrough,
     }

@@ -85,7 +85,7 @@ are used by the capability to evaluate its performance in different areas.
 
 For example, you might have a capability that looks to see if the icons from
 your design system are used appropriately. Each scenario in that capability may
-test a different thing, from testing that it uses icons from default to
+test a different thing, from testing that it uses icons by default to
 inferring the correct semantic meaning of an icon in a new context.
 
 You can run benchmarks using the CLI by running the following command:
@@ -95,11 +95,6 @@ agent-eval benchmarks run <benchmark-name>
 ```
 
 To learn more about benchmarks, visit our [benchmark docs](../../docs/benchmarks.md).
-
-Saved benchmark plans identify the benchmark by its filename without the
-extension. The display name is descriptive metadata, so changing it does not
-invalidate an existing plan. Each trial must have a unique ID; plans with
-duplicate trial IDs are rejected.
 
 ## Experiments
 
@@ -114,7 +109,6 @@ export default defineConfig({
   name: 'Example experiment',
   description: 'An illustrative experiment showing how to use @primer/agent-eval',
   models: ['gpt-5.6-sol', 'claude-opus-5'],
-  runners: ['copilot-cli', 'copilot-sdk'],
   scenarios: ['001-agent-scenario', '002-agent-scenario', '003-agent-scenario'],
   treatments: [
     {
@@ -140,35 +134,6 @@ export default defineConfig({
 
 In this experiment, we're looking at two treatments to see which one performs
 best against the given scenarios.
-
-The optional `runners` array evaluates each model/scenario/treatment combination
-with `copilot-cli`, `copilot-sdk`, or both. Omitting it uses `copilot-cli`.
-Runner selection is preserved in saved plans and trial output, and reports keep
-CLI and SDK results separate. Existing plans without a runner use the CLI.
-The runner applies to the implementation task; judges and walkthrough capture
-continue to use the CLI.
-
-### Selecting a runner from the CLI
-
-Pass `--runner copilot-cli` or `--runner copilot-sdk` when running a benchmark,
-experiment, or scenario, or when creating a benchmark or experiment plan:
-
-```bash
-agent-eval experiment run example --runner copilot-sdk
-agent-eval benchmark run example --runner copilot-sdk
-agent-eval scenario run example --runner copilot-sdk
-agent-eval experiment plan create example --runner copilot-sdk --output-path plan.json
-agent-eval experiment plan run --plan-path plan.json
-```
-
-For new runs and plans, `--runner` overrides the experiment's configured runner
-dimension with one runner. Without it, experiments use their configuration and
-benchmarks and scenarios use the CLI. Plans and result bundles record the runner.
-
-For `benchmark plan run` and `experiment plan run`, `--runner` filters the trials
-already in the saved plan. It does not change their runners or IDs. Shards retain
-their original assignments before the runner filter is applied. To use a runner
-that is absent from a saved plan, create a new plan with that runner.
 
 You can run experiments using the CLI by running the following command:
 
@@ -208,10 +173,9 @@ task. You can use them to run tools like vitest or eslint and report back their
 results. You can also use them as general scripts to run your own checks, such
 as:
 
-- Figuring out how different the scenario is from a baseline snapshot
-- Figuring how much files include (or don't include) an import statement (useful
-  for migration work)
-- Figuring out how similar a generated file is from a baseline file
+- Determine how different the scenario is from a baseline snapshot
+- Determine if files include an import statement (useful for migration work)
+- Determine how similar a generated file is from a baseline file
 
 Checks are available with the `checks` option in a `scenario` config:
 
@@ -233,13 +197,6 @@ export default defineConfig({
   ],
 })
 ```
-
-Files listed in a check's `files` option are withheld from the agent's initial
-workspace and copied in before that check runs.
-
-Check and judge reference paths must stay inside the scenario directory, both
-as written and after resolving symlinks. The referenced entry itself must not
-be a symlink.
 
 Checks can return outcomes or measurements. Outcomes are used to determine if the agent passed or failed the check, while measurements are used to determine how well the agent performed on the check.
 

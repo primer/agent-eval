@@ -79,6 +79,7 @@ async function listExperiments({
       name: config.name,
       description: config.description,
       models: getModelVariants(config.models),
+      runners: config.runners,
       scenarios,
       setup: config.setup,
       treatments: config.treatments.map(treatment => {

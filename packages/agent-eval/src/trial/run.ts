@@ -6,6 +6,7 @@ import {logger} from '../logger'
 import {AGENTS_DIR, CONTAINER_WORKDIR, COPILOT_DIR, NODE_USER, SKILLS_DIR, type Sandbox} from '../sandbox'
 import {TrialSchema, type Trial} from './trial'
 import {parseMessage, type Message} from '../copilot-cli'
+import {runCopilotSdk} from '../copilot-sdk'
 import {
   getJudgeModel,
   getJudgePrompt,
@@ -215,8 +216,17 @@ const taskStage = {
   async run({copilotQueue, copilotToken, sandbox, trial}: RunStageOptions) {
     logger.info('[%s] Running agent', trial.id)
 
-    const copilotOutput = await copilotQueue.add(async () => {
-      return await sandbox.runCommand(
+    const messages = await copilotQueue.add(async () => {
+      if (trial.runner === 'copilot-sdk') {
+        return runCopilotSdk({
+          sandbox,
+          prompt: trial.scenario.prompt,
+          model: trial.model,
+          copilotToken,
+        })
+      }
+
+      const copilotOutput = await sandbox.runCommand(
         'copilot',
         [
           '--prompt',
@@ -238,13 +248,13 @@ const taskStage = {
           },
         },
       )
-    })
-    const messages: Array<Message> = copilotOutput.stdout.split('\n').flatMap(line => {
-      const trimmed = line.trim()
-      if (trimmed.length === 0) {
-        return []
-      }
-      return parseMessage(JSON.parse(trimmed))
+      return copilotOutput.stdout.split('\n').flatMap(line => {
+        const trimmed = line.trim()
+        if (trimmed.length === 0) {
+          return []
+        }
+        return parseMessage(JSON.parse(trimmed))
+      })
     })
 
     return {

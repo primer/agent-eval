@@ -114,6 +114,7 @@ export default defineConfig({
   name: 'Example experiment',
   description: 'An illustrative experiment showing how to use @primer/agent-eval',
   models: ['gpt-5.6-sol', 'claude-opus-5'],
+  runners: ['copilot-cli', 'copilot-sdk'],
   scenarios: ['001-agent-scenario', '002-agent-scenario', '003-agent-scenario'],
   treatments: [
     {
@@ -139,6 +140,13 @@ export default defineConfig({
 
 In this experiment, we're looking at two treatments to see which one performs
 best against the given scenarios.
+
+The optional `runners` array evaluates each model/scenario/treatment combination
+with `copilot-cli`, `copilot-sdk`, or both. Omitting it uses `copilot-cli`.
+Runner selection is preserved in saved plans and trial output, and reports keep
+CLI and SDK results separate. Existing plans without a runner use the CLI.
+The runner applies to the implementation task; judges and walkthrough capture
+continue to use the CLI.
 
 You can run experiments using the CLI by running the following command:
 

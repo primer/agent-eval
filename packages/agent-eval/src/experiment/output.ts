@@ -1,5 +1,6 @@
 import path from 'node:path'
 import * as z from 'zod/mini'
+import {CopilotRunnerSchema} from '../copilot-runner'
 import {DefaultHost, type Host} from '../host'
 import {ModelVariantSchema} from '../model'
 import type {RunPlanResult} from '../plan'
@@ -23,6 +24,7 @@ const ExperimentTrialOutputSchema = z.object({
   id: z.string(),
   judges: TrialJudgesSchema,
   model: ModelVariantSchema,
+  runner: z.optional(CopilotRunnerSchema),
   scenarioId: z.string(),
   treatmentId: z.string(),
   walkthrough: TrialWalkthroughSchema,
@@ -96,6 +98,7 @@ function createExperimentOutput({experiment, runPlanResult}: CreateExperimentOut
       id: trial.id,
       judges: trialResult.judges,
       model: trial.model,
+      runner: trial.runner ?? 'copilot-cli',
       scenarioId: trial.scenario.id,
       treatmentId: trial.treatment.id,
       walkthrough: trialResult.walkthrough,

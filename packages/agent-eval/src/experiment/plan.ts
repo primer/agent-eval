@@ -1,5 +1,6 @@
 import {randomUUID} from 'node:crypto'
 import * as z from 'zod/mini'
+import {CopilotRunnerSchema} from '../copilot-runner'
 import type {Host} from '../host'
 import {ModelVariantSchema} from '../model'
 import {createPlan, type Plan} from '../plan'
@@ -35,14 +36,17 @@ function createExperimentPlan({experiment}: CreateExperimentPlanOptions): Plan<E
   return createPlan({
     trials: experiment.models.flatMap(model => {
       return experiment.scenarios.flatMap(scenario => {
-        return treatments.map(treatment => {
-          return {
-            id: randomUUID(),
-            scenario,
-            treatment,
-            model,
-            setup: experiment.setup,
-          }
+        return [...new Set(experiment.runners ?? (['copilot-cli'] as const))].flatMap(runner => {
+          return treatments.map(treatment => {
+            return {
+              id: randomUUID(),
+              scenario,
+              treatment,
+              model,
+              runner,
+              setup: experiment.setup,
+            }
+          })
         })
       })
     }),
@@ -56,6 +60,7 @@ const ExperimentPlanManifestFileSchema = z.object({
     z.object({
       id: z.string(),
       model: ModelVariantSchema,
+      runner: z._default(CopilotRunnerSchema, 'copilot-cli'),
       scenarioId: z.string(),
       treatmentId: z.string(),
     }),
@@ -80,6 +85,7 @@ function createExperimentPlanManifest({
       return {
         id: trial.id,
         model: trial.model,
+        runner: trial.runner ?? 'copilot-cli',
         scenarioId: trial.scenario.id,
         treatmentId: trial.treatment.id,
       }
@@ -145,9 +151,14 @@ async function parseExperimentPlanManifest({
         throw new Error(`Model variant not found for trial: ${trial.id}`)
       }
 
+      if (!(experiment.runners ?? ['copilot-cli']).includes(trial.runner)) {
+        throw new Error(`Runner not found for trial: ${trial.id}`)
+      }
+
       return {
         id: trial.id,
         model,
+        runner: trial.runner,
         scenario,
         treatment,
         setup: experiment.setup,

@@ -1,4 +1,5 @@
 import * as z from 'zod/mini'
+import {CopilotRunnerSchema} from '../copilot-runner'
 import {ScenarioSchema} from '../scenario/scenario'
 import {ModelVariantSchema} from '../model'
 import {TreatmentSchema, TreatmentSetupSchema} from '../treatment'
@@ -12,6 +13,7 @@ const TrialSchema = z.object({
   scenario: ScenarioSchema,
   treatment: TreatmentSchema,
   model: ModelVariantSchema,
+  runner: z.optional(CopilotRunnerSchema),
   setup: z.optional(TreatmentSetupSchema),
 })
 

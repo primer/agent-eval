@@ -18,13 +18,15 @@ import {getScenario} from '../../scenario/get'
 import {createScenarioPlan} from '../../scenario/plan'
 import {runPlan} from '../../plan'
 import type {RunTrialResult} from '../../trial/run'
+import {createScenario} from '../create'
 
 const scenarioCommand = defineCommand({
   meta: {
     name: 'scenario',
-    description: 'Run scenarios',
+    description: 'Create and run scenarios',
   },
   subCommands: {
+    create: createScenario,
     run: defineCommand({
       meta: {
         name: 'run',

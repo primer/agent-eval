@@ -28,6 +28,18 @@ refer to that fixture; a prompt-only configuration is not an equivalent substitu
 
 ## Build the starting workspace
 
+To scaffold a workspace with a prompt-only configuration:
+
+```sh
+npx agent-eval scenario create task-list --prompt "Build a task list"
+npx agent-eval scenario create task-list-vite --template vite --prompt "Build a task list"
+```
+
+The default template is Next.js; Vite uses React and TypeScript. Creation
+downloads the official generator with `npx` but skips dependency installation.
+Run `npm install` inside the scenario for local development. Add your own
+checks/judges; no Vitest or ESLint grading check is configured automatically.
+
 For a new application task, use framework scaffolding without a completed
 feature, answer-revealing stubs, TODO instructions, or generated artifacts.
 For a modification task, include only the realistic pre-change behavior.

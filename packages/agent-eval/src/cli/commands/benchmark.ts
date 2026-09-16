@@ -27,13 +27,15 @@ import {
 } from '../../benchmark/output'
 import {createPlanFromManifest, runPlan} from '../../plan'
 import {DefaultHost as host} from '../../host'
+import {createBenchmark} from '../create'
 
 const benchmarkCommand = defineCommand({
   meta: {
     name: 'benchmark',
-    description: 'Run and plan benchmarks',
+    description: 'Create, run, and plan benchmarks',
   },
   subCommands: {
+    create: createBenchmark,
     merge: defineCommand({
       meta: {
         name: 'merge',

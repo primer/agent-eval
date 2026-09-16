@@ -10,7 +10,10 @@ const ScenarioConfigSchema = z.object({
   judges: z._default(z.array(JudgeConfigSchema), []),
 })
 
-type ScenarioConfig = z.output<typeof ScenarioConfigSchema>
+// Keep declaration emit from expanding the inferred schema into internal types.
+type ScenarioConfig = {
+  [Key in keyof z.output<typeof ScenarioConfigSchema>]: z.output<typeof ScenarioConfigSchema>[Key]
+}
 
 type ScenarioConfigModule = {
   default?: unknown

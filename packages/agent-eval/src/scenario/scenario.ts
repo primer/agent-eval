@@ -12,7 +12,10 @@ const ScenarioSchema = z.object({
   judges: z._default(z.array(JudgeSchema), []),
 })
 
-type Scenario = z.infer<typeof ScenarioSchema>
+// Keep declaration emit from expanding the inferred schema into internal types.
+type Scenario = {
+  [Key in keyof z.infer<typeof ScenarioSchema>]: z.infer<typeof ScenarioSchema>[Key]
+}
 
 export {ScenarioSchema}
 export type {Scenario}

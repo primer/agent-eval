@@ -21,10 +21,6 @@
     "./scenario": {
       "types": "./dist/scenario.d.ts",
       "default": "./dist/scenario.js"
-    },
-    "./sandbox": {
-      "types": "./dist/sandbox/index.d.ts",
-      "default": "./dist/sandbox/index.js"
     }
   },
   "engines": {

@@ -19,6 +19,10 @@
   signatures, or behavior change. Exclude `[Symbol.asyncDispose]()` from the
   table. List method names without arguments; rely on TypeScript for argument
   details.
+- Keep `skills/agent-eval/SKILL.md` and its `references/` up-to-date in the same
+  change whenever project structure, methodology, domain models, public APIs,
+  CLI commands, or runtime requirements change. Keep `SKILL.md` concise, put
+  detailed guidance in references, and use npm/npx in skill examples.
 
 ## Pull Requests
 

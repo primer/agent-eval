@@ -33,6 +33,9 @@ function configSource(kind: string, config: unknown) {
 
 async function writeConfig(directory: string, name: string, kind: string, config: unknown) {
   validateName(name)
+  if (name === 'index') {
+    throw new Error(`The name "index" is reserved and cannot be used for a ${kind}`)
+  }
   const filepath = path.resolve(directory, `${name}.ts`)
   await host.fs.mkdir(path.dirname(filepath), {recursive: true})
   await host.fs.writeFile(filepath, configSource(kind, config), {flag: 'wx'})

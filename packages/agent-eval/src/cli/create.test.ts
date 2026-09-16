@@ -128,6 +128,14 @@ describe.each([
   })
 })
 
+test.each([
+  {command: benchmark, folder: 'benchmarks'},
+  {command: experiment, folder: 'experiments'},
+])('$folder creation rejects the reserved index filename', async ({command, folder}) => {
+  await expect(runCommand(command, {rawArgs: ['create', 'index']})).rejects.toThrow('reserved')
+  await expect(fs.stat(path.join(directory, folder))).rejects.toThrow()
+})
+
 describe('scenario templates', () => {
   test.each([
     {template: undefined, generator: 'create-next-app@16.3.5', flags: ['--skip-install', '--disable-git', '--empty']},

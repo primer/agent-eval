@@ -85,7 +85,8 @@ npx agent-eval scenario create task-list-vite --template vite --prompt "Build a 
 Creation uses the project root and the corresponding directory option. Names
 must start with a lowercase letter or number and contain only `a-z`, `0-9`,
 hyphens, or underscores. Existing destinations are refused, including empty
-scenario directories. Benchmark/experiment files use default `defineConfig`
+scenario directories. The name `index` is reserved for benchmarks and experiments.
+Benchmark/experiment files use default `defineConfig`
 exports. Choose models and add scenario IDs and capabilities/treatments before
 planning or running them.
 

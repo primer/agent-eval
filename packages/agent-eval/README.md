@@ -68,7 +68,7 @@ Use `--benchmarks <directory>`, `--experiments <directory>`, or
 `--scenarios <directory>` to change the corresponding creation directory.
 Names must start with a lowercase letter or number and contain only lowercase
 letters, numbers, hyphens, or underscores. Existing files and scenario directories
-are never overwritten.
+are never overwritten. The name `index` is reserved for benchmarks and experiments.
 
 ## Benchmarks
 

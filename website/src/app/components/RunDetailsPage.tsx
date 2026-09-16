@@ -7,6 +7,7 @@ import {loadTrialDetails, loadTrialTranscript} from '../../run-data-client'
 import type {Route} from 'next'
 import Link from 'next/link'
 import {useEffect, useState, type ReactNode} from 'react'
+import {getScenarioAnchor} from '../../scenario-anchor'
 import {JudgeResults} from './JudgeResults'
 import {CheckResults} from './CheckResults'
 import {RunDetailsLoading, type ResultTab} from './RunDetailsLoading'
@@ -290,7 +291,7 @@ function ScenarioResults({group, index}: {group: ScenarioResultGroup; index: num
 
   const [selectedModel, setSelectedModel] = useState(getModelValue(group.results[0]))
   const [selectedTreatment, setSelectedTreatment] = useState(group.results[0].treatment)
-  const [selectedTrialId, setSelectedTrialId] = useState(group.results[0].id)
+  const [selectedTrial, setSelectedTrial] = useState(group.results[0].id)
   const resultsForSelectedModel = group.results.filter(result => {
     return getModelValue(result) === selectedModel
   })
@@ -299,22 +300,26 @@ function ScenarioResults({group, index}: {group: ScenarioResultGroup; index: num
       return firstTreatment.localeCompare(secondTreatment)
     },
   )
-  const resultsForSelectedTreatment = resultsForSelectedModel.filter(result => {
-    return result.treatment === selectedTreatment
+  const activeTreatment = treatmentOptions.includes(selectedTreatment) ? selectedTreatment : treatmentOptions[0]
+  const trials = resultsForSelectedModel.filter(result => {
+    return result.treatment === activeTreatment
   })
   const selectedResult =
-    resultsForSelectedTreatment.find(result => {
-      return result.id === selectedTrialId
+    trials.find(result => {
+      return result.id === selectedTrial
     }) ??
-    resultsForSelectedTreatment[0] ??
-    resultsForSelectedModel[0] ??
+    trials[0] ??
     group.results[0]
 
   const resultHeadingId = `result-${index}-heading`
   const summaryHeadingId = `result-${index}-summary-heading`
 
   return (
-    <article aria-labelledby={resultHeadingId} className="flex flex-col gap-4">
+    <article
+      aria-labelledby={resultHeadingId}
+      className="flex flex-col gap-4"
+      id={group.capability ? `capability-scenario-${index}` : getScenarioAnchor(group.scenarioId).id}
+    >
       <header className="border-b border-default pb-3 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <h2 className="text-title-medium m-0" id={resultHeadingId}>
           {group.capability ? `${group.capability.name} / ` : null}
@@ -335,9 +340,14 @@ function ScenarioResults({group, index}: {group: ScenarioResultGroup; index: num
                 })
                   ? selectedTreatment
                   : (resultsForNextModel[0] ?? group.results[0]).treatment
+                const nextTrial =
+                  resultsForNextModel.find(result => {
+                    return result.treatment === nextTreatment
+                  }) ?? group.results[0]
 
                 setSelectedModel(nextModel)
                 setSelectedTreatment(nextTreatment)
+                setSelectedTrial(nextTrial.id)
               }}
             >
               {sortedModelOptions.map(([value, label]) => {
@@ -352,9 +362,16 @@ function ScenarioResults({group, index}: {group: ScenarioResultGroup; index: num
           <FormControl>
             <FormControl.Label>Treatment</FormControl.Label>
             <Select
-              value={selectedResult.treatment}
+              value={selectedTreatment}
               onChange={event => {
-                setSelectedTreatment(event.currentTarget.value)
+                const nextTreatment = event.currentTarget.value
+                const nextTrial =
+                  resultsForSelectedModel.find(result => {
+                    return result.treatment === nextTreatment
+                  }) ?? group.results[0]
+
+                setSelectedTreatment(nextTreatment)
+                setSelectedTrial(nextTrial.id)
               }}
             >
               {treatmentOptions.map(treatment => {
@@ -366,19 +383,19 @@ function ScenarioResults({group, index}: {group: ScenarioResultGroup; index: num
               })}
             </Select>
           </FormControl>
-          {resultsForSelectedTreatment.length > 1 ? (
+          {trials.length > 1 ? (
             <FormControl>
               <FormControl.Label>Trial</FormControl.Label>
               <Select
                 value={selectedResult.id}
                 onChange={event => {
-                  setSelectedTrialId(event.currentTarget.value)
+                  setSelectedTrial(event.currentTarget.value)
                 }}
               >
-                {resultsForSelectedTreatment.map((result, trialIndex) => {
+                {trials.map((trial, trialIndex) => {
                   return (
-                    <Select.Option key={result.id} value={result.id}>
-                      Trial {trialIndex + 1} ({result.id})
+                    <Select.Option key={trial.id} value={trial.id}>
+                      Trial {trialIndex + 1} ({trial.id})
                     </Select.Option>
                   )
                 })}

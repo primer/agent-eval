@@ -73,6 +73,21 @@ async function listForExperiment(experimentId: string): Promise<Array<Run>> {
     })
 }
 
+async function getLatestForExperiment(experimentId: string): Promise<Run | null> {
+  const entries = (await listRunDirectories(experimentId)).toSorted((first, second) => {
+    return second.name.localeCompare(first.name)
+  })
+
+  for (const entry of entries) {
+    const run = await find(experimentId, entry.name)
+    if (run) {
+      return run
+    }
+  }
+
+  return null
+}
+
 async function list(): Promise<Array<Run>> {
   const experiments = await listExperimentDirectories()
   const runs = await Promise.all(
@@ -132,5 +147,5 @@ async function get(experimentId: string, name: string): Promise<Run> {
   return run
 }
 
-export {list, listForExperiment, get}
+export {list, listForExperiment, getLatestForExperiment, get}
 export type {Run}

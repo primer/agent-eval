@@ -11,8 +11,8 @@ export const metadata = {
 }
 
 export default function Layout({children}: {children: React.ReactNode}) {
+  // Match the markers Primer's focus-visible polyfill adds before hydration.
   return (
-    // BaseStyles loads focus-visible, which adds these root attributes before hydration.
     <html
       lang="en"
       className="js-focus-visible"

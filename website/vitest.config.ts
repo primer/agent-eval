@@ -4,11 +4,11 @@ export default defineConfig({
   test: {
     name: 'website',
     environment: 'node',
-    include: ['src/**/*.test.{ts,tsx}'],
     server: {
       deps: {
         inline: ['@primer/react'],
       },
     },
+    include: ['src/**/*.test.{ts,tsx}'],
   },
 })

@@ -1,11 +1,11 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import type {ExperimentOutput} from '@primer/agent-eval/experiment'
-import {read} from '@primer/agent-eval/experiment'
+import type {ExperimentOutput} from '@primer/agent-eval'
+import {readExperimentOutput as read} from './result-files'
 import {afterEach, beforeEach, expect, test, vi} from 'vitest'
 
-vi.mock('@primer/agent-eval/experiment', () => {
-  return {read: vi.fn()}
+vi.mock('./result-files', () => {
+  return {readExperimentOutput: vi.fn()}
 })
 
 let directory: string
@@ -24,7 +24,7 @@ beforeEach(async () => {
     cwd.mockRestore()
   }
   vi.mocked(read).mockResolvedValue({
-    experimentId: 'example',
+    id: 'example',
     scenarios: new Map(),
     treatments: new Map(),
     trials: new Map(),
@@ -52,7 +52,7 @@ test('reads only the newest available run, including an empty latest run', async
 
   expect(await getLatestForExperiment('example')).toMatchObject({
     name: '2026-09-10',
-    output: {results: []},
+    output: {trials: new Map()},
   })
   expect(read).toHaveBeenCalledTimes(1)
   expect(read).toHaveBeenCalledWith(latest)
@@ -78,15 +78,25 @@ test('returns no run when no result bundles exist', async () => {
   expect(read).not.toHaveBeenCalled()
 })
 
-test('skips a bundle belonging to a different experiment', async () => {
-  const older = await createRunDirectory('2026-09-09')
+test('rejects a bundle belonging to a different experiment without reading older results', async () => {
+  await createRunDirectory('2026-09-09')
   const latest = await createRunDirectory('2026-09-10')
   vi.mocked(read).mockResolvedValueOnce({
-    experimentId: 'other',
+    id: 'other',
     scenarios: new Map(),
     treatments: new Map(),
     trials: new Map(),
   })
+
+  await expect(getLatestForExperiment('example')).rejects.toThrow('Experiment ID "other" does not match "example"')
+  expect(read).toHaveBeenCalledTimes(1)
+  expect(read).toHaveBeenCalledWith(latest)
+})
+
+test('skips incompatible bundles excluded by the result reader', async () => {
+  const older = await createRunDirectory('2026-09-09')
+  const latest = await createRunDirectory('2026-09-10')
+  vi.mocked(read).mockResolvedValueOnce(null)
 
   expect(await getLatestForExperiment('example')).toMatchObject({name: '2026-09-09'})
   expect(read).toHaveBeenNthCalledWith(1, latest)

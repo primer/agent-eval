@@ -36,8 +36,8 @@ test('uses the newest run from the dated run loader and preserves run history', 
   expect(listForExperiment).toHaveBeenCalledWith('example')
   expect(data.results).toMatchObject({date: '2026-09-10', treatments: [{trials: 1}]})
   expect(data.runs).toEqual([
-    {id: '2026-09-10', name: '2026-09-10', resultCount: 1, passedTests: 3, totalTests: 4},
-    {id: '2026-09-09', name: '2026-09-09', resultCount: 2, passedTests: 6, totalTests: 8},
+    {id: '2026-09-10', name: '2026-09-10', resultCount: 1, checks: '75.0%'},
+    {id: '2026-09-09', name: '2026-09-09', resultCount: 2, checks: '75.0%'},
   ])
 })
 

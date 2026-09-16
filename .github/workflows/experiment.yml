@@ -6,10 +6,15 @@ on:
         description: Experiment name to run
         required: true
         type: string
-      concurrency:
-        description: Number of treatments to run in parallel
+      copilot-concurrency:
+        description: Maximum number of Copilot sessions to run in parallel per shard
         required: false
-        default: '1'
+        default: '2'
+        type: string
+      container-concurrency:
+        description: Maximum number of trial containers to run in parallel per shard
+        required: false
+        default: '2'
         type: string
       docker-image:
         description: >-
@@ -89,7 +94,8 @@ jobs:
           path: results
       - name: run experiment shard
         env:
-          CONCURRENCY: ${{ inputs.concurrency }}
+          COPILOT_CONCURRENCY: ${{ inputs.copilot-concurrency }}
+          CONTAINER_CONCURRENCY: ${{ inputs.container-concurrency }}
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
           DOCKER_IMAGE: ${{ inputs.docker-image || 'node:26.5.0-slim' }}
           RUN_DATE: ${{ needs.plan.outputs.run-date }}

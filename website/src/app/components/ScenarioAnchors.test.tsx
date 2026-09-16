@@ -2,38 +2,16 @@ import {renderToStaticMarkup} from 'react-dom/server'
 import type {Route} from 'next'
 import {expect, test} from 'vitest'
 import {getExperimentResults} from '../../experiment-results'
-import type {RunDetails} from '../../run-details'
+import {createExperimentRunDetails} from '../../run-details'
 import {createResult, createRun} from '../../test/experiment'
 import {LatestExperimentResults} from './ExperimentResults'
 import {RunDetailsPage} from './RunDetailsPage'
 
 test.each(['001-button', 'space / literal%20 # caf\u00e9'])(
   'links to the rendered scenario target for %s',
-  scenarioId => {
+  async scenarioId => {
     const result = createResult({scenarioId})
-    const run: RunDetails = {
-      date: '2026-09-10',
-      results: [
-        {
-          id: result.id,
-          scenarioId,
-          treatment: 'Control',
-          model: result.model,
-          reasoningEffort: result.reasoningEffort,
-          testsPassed: 0,
-          totalTests: 0,
-          turns: 0,
-          outputTokens: 0,
-          premiumRequests: 0,
-          totalApiDurationMs: 0,
-          sessionDurationMs: 0,
-          tests: [],
-          transcript: [],
-          walkthrough: {type: 'Unavailable'},
-          judges: [],
-        },
-      ],
-    }
+    const run = await createExperimentRunDetails('2026-09-10', createRun([result]).output)
     const overview = renderToStaticMarkup(
       <LatestExperimentResults id="noop" results={getExperimentResults(createRun([result]))} />,
     )

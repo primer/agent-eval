@@ -94,6 +94,11 @@ interface Sandbox {
   download(containerFilePath: string, hostDestinationPath: string, options?: DownloadOptions): Promise<void>
 
   /**
+   * Lists the files and directories in a sandbox directory.
+   */
+  readdir(filepath: string): Promise<Array<string>>
+
+  /**
    * Reads a UTF-8 file from the sandbox.
    */
   readFile(filepath: string): Promise<string>

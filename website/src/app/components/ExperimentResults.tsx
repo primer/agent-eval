@@ -36,15 +36,10 @@ function TreatmentResultsTable({results, label}: {results: Array<TreatmentResult
           {id: 'trials', header: 'Trials', field: 'trials', align: 'end'},
           {id: 'scenarios', header: 'Scenarios', field: 'scenarios', align: 'end'},
           {
-            id: 'tests',
-            header: 'Tests passed',
-            field: 'passedTests',
+            id: 'checks',
+            header: 'Checks',
+            field: 'checks',
             align: 'end',
-            renderCell: row => {
-              return row.passRate === null
-                ? 'N/A (no tests)'
-                : `${row.passedTests}/${row.totalTests} (${formatNumber(row.passRate * 100)}%)`
-            },
           },
           {
             id: 'tokens',
@@ -92,9 +87,9 @@ function TreatmentResultsTable({results, label}: {results: Array<TreatmentResult
 function MetricsDescription() {
   return (
     <p className="text-muted">
-      Tests passed is the sum of passed tests divided by total tests across recorded trials. Resource usage is the
-      average per trial. Treatments are grouped by model and reasoning effort; compare scenario and trial counts before
-      comparing performance.
+      Checks show per-trial pass percentages or measurement means, averaged across trials. Skips, errors, and missing
+      values are reported separately. Resource usage is the average per trial. Treatments are grouped by model and
+      reasoning effort; compare scenario and trial counts before comparing performance.
     </p>
   )
 }

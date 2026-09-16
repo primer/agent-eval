@@ -1,4 +1,6 @@
-import type {Run, RunOutputResult} from './runs'
+import type {ExperimentTrialOutput} from '@primer/agent-eval'
+import {formatChecks, summarizeTrials} from './check-results'
+import type {Run} from './runs'
 
 export type TreatmentResult = {
   id: string
@@ -7,9 +9,7 @@ export type TreatmentResult = {
   reasoningEffort: string
   trials: number
   scenarios: number
-  passedTests: number
-  totalTests: number
-  passRate: number | null
+  checks: string
   outputTokens: number
   premiumRequests: number
   sessionDurationMs: number
@@ -25,16 +25,11 @@ export type ExperimentResults = {
   }>
 }
 
-function summarizeTreatments(run: Run, results: Array<RunOutputResult>): Array<TreatmentResult> {
-  const groups = new Map<string, Array<RunOutputResult>>()
-  const treatments = new Map(
-    run.output.treatments.map(treatment => {
-      return [treatment.id, treatment.config.name]
-    }),
-  )
+function summarizeTreatments(run: Run, results: Array<ExperimentTrialOutput>): Array<TreatmentResult> {
+  const groups = new Map<string, Array<ExperimentTrialOutput>>()
 
   for (const result of results) {
-    const key = JSON.stringify([result.treatmentId, result.model, result.reasoningEffort ?? null])
+    const key = JSON.stringify([result.treatmentId, result.model.name, result.model.reasoningEffort])
     const group = groups.get(key)
     if (group) {
       group.push(result)
@@ -45,33 +40,20 @@ function summarizeTreatments(run: Run, results: Array<RunOutputResult>): Array<T
 
   return Array.from(groups, ([id, trials]) => {
     const first = trials[0]
-    const totals = trials.reduce(
-      (total, trial) => {
-        total.passedTests += trial.testResults.numPassedTests
-        total.totalTests += trial.testResults.numTotalTests
-        total.outputTokens += trial.assistant.outputTokens
-        total.premiumRequests += trial.assistant.premiumRequests
-        total.sessionDurationMs += trial.assistant.sessionDurationMs
-        total.totalApiDurationMs += trial.assistant.totalApiDurationMs
-        return total
-      },
-      {passedTests: 0, totalTests: 0, outputTokens: 0, premiumRequests: 0, sessionDurationMs: 0, totalApiDurationMs: 0},
-    )
+    const totals = summarizeTrials(trials)
 
     return {
       id,
-      treatment: treatments.get(first.treatmentId) ?? first.treatmentId,
-      model: first.model,
-      reasoningEffort: first.reasoningEffort ?? 'Default',
+      treatment: run.output.treatments.get(first.treatmentId)?.name ?? first.treatmentId,
+      model: first.model.name,
+      reasoningEffort: first.model.reasoningEffort,
       trials: trials.length,
       scenarios: new Set(
         trials.map(trial => {
           return trial.scenarioId
         }),
       ).size,
-      passedTests: totals.passedTests,
-      totalTests: totals.totalTests,
-      passRate: totals.totalTests === 0 ? null : totals.passedTests / totals.totalTests,
+      checks: formatChecks(totals),
       outputTokens: totals.outputTokens / trials.length,
       premiumRequests: totals.premiumRequests / trials.length,
       sessionDurationMs: totals.sessionDurationMs / trials.length,
@@ -92,11 +74,11 @@ export function getExperimentResults(run: Run | undefined): ExperimentResults | 
     return null
   }
 
-  const scenarios = new Map<string, Array<RunOutputResult>>()
-  for (const scenario of run.output.scenarios) {
+  const scenarios = new Map<string, Array<ExperimentTrialOutput>>()
+  for (const scenario of run.output.scenarios.values()) {
     scenarios.set(scenario.id, [])
   }
-  for (const result of run.output.results) {
+  for (const result of run.output.trials.values()) {
     const group = scenarios.get(result.scenarioId)
     if (group) {
       group.push(result)
@@ -107,7 +89,7 @@ export function getExperimentResults(run: Run | undefined): ExperimentResults | 
 
   return {
     date: run.name,
-    treatments: summarizeTreatments(run, run.output.results),
+    treatments: summarizeTreatments(run, [...run.output.trials.values()]),
     scenarios: Array.from(scenarios, ([id, results]) => {
       return {id, treatments: summarizeTreatments(run, results)}
     }).toSorted((first, second) => {

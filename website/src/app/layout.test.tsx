@@ -2,10 +2,10 @@ import {renderToStaticMarkup} from 'react-dom/server'
 import {expect, test, vi} from 'vitest'
 import Layout from './layout'
 
-vi.mock('next/navigation', () => {
+vi.mock('./components/PageHeader', () => {
   return {
-    usePathname: () => {
-      return '/'
+    PageHeader: () => {
+      return <header>Navigation</header>
     },
   }
 })
@@ -25,5 +25,5 @@ test('renders Primer focus-visible markers on the server without suppressing hyd
   expect(openingTag).toContain('data-light-theme="light"')
   expect(openingTag).toContain('data-dark-theme="dark"')
   expect(Layout({children: null}).props.suppressHydrationWarning).not.toBe(true)
-  expect(html).toContain('Focusable content')
+  expect(html).toContain('<main><button>Focusable content</button></main>')
 })

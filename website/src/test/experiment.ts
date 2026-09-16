@@ -1,60 +1,51 @@
-import type {Run, RunOutputResult} from '../runs'
+import type {ExperimentTrialOutput} from '@primer/agent-eval'
+import type {Run} from '../runs'
+import {createExperimentOutput, createTrial, session} from '../test-fixtures'
 
-export function createResult(overrides: Partial<RunOutputResult> = {}): RunOutputResult {
-  return {
-    id: 'trial-1',
-    treatmentId: 'control',
-    model: 'gpt-5.6-sol',
-    reasoningEffort: 'medium',
+export function createResult(overrides: Partial<ExperimentTrialOutput> = {}): ExperimentTrialOutput {
+  return createTrial({
     scenarioId: 'scenario-a',
-    assistant: {
-      logs: [],
-      turns: 1,
-      outputTokens: 100,
-      premiumRequests: 1,
-      totalApiDurationMs: 1000,
-      sessionDurationMs: 2000,
-      tools: {},
+    agent: {
+      sessions: [{...session, totalApiDurationMs: 1000, sessionDurationMs: 2000}],
     },
-    testResults: {
-      numTotalTests: 4,
-      numPassedTests: 3,
-      numFailedTests: 1,
-      numPendingTests: 0,
-      numTodoTests: 0,
-      success: false,
-      testResults: [],
-      tests: [],
-    },
-    walkthrough: {type: 'Unavailable'},
+    checks: [
+      {
+        check: {name: 'tests', files: []},
+        result: {
+          type: 'outcomes',
+          outcomes: [
+            {type: 'outcome', status: 'passed'},
+            {type: 'outcome', status: 'passed'},
+            {type: 'outcome', status: 'passed'},
+            {type: 'outcome', status: 'failed'},
+          ],
+        },
+      },
+    ],
     judges: [],
     ...overrides,
-  }
+  })
 }
 
-export function createRun(results: Array<RunOutputResult> = [createResult()], date = '2026-09-10'): Run {
+export function createRun(results: Array<ExperimentTrialOutput> = [createResult()], date = '2026-09-10'): Run {
   return {
     id: date,
+    experimentId: 'example',
     name: date,
     date: new Date(`${date}T00:00:00.000Z`),
     directory: `/results/experiments/example/${date}`,
     output: {
-      experiment: {id: 'example', models: []},
-      scenarios: ['scenario-b', 'scenario-a'].map(id => {
-        return {
-          id,
-          directory: `/scenarios/${id}`,
-          prompt: 'Build a page',
-          tags: [],
-          judges: [],
-          testPath: `/scenarios/${id}/scenario.test.ts`,
-        }
-      }),
-      treatments: [
-        {id: 'control', config: {name: 'Control'}},
-        {id: 'skill', config: {name: 'With skill'}},
-      ],
-      results,
+      ...createExperimentOutput(results),
+      id: 'example',
+      scenarios: new Map(
+        ['scenario-b', 'scenario-a'].map(id => {
+          return [id, {id, directory: `/scenarios/${id}`, prompt: 'Build a page', tags: [], judges: []}]
+        }),
+      ),
+      treatments: new Map([
+        ['control', {id: 'control', name: 'Control'}],
+        ['skill', {id: 'skill', name: 'With skill'}],
+      ]),
     },
   }
 }

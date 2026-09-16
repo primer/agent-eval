@@ -1,6 +1,7 @@
 import {expect, test} from 'vitest'
 import {getExperimentResults} from './experiment-results'
 import {createResult, createRun} from './test/experiment'
+import {checks, judges} from './test-fixtures'
 
 test('distinguishes missing runs from runs with no trials', () => {
   expect(getExperimentResults(undefined)).toBeNull()
@@ -14,18 +15,41 @@ test('distinguishes missing runs from runs with no trials', () => {
   })
 })
 
-test('sums test counts and averages resource usage per trial, not per scenario', () => {
+test('averages checks and implementation usage per trial, not per scenario or outcome', () => {
   const first = createResult()
   const second = createResult({
     id: 'trial-2',
-    assistant: {
-      ...first.assistant,
-      outputTokens: 300,
-      premiumRequests: 3,
-      sessionDurationMs: 6000,
-      totalApiDurationMs: 3000,
+    agent: {
+      sessions: [
+        {
+          ...first.agent.sessions[0],
+          outputTokens: 150,
+          premiumRequests: 1.5,
+          sessionDurationMs: 3000,
+          totalApiDurationMs: 1500,
+        },
+        {
+          ...first.agent.sessions[0],
+          outputTokens: 150,
+          premiumRequests: 1.5,
+          sessionDurationMs: 3000,
+          totalApiDurationMs: 1500,
+        },
+      ],
     },
-    testResults: {...first.testResults, numPassedTests: 1, numTotalTests: 2},
+    checks: [
+      {
+        check: {name: 'tests', files: []},
+        result: {
+          type: 'outcomes',
+          outcomes: [
+            {type: 'outcome', status: 'passed'},
+            {type: 'outcome', status: 'failed'},
+          ],
+        },
+      },
+    ],
+    judges,
   })
   const third = createResult({id: 'trial-3', scenarioId: 'scenario-b'})
   const summary = getExperimentResults(createRun([first, second, third]))
@@ -38,9 +62,7 @@ test('sums test counts and averages resource usage per trial, not per scenario',
       reasoningEffort: 'medium',
       trials: 3,
       scenarios: 2,
-      passedTests: 7,
-      totalTests: 10,
-      passRate: 0.7,
+      checks: '66.7%',
       outputTokens: 500 / 3,
       premiumRequests: 5 / 3,
       sessionDurationMs: 10000 / 3,
@@ -50,50 +72,44 @@ test('sums test counts and averages resource usage per trial, not per scenario',
   expect(summary?.scenarios[0].treatments[0]).toMatchObject({
     trials: 2,
     scenarios: 1,
-    passedTests: 4,
-    totalTests: 6,
-    passRate: 4 / 6,
+    checks: '62.5%',
     outputTokens: 200,
   })
-  expect(summary?.scenarios[1].treatments[0]).toMatchObject({trials: 1, passedTests: 3, totalTests: 4})
+  expect(summary?.scenarios[1].treatments[0]).toMatchObject({trials: 1, checks: '75.0%'})
 })
 
 test('keeps treatments, models, and reasoning efforts separate with stable ordering', () => {
   const trials = [
     createResult({id: 'skill', treatmentId: 'skill'}),
-    createResult({id: 'other-model', model: 'gpt-5.6-luna'}),
-    createResult({id: 'high', reasoningEffort: 'high'}),
-    createResult({id: 'default', reasoningEffort: undefined}),
+    createResult({id: 'other-model', model: {name: 'gpt-5.6-luna', reasoningEffort: 'medium'}}),
+    createResult({id: 'high', model: {name: 'gpt-5.6-sol', reasoningEffort: 'high'}}),
     createResult(),
   ]
   const summary = getExperimentResults(createRun(trials))
-  expect(summary?.treatments).toHaveLength(5)
+  expect(summary?.treatments).toHaveLength(4)
   expect(
     summary?.treatments.every(result => {
       return result.trials === 1
     }),
   ).toBe(true)
-  expect(
-    summary?.treatments.some(result => {
-      return result.reasoningEffort === 'Default'
-    }),
-  ).toBe(true)
   expect(getExperimentResults(createRun(trials.toReversed()))).toEqual(summary)
 })
 
-test('shows no-test results as unavailable rather than zero or perfect performance', () => {
-  const result = createResult()
-  result.testResults.numPassedTests = 0
-  result.testResults.numTotalTests = 0
-  result.assistant.outputTokens = 0
+test('shows results without checks as unavailable rather than zero or perfect performance', () => {
+  const result = createResult({checks: [], agent: {sessions: []}})
 
   expect(getExperimentResults(createRun([result]))?.treatments[0]).toMatchObject({
     trials: 1,
-    passRate: null,
-    passedTests: 0,
-    totalTests: 0,
+    checks: 'N/A',
     outputTokens: 0,
   })
+})
+
+test('preserves measurement units, skipped outcomes, errors, and missing check values', () => {
+  const summary = getExperimentResults(createRun([createResult({checks}), createResult({id: 'no-checks', checks: []})]))
+  expect(summary?.treatments[0].checks).toBe(
+    '15 ms [1/2 check results with values; 1 error]; 50.0% [1/2 check results with values; 1 skipped; 1 error]',
+  )
 })
 
 test('preserves recorded scenario and treatment IDs even when metadata is absent', () => {

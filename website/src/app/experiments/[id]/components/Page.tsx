@@ -13,8 +13,7 @@ type ExperimentRun = {
   id: string
   name: string
   resultCount: number
-  passedTests: number
-  totalTests: number
+  checks: string
 }
 
 type Props = {
@@ -49,19 +48,25 @@ export function Page({experiment, runs, results}: Props) {
                   header: 'Date',
                   field: 'name',
                   rowHeader: true,
-                  renderCell: row => (
-                    <Link href={`/experiments/${experiment.id}/runs/${row.name}` as Route}>
-                      <time dateTime={row.name}>{row.name}</time>
-                    </Link>
-                  ),
+                  renderCell: row => {
+                    return (
+                      <Link href={`/experiments/${experiment.id}/runs/${row.name}` as Route}>
+                        <time dateTime={row.name}>{row.name}</time>
+                      </Link>
+                    )
+                  },
                 },
-                {id: 'results', header: 'Results', field: 'resultCount', align: 'end'},
                 {
-                  id: 'tests',
-                  header: 'Tests passed',
-                  field: 'passedTests',
+                  id: 'results',
+                  header: 'Results',
+                  field: 'resultCount',
                   align: 'end',
-                  renderCell: row => `${row.passedTests}/${row.totalTests}`,
+                },
+                {
+                  id: 'checks',
+                  header: 'Checks',
+                  field: 'checks',
+                  align: 'end',
                 },
               ]}
               data={runs}

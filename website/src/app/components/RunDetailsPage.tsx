@@ -1,19 +1,24 @@
 'use client'
 
-import {CheckCircleFillIcon, CopilotIcon, PersonIcon, XCircleFillIcon} from '@primer/octicons-react'
-import {Breadcrumbs, FormControl, Select, Stack, UnderlineNav} from '@primer/react'
-import type {RunDetails, TranscriptEntry, WalkthroughDataUrl} from '../../run-details'
+import {CopilotIcon, PersonIcon} from '@primer/octicons-react'
+import {Breadcrumbs, Button, FormControl, Select, Stack, UnderlineNav} from '@primer/react'
+import type {RunDetails, TranscriptEntry} from '../../run-details'
+import {loadTrialDetails, loadTrialTranscript} from '../../run-data-client'
 import type {Route} from 'next'
 import Link from 'next/link'
-import Image from 'next/image'
-import {useState} from 'react'
+import {useEffect, useState, type ReactNode} from 'react'
 import {getScenarioAnchor} from '../../scenario-anchor'
 import {JudgeResults} from './JudgeResults'
+import {CheckResults} from './CheckResults'
+import {RunDetailsLoading, type ResultTab} from './RunDetailsLoading'
+import {UiWalkthrough} from './UiWalkthrough'
 
 type RunResult = RunDetails['results'][number]
 
 type ScenarioResultGroup = {
+  id: string
   scenarioId: string
+  capability?: RunResult['capability']
   results: [RunResult, ...Array<RunResult>]
 }
 
@@ -73,56 +78,73 @@ function Transcript({entries}: {entries: Array<TranscriptEntry>}) {
   )
 }
 
-function BrowserScreenshot({alt, source}: {alt: string; source: string}) {
-  return (
-    <div className="border border-default rounded-md overflow-hidden w-fit max-w-full">
-      <div className="bg-muted border-b border-default flex gap-2 p-3" aria-hidden="true">
-        <span className="bg-danger-emphasis rounded-full size-3" />
-        <span className="bg-attention-emphasis rounded-full size-3" />
-        <span className="bg-success-emphasis rounded-full size-3" />
-      </div>
-      <Image alt={alt} className="block max-w-full h-auto" height={900} src={source} unoptimized width={1440} />
-    </div>
-  )
-}
+function AsyncContent<T>({
+  url,
+  load,
+  label,
+  fallback,
+  children,
+}: {
+  url: string
+  load: (url: string) => Promise<T>
+  label: string
+  fallback: ReactNode
+  children: (data: T) => ReactNode
+}) {
+  const [state, setState] = useState<
+    {status: 'loading'} | {status: 'loaded'; data: T} | {status: 'error'; message: string}
+  >({status: 'loading'})
+  const [attempt, setAttempt] = useState(0)
 
-function UiWalkthrough({scenarioId, walkthrough}: {scenarioId: string; walkthrough: WalkthroughDataUrl}) {
-  if (walkthrough.type === 'Video') {
+  useEffect(() => {
+    let active = true
+    load(url).then(
+      data => {
+        if (active) {
+          setState({status: 'loaded', data})
+        }
+      },
+      error => {
+        if (active) {
+          setState({status: 'error', message: error instanceof Error ? error.message : String(error)})
+        }
+      },
+    )
+    return () => {
+      active = false
+    }
+  }, [url, load, attempt])
+
+  if (state.status === 'loading') {
+    return fallback
+  }
+  if (state.status === 'error') {
     return (
-      <video
-        className="border border-default rounded-2 w-full h-auto"
-        controls
-        height={900}
-        src={walkthrough.video}
-        width={1440}
-      />
+      <div role="alert">
+        <p>
+          Could not load {label}: {state.message}
+        </p>
+        <Button
+          onClick={() => {
+            setState({status: 'loading'})
+            setAttempt(previous => {
+              return previous + 1
+            })
+          }}
+        >
+          Retry
+        </Button>
+      </div>
     )
   }
-
-  if (walkthrough.type === 'Screenshots') {
-    return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {walkthrough.screenshots.map((source, index) => (
-          <BrowserScreenshot alt={`UI walkthrough step ${index + 1} for ${scenarioId}`} key={source} source={source} />
-        ))}
-      </div>
-    )
-  }
-
-  if (walkthrough.type === 'Screenshot') {
-    return <BrowserScreenshot alt={`UI walkthrough for ${scenarioId}`} source={walkthrough.screenshot} />
-  }
-
-  return <p>No UI walkthrough was recorded.</p>
+  return children(state.data)
 }
-
-type ResultTab = 'walkthrough' | 'tests' | 'judges' | 'transcript'
 
 function ResultTabs({index, result}: {index: number; result: RunResult}) {
   const [selectedTab, setSelectedTab] = useState<ResultTab>('walkthrough')
   const tabIds = {
     walkthrough: `result-${index}-walkthrough-tab`,
-    tests: `result-${index}-tests-tab`,
+    checks: `result-${index}-checks-tab`,
     judges: `result-${index}-judges-tab`,
     transcript: `result-${index}-transcript-tab`,
   }
@@ -130,7 +152,9 @@ function ResultTabs({index, result}: {index: number; result: RunResult}) {
 
   return (
     <section className="bg-default border border-default rounded-lg overflow-hidden">
-      <UnderlineNav aria-label={`${result.scenarioId} result details`}>
+      <UnderlineNav
+        aria-label={`${result.capability ? `${result.capability.name} / ` : ''}${result.scenarioId} result details`}
+      >
         <UnderlineNav.Item
           aria-current={selectedTab === 'walkthrough' ? 'page' : undefined}
           href={`#result-${index}-walkthrough-panel`}
@@ -143,20 +167,20 @@ function ResultTabs({index, result}: {index: number; result: RunResult}) {
           Walkthrough
         </UnderlineNav.Item>
         <UnderlineNav.Item
-          aria-current={selectedTab === 'tests' ? 'page' : undefined}
-          counter={result.tests.length}
-          href={`#result-${index}-tests-panel`}
-          id={tabIds.tests}
+          aria-current={selectedTab === 'checks' ? 'page' : undefined}
+          counter={result.counts.checks}
+          href={`#result-${index}-checks-panel`}
+          id={tabIds.checks}
           onSelect={event => {
             event.preventDefault()
-            setSelectedTab('tests')
+            setSelectedTab('checks')
           }}
         >
-          Tests
+          Checks
         </UnderlineNav.Item>
         <UnderlineNav.Item
           aria-current={selectedTab === 'judges' ? 'page' : undefined}
-          counter={result.judges.length}
+          counter={result.counts.judges}
           href={`#result-${index}-judges-panel`}
           id={tabIds.judges}
           onSelect={event => {
@@ -168,7 +192,7 @@ function ResultTabs({index, result}: {index: number; result: RunResult}) {
         </UnderlineNav.Item>
         <UnderlineNav.Item
           aria-current={selectedTab === 'transcript' ? 'page' : undefined}
-          counter={result.transcript.length}
+          counter={result.counts.transcript}
           href={`#result-${index}-transcript-panel`}
           id={tabIds.transcript}
           onSelect={event => {
@@ -180,46 +204,43 @@ function ResultTabs({index, result}: {index: number; result: RunResult}) {
         </UnderlineNav.Item>
       </UnderlineNav>
       <div aria-labelledby={tabIds[selectedTab]} className="p-4" id={panelId} role="region">
-        {selectedTab === 'walkthrough' ? (
-          <UiWalkthrough scenarioId={result.scenarioId} walkthrough={result.walkthrough} />
-        ) : null}
-        {selectedTab === 'tests' ? (
-          <ul className="list-none p-0 m-0">
-            {result.tests.map(test => {
-              const isPassed = test.status === 'passed'
-
-              return (
-                <li
-                  className="border-t border-default py-3 first:border-t-0 first:pt-0 last:pb-0 flex items-start gap-3"
-                  key={test.fullName}
-                >
-                  <span className={`mt-1 shrink-0 ${isPassed ? 'text-success' : 'text-danger'}`}>
-                    {isPassed ? <CheckCircleFillIcon /> : <XCircleFillIcon />}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <span className="text-body-medium">{test.fullName}</span>
-                      <span
-                        className={`rounded-full px-2 py-1 text-caption whitespace-nowrap ${
-                          isPassed ? 'bg-success-muted text-success' : 'bg-danger-muted text-danger'
-                        }`}
-                      >
-                        {test.status}
-                      </span>
-                    </div>
-                    {test.description ? <p className="text-muted mt-1 mb-0">{test.description}</p> : null}
-                  </div>
-                </li>
-              )
-            })}
-          </ul>
-        ) : null}
-        {selectedTab === 'judges' ? <JudgeResults judges={result.judges} /> : null}
         {selectedTab === 'transcript' ? (
-          <div className="w-full max-w-3xl mx-auto">
-            <Transcript entries={result.transcript} />
-          </div>
-        ) : null}
+          <AsyncContent
+            key={result.transcriptUrl}
+            url={result.transcriptUrl}
+            load={loadTrialTranscript}
+            label="transcript"
+            fallback={<RunDetailsLoading tab="transcript" result={result} />}
+          >
+            {entries => {
+              return (
+                <div className="w-full max-w-3xl mx-auto">
+                  <Transcript entries={entries} />
+                </div>
+              )
+            }}
+          </AsyncContent>
+        ) : (
+          <AsyncContent
+            key={result.detailsUrl}
+            url={result.detailsUrl}
+            load={loadTrialDetails}
+            label="trial details"
+            fallback={<RunDetailsLoading tab={selectedTab} result={result} />}
+          >
+            {details => {
+              if (selectedTab === 'checks') {
+                return <CheckResults checks={details.checks} />
+              }
+              if (selectedTab === 'judges') {
+                return <JudgeResults judges={details.judges} />
+              }
+              return (
+                <UiWalkthrough scenarioId={result.scenarioId} walkthrough={details.walkthrough} eager={index === 0} />
+              )
+            }}
+          </AsyncContent>
+        )}
       </div>
     </section>
   )
@@ -237,19 +258,25 @@ function groupResultsByScenario(results: Array<RunResult>): Array<ScenarioResult
   const groups = new Map<string, ScenarioResultGroup>()
 
   for (const result of results) {
-    const group = groups.get(result.scenarioId)
+    const id = JSON.stringify([result.capability?.id ?? null, result.scenarioId])
+    const group = groups.get(id)
     if (group) {
       group.results.push(result)
     } else {
-      groups.set(result.scenarioId, {
+      groups.set(id, {
+        id,
         scenarioId: result.scenarioId,
+        capability: result.capability,
         results: [result],
       })
     }
   }
 
   return Array.from(groups.values()).toSorted((firstGroup, secondGroup) => {
-    return firstGroup.scenarioId.localeCompare(secondGroup.scenarioId)
+    return (
+      (firstGroup.capability?.name ?? '').localeCompare(secondGroup.capability?.name ?? '') ||
+      firstGroup.scenarioId.localeCompare(secondGroup.scenarioId)
+    )
   })
 }
 
@@ -291,10 +318,11 @@ function ScenarioResults({group, index}: {group: ScenarioResultGroup; index: num
     <article
       aria-labelledby={resultHeadingId}
       className="flex flex-col gap-4"
-      id={getScenarioAnchor(group.scenarioId).id}
+      id={group.capability ? `capability-scenario-${index}` : getScenarioAnchor(group.scenarioId).id}
     >
       <header className="border-b border-default pb-3 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <h2 className="text-title-medium m-0" id={resultHeadingId}>
+          {group.capability ? `${group.capability.name} / ` : null}
           {group.scenarioId}
         </h2>
         <div className="flex flex-col sm:flex-row gap-3">
@@ -367,7 +395,7 @@ function ScenarioResults({group, index}: {group: ScenarioResultGroup; index: num
                 {trials.map((trial, trialIndex) => {
                   return (
                     <Select.Option key={trial.id} value={trial.id}>
-                      Trial {trialIndex + 1}
+                      Trial {trialIndex + 1} ({trial.id})
                     </Select.Option>
                   )
                 })}
@@ -383,10 +411,8 @@ function ScenarioResults({group, index}: {group: ScenarioResultGroup; index: num
           </h3>
           <dl className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 m-0">
             <div className="bg-muted rounded-md p-3">
-              <dt className="text-caption text-muted">Tests passed</dt>
-              <dd className="text-title-small m-0">
-                {selectedResult.testsPassed}/{selectedResult.totalTests}
-              </dd>
+              <dt className="text-caption text-muted">Checks</dt>
+              <dd className="text-title-small m-0">{selectedResult.checkSummary}</dd>
             </div>
             <div className="bg-muted rounded-md p-3">
               <dt className="text-caption text-muted">Turns</dt>
@@ -409,6 +435,10 @@ function ScenarioResults({group, index}: {group: ScenarioResultGroup; index: num
               <dd className="text-title-small m-0">{formatDuration(selectedResult.sessionDurationMs)}</dd>
             </div>
           </dl>
+          <p className="text-caption text-muted mb-0">
+            Checks average per-check pass percentages or measurement means. Skipped outcomes and errors are excluded
+            from values and shown separately. Usage includes implementation sessions only.
+          </p>
         </section>
         <ResultTabs index={index} result={selectedResult} />
       </div>
@@ -428,7 +458,17 @@ type Props = {
 }
 
 export function RunDetailsPage({resource, run}: Props) {
-  const resultGroups = groupResultsByScenario(run.results)
+  const [selectedCapabilityId, setSelectedCapabilityId] = useState('')
+  const capabilities = new Map(
+    run.results.flatMap(result => {
+      return result.capability ? [[result.capability.id, result.capability] as const] : []
+    }),
+  )
+  const resultGroups = groupResultsByScenario(
+    run.results.filter(result => {
+      return !selectedCapabilityId || result.capability?.id === selectedCapabilityId
+    }),
+  )
 
   return (
     <Stack padding="normal">
@@ -443,9 +483,30 @@ export function RunDetailsPage({resource, run}: Props) {
           <Breadcrumbs.Item selected>{run.date}</Breadcrumbs.Item>
         </Breadcrumbs>
         <h1 className="sr-only">Run results for {resource.name}</h1>
+        {capabilities.size > 0 ? (
+          <FormControl>
+            <FormControl.Label>Capability</FormControl.Label>
+            <Select
+              value={selectedCapabilityId}
+              onChange={event => {
+                setSelectedCapabilityId(event.currentTarget.value)
+              }}
+            >
+              <Select.Option value="">All capabilities</Select.Option>
+              {[...capabilities.values()].map(capability => {
+                return (
+                  <Select.Option key={capability.id} value={capability.id}>
+                    {capability.name}
+                  </Select.Option>
+                )
+              })}
+            </Select>
+          </FormControl>
+        ) : null}
+        {resultGroups.length === 0 ? <p>No trial results were recorded.</p> : null}
         <div className="flex flex-col gap-8">
           {resultGroups.map((group, index) => {
-            return <ScenarioResults group={group} index={index} key={`${run.date}:${group.scenarioId}`} />
+            return <ScenarioResults group={group} index={index} key={`${run.date}:${group.id}`} />
           })}
         </div>
       </div>

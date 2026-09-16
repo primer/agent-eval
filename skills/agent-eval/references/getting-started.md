@@ -1,8 +1,16 @@
 # Getting started
 
-## Install the skill and runtime
+**Use when:** setting up a first evaluation in a new project. Follow the steps
+in order. The example is a wiring check, not evidence that a treatment improves
+agent performance.
 
-Install this skill into your agent's environment:
+**Completion criteria:** the starter fails its grader, a correct implementation
+passes, the saved plan contains two expected trials, and their results can be
+read. A blocked live run is incomplete, not a successful evaluation.
+
+## 1. Prepare the environment
+
+If the skill is not already installed:
 
 ```sh
 npx skills add primer/agent-eval --skill agent-eval
@@ -17,6 +25,17 @@ The container also needs network access to download dependencies and reach
 Copilot. Set `COPILOT_GITHUB_TOKEN` through your shell or secret manager; never
 put a token in a config, fixture, or committed file.
 
+Check Node.js and Docker before installing dependencies:
+
+```sh
+node --version
+docker info
+```
+
+If Docker is unavailable or the token is missing, you can still author the
+fixture, validate the grader locally, and create a plan. Do not start a live
+run until its prerequisites are available.
+
 For an empty project:
 
 ```sh
@@ -24,8 +43,6 @@ npm init -y
 npm pkg set type=module
 npm install --save-dev @primer/agent-eval vitest typescript @types/node
 mkdir -p benchmarks experiments scenarios/001-labels
-node --version
-docker info
 npx agent-eval --help
 ```
 
@@ -33,11 +50,11 @@ In an existing project, preserve its package setup and use its package manager.
 Commands here use npm on the host. The evaluation harness runs `npm install`
 inside each scenario container, so fixtures must be independently installable.
 
-## Create a small scenario
+## 2. Create the scenario
 
-This deliberately small Node.js example checks the evaluation wiring before
-spending time on a full application. It is not evidence that a treatment improves
-performance. For application evaluations in the upstream repository, use
+Create all five files below; they form one runnable scenario, not independent
+snippets. This small Node.js task avoids full application setup.
+For application evaluations in the upstream repository, use
 `scenarios/000-nextjs-template` as the default starting point, then follow
 [scenarios](scenarios.md).
 
@@ -142,18 +159,31 @@ export default defineConfig({
 The harness restores those files before running the check. There is no implicit
 test runner: the check explicitly invokes Vitest and returns its outcomes.
 
+## 3. Validate the grader
+
 Before running an agent, execute the fixture's tests locally:
 
 ```sh
 npx vitest run --root scenarios/001-labels --config vitest.config.scenario.ts
 ```
 
-Failures are expected for this starter. Temporarily implement a correct solution
-to confirm the grader passes, then restore the starter. Remove generated reports,
-lockfiles from local-only setup, and caches from the fixture before evaluating.
+Expect three failed assertions for this starter. Temporarily implement a correct
+solution and require all three assertions to pass, then restore the starter.
+Missing reports, startup errors, and zero tests do not satisfy this check.
+Remove generated reports, lockfiles from local-only setup, and caches from the
+fixture before evaluating.
 Do not leave the solution or previous run evidence in the starting workspace.
 
-## Choose a benchmark or experiment
+## 4. Choose one run configuration
+
+| Goal                    | Create                        | Setup scope                                    |
+| :---------------------- | :---------------------------- | :--------------------------------------------- |
+| Establish a baseline    | `benchmarks/labels.ts` below  | Top-level setup applies only to `Benchmark`    |
+| Compare an intervention | `experiments/labels.ts` below | Treatment setup applies only to that treatment |
+
+Both examples add control automatically. Do not add another control.
+Experiment top-level setup, if added, also applies to control; do not put the
+tested resource there. Choose one example for the first run.
 
 For a baseline, create `benchmarks/labels.ts`:
 
@@ -203,10 +233,9 @@ export const experiment = defineConfig({
 ```
 
 This also produces **two trials**: the automatic `Control` plus the configured
-treatment. Do not add another control. Run either configuration first, not both
-unless you want both results.
+treatment.
 
-## Inspect, run, and read the result
+## 5. Inspect the plan and run
 
 Planning loads and validates configs without starting containers or calling
 Copilot:
@@ -227,30 +256,40 @@ npx agent-eval experiment plan run \
   --output-dir ./results/labels-first-run
 ```
 
-For the benchmark alternative:
+For the benchmark alternative, create and inspect its plan, then execute it:
 
 ```sh
-npx agent-eval benchmark run labels --output-dir ./results/labels-baseline
+npx agent-eval benchmark plan create labels --output-path ./labels-benchmark-plan.json
+npx agent-eval benchmark plan run --plan-path ./labels-benchmark-plan.json --output-dir ./results/labels-baseline
 ```
 
-To smoke-test just the scenario:
+The benchmark plan also contains two trials, with a capability ID on each.
+Use a new output directory for every run.
+
+To smoke-test just the scenario instead, use the command below. It uses a
+built-in model, **not** the benchmark or experiment's model or setup:
 
 ```sh
 npx agent-eval scenario run 001-labels --output-dir ./results/labels-scenario
 ```
 
-The standalone scenario command uses a built-in model; it does not read the
-benchmark or experiment's model or setup. Use an experiment for model selection.
+Use an experiment when model selection matters.
 
-For a benchmark or experiment, open `output.json` in the chosen directory and
-follow the paths in `trials` to `artifacts/<trial-id>/<trial-id>.json`.
-Compare check outcomes for both treatments, then inspect the saved workspaces
-and sessions to understand failures. Scenario output has a different shape;
-see [trials and results](trials-and-results.md).
+## 6. Verify completion
 
-Use a new output directory for each run. An evaluation completing successfully
-does not mean all checks passed. The harness also attempts a visual walkthrough,
-even for this non-UI example; unavailable visual evidence is not a failed test.
+For either two-trial comparison:
+
+- Open `output.json` in the chosen directory and resolve both `trials` entries
+  to their `artifacts/<trial-id>/<trial-id>.json` files.
+- Confirm each trial contains three `node-tests` outcomes with assertion IDs.
+  Count passed, failed, and skipped outcomes separately from evaluator errors.
+- Compare the two conditions and inspect saved workspaces and sessions before
+  explaining any difference. The agent is not required to pass every test for
+  the evaluation itself to have completed correctly.
+
+Scenario output instead embeds results in `{id, results}`; see
+[trials and results](trials-and-results.md). The harness attempts a walkthrough
+even for this non-UI example. Unavailable visual evidence is not a failed test.
 
 Next, replace the smoke task with a representative task from your project and
 apply the [methodology](overview.md). See [CLI troubleshooting](cli.md) if setup,

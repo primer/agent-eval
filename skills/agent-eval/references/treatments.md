@@ -1,9 +1,16 @@
 # Treatments
 
-A treatment is a named environment intervention with optional asynchronous
-`setup({sandbox})`. Examples include instructions, a discoverable skill, an MCP
-server, or a plugin. Treatment IDs are derived from names, so keep names stable
-when reusing plans.
+**Use when:** changing the knowledge or tools available to the implementation
+agent without changing its task or grader.
+
+## Contract
+
+| Item           | Rule                                                           |
+| :------------- | :------------------------------------------------------------- |
+| Required field | Unique `name`; `Control` is reserved                           |
+| Optional field | `async setup({sandbox})`                                       |
+| Identity       | Name-derived ID; keep names stable when reusing plans          |
+| Setup API      | Use the supplied [sandbox](sandbox.md), not the host workspace |
 
 The automatic `Control` has no treatment setup. It still receives the common
 fixture, dependency installation, shared setup, and runtime tools.
@@ -18,10 +25,12 @@ fixture, dependency installation, shared setup, and runtime tools.
 Shared setup runs before treatment setup. Do not accidentally give the tested
 resource to control by installing it in shared setup or the fixture.
 
-## Resource setup recipes
+## Setup fragments
 
 Inside a treatment's `async setup({sandbox})`, use the appropriate method.
-These are alternatives, not a recommendation to combine every intervention.
+These fragments are alternatives, not complete experiment files. Choose one
+intervention for a first comparison. MCP and plugin examples contain placeholders;
+replace them with real, pinned resources before executing.
 
 Instructions:
 
@@ -63,7 +72,7 @@ Custom agents also accept supporting `files`. Installing an agent or skill does
 not guarantee it is invoked; inspect session evidence when discovery is part
 of the hypothesis.
 
-A local MCP server:
+A local MCP server (replace the illustrative package before running):
 
 ```ts
 await sandbox.addMcpServer('docs', {
@@ -74,10 +83,10 @@ await sandbox.addMcpServer('docs', {
 })
 ```
 
-Replace the illustrative package with a real, pinned server. MCP tools run in
-the container, not the host, so provide reachable dependencies and endpoints.
+MCP tools run in the container, not the host, so provide reachable dependencies
+and endpoints.
 
-A local plugin:
+A local plugin (replace the illustrative host path before running):
 
 ```ts
 await sandbox.addCopilotPlugin({
@@ -89,6 +98,19 @@ await sandbox.addCopilotPlugin({
 Remote plugins use `{type: 'remote', url, version?}`. Marketplace plugins use
 `{type: 'marketplace', name, marketplace: {name, source}}`, where `source` is a
 local or remote source. See installed `/sandbox` types for exact shapes.
+
+## Run and verify
+
+Place the chosen setup in an [experiment](experiments.md) treatment or the
+top-level setup of a [benchmark](benchmarks.md), then create and inspect a plan.
+Run into a fresh output directory.
+
+- Confirm control receives only the fixture and shared prerequisites.
+- Inspect saved configuration to confirm the resource and its references exist.
+- Inspect sessions for actual invocation or use when the hypothesis depends on
+  discovery. Installed resources are not necessarily used resources.
+
+## Pitfalls
 
 Pin or vendor resource contents and preserve their revision with your run.
 Avoid unpinned remote installs for comparisons you intend to reproduce.

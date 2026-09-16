@@ -1,70 +1,91 @@
 # Experiments
 
-An experiment compares interventions on the same tasks. Use it to evaluate a
-skill, instructions, MCP server, custom agent, plugin, or execution backend.
-Use a [benchmark](benchmarks.md) when the goal is a stable capability baseline.
+**Use when:** comparing instructions, skills, MCP servers, custom agents,
+plugins, or execution backends on the same tasks. Use a
+[benchmark](benchmarks.md) for a stable capability baseline.
+
+## Contract
+
+| Item                | Rule                                                                       |
+| :------------------ | :------------------------------------------------------------------------- |
+| File and import     | `experiments/<id>.ts`; `defineConfig` from `@primer/agent-eval/experiment` |
+| Export              | Prefer named `experiment`; default also supported                          |
+| Required fields     | `name`, `description`, `models`, `scenarios`, `treatments`                 |
+| Optional fields     | `setup`, `runners`                                                         |
+| CLI identifier      | Filename without extension, not display `name`                             |
+| Scenario references | Folder IDs; alternatively `{path, name?}`                                  |
+| Runner default      | `copilot-cli`                                                              |
+
+Top-level `setup` runs for **all trials, including control**. Put only neutral
+prerequisites there. Treatment setup runs afterward and installs the intervention.
+Do not put the tested resource in shared setup or the fixture.
+
+The harness adds `Control` automatically. Treatment names must be unique and
+cannot be `Control`. `treatments: []` runs control only.
+
+## Minimal example
+
+Prerequisite: create `001-labels` from [getting started](getting-started.md).
+Save this complete configuration as `experiments/verification.ts`:
 
 ```ts
 import {defineConfig} from '@primer/agent-eval/experiment'
 
 export const experiment = defineConfig({
-  name: 'API guidance',
-  description: 'Test whether API guidance improves agent choices on a migration task',
+  name: 'Verification instructions',
+  description: 'Test whether verification instructions improve correctness on a small transformation task',
   models: [{name: 'gpt-5.4', reasoningEfforts: ['low']}],
-  scenarios: ['001-migration'],
+  scenarios: ['001-labels'],
   treatments: [
     {
-      name: 'API instructions',
+      name: 'Verification instructions',
       async setup({sandbox}) {
-        await sandbox.addAgentInstruction('Consult the installed package types before choosing replacement APIs.')
+        await sandbox.addAgentInstruction(
+          'Before finishing, verify behavior with representative inputs and edge cases.',
+        )
       },
     },
   ],
 })
 ```
 
-Save as `experiments/api-guidance.ts`, create the referenced scenario, and run:
+This is a runnable wiring example, not sufficient evidence for selecting a
+resource. Replace it with a representative task and behavioral hypothesis for
+your project.
+
+## Run
 
 ```sh
-npx agent-eval experiment plan create api-guidance --output-path ./api-plan.json
-npx agent-eval experiment plan run --plan-path ./api-plan.json --output-dir ./results/api-guidance-01
+npx agent-eval experiment plan create verification --output-path ./verification-plan.json
+npx agent-eval experiment plan run --plan-path ./verification-plan.json --output-dir ./results/verification-01
 ```
 
-Required fields are `name`, `description`, `models`, `scenarios`, and
-`treatments`. `setup` and `runners` are optional. Export the named `experiment`
-configuration; a default export is also supported.
+Inspect the plan before executing the second command. Hold the prompt,
+fixture, grader, model, effort, and runner fixed when comparing resources.
 
-## Shared setup versus treatment setup
+## Verify
 
-Top-level experiment `setup({sandbox})` runs for **every trial**, including
-control. Use it for neutral prerequisites. Each treatment's setup runs
-afterward and installs only that intervention.
+- The example plan contains two trials: control plus the configured treatment.
+  Only their treatment IDs differ, apart from unique trial IDs.
+- Each trial has readable results, and grader errors are distinct from failures.
+- Session and workspace evidence support any claim that the intervention
+  changed behavior. Installation alone does not prove use.
 
-The harness automatically adds `Control`. Treatment names must be unique and
-cannot be `Control`. A configuration with `treatments: []` runs control only.
+## Pitfalls
 
-Experiment scenarios can also use `{path: './fixtures/task', name: 'task'}`.
-`path` resolves from the host process's working directory, not from the
-experiment file; `name` is an optional scenario ID override. Prefer ordinary
-scenario folder IDs for an introductory project.
-
-## Keep the comparison bounded
-
-Start with one model, one effort, one scenario, and one treatment. With one
-runner, this creates two trials. In general:
+Start with one model, effort, scenario, runner, and treatment beyond control.
+The matrix expands as follows:
 
 ```text
 trials = model variants * scenarios * unique runners * (configured treatments + 1)
 ```
 
-`runners: ['copilot-cli', 'copilot-sdk']` compares both backends and doubles that
-dimension. Omit it to use the CLI runner. See [models and runners](models-and-runners.md).
+`runners: ['copilot-cli', 'copilot-sdk']` adds a backend comparison. Changing both
+runner and resource confounds their effects; see [models and runners](models-and-runners.md).
 
-Hold other dimensions fixed when measuring the effect of a resource. If both
-the intervention and runner change, their effects are confounded. Repeat runs
-with distinct output directories when results are close; there is no repetition
-field in the configuration.
+For inline scenario references, `path` resolves from the host working directory,
+not the experiment file. `name` optionally overrides the scenario ID.
 
-Describe the behavioral hypothesis, inspect per-scenario failures, and reserve
-new tasks for checking generalization. The tiny [getting-started](getting-started.md)
-example is a wiring check, not a sufficient experiment for selecting a resource.
+Repeat close comparisons in separate output directories; there is no repetition
+field. Inspect per-scenario regressions and use held-out tasks before claiming
+generalization.

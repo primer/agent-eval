@@ -1,8 +1,19 @@
 # Sandbox
 
-A sandbox is the Docker-backed workspace used for a trial. The harness creates
-and disposes containers; configuration hooks receive `sandbox`, so ordinary
-benchmark and experiment authors do not need to manage container lifetimes.
+**Use when:** installing trial resources, running commands, or moving files
+between the host and a trial's Docker workspace.
+
+## Contract
+
+| Item                      | Rule                                              |
+| :------------------------ | :------------------------------------------------ |
+| Access                    | Use the `sandbox` supplied to setup/check hooks   |
+| Lifecycle                 | The harness creates and disposes trial containers |
+| Public imports            | `@primer/agent-eval/sandbox`                      |
+| Default user              | `node`                                            |
+| Command working directory | `/home/sandbox/workspace`                         |
+| Command result            | `{stdout, stderr, exitCode}`                      |
+| Nonzero exit              | Rejects unless `allowNonZeroExitCode: true`       |
 
 The container isolates the task from the host workspace. This is not a reason
 to expose secrets or run untrusted fixtures without review: setup hooks run
@@ -35,7 +46,10 @@ Import public runtime and types from `@primer/agent-eval/sandbox`.
 See [treatments](treatments.md) for resource installation examples. Consult the
 installed TypeScript interface for signatures and supported options.
 
-## Commands and paths
+## Command fragment
+
+For a fixture that defines an npm `test` script, this fragment can run inside a
+setup or check hook. It demonstrates command handling, not a complete check:
 
 ```ts
 const result = await sandbox.runCommand('npm', ['run', 'test'], {
@@ -46,11 +60,18 @@ if (result.exitCode !== 0) {
 }
 ```
 
-`runCommand` returns `{stdout, stderr, exitCode}`. By default it rejects a
-nonzero exit. Set `allowNonZeroExitCode` only when you will explicitly interpret
+Set `allowNonZeroExitCode` only when you will explicitly interpret
 the result, such as parsing assertion failures. Other options include `env`
 and `user`. Prefer the default `node` user; request `root` only for necessary
 system-level setup.
+
+## Run and verify
+
+Run the enclosing scenario, benchmark, or experiment. Inspect command errors
+and saved artifacts to confirm setup produced the intended environment.
+Resource-specific verification is covered in [treatments](treatments.md).
+
+## Pitfalls
 
 Commands use executable/argument arrays, not implicit shell evaluation.
 For shell syntax, explicitly invoke `sh` with `['-c', '...']`.

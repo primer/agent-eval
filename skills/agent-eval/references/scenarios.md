@@ -1,35 +1,30 @@
 # Scenarios
 
-A scenario is one task: prompt, starting workspace, and evaluation. Both
-benchmarks and experiments reuse it without changing the task between
-treatments.
+**Use when:** creating or changing an agent task, its starting workspace, or its
+evaluation. Benchmarks and experiments reuse the same scenario across treatments.
 
-## Files and configuration
+## Contract
 
-A discoverable scenario directory needs `package.json` and
-`scenario.config.ts`. It does not require `scenario.test.ts` unless your
-configured checks use that file.
+| Item              | Rule                                                              |
+| :---------------- | :---------------------------------------------------------------- |
+| Required files    | `package.json` and `scenario.config.ts`                           |
+| Import and export | `defineConfig` from `@primer/agent-eval/scenario`; default export |
+| Required field    | `prompt`, passed to the implementation agent                      |
+| Optional fields   | `description`, `tags`, `checks`, `judges`                         |
+| Defaults          | Empty tags, checks, and judges                                    |
+| Identity          | Directory name by default                                         |
+| Evaluation files  | Declare in check/judge `files`; restored during evaluation        |
 
-```ts
-import {defineConfig} from '@primer/agent-eval/scenario'
+Add [checks](checks.md), [judges](judges.md), or both before treating a run as a
+quality evaluation. Empty graders are valid configuration but provide no
+quality verdict. `scenario.test.ts` is needed only when a check uses it.
 
-export default defineConfig({
-  description: 'Evaluate adding search to an existing list',
-  prompt: 'Add search so users can filter the list of projects by name.',
-  tags: ['search'],
-  checks: [],
-  judges: [],
-})
-```
+## Runnable example
 
-`prompt` is required; `description`, `tags`, `checks`, and `judges` are optional.
-Use a default export. Empty checks and judges are valid configuration but give
-you no quality verdict. Add [checks](checks.md), [judges](judges.md), or both
-before interpreting a run as an evaluation.
-
-`description` records what is being tested; the implementation agent receives
-`prompt`. Tags are metadata, not a CLI selection mechanism. Scenario IDs are
-directory names by default.
+Use the complete `001-labels` fixture in [getting started](getting-started.md):
+package manifest, starter implementation, private tests, Vitest configuration,
+and scenario configuration with the `node-tests` check. The commands below
+refer to that fixture; a prompt-only configuration is not an equivalent substitute.
 
 ## Build the starting workspace
 
@@ -71,7 +66,7 @@ Avoid leaving grader instructions in visible package scripts or fixture docs.
 Keep the same prompt and workspace for control and treatment; put resource
 knowledge in [treatment setup](treatments.md).
 
-## Validate and run
+## Run
 
 Use `scenario.test.ts` and `vitest.config.scenario.ts` for the standard
 deterministic-check pattern in [getting started](getting-started.md). Validate
@@ -79,11 +74,29 @@ baseline failures and a representative correct implementation before spending
 on agent runs.
 
 ```sh
-npx agent-eval scenario run 001-search --output-dir ./results/search-smoke
-npx agent-eval scenario run 001-search --check node-tests --output-dir ./results/search-check
+npx agent-eval scenario run 001-labels --output-dir ./results/labels-smoke
 ```
+
+Alternatively, select the example fixture's `node-tests` check:
+
+```sh
+npx agent-eval scenario run 001-labels --check node-tests --output-dir ./results/labels-check
+```
+
+## Verify
+
+- The fixture installs independently and builds before the agent runs.
+- The grader reports intended starter failures and accepts a correct solution.
+  Restore the starter and remove local reports before execution.
+- The run's `output.json` contains a scenario result with individual check
+  outcomes. Inspect failures and evaluation errors separately.
+
+## Pitfalls
 
 `--check` selects one configured check but still runs the agent task and later
 stages; it is not a local test-only command and does not disable judges.
 Standalone scenario execution uses a built-in model and no benchmark or
 experiment setup. Use an experiment to select models and compare resources.
+
+Tags are metadata, not a CLI selection mechanism. `description` explains the
+evaluation; it is not a second implementation prompt.

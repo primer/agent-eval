@@ -1,8 +1,35 @@
 # Judges
 
-Judges use a model to inspect the completed workspace against an explicit
-rubric. Use them for criteria that deterministic checks cannot adequately
+**Use when:** evaluating criteria that deterministic checks cannot adequately
 measure, such as visual hierarchy or clarity of an interaction.
+
+## Contract
+
+| Item            | Rule                                                         |
+| :-------------- | :----------------------------------------------------------- |
+| Location        | Scenario `judges` array                                      |
+| Required fields | `name`, nonempty `scores` array                              |
+| Optional fields | `description`, `model`, `instructions`, `files`              |
+| Model shape     | `{name, reasoningEffort}`, not a string                      |
+| Model default   | Selected by the harness based on implementation model family |
+| Private inputs  | Scenario-contained `files`, withheld until evaluation        |
+| Score           | Exactly one configured numeric value                         |
+
+Set the judge model explicitly for a stable comparison. Check files and judge
+references share the same path-containment and no-symlink rules.
+
+Judges run after checks but **before** automatic walkthrough capture. Arrange
+required visual evidence before judging; do not assume the later walkthrough
+already exists.
+
+Anchor numeric values to observable evidence. The judge selects one configured
+value, without interpolation. Do not assume larger values are always better.
+Use separate judges for independent criteria that need separate diagnoses.
+
+## Configuration fragment
+
+Insert this `judges` property into a scenario that asks the agent to implement
+search. It is a rubric example, not a complete runnable scenario:
 
 ```ts
 judges: [
@@ -20,39 +47,25 @@ judges: [
 ]
 ```
 
-A judge requires `name` and a nonempty `scores` array. `description`, `model`,
-`instructions`, and `files` are optional. The model is a variant object with
-singular `reasoningEffort`, not a model string. Without an explicit model, the
-harness selects a default judge model based on the implementation model family.
-Set one explicitly when you need a stable comparison.
+## Run
 
-Judge `files` are private rubric/reference inputs inside the scenario directory.
-They are withheld during implementation and copied in for the judge. The same
-path containment and no-symlink rules as [checks](checks.md) apply.
+Define the rubric, list any private reference files, then run the enclosing
+[scenario](scenarios.md), benchmark, or experiment. There is no judge-only CLI
+command.
 
-## Rubric design
-
-Anchor each numeric value to observable evidence. The judge must choose exactly
-one configured value; it cannot interpolate or invent a scale. Do not assume
-all scales have the same meaning or that larger numbers are always better.
-
-Separate independent criteria into separate judges when their failures need
-different diagnoses. Avoid rewarding one arbitrary implementation if the task
-allows alternatives. Do not revise the rubric simply because a favored
-treatment loses.
-
-Judges run after checks, but before automatic walkthrough capture. If visual
-evidence is required, arrange for it to be available during judging rather than
-assuming the later walkthrough already exists. Be explicit about evidence and
-runtime inspection requirements.
-
-## Results and limitations
+## Verify
 
 A successful judge result contains `score`, `rationale`, and file-backed
 `findings` with `filepath`, `snippet`, and `explanation`. Judge output also
-records its agent session. Invalid reports and unconfigured scores are errors,
-not ordinary low scores; results may also be `unknown`.
+records its agent session.
 
-Inspect findings and evidence, not only the number. Model-based judgment is
-non-deterministic and adds Copilot usage. Pair it with deterministic checks for
-requirements that can be enforced directly.
+Require a configured score supported by rationale and inspected evidence.
+Invalid reports and unconfigured scores are errors. Review findings, not only
+the number, and do not treat an `error` or `unknown` result as a low score.
+
+## Pitfalls
+
+Avoid rewarding one arbitrary implementation when the task allows alternatives,
+or revising a rubric simply because a favored treatment loses. Model-based
+judgment is non-deterministic and adds Copilot usage. Pair it with deterministic
+checks for requirements that can be enforced directly.

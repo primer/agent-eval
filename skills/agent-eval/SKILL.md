@@ -8,40 +8,36 @@ description: 'Use when installing or using @primer/agent-eval, designing agent e
 Use agent-eval to measure how agents perform on real tasks and whether a change
 to their environment improves the result.
 
-## Start here
+## Choose a task
 
-1. Read [the overview](references/overview.md) for the project structure and
-   evaluation methodology.
-2. For a first evaluation, follow [getting started](references/getting-started.md).
-   It includes installation, a complete scenario, and both run configurations.
-3. Choose a **benchmark** for a capability baseline or an **experiment** to
-   compare treatments. Start with one scenario, one model/effort, and one
-   treatment beyond the automatic control.
-4. Validate the grader, inspect a saved plan, then run into a fresh output
-   directory. Report observed outcomes and limitations, not just completion.
+Read only the references needed for the current task. The overview is context,
+not a prerequisite for every operation.
 
-Keep the prompt and fixture treatment-blind. Put the knowledge being tested in
-the treatment, and keep evaluation files out of the implementation agent's
-workspace using `files`. Separate task failures from evaluation errors.
+| Task                                                    | Read                                                                               |
+| :------------------------------------------------------ | :--------------------------------------------------------------------------------- |
+| Install and complete a first evaluation                 | [Getting started](references/getting-started.md)                                   |
+| Understand project structure and evaluation methodology | [Overview](references/overview.md)                                                 |
+| Establish a capability baseline                         | [Benchmarks](references/benchmarks.md), [capabilities](references/capabilities.md) |
+| Compare instructions, skills, agents, MCP, or plugins   | [Experiments](references/experiments.md), [treatments](references/treatments.md)   |
+| Create a task and its starting workspace                | [Scenarios](references/scenarios.md)                                               |
+| Add deterministic grading or a subjective rubric        | [Checks](references/checks.md) or [judges](references/judges.md)                   |
+| Select models, effort, or execution backends            | [Models and runners](references/models-and-runners.md)                             |
+| Install resources or run commands in a trial            | [Sandbox](references/sandbox.md)                                                   |
+| Inspect a run matrix, shard, or merge                   | [Plans](references/plans.md)                                                       |
+| Read results or diagnose agent behavior                 | [Trials and results](references/trials-and-results.md)                             |
+| Find a command, flag, or runtime failure                | [CLI](references/cli.md)                                                           |
 
-## Read only the references needed
+## Execution rules
 
-| Topic                                               | Reference                                              |
-| :-------------------------------------------------- | :----------------------------------------------------- |
-| Purpose, methodology, project layout                | [Overview](references/overview.md)                     |
-| Installation and first run                          | [Getting started](references/getting-started.md)       |
-| Stable capability baselines                         | [Benchmarks](references/benchmarks.md)                 |
-| Grouping tasks within a benchmark                   | [Capabilities](references/capabilities.md)             |
-| Comparing interventions                             | [Experiments](references/experiments.md)               |
-| Prompts, fixtures, discovery                        | [Scenarios](references/scenarios.md)                   |
-| Control, instructions, skills, agents, MCP, plugins | [Treatments](references/treatments.md)                 |
-| Model variants and execution backends               | [Models and runners](references/models-and-runners.md) |
-| Deterministic outcomes and measurements             | [Checks](references/checks.md)                         |
-| Model-based evaluation and rubrics                  | [Judges](references/judges.md)                         |
-| Container lifecycle and setup APIs                  | [Sandbox](references/sandbox.md)                       |
-| Saved execution matrices and sharding               | [Plans](references/plans.md)                           |
-| Execution, sessions, artifacts, interpretation      | [Trials and results](references/trials-and-results.md) |
-| Commands, flags, troubleshooting                    | [CLI](references/cli.md)                               |
+- For a first comparison, use one scenario, one model/effort, and one treatment
+  beyond the automatic control.
+- Keep prompts and fixtures treatment-blind. Put the knowledge being tested in
+  treatment setup, not shared setup.
+- Withhold grader files using `files`. Verify the starter fails for the intended
+  reasons and a correct solution passes; restore the starter before execution.
+- Inspect the plan's combinations before running. Use a fresh output directory.
+- Finish by reading trial results and reporting outcomes and errors separately.
+  Command completion alone does not establish quality.
 
 These references describe the source API at authoring time. For an installed
 version, verify its package types and `npx agent-eval <command> --help`

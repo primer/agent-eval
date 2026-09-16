@@ -10,14 +10,20 @@ vi.mock('./components/PageHeader', () => {
   }
 })
 
-test('renders the root attributes added by the focus-visible polyfill before hydration', () => {
-  const html = renderToStaticMarkup(
+test('renders Primer focus-visible markers on the server without suppressing hydration warnings', () => {
+  const layout = (
     <Layout>
-      <p>Content</p>
-    </Layout>,
+      <button>Focusable content</button>
+    </Layout>
   )
-  expect(html).toContain('class="js-focus-visible"')
-  expect(html).toContain('data-js-focus-visible=""')
-  expect(html).toContain('data-color-mode="auto"')
-  expect(html).toContain('<main><p>Content</p></main>')
+  const html = renderToStaticMarkup(layout)
+  const openingTag = /<html\b[^>]*>/.exec(html)?.[0]
+
+  expect(openingTag).toContain('class="js-focus-visible"')
+  expect(openingTag).toContain('data-js-focus-visible=""')
+  expect(openingTag).toContain('data-color-mode="auto"')
+  expect(openingTag).toContain('data-light-theme="light"')
+  expect(openingTag).toContain('data-dark-theme="dark"')
+  expect(Layout({children: null}).props.suppressHydrationWarning).not.toBe(true)
+  expect(html).toContain('<main><button>Focusable content</button></main>')
 })

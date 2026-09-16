@@ -16,6 +16,9 @@ behavior of the published `@primer/agent-eval` package. Public API includes:
 Do not add a changeset for scenarios, experiments, tests, internal refactors, or
 repository tooling that do not affect consumers of `@primer/agent-eval`.
 
+Do not create changesets for updates to features, fixes, or other changes that
+have not been released yet.
+
 ## Write a changeset
 
 1. Run `pnpm changeset` from the repository root.

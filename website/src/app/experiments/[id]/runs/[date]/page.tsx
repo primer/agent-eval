@@ -33,7 +33,7 @@ export default async function RunPage(props: RunPageProps) {
         collectionHref: '/experiments',
         href: `/experiments/${experiment.id}` as Route,
       }}
-      run={await createExperimentRunDetails(date, run.output)}
+      run={await createExperimentRunDetails(date, run.output, 'experiments', run.directory)}
     />
   )
 }

@@ -10,17 +10,17 @@ hydration warnings.
 
 ## Routes
 
-| URL                           | Description                                     |
-| :---------------------------- | :---------------------------------------------- |
-| `/`                           | View the latest design system benchmark results |
-| `/benchmarks`                 | List benchmarks                                 |
-| `/benchmarks/:id`             | View benchmark results and dated runs           |
-| `/benchmarks/:id/runs/:date`  | View benchmark run details and walkthroughs     |
-| `/experiments`                | List experiments                                |
-| `/experiments/:id`            | View experiment details                         |
-| `/experiments/:id/runs/:date` | View experiment run details and walkthroughs    |
-| `/scenarios`                  | List scenarios                                  |
-| `/scenarios/:id`              | View scenario details                           |
+| URL                           | Description                                          |
+| :---------------------------- | :--------------------------------------------------- |
+| `/`                           | View the latest benchmark and experiment results     |
+| `/benchmarks`                 | List benchmarks                                      |
+| `/benchmarks/:id`             | View benchmark results and dated runs                |
+| `/benchmarks/:id/runs/:date`  | View benchmark run details and walkthroughs          |
+| `/experiments`                | List experiments                                     |
+| `/experiments/:id`            | Compare latest treatments, scenarios, and dated runs |
+| `/experiments/:id/runs/:date` | View experiment run details and walkthroughs         |
+| `/scenarios`                  | List scenarios                                       |
+| `/scenarios/:id`              | View scenario details                                |
 
 ## Results
 
@@ -104,11 +104,56 @@ Each saved trial's `capabilityId` links to the capability metadata in `output.js
 so a scenario shared by multiple capabilities is attributed to the correct one.
 Overall results include each trial once.
 
+The overview includes each configured experiment and its latest dated run.
+It reads only the newest available result bundle for each experiment; dated
+run history is loaded on the experiment page.
+Experiment pages compare treatments separately for each model and reasoning
+effort, both across the run and within each scenario. Check summaries use the
+same per-trial averaging and missing-value reporting described above. Output tokens, premium
+requests, session time, and API time are averages per recorded trial. Trial and
+scenario counts are shown so differences in coverage are visible; these are
+descriptive results, not paired comparisons or significance estimates.
+
+Select **View output** for a scenario to open its walkthrough, checks,
+and transcript. The run viewer supports switching model, treatment, and trial
+when multiple trials were recorded. Runs without trials and experiments without
+runs show empty states rather than falling back to older results.
+Changing the model or treatment selects the first trial for that combination.
+Scenario output links also support IDs containing spaces, slashes, and percent
+escapes.
+
 Benchmark and experiment run details include a **Judges** tab for the selected
-model and treatment. Each judge shows its score, scoring criteria, rationale,
+model, treatment, and trial. Each judge shows its score, scoring criteria, rationale,
 and file-backed findings with code snippets. Scores use the judge's configured
 scale, not a shared pass/fail threshold. Judge errors and missing results are
 shown separately from scored results.
+
+Each trial's **Code** tab shows the saved `artifacts.workspaceDirectory` as an
+expandable file tree with read-only UTF-8 text previews. This is the final saved
+workspace, including starter files, rather than a diff of the agent's changes.
+Workspaces are read at build time, so the explorer also works in the static export.
+Missing workspaces have an unavailable message.
+
+Recognized file types use Shiki syntax highlighting with GitHub light and dark
+themes that follow the website's color mode. Unknown file types remain plain text.
+Previews are highlighted on the server and exported as individual JSON assets.
+The explorer fetches a preview only when its file is selected, keeping file contents,
+tokens, Shiki, and language grammars out of the initial results page. Highlighting
+runs at build time for the static export, or on request during local development.
+The browser renders the returned tokens as escaped text, not generated HTML.
+Production export workers reuse a bounded index of up to eight workspaces,
+including in-flight reads, so generating each file preview does not rescan its
+workspace. Each index retains only the files allowed by the preview limits below.
+Local development bypasses this cache so edits are visible on the next request.
+
+Dependency, build, and Git directories (`node_modules`, `.next`, `.turbo`, `dist`,
+and `.git`) are omitted. Symbolic links and binary files cannot be previewed.
+Workspace paths containing a symbolic link at or below the artifacts directory
+are rejected, even if the link points to another directory inside the same bundle.
+Previews are limited to 256 KiB per file and 2 MiB per workspace; the tree is limited
+to 2,000 entries and 50 directory levels. Limits are indicated in the explorer.
+Review workspace contents before publishing a result bundle, as previewable files
+are included in the website.
 
 Scenario pages show configured checks, text previews of their reference files
 (including test sources), and `scenario.config.ts`. There is no longer an

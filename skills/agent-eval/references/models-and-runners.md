@@ -20,15 +20,6 @@ Model names and allowed efforts must be supported by the installed package
 [upstream model definitions](https://github.com/primer/agent-eval/blob/main/packages/agent-eval/src/model.ts);
 do not assume arbitrary Copilot model names are accepted.
 
-The registry includes `claude-fable-5`, `claude-fable-5.1`, and `gpt-6-astra`,
-each with `low`, `medium`, `high`, `xhigh`, and `max` reasoning efforts.
-Omitting effort still selects `medium`, not the provider's default.
-The default sandbox installs Copilot CLI 1.0.85, which adds GPT-6 Astra support.
-Fable access requires administrative enablement and is subject to Anthropic's
-data-retention requirements; review
-[GitHub's model availability and access notes](https://docs.github.com/en/copilot/reference/ai-models/supported-models)
-before running evaluations.
-
 There is no `--model` flag. Use an experiment with one model variant when model
 selection matters. Judge and walkthrough sessions use the CLI even when
 implementation uses the SDK.

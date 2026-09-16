@@ -27,6 +27,11 @@ type SandboxCreateOptions = {
     dockerfile: string
     context: string
   }
+  scenario?: {
+    directory: string
+    exclude: Array<string>
+  }
+  preparedImage?: string
   host?: Host
 }
 

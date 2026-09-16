@@ -1,10 +1,11 @@
 import Queue from 'p-queue'
 import {expect, test, vi} from 'vitest'
 import {VirtualHost} from '../host'
-import {AGENTS_DIR, CONTAINER_WORKDIR, COPILOT_DIR, NODE_USER, VirtualSandbox, type Sandbox} from '../sandbox'
+import {AGENTS_DIR, CONTAINER_WORKDIR, COPILOT_DIR, NODE_USER, type Sandbox} from '../sandbox'
 import {ControlTreatment} from '../treatment'
 import {runTrial} from './run'
 import type {Trial} from './trial'
+import {buildScenarioImage} from '../scenario/image'
 
 test.each([undefined, 'copilot-cli', 'copilot-sdk'] as const)(
   'withholds check files during the task and restores them for verification (runner: %s)',
@@ -19,7 +20,6 @@ test.each([undefined, 'copilot-cli', 'copilot-sdk'] as const)(
       [`${COPILOT_DIR}/config.json`]: '{}',
       [`${AGENTS_DIR}/config.json`]: '{}',
     })
-    await using sandbox: Sandbox = await VirtualSandbox.create({host})
     const checkRun = vi.fn<Trial['scenario']['checks'][number]['run']>(async ({sandbox: checkSandbox}) => {
       await expect(checkSandbox.readFile('vitest.config.scenario.ts')).resolves.toBe('private check config')
       await expect(checkSandbox.readFile('checks/reference.json')).resolves.toBe('private reference')
@@ -55,6 +55,8 @@ test.each([undefined, 'copilot-cli', 'copilot-sdk'] as const)(
         ],
       },
     }
+    const image = await buildScenarioImage({scenario: trial.scenario, host})
+    await using sandbox: Sandbox = await host.createSandbox({preparedImage: image})
     let taskCalls = 0
     const copilotQueue = new Queue({concurrency: 1})
     vi.spyOn(sandbox, 'runCommand').mockImplementation(async (command, args = []) => {
@@ -132,8 +134,6 @@ test.each([
     [`${COPILOT_DIR}/config.json`]: '{}',
     [`${AGENTS_DIR}/config.json`]: '{}',
   })
-  await using sandbox: Sandbox = await VirtualSandbox.create({host})
-  const copy = vi.spyOn(sandbox, 'copy')
   const setup = vi.fn(async () => {})
   const treatmentSetup = vi.fn(async () => {})
   const check = vi.fn(async () => {
@@ -161,7 +161,14 @@ test.each([
       judges: [],
     },
   }
+  const image = await buildScenarioImage({scenario: trial.scenario, host})
+  await using sandbox: Sandbox = await host.createSandbox({preparedImage: image})
+  const copy = vi.spyOn(sandbox, 'copy')
   const runCommand = vi.spyOn(sandbox, 'runCommand').mockImplementation(async (command, args = []) => {
+    if (command === 'npm' && args[0] === 'run' && args[1] === 'build') {
+      expect(setup).toHaveBeenCalledOnce()
+      expect(treatmentSetup).toHaveBeenCalledOnce()
+    }
     if (command === 'copilot' && args.includes(trial.scenario.prompt)) {
       await expect(sandbox.exists('scenario.test.ts')).resolves.toBe(false)
       await expect(sandbox.readFile('apps/web/index.js')).resolves.toBe('image source')
@@ -209,11 +216,13 @@ test.each([
     copy.mock.calls.some(([source]) => {
       return source === '/scenarios/example'
     }),
-  ).toBe(!workspace)
+  ).toBe(false)
+  expect(runCommand).not.toHaveBeenCalledWith('npm', ['install'], {user: NODE_USER})
+  expect(runCommand).not.toHaveBeenCalledWith('npm', ['pkg', 'delete', 'devDependencies.@primer/agent-eval'], {
+    user: NODE_USER,
+  })
   for (const args of [
     ['pkg', 'set', 'name=trial'],
-    ['pkg', 'delete', 'devDependencies.@primer/agent-eval'],
-    ['install'],
     ['run', 'build', '--if-present'],
   ]) {
     if (workspace) {

@@ -11,6 +11,7 @@ export {ExperimentOutputFileSchema, ExperimentTrialOutputSchema} from './experim
 export type {ExperimentOutput, ExperimentTrialOutput} from './experiment/output'
 export {getScenario} from './scenario/get'
 export {listScenarios} from './scenario/list'
+export {buildScenarioImage} from './scenario/image'
 export type {Scenario} from './scenario/scenario'
 export type {CheckOutput} from './check'
 export type {JudgeOutput} from './judge'

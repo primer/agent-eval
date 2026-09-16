@@ -5,6 +5,16 @@ a sandboxed environment. This helps to prevent the agent from accessing the host
 
 The sandbox is used in [experiments](./experiments.md) and [benchmarks](./benchmarks.md) to provide a consistent environment for the agent to run in.
 
+Every trial starts from a prepared scenario image. Ordinary scenarios use an
+automatically generated image; a scenario can instead provide its own image or
+Dockerfile. See [scenario images](./scenarios.md#generated-images-and-prebuilding)
+for prebuilding with the CLI or `buildScenarioImage`.
+
+For direct sandbox use, `SystemSandbox.buildImage(options)` builds the runtime
+image without starting a container. Pass the returned reference to
+`SystemSandbox.create({preparedImage: image})` to use it without rebuilding.
+`preparedImage` cannot be combined with other image build options.
+
 The [`Sandbox` interface](../packages/agent-eval/src/sandbox/types.ts) provides the following methods:
 
 | Method                | Description                                                                   |

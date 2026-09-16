@@ -40,15 +40,29 @@ self-contained fixture; do not assume the upstream template exists locally.
 Replace upstream-only `workspace:*` dependency references before installing
 the fixture outside that workspace.
 
-By default, the harness copies the scenario into the container, replaces the package name
-with the trial ID, removes `devDependencies.@primer/agent-eval`, and runs
-`npm install`. Do not use other unresolved workspace dependencies or require
+By default, the harness generates a Docker image that copies the scenario,
+uses the neutral package name `agent-eval-scenario`, removes
+`devDependencies.@primer/agent-eval`, and runs `npm install`.
+Each trial starts a fresh container from that image and replaces the package
+name with the trial ID before setup hooks. Do not use other unresolved workspace dependencies or require
 files outside the fixture. Dependencies for tests belong in the fixture
 manifest even though their tests are withheld.
 
 After shared and treatment setup, `npm run build --if-present` runs before the
 agent task. The starting project must build successfully. This is not a
 post-implementation build check; configure that separately if needed.
+
+Prebuild with `npx agent-eval scenario build <name>` or omit the name to build
+all scenarios. Docker is required, but a Copilot token is not. Each image is
+printed as JSON with `scenario` and `image`. The library equivalent is
+`buildScenarioImage({scenario})`, exported from the package root and
+`@primer/agent-eval/scenario`.
+
+Later runs rebuild against current inputs using Docker's cached layers.
+Prebuilding does not run setup hooks or the post-setup build. Installation
+scripts execute during image construction and cannot depend on a trial ID.
+For cross-machine reuse, tag/push the returned image and set `workspace.image`;
+that explicit image must own its initial build.
 
 ### Image-backed workspaces
 

@@ -8,21 +8,22 @@ Run from your evaluation project's root with `npx agent-eval`. Names are
 configuration filenames without extensions for benchmarks/experiments and
 folder names for scenarios, not display names or paths to `.ts` files.
 Use a fresh output directory per run. Execution requires Docker and
-`COPILOT_GITHUB_TOKEN` or `--token`; planning and merge do not require a token.
+`COPILOT_GITHUB_TOKEN` or `--token`; planning, image builds, and merge do not require a token.
 
 ## Commands
 
-| Command                         | Purpose                         |
-| :------------------------------ | :------------------------------ |
-| `benchmark run <name>`          | Run a benchmark directly        |
-| `benchmark plan create <name>`  | Write a benchmark plan          |
-| `benchmark plan run`            | Execute a saved benchmark plan  |
-| `benchmark merge`               | Merge benchmark shard results   |
-| `experiment run <name>`         | Run an experiment directly      |
-| `experiment plan create <name>` | Write an experiment plan        |
-| `experiment plan run`           | Execute a saved experiment plan |
-| `experiment merge`              | Merge experiment shard results  |
-| `scenario run <name>`           | Run one scenario                |
+| Command                         | Purpose                             |
+| :------------------------------ | :---------------------------------- |
+| `benchmark run <name>`          | Run a benchmark directly            |
+| `benchmark plan create <name>`  | Write a benchmark plan              |
+| `benchmark plan run`            | Execute a saved benchmark plan      |
+| `benchmark merge`               | Merge benchmark shard results       |
+| `experiment run <name>`         | Run an experiment directly          |
+| `experiment plan create <name>` | Write an experiment plan            |
+| `experiment plan run`           | Execute a saved experiment plan     |
+| `experiment merge`              | Merge experiment shard results      |
+| `scenario run <name>`           | Run one scenario                    |
+| `scenario build [name]`         | Prebuild one or all scenario images |
 
 Use singular `benchmark`, `experiment`, and `scenario`. There is no CLI
 scaffolding command; create files with the appropriate `defineConfig` helper.
@@ -37,22 +38,22 @@ npx agent-eval scenario run --help
 
 ## Options by scope
 
-| Option                            | Scope and default                                 |
-| :-------------------------------- | :------------------------------------------------ |
-| `--benchmarks <dir>`              | Benchmark run and plan commands; `./benchmarks`   |
-| `--experiments <dir>`             | Experiment run and plan commands; `./experiments` |
-| `--scenarios <dir>`               | Run and plan commands; `./scenarios`              |
-| `--output-dir <dir>`              | Run, plan run, and merge; `./results`             |
-| `--output-path <file>`            | Plan create only; `plan.json`                     |
-| `--plan-path <file>`              | Plan run only; `./plan.json`                      |
-| `--shard <order>/<total>`         | Plan run only; omitted means all trials           |
-| `--runner <runner>`               | Run, plan create, plan run; see below             |
-| `--check <name>`                  | Scenario run only; selects one configured check   |
-| `--copilot-concurrency <n>`, `-c` | Run and plan run; `1`                             |
-| `--container-concurrency <n>`     | Run and plan run; `5`                             |
-| `--docker-image <image>`          | Run and plan run; package default Node image      |
-| `--token <token>`                 | Run and plan run; prefer `COPILOT_GITHUB_TOKEN`   |
-| `--log-level <level>`             | Root option; `info`                               |
+| Option                            | Scope and default                                      |
+| :-------------------------------- | :----------------------------------------------------- |
+| `--benchmarks <dir>`              | Benchmark run and plan commands; `./benchmarks`        |
+| `--experiments <dir>`             | Experiment run and plan commands; `./experiments`      |
+| `--scenarios <dir>`               | Run, plan, and scenario build; `./scenarios`           |
+| `--output-dir <dir>`              | Run, plan run, and merge; `./results`                  |
+| `--output-path <file>`            | Plan create only; `plan.json`                          |
+| `--plan-path <file>`              | Plan run only; `./plan.json`                           |
+| `--shard <order>/<total>`         | Plan run only; omitted means all trials                |
+| `--runner <runner>`               | Run, plan create, plan run; see below                  |
+| `--check <name>`                  | Scenario run only; selects one configured check        |
+| `--copilot-concurrency <n>`, `-c` | Run and plan run; `1`                                  |
+| `--container-concurrency <n>`     | Run and plan run; `5`                                  |
+| `--docker-image <image>`          | Run, plan run, and scenario build; fallback Node image |
+| `--token <token>`                 | Run and plan run; prefer `COPILOT_GITHUB_TOKEN`        |
+| `--log-level <level>`             | Root option; `info`                                    |
 
 Concurrency values must be positive integers. Copilot concurrency limits active
 sessions; container concurrency limits active trial containers. Both apply per
@@ -65,7 +66,9 @@ commands with unique output directories.
 
 The CLI requires `--token` or `COPILOT_GITHUB_TOKEN` for execution. Host Copilot
 login alone does not satisfy this check. Plan creation and merge do not require
-a token. Avoid putting token values on command lines, in logs, or in shell
+a token. Neither does `scenario build`, which prints JSON with `scenario` and
+`image` for each built image and does not run agents, hooks, or evaluation.
+Avoid putting token values on command lines, in logs, or in shell
 history.
 
 ## Command templates
@@ -77,6 +80,7 @@ the combined output and removes shard manifests.
 
 ```sh
 npx agent-eval experiment run comparison --output-dir ./results/comparison-01
+npx agent-eval scenario build
 npx agent-eval benchmark plan create baseline --output-path ./baseline-plan.json
 npx agent-eval benchmark plan run --plan-path ./baseline-plan.json --shard 1/2 --output-dir ./results/baseline-01
 npx agent-eval benchmark merge --output-dir ./results/baseline-01

@@ -1,8 +1,9 @@
 import {existsSync} from 'node:fs'
 import fs from 'node:fs/promises'
+import {randomUUID} from 'node:crypto'
 import {pathToFileURL} from 'node:url'
 import {memfs, Volume, type NestedDirectoryJSON} from 'memfs'
-import {SystemSandbox, VirtualSandbox, type Sandbox, type SandboxCreateOptions} from './sandbox'
+import {CONTAINER_WORKDIR, SystemSandbox, VirtualSandbox, type Sandbox, type SandboxCreateOptions} from './sandbox'
 
 type FileSystem = typeof import('node:fs/promises')
 
@@ -11,6 +12,7 @@ interface Host {
   fs: FileSystem
   loadModule<T = unknown>(filepath: string): Promise<T>
   createSandbox: (options?: SandboxCreateOptions) => Promise<Sandbox>
+  buildSandboxImage: (options?: SandboxCreateOptions) => Promise<string>
 }
 
 class SystemHost implements Host {
@@ -35,6 +37,10 @@ class SystemHost implements Host {
   createSandbox(options?: SandboxCreateOptions): Promise<Sandbox> {
     return SystemSandbox.create(options)
   }
+
+  buildSandboxImage(options?: SandboxCreateOptions): Promise<string> {
+    return SystemSandbox.buildImage(options)
+  }
 }
 
 class VirtualHost implements Host {
@@ -45,6 +51,7 @@ class VirtualHost implements Host {
   existsSync: typeof existsSync
   fs: FileSystem
   vol: Volume
+  #images = new Map<string, SandboxCreateOptions>()
 
   constructor(json?: NestedDirectoryJSON) {
     const {fs: virtualFs, vol} = memfs(json)
@@ -62,11 +69,22 @@ class VirtualHost implements Host {
     return await import(dataUri)
   }
 
-  createSandbox(options?: SandboxCreateOptions): Promise<Sandbox> {
-    return VirtualSandbox.create({
+  async createSandbox(options?: SandboxCreateOptions): Promise<Sandbox> {
+    const sandbox = await VirtualSandbox.create({
       host: this,
       ...options,
     })
+    const scenario = options?.preparedImage ? this.#images.get(options.preparedImage)?.scenario : options?.scenario
+    if (scenario) {
+      await sandbox.copy(scenario.directory, CONTAINER_WORKDIR, {exclude: scenario.exclude})
+    }
+    return sandbox
+  }
+
+  async buildSandboxImage(options: SandboxCreateOptions = {}): Promise<string> {
+    const image = `virtual-image:${randomUUID()}`
+    this.#images.set(image, options)
+    return image
   }
 }
 

@@ -18,6 +18,8 @@ import {getScenario} from '../../scenario/get'
 import {createScenarioPlan} from '../../scenario/plan'
 import {runPlan} from '../../plan'
 import type {RunTrialResult} from '../../trial/run'
+import {buildScenarioImage} from '../../scenario/image'
+import {listScenarios} from '../../scenario/list'
 
 const scenarioCommand = defineCommand({
   meta: {
@@ -25,6 +27,34 @@ const scenarioCommand = defineCommand({
     description: 'Run scenarios',
   },
   subCommands: {
+    build: defineCommand({
+      meta: {
+        name: 'build',
+        description: 'Build a scenario image without running an agent, or build all scenarios',
+      },
+      args: {
+        name: {
+          type: 'positional',
+          description: 'The name of the scenario (omit to build all scenarios)',
+          required: false,
+        },
+        scenarios: scenariosOption,
+        'docker-image': dockerImageOption,
+      },
+      async run({args}) {
+        const directory = path.resolve(args.scenarios)
+        const scenarios = args.name
+          ? [await getScenario({directory, name: args.name})]
+          : await listScenarios({directory})
+        if (scenarios.length === 0) {
+          throw new Error(`No scenarios found in: ${directory}`)
+        }
+        for (const scenario of scenarios) {
+          const image = await buildScenarioImage({scenario, dockerImage: args['docker-image']})
+          console.log(JSON.stringify({scenario: scenario.id, image}))
+        }
+      },
+    }),
     run: defineCommand({
       meta: {
         name: 'run',

@@ -21,6 +21,11 @@ from host-loaded configuration, package installs execute code, and the agent
 has broad command permissions inside the container.
 
 The default runtime provides Node.js, npm, Git, Chromium, and Copilot tooling.
+All trials start from prepared scenario images. Ordinary scenarios generate
+their images automatically; `npx agent-eval scenario build` prebuilds them
+without running an agent. Direct sandbox callers can use
+`SystemSandbox.buildImage(options)` followed by
+`SystemSandbox.create({preparedImage: image})`.
 A custom `--docker-image` must be a Debian-based Node image with npm, `apt-get`,
 and a `node` user; the harness layers its tools on top.
 Scenario [image-backed workspaces](scenarios.md#image-backed-workspaces) use the

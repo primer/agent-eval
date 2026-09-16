@@ -3,10 +3,12 @@ import path from 'node:path'
 import type Docker from 'dockerode'
 import dockerignore from '@balena/dockerignore'
 import tarFs from 'tar-fs'
+import tarStream from 'tar-stream'
 import type {Host} from '../host'
 import {logger} from '../logger'
 import {isPathInside} from '../path'
 import type {SandboxCreateOptions} from './types'
+import {CONTAINER_WORKDIR, NODE_USER} from './constants'
 
 type DockerBuild = NonNullable<SandboxCreateOptions['dockerBuild']>
 
@@ -78,4 +80,49 @@ async function waitForDockerBuild(docker: Docker, stream: NodeJS.ReadableStream)
   })
 }
 
-export {buildLocalDockerImage, validateDockerBuild, waitForDockerBuild}
+const SCENARIO_DOCKERFILE = `ARG BASE_IMAGE
+FROM \${BASE_IMAGE}
+WORKDIR ${CONTAINER_WORKDIR}
+COPY --chown=${NODE_USER} scenario/ ./
+USER ${NODE_USER}
+RUN npm pkg set name=agent-eval-scenario \\
+  && npm pkg delete devDependencies.@primer/agent-eval \\
+  && npm install
+`
+
+async function buildScenarioDockerImage(
+  docker: Docker,
+  baseImage: string,
+  scenario: NonNullable<SandboxCreateOptions['scenario']>,
+): Promise<string> {
+  const directory = path.resolve(scenario.directory)
+  const image = `agent-eval-scenario:${randomUUID()}`
+  const archive = tarStream.pack()
+  archive.entry({name: 'Dockerfile'}, SCENARIO_DOCKERFILE)
+  const excluded = scenario.exclude.map(filepath => {
+    return path.posix.normalize(filepath.split(path.sep).join(path.posix.sep))
+  })
+  tarFs.pack(directory, {
+    pack: archive,
+    ignore(name) {
+      const relative = path.relative(directory, name).split(path.sep).join(path.posix.sep)
+      return excluded.some(filepath => {
+        return relative === filepath || relative.startsWith(`${filepath}/`)
+      })
+    },
+    map(header) {
+      header.name = path.posix.join('scenario', header.name)
+      return header
+    },
+  })
+  logger.info('Building scenario image from %s', directory)
+  const stream = await docker.buildImage(archive, {
+    dockerfile: 'Dockerfile',
+    buildargs: {BASE_IMAGE: baseImage},
+    t: image,
+  })
+  await waitForDockerBuild(docker, stream)
+  return image
+}
+
+export {buildLocalDockerImage, buildScenarioDockerImage, validateDockerBuild, waitForDockerBuild}

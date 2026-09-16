@@ -42,7 +42,7 @@ import {VirtualSandbox} from './virtual'
 import {resolveContainerPath} from './path'
 import {logger} from '../logger'
 import {createCapturedStream} from './captured-stream'
-import {buildLocalDockerImage, waitForDockerBuild} from './build'
+import {buildLocalDockerImage, buildScenarioDockerImage, waitForDockerBuild} from './build'
 
 const COPILOT_CLI_VERSION = '1.0.85'
 const NPM_VERSION = '12.0.2'
@@ -95,7 +95,13 @@ const DEFAULT_MCP_CONFIG: McpConfigFile = {
 const localDockerImageBuilds = new WeakMap<NonNullable<SandboxCreateOptions['dockerBuild']>, Promise<string>>()
 
 class SystemSandbox implements Sandbox {
-  static async create(options: SandboxCreateOptions = {}) {
+  static async buildImage(options: SandboxCreateOptions = {}): Promise<string> {
+    if (options.preparedImage !== undefined) {
+      if (options.dockerImage !== undefined || options.dockerBuild || options.scenario) {
+        throw new Error('A prepared image cannot be combined with image build options')
+      }
+      return options.preparedImage
+    }
     if (options.dockerBuild && options.dockerImage !== undefined) {
       throw new Error('Specify either dockerImage or dockerBuild, not both')
     }
@@ -116,8 +122,17 @@ class SystemSandbox implements Sandbox {
       baseDockerImage = await build
     }
     const dockerImage = await ensureDockerImage(docker, baseDockerImage)
+    if (options.scenario) {
+      return buildScenarioDockerImage(docker, dockerImage, options.scenario)
+    }
+    return dockerImage
+  }
+
+  static async create(options: SandboxCreateOptions = {}) {
+    const docker = new Docker()
+    const dockerImage = await SystemSandbox.buildImage(options)
     const container = await createContainer(docker, dockerImage)
-    return new SystemSandbox(host, docker, container)
+    return new SystemSandbox(options.host ?? DefaultHost, docker, container)
   }
 
   #container: Docker.Container

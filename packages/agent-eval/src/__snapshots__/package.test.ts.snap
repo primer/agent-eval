@@ -13,6 +13,7 @@ exports[`@primer/agent-eval exports 1`] = `
   "ExperimentTrialOutputSchema",
   "getScenario",
   "listScenarios",
+  "buildScenarioImage",
   "addCheckResults",
   "formatCheckSummaries",
   "getCheckDimensions",
@@ -37,5 +38,6 @@ exports[`@primer/agent-eval/experiment exports 1`] = `
 exports[`@primer/agent-eval/scenario exports 1`] = `
 [
   "defineConfig",
+  "buildScenarioImage",
 ]
 `;

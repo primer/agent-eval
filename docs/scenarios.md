@@ -20,7 +20,9 @@ export default defineConfig({
 })
 ```
 
-The scenario's workspace files are copied into a [sandbox](./sandbox.md), where the agent works on the task described by `prompt`. The `description` explains what the scenario evaluates.
+The scenario's workspace files are baked into a Docker image used by each trial's
+[sandbox](./sandbox.md), where the agent works on the task described by `prompt`.
+The `description` explains what the scenario evaluates.
 
 Add `checks` for deterministic verification, `judges` for model-based evaluation, or both.
 
@@ -86,9 +88,55 @@ The harness layers its runtime tooling on top, resets the entrypoint, and runs
 commands from `/home/sandbox/workspace` as `node`. This is not an option for
 running arbitrary images without modification.
 
-Omitting `workspace` preserves the default scenario copy, npm setup, and build.
+Omitting `workspace` generates a scenario image automatically, as described below.
 Artifact collection is unchanged and still downloads the workspace with its
 standard exclusions.
+
+### Generated images and prebuilding
+
+Ordinary scenarios do not need a Dockerfile. The harness generates one that
+copies the starting files, withholds evaluation files and host dependencies,
+replaces the package name with `agent-eval-scenario`, removes
+`devDependencies.@primer/agent-eval`, and runs `npm install`.
+That image is shared by the scenario's trials; each trial gets its own container.
+
+The package name is changed to the trial ID before setup hooks run. Shared and
+treatment setup remain per trial, followed by `npm run build --if-present`.
+Keeping this build after the hooks preserves projects whose build depends on
+treatment setup. Package installation scripts run while building the image,
+before the trial ID is assigned. Build steps must not require per-trial state.
+
+Prebuild one scenario or all scenarios without running agents:
+
+```bash
+agent-eval scenario build 001-agent-scenario
+agent-eval scenario build
+```
+
+These commands require Docker, but no Copilot token. They support `--scenarios`
+and `--docker-image`, and print one JSON object per image:
+
+```json
+{"scenario": "001-agent-scenario", "image": "agent-eval-scenario:..."}
+```
+
+Both generated and explicitly configured images can be prebuilt. Builds use
+Docker's layer cache, so a later run with the same context and base image reuses
+the prepared layers. Source or dependency changes invalidate the relevant layers.
+To move an image to another machine, tag and push the returned image to your
+registry and reference it with `workspace.image`. An explicitly selected image
+owns its initial build; it does not get the ordinary scenario's per-trial build.
+Prebuilding does not execute setup hooks, the per-trial build, checks, judges,
+or walkthrough capture.
+
+From the library:
+
+```ts
+import {buildScenarioImage, getScenario} from '@primer/agent-eval'
+
+const scenario = await getScenario({directory: './scenarios', name: '001-agent-scenario'})
+const image = await buildScenarioImage({scenario})
+```
 
 ### Checks
 

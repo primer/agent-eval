@@ -1,5 +1,5 @@
 import {afterEach, expect, test, vi} from 'vitest'
-import {buildLocalDockerImage} from './build'
+import {buildLocalDockerImage, buildScenarioDockerImage} from './build'
 import {SystemSandbox} from './system'
 
 const {buildImage, createContainer, followProgress, remove} = vi.hoisted(() => {
@@ -24,7 +24,11 @@ vi.mock('dockerode', () => {
 })
 
 vi.mock('./build', async importOriginal => {
-  return {...(await importOriginal<typeof import('./build')>()), buildLocalDockerImage: vi.fn()}
+  return {
+    ...(await importOriginal<typeof import('./build')>()),
+    buildLocalDockerImage: vi.fn(),
+    buildScenarioDockerImage: vi.fn(),
+  }
 })
 
 afterEach(() => {
@@ -97,4 +101,28 @@ test('rejects conflicting image and build options', async () => {
   expect(buildImage).not.toHaveBeenCalled()
   expect(buildLocalDockerImage).not.toHaveBeenCalled()
   expect(createContainer).not.toHaveBeenCalled()
+})
+
+test('prebuilds generated scenarios without starting a container', async () => {
+  vi.mocked(buildScenarioDockerImage).mockResolvedValue('scenario:prepared')
+  const fixture = {directory: '/scenario', exclude: ['scenario.config.ts']}
+  await expect(SystemSandbox.buildImage({dockerImage: 'node:prebuild', scenario: fixture})).resolves.toBe(
+    'scenario:prepared',
+  )
+  expect(buildScenarioDockerImage).toHaveBeenCalledWith(
+    expect.anything(),
+    expect.stringMatching(/^agent-eval-sandbox:/),
+    fixture,
+  )
+  expect(createContainer).not.toHaveBeenCalled()
+})
+
+test('uses prepared images without rebuilding or layering runtime tools again', async () => {
+  mockContainers()
+  await using sandbox = await SystemSandbox.create({preparedImage: 'scenario:prepared'})
+  expect(sandbox).toBeInstanceOf(SystemSandbox)
+  expect(createContainer).toHaveBeenCalledWith(expect.objectContaining({Image: 'scenario:prepared'}))
+  expect(buildImage).not.toHaveBeenCalled()
+  expect(buildLocalDockerImage).not.toHaveBeenCalled()
+  expect(buildScenarioDockerImage).not.toHaveBeenCalled()
 })

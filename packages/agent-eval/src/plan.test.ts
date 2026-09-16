@@ -53,9 +53,12 @@ afterEach(() => {
   vi.mocked(runTrial).mockReset()
 })
 
-test('selects each scenario image over the fallback and reuses local build options within a run', async () => {
+test('builds each scenario image once per run and starts trials from the prepared images', async () => {
   const host = VirtualHost.create()
-  const createSandbox = vi.spyOn(host, 'createSandbox')
+  const buildImage = vi.spyOn(host, 'buildSandboxImage')
+  const createSandbox = vi.spyOn(host, 'createSandbox').mockImplementation(async () => {
+    return VirtualSandbox.create()
+  })
   const scenarios: Array<Trial['scenario']> = [
     {...runnerTrials[0].scenario},
     {...runnerTrials[0].scenario, workspace: {source: 'image', image: 'project:latest'}},
@@ -78,20 +81,25 @@ test('selects each scenario image over the fallback and reuses local build optio
 
   await runPlan(options)
 
-  const received: Array<SandboxCreateOptions | undefined> = createSandbox.mock.calls.map(([createOptions]) => {
+  const received: Array<SandboxCreateOptions | undefined> = buildImage.mock.calls.map(([createOptions]) => {
     return createOptions
   })
   expect(received).toEqual([
-    {dockerImage: 'fallback:latest'},
+    {
+      dockerImage: 'fallback:latest',
+      scenario: {directory: '/scenario', exclude: expect.arrayContaining(['scenario.config.ts', 'node_modules'])},
+    },
     {dockerImage: 'project:latest'},
     {dockerBuild: {dockerfile: '/scenario/docker/Dockerfile', context: '/scenario'}},
     {dockerBuild: {dockerfile: '/scenario/Dockerfile', context: '/'}},
-    {dockerBuild: {dockerfile: '/scenario/docker/Dockerfile', context: '/scenario'}},
   ])
-  expect(received[2]?.dockerBuild).toBe(received[4]?.dockerBuild)
+  expect(createSandbox).toHaveBeenCalledTimes(5)
+  expect(createSandbox.mock.calls[2][0]?.preparedImage).toBe(createSandbox.mock.calls[4][0]?.preparedImage)
+  expect(createSandbox.mock.calls[0][0]?.preparedImage).not.toBe(createSandbox.mock.calls[1][0]?.preparedImage)
 
   await runPlan(options)
-  expect(createSandbox.mock.calls[7][0]?.dockerBuild).not.toBe(received[2]?.dockerBuild)
+  expect(buildImage).toHaveBeenCalledTimes(8)
+  expect(createSandbox.mock.calls[5][0]?.preparedImage).not.toBe(createSandbox.mock.calls[0][0]?.preparedImage)
 })
 
 test.each([

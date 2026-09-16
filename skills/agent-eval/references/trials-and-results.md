@@ -15,16 +15,21 @@ treatments. Each trial has its own ID, sandbox, execution, and evidence.
 
 ## Lifecycle
 
-1. Copy the fixture, withhold evaluation files, and install its dependencies.
+1. Prepare the scenario image (copy the fixture, withhold evaluation files, and
+   install dependencies for ordinary scenarios), then create a fresh container.
 2. Run shared setup, treatment setup, and the fixture's build if present.
 3. Run the implementation agent with the scenario prompt.
 4. Restore check files and execute checks.
 5. Run judges against their rubrics.
 6. Attempt visual walkthrough capture, then save artifacts.
 
-For image-backed scenarios, the image provides the prepared workspace. Skip the
+For explicitly image-backed scenarios, the image provides the prepared workspace. Skip the
 initial fixture copy, package rewriting, dependency installation, and build;
 shared and treatment setup still run per trial.
+
+Scenario images are shared across a scenario's trials within a run. Prebuild
+them with `npx agent-eval scenario build`; subsequent runs reuse Docker's cached
+layers. Setup hooks and the post-setup build are not part of prebuilding.
 
 The pre-task build does not verify the agent's finished implementation.
 Configure a check for that. The walkthrough is additional review evidence, not

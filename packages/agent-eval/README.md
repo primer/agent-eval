@@ -158,7 +158,21 @@ export default defineConfig({
 })
 ```
 
-The contents of the scenario are copied into the sandbox and passed to the agent as a prompt. The agent's response is then evaluated against the expected output to see how well it performed.
+The scenario's starting files and dependencies are baked into a Docker image
+automatically. Each trial starts a fresh container from that image and receives
+the scenario's prompt. The agent's response is then evaluated against the
+expected output.
+
+Prebuild one scenario or all scenarios without a Copilot token:
+
+```bash
+agent-eval scenario build 001-agent-scenario
+agent-eval scenario build
+```
+
+Later runs reuse Docker's cached layers. Setup hooks and the post-setup build
+still run per trial. See [generated images and prebuilding](../../docs/scenarios.md#generated-images-and-prebuilding)
+for library usage and image reuse.
 
 To evaluate how well the agent performed on the task, you can use the [`checks`](#checks) config option for
 deterministic verification or the [`judges`](#judges) config option for non-deterministic

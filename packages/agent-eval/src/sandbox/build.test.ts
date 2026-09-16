@@ -3,7 +3,7 @@ import Docker from 'dockerode'
 import tarFs from 'tar-fs'
 import tarStream from 'tar-stream'
 import {VirtualHost} from '../host'
-import {buildLocalDockerImage} from './build'
+import {buildLocalDockerImage, buildScenarioDockerImage} from './build'
 
 afterEach(() => {
   vi.restoreAllMocks()
@@ -104,4 +104,61 @@ test('rejects a Dockerfile outside its context before building', async () => {
     }),
   ).rejects.toThrow('Dockerfile must be inside the build context')
   expect(build).not.toHaveBeenCalled()
+})
+
+test('generates an image with fixture files and dependencies but without per-trial setup', async () => {
+  const pack = vi.spyOn(tarFs, 'pack').mockImplementation((_directory, options) => {
+    if (!options?.pack) {
+      throw new Error('Expected a context containing the generated Dockerfile')
+    }
+    options.pack.finalize()
+    return options.pack
+  })
+  let dockerfile = ''
+  const docker = {
+    buildImage: vi.fn(async (archive: tarStream.Pack) => {
+      const extract = tarStream.extract()
+      const finished = new Promise<void>((resolve, reject) => {
+        extract.on('entry', (header, stream, next) => {
+          expect(header.name).toBe('Dockerfile')
+          stream.on('data', chunk => {
+            dockerfile += chunk.toString()
+          })
+          stream.on('end', next)
+          stream.on('error', reject)
+        })
+        extract.on('finish', resolve)
+        extract.on('error', reject)
+      })
+      archive.pipe(extract)
+      await finished
+      return {}
+    }),
+    modem: {
+      followProgress: vi.fn((_stream: unknown, done: (error: Error | null) => void) => {
+        done(null)
+      }),
+    },
+  }
+
+  // @ts-expect-error Only the Docker build API is needed.
+  const image = await buildScenarioDockerImage(docker, 'runtime:ready', {
+    directory: '/scenario',
+    exclude: ['checks', 'node_modules'],
+  })
+
+  expect(docker.buildImage).toHaveBeenCalledWith(expect.anything(), {
+    dockerfile: 'Dockerfile',
+    buildargs: {BASE_IMAGE: 'runtime:ready'},
+    t: image,
+  })
+  expect(dockerfile).toContain('COPY --chown=1000:1000 scenario/ ./')
+  expect(dockerfile).toContain('npm pkg set name=agent-eval-scenario')
+  expect(dockerfile).toContain('npm pkg delete devDependencies.@primer/agent-eval')
+  expect(dockerfile).toContain('npm install')
+  expect(dockerfile).not.toContain('npm run build')
+  const ignore = pack.mock.calls[0][1]?.ignore
+  expect(ignore?.('/scenario/src/index.js')).toBe(false)
+  expect(ignore?.('/scenario/checks/private.txt')).toBe(true)
+  expect(ignore?.('/scenario/node_modules')).toBe(true)
 })

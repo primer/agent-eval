@@ -134,53 +134,8 @@ const setupStage = {
     logger.info('[%s] Running setup', trial.id)
 
     if (!trial.scenario.workspace) {
-      logger.info('[%s] Copying files from: %s...', trial.id, trial.scenario.directory)
-
-      const judgeFiles = trial.scenario.judges.flatMap(judge => {
-        return judge.files.map(({filepath}) => {
-          return filepath
-        })
-      })
-      const checkFiles = trial.scenario.checks.flatMap(check => {
-        return check.files.map(({relativePath}) => {
-          return relativePath
-        })
-      })
-      const exclude = Array.from(
-        new Set([
-          'scenario.config.ts',
-          'scenario.test.ts',
-          'browser.test.ts',
-          'scenario.browser.test.ts',
-          'node_modules',
-          '.next',
-          'dist',
-          ...judgeFiles,
-          ...checkFiles,
-        ]),
-      )
-
-      logger.debug('[%s] Excluding files: %o', trial.id, exclude)
-
-      await sandbox.copy(trial.scenario.directory, CONTAINER_WORKDIR, {
-        exclude,
-      })
-      await sandbox.runCommand('chown', ['-R', NODE_USER, '.'], {
-        user: 'root',
-      })
-
       logger.info('[%s] Obfuscating package name', trial.id)
       await sandbox.runCommand('npm', ['pkg', 'set', `name=${trial.id}`], {
-        user: NODE_USER,
-      })
-
-      logger.info('[%s] Removing workspace dependency', trial.id)
-      await sandbox.runCommand('npm', ['pkg', 'delete', 'devDependencies.@primer/agent-eval'], {
-        user: NODE_USER,
-      })
-
-      logger.info('[%s] Installing dependencies', trial.id)
-      await sandbox.runCommand('npm', ['install'], {
         user: NODE_USER,
       })
     }

@@ -14,7 +14,6 @@ import {TreatmentSchema} from '../treatment'
 import type {Benchmark} from './benchmark'
 import {ModelVariantSchema} from '../model'
 import {DefaultHost, type Host} from '../host'
-import {logger} from '../logger'
 import {resolveTrialArtifactsPath} from '../result-path'
 
 const BenchmarkTrialOutputSchema = z.object({
@@ -199,9 +198,6 @@ async function mergeBenchmarkOutputFiles({
 
       const contents = await host.fs.readFile(filepath, 'utf-8')
       const trialOutput = parseBenchmarkTrialOutput(JSON.parse(contents), new Map(Object.entries(output.capabilities)))
-
-      logger.debug('Deleting trial artifact file: %s', filepath)
-      await host.fs.unlink(filepath)
 
       trials.set(key, trialOutput)
     }

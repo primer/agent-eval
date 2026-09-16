@@ -60,6 +60,10 @@ const benchmarkCommand = defineCommand({
           outputs: outputFiles,
           outputDirectory,
         })
+        await writeBenchmarkOutput({
+          output,
+          outputPath,
+        })
         const outputFilePaths = outputs.map(outputFile => {
           return outputFile[1]
         })
@@ -69,10 +73,6 @@ const benchmarkCommand = defineCommand({
           await host.fs.unlink(outputFilePath)
         }
 
-        await writeBenchmarkOutput({
-          output,
-          outputPath,
-        })
         logger.info('Successfully merged benchmark results into: %s', path.relative(process.cwd(), outputPath))
       },
     }),

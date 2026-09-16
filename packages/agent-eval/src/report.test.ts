@@ -664,7 +664,7 @@ describe.each(['benchmark', 'experiment'] as const)('%s trial artifact paths', k
   )
 
   test.each(['normalized path', 'file symlink', 'directory symlink', 'bundle symlink'])(
-    'accepts a contained %s and preserves cleanup behavior',
+    'accepts a contained %s without changing its files',
     async variant => {
       const results = [createResult()]
       const trial = createBenchmarkOutput({benchmark: benchmark(results), runPlanResult: {results}}).trials.get('trial')
@@ -694,10 +694,8 @@ describe.each(['benchmark', 'experiment'] as const)('%s trial artifact paths', k
       const merged = await mergeOutputFiles({host, outputs: [file], outputDirectory})
 
       expect(merged.trials.get('trial')?.id).toBe('trial')
-      expect(host.existsSync(`${outputDirectory}/${relativePath}`)).toBe(kind === 'experiment')
-      expect(host.existsSync('/output/artifacts/trial/trial.json')).toBe(
-        kind === 'experiment' || variant === 'file symlink',
-      )
+      expect(host.existsSync(`${outputDirectory}/${relativePath}`)).toBe(true)
+      expect(host.existsSync('/output/artifacts/trial/trial.json')).toBe(true)
     },
   )
 })
@@ -792,6 +790,44 @@ describe.each(['benchmark', 'experiment'] as const)('%s check result bundles', k
         : await mergeExperimentOutputFiles({host, outputs: [file], outputDirectory: '/output'})
     expect(merged.trials.get('trial')?.checks).toEqual([])
   })
+})
+
+describe('benchmark shard merging', () => {
+  test.each(['valid', 'malformed', 'duplicate'] as const)(
+    'preserves shard files when the later shard is %s',
+    async laterShard => {
+      const results = [createResult({id: 'first'}), createResult({id: 'second'})]
+      const host = VirtualHost.create()
+      for (const [index, result] of results.entries()) {
+        await host.fs.mkdir(result.result.artifacts.directory, {recursive: true})
+        await writeBenchmarkOutput({
+          host,
+          output: createBenchmarkOutput({benchmark: benchmark(results), runPlanResult: {results: [result]}}),
+          outputPath: `/output/output-${index + 1}.json`,
+        })
+      }
+      const outputs = (await listBenchmarkOutputFiles({host, outputDirectory: '/output'})).map(([file]) => {
+        return file
+      })
+      if (laterShard === 'malformed') {
+        await host.fs.writeFile('/output/artifacts/second/second.json', 'invalid JSON')
+      } else if (laterShard === 'duplicate') {
+        outputs[1].trials = {first: outputs[1].trials.second}
+      }
+      const before = host.vol.toJSON()
+      const merge = mergeBenchmarkOutputFiles({host, outputs, outputDirectory: '/output'})
+      if (laterShard === 'valid') {
+        const merged = await merge
+        expect(merged.trials.size).toBe(2)
+        await expect(mergeBenchmarkOutputFiles({host, outputs, outputDirectory: '/output'})).resolves.toEqual(merged)
+      } else if (laterShard === 'malformed') {
+        await expect(merge).rejects.toThrow(SyntaxError)
+      } else {
+        await expect(merge).rejects.toThrow('duplicate trial ID found: first')
+      }
+      expect(host.vol.toJSON()).toEqual(before)
+    },
+  )
 })
 
 describe('benchmark capability output', () => {

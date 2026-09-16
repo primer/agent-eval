@@ -119,6 +119,11 @@ test('keeps a shared scenario separate per capability and exposes capability fil
   expect(html).toContain('All capabilities')
   expect(html).toContain('value="a"')
   expect(html).toContain('value="b"')
+  const scenarioIds = [...html.matchAll(/<article[^>]+id="([^"]+)"/g)].map(match => {
+    return match[1]
+  })
+  expect(scenarioIds).toHaveLength(2)
+  expect(new Set(scenarioIds).size).toBe(2)
 })
 
 test.each([true, false])('reserves image placeholders before determining viewport loading when eager is %s', eager => {

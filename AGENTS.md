@@ -1,13 +1,19 @@
 # AGENTS.md
 
 - The project uses pnpm for managing dependencies
+- The project uses Turbo for running tasks. Prefer `pnpm exec turbo run <task>`
+  whenever a Turbo task exists
 - Add repository automation scripts to the `script` directory
-- For tests, use `pnpm test --run`. You can optionally apply a filter to filter
+- For tests, use `pnpm exec turbo run test -- --run`. You can optionally apply a filter to filter
   by test name, path, etc
-- For linting, use `pnpm lint`. You can optionally provide a path to lint specific files or directories
+- For linting, use `pnpm exec turbo run lint lint:npm`
 - For formatting, use `pnpm format`. This will format all files in the project
-- For type checks, use `pnpm type-check`. You can also call `type-check` on
-  individual workspaces
+- For type checks, use `pnpm exec turbo run type-check`. You can use Turbo's
+  `--filter` option to target individual workspaces
+- README files are public-facing and should only contain information about
+  using the package. Keep contributor and agent instructions elsewhere
+- Do not create changesets for updates to features, fixes, or other changes
+  that have not been released yet
 
 ## Pull Requests
 
@@ -25,7 +31,8 @@
 - Description: A brief description of the changes made in the pull request. It should be concise and informative, providing enough context for reviewers to understand the purpose of the changes.
 - Example: "feat: add new authentication method for improved security"
 - Fill out the pull request template for the repo
-- Always run the tasks in ci.yml before committing so that ci is green
+- Always run the tasks in ci.yml before committing so that ci is green,
+  except for agentic workflow compilation steps
 - When making a change to the website, include before and after screenshots in the Pull Request description.
   ```md
   <details>

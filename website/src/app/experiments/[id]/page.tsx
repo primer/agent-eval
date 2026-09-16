@@ -1,7 +1,6 @@
-import {get, list} from '../../../experiments'
-import {listForExperiment} from '../../../runs'
+import {list} from '../../../experiments'
+import {getExperimentPageData} from '../../../experiment-page-data'
 import {Page} from './components/Page'
-import {formatChecks, summarizeTrials} from '../../../check-results'
 
 type ExperimentPageProps = {
   params: Promise<{
@@ -12,21 +11,8 @@ type ExperimentPageProps = {
 export default async function ExperimentPage(props: ExperimentPageProps) {
   const params = await props.params
   const id = params.id
-  const [experiment, runs] = await Promise.all([get(id), listForExperiment(id)])
-  return (
-    <Page
-      experiment={experiment}
-      runs={runs.map(run => {
-        const trials = [...run.output.trials.values()]
-        return {
-          id: run.id,
-          name: run.name,
-          resultCount: trials.length,
-          checks: formatChecks(summarizeTrials(trials)),
-        }
-      })}
-    />
-  )
+  const data = await getExperimentPageData(id)
+  return <Page {...data} />
 }
 
 export async function generateStaticParams() {

@@ -86,11 +86,11 @@ const experimentRun = {
   name: '2026-09-03',
   directory: '/saved/experiments/example/2026-09-03',
   output: {
-    experiment: {id: 'example'},
-    results: [
-      {id: 'trial 1', workspaceDirectory: 'artifacts/experiment-workspace'},
-      {id: 'trial 2', workspaceDirectory: undefined},
-    ],
+    id: 'example',
+    trials: new Map([
+      ['trial 1', {id: 'trial 1', artifacts: {workspaceDirectory: 'artifacts/experiment-workspace'}}],
+      ['trial 2', {id: 'trial 2', artifacts: {workspaceDirectory: undefined}}],
+    ]),
   },
 }
 

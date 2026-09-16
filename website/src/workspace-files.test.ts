@@ -3,8 +3,8 @@ import path from 'node:path'
 import {afterEach, beforeEach, expect, test, vi} from 'vitest'
 import {getWorkspaceFiles, type WorkspaceEntry, type WorkspaceFile} from './workspace-files'
 import {getArtifactCandidates} from './artifacts'
-import {createExperimentRunDetails} from './run-details'
-import type {RunOutputResult} from './runs'
+import {createBenchmarkRunDetails, createExperimentRunDetails} from './run-details'
+import {createBenchmarkOutput, createExperimentOutput, createTrial} from './test-fixtures'
 
 let directory: string
 let workspace: string
@@ -250,55 +250,35 @@ test('propagates unexpected filesystem errors instead of reporting missing files
   await expect(getWorkspaceFiles('artifacts/trial/workspace', directory)).rejects.toThrow('Permission denied')
 })
 
-test('includes generated files in experiment run details without changing existing details', async () => {
+test.each(['benchmarks', 'experiments'] as const)('includes generated files in %s run details', async collection => {
   await writeFile('index.ts', 'export const generated = true\n')
-  const result: RunOutputResult = {
+  const result = createTrial({
     id: 'trial',
-    treatmentId: 'control',
-    model: 'gpt-5.6-sol',
-    reasoningEffort: 'medium',
-    scenarioId: 'scenario',
-    workspaceDirectory: 'artifacts/trial/workspace',
-    assistant: {
-      logs: [],
-      turns: 1,
-      outputTokens: 10,
-      premiumRequests: 1,
-      totalApiDurationMs: 10,
-      sessionDurationMs: 20,
-      tools: {},
+    artifacts: {
+      ...createTrial().artifacts,
+      workspaceDirectory: 'artifacts/trial/workspace',
     },
-    testResults: {
-      numTotalTests: 0,
-      numPassedTests: 0,
-      numFailedTests: 0,
-      numPendingTests: 0,
-      numTodoTests: 0,
-      success: true,
-      testResults: [],
-      tests: [],
-    },
-    walkthrough: {type: 'Unavailable'},
-    judges: [],
-  }
-  const details = await createExperimentRunDetails(
-    '2026-09-10',
-    {
-      experiment: {id: 'experiment', models: []},
-      scenarios: [],
-      treatments: [{id: 'control', config: {name: 'Control'}}],
-      results: [result],
-    },
-    directory,
-  )
+  })
+  const details =
+    collection === 'benchmarks'
+      ? await createBenchmarkRunDetails({
+          id: '2026-09-10',
+          name: '2026-09-10',
+          date: new Date('2026-09-10'),
+          directory,
+          output: createBenchmarkOutput([result]),
+        })
+      : await createExperimentRunDetails('2026-09-10', createExperimentOutput([result]), collection, directory)
   expect(details.results[0]).toMatchObject({
     id: 'trial',
     treatment: 'Control',
-    walkthrough: {type: 'Unavailable'},
-    transcript: [],
+    walkthroughPreview: {type: 'Unavailable', count: 0},
+    counts: {checks: result.checks.length, transcript: 0, judges: result.judges.length},
     workspace: {
       type: 'available',
       entries: [{path: 'index.ts', preview: {type: 'text', content: 'export const generated = true\n'}}],
     },
   })
+  expect(details.results[0]).not.toHaveProperty('transcript')
+  expect(details.results[0]).not.toHaveProperty('checks')
 })

@@ -1,13 +1,16 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import type {RunOutput, RunOutputResult} from './runs'
+import type {CheckOutput, ExperimentOutput, ExperimentTrialOutput, JudgeOutput} from '@primer/agent-eval'
 import type {BenchmarkRun} from './benchmark-results'
-import {getArtifactCandidates} from './artifacts'
+import {formatChecks, summarizeTrials} from './check-results'
 import {getWorkspaceFiles, type WorkspaceFiles} from './workspace-files'
 
-type LogMessage = RunOutputResult['assistant']['logs'][number]
-type Walkthrough = RunOutputResult['walkthrough']
-type JudgeDetails = Pick<RunOutputResult['judges'][number], 'config' | 'result'>
+const REPOSITORY_ROOT = path.resolve(process.cwd(), '..')
+const LEGACY_ARTIFACTS_DIRECTORY = path.join(REPOSITORY_ROOT, 'artifacts')
+
+type LogMessage = ExperimentTrialOutput['agent']['sessions'][number]['messages'][number]
+type Walkthrough = ExperimentTrialOutput['walkthrough']
+type JudgeDetails = Pick<JudgeOutput, 'judge' | 'result'>
 
 type TranscriptEntry = {
   id: string
@@ -16,7 +19,7 @@ type TranscriptEntry = {
   content: string
 }
 
-type WalkthroughDataUrl =
+type WalkthroughUrls =
   | {
       type: 'Unavailable'
     }
@@ -27,26 +30,36 @@ type WalkthroughDataUrl =
 type RunResult = {
   id: string
   scenarioId: string
-  context?: string
+  capability?: {id: string; name: string}
   treatment: string
   model: string
   reasoningEffort?: string
-  testsPassed: number
-  totalTests: number
+  checkSummary: string
   turns: number
   outputTokens: number
   premiumRequests: number
   totalApiDurationMs: number
   sessionDurationMs: number
-  tests: Array<{
-    fullName: string
-    status: string
-    description?: string
-  }>
-  transcript: Array<TranscriptEntry>
-  walkthrough: WalkthroughDataUrl
-  judges: Array<JudgeDetails>
+  counts: {checks: number; transcript: number; judges: number}
+  walkthroughPreview: {type: Walkthrough['type']; count: number}
+  detailsUrl: string
+  transcriptUrl: string
   workspace: WorkspaceFiles
+}
+
+type TrialDetails = {
+  id: string
+  checks: Array<CheckOutput>
+  walkthrough: WalkthroughUrls
+  judges: Array<JudgeDetails>
+}
+
+type RunCollection = 'benchmarks' | 'experiments'
+
+type MediaAsset = {
+  name: string
+  filepath: string
+  mimeType: string
 }
 
 type RunDetails = {
@@ -183,19 +196,77 @@ function createTranscript(logs: Array<LogMessage>): Array<TranscriptEntry> {
   })
 }
 
-async function getArtifactDataUrl(
+function isWithinDirectory(directory: string, filepath: string): boolean {
+  const relativePath = path.relative(directory, filepath)
+  return relativePath !== '..' && !relativePath.startsWith(`..${path.sep}`) && !path.isAbsolute(relativePath)
+}
+
+function getArtifactCandidates(artifactPath: string, runDirectory: string): Array<string> {
+  const runArtifactsDirectory = path.join(runDirectory, 'artifacts')
+
+  if (!path.isAbsolute(artifactPath)) {
+    const candidate = path.resolve(runDirectory, artifactPath)
+    return isWithinDirectory(runArtifactsDirectory, candidate) ? [candidate] : []
+  }
+
+  if (isWithinDirectory(LEGACY_ARTIFACTS_DIRECTORY, artifactPath)) {
+    return [artifactPath]
+  }
+
+  const segments = artifactPath.split(/[\\/]+/)
+  const artifactsIndex = segments.lastIndexOf('artifacts')
+  if (artifactsIndex === -1) {
+    return []
+  }
+
+  const artifactSegments = segments.slice(artifactsIndex + 1)
+  return [
+    path.join(runArtifactsDirectory, ...artifactSegments),
+    path.join(LEGACY_ARTIFACTS_DIRECTORY, ...artifactSegments),
+  ].filter(candidate => {
+    return (
+      isWithinDirectory(runArtifactsDirectory, candidate) || isWithinDirectory(LEGACY_ARTIFACTS_DIRECTORY, candidate)
+    )
+  })
+}
+
+async function getArtifactFile(
   artifactPath: string | undefined,
-  mimeType: string,
   runDirectory: string,
+  walkthroughDirectory?: string,
 ): Promise<string | undefined> {
   if (!artifactPath) {
     return undefined
   }
 
+  if (walkthroughDirectory && artifactPath.startsWith('walkthrough/')) {
+    const relative = path.posix.relative('walkthrough', artifactPath)
+    if (relative === '..' || relative.startsWith('../')) {
+      throw new Error(`Walkthrough path points outside its directory: ${artifactPath}`)
+    }
+    artifactPath = path.join(walkthroughDirectory, relative)
+  }
+
   for (const candidate of getArtifactCandidates(artifactPath, runDirectory)) {
     try {
-      const contents = await fs.readFile(candidate)
-      return `data:${mimeType};base64,${contents.toString('base64')}`
+      const runArtifactsDirectory = path.join(runDirectory, 'artifacts')
+      const artifactsDirectory = isWithinDirectory(runArtifactsDirectory, candidate)
+        ? runArtifactsDirectory
+        : LEGACY_ARTIFACTS_DIRECTORY
+      // Resolve the parent so an artifacts-directory symlink cannot redefine the allowed root.
+      const realArtifactsDirectory = path.join(
+        await fs.realpath(path.dirname(artifactsDirectory)),
+        path.basename(artifactsDirectory),
+      )
+      const filepath = await fs.realpath(candidate)
+      if (!isWithinDirectory(realArtifactsDirectory, filepath)) {
+        throw new Error(`Walkthrough artifact points outside its artifacts directory: ${candidate}`)
+      }
+      const stats = await fs.stat(filepath)
+      if (!stats.isFile()) {
+        throw new Error(`Walkthrough artifact is not a file: ${candidate}`)
+      }
+      return filepath
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
         throw error
@@ -214,161 +285,176 @@ function getImageMimeType(artifactPath: string): string {
   return 'image/png'
 }
 
-async function getWalkthroughDataUrls(walkthrough: Walkthrough, runDirectory: string): Promise<WalkthroughDataUrl> {
-  if (walkthrough.type === 'Screenshot') {
-    const screenshot = await getArtifactDataUrl(
-      walkthrough.filepath,
-      getImageMimeType(walkthrough.filepath),
-      runDirectory,
-    )
-    return screenshot
-      ? {
-          type: 'Screenshot',
-          screenshot,
-        }
-      : {type: 'Unavailable'}
+async function getWalkthroughAssets(
+  walkthrough: Walkthrough,
+  runDirectory: string,
+  baseUrl: string,
+  walkthroughDirectory?: string,
+): Promise<{walkthrough: WalkthroughUrls; media: Array<MediaAsset>}> {
+  const paths =
+    walkthrough.type === 'Screenshots'
+      ? walkthrough.screenshots
+      : walkthrough.type === 'Screenshot' || walkthrough.type === 'Video'
+        ? [walkthrough.filepath]
+        : []
+  const media: Array<MediaAsset> = []
+  for (const [index, artifactPath] of paths.entries()) {
+    const filepath = await getArtifactFile(artifactPath, runDirectory, walkthroughDirectory)
+    if (filepath) {
+      const mimeType = walkthrough.type === 'Video' ? 'video/webm' : getImageMimeType(artifactPath)
+      const extension = mimeType === 'video/webm' ? 'webm' : mimeType === 'image/jpeg' ? 'jpg' : 'png'
+      media.push({name: `media-${index}.${extension}`, filepath, mimeType})
+    }
   }
+  const urls = media.map(asset => {
+    return `${baseUrl}/${asset.name}`
+  })
+  let urlsByType: WalkthroughUrls = {type: 'Unavailable'}
+  if (urls.length > 0) {
+    if (walkthrough.type === 'Screenshots') {
+      urlsByType = {type: 'Screenshots', screenshots: urls}
+    } else if (walkthrough.type === 'Screenshot') {
+      urlsByType = {type: 'Screenshot', screenshot: urls[0]}
+    } else if (walkthrough.type === 'Video') {
+      urlsByType = {type: 'Video', video: urls[0]}
+    }
+  }
+  return {walkthrough: urlsByType, media}
+}
 
-  if (walkthrough.type === 'Screenshots') {
-    const sources = await Promise.all(
-      walkthrough.screenshots.map(artifactPath => {
-        return getArtifactDataUrl(artifactPath, getImageMimeType(artifactPath), runDirectory)
-      }),
-    )
-    const screenshots = sources.filter((source): source is string => {
-      return source !== undefined
+function getTrialDataUrl(collection: RunCollection, id: string, date: string, trialId: string): string {
+  const segments = [collection, id, date, trialId].map(segment => {
+    return encodeURIComponent(segment)
+  })
+  return `${process.env.PAGES_BASE_PATH ?? ''}/run-data/${segments.join('/')}`
+}
+
+function createTrialTranscript(result: ExperimentTrialOutput): Array<TranscriptEntry> {
+  return result.agent.sessions.flatMap((session, sessionIndex) => {
+    return createTranscript(session.messages).map(entry => {
+      return {...entry, id: `${sessionIndex}:${entry.id}`}
     })
-    return screenshots.length > 0
-      ? {
-          type: 'Screenshots',
-          screenshots,
-        }
-      : {type: 'Unavailable'}
-  }
+  })
+}
 
-  if (walkthrough.type === 'Video') {
-    const video = await getArtifactDataUrl(walkthrough.filepath, 'video/webm', runDirectory)
-    return video
-      ? {
-          type: 'Video',
-          video,
-        }
-      : {type: 'Unavailable'}
-  }
-
+async function createTrialDetails(
+  result: ExperimentTrialOutput,
+  runDirectory: string,
+  baseUrl: string,
+): Promise<TrialDetails> {
+  const {walkthrough} = await getWalkthroughAssets(
+    result.walkthrough,
+    runDirectory,
+    baseUrl,
+    result.artifacts.walkthroughDirectory,
+  )
   return {
-    type: 'Unavailable',
+    id: result.id,
+    checks: result.checks.map(check => {
+      return {
+        ...check,
+        check: {...check.check, files: createReferenceFiles(check.check.files)},
+      }
+    }),
+    walkthrough,
+    judges: createJudgeDetails(result.judges),
   }
 }
 
-async function createExperimentRunDetails(date: string, output: RunOutput, runDirectory: string): Promise<RunDetails> {
+async function createExperimentRunDetails(
+  date: string,
+  output: ExperimentOutput,
+  collection: RunCollection = 'experiments',
+  runDirectory: string = path.join(REPOSITORY_ROOT, 'results', collection, output.id, date),
+): Promise<RunDetails> {
   const treatments = new Map(
-    output.treatments.map(treatment => {
-      return [treatment.id, treatment.config.name]
+    [...output.treatments].map(([id, treatment]) => {
+      return [id, treatment.name]
     }),
   )
 
-  return {
-    date,
-    results: await Promise.all(
-      output.results.map(async result => {
-        return {
-          id: result.id,
-          scenarioId: result.scenarioId,
-          treatment: treatments.get(result.treatmentId) ?? 'Unknown treatment',
-          model: result.model,
-          reasoningEffort: result.reasoningEffort,
-          testsPassed: result.testResults.numPassedTests,
-          totalTests: result.testResults.numTotalTests,
-          turns: result.assistant.turns,
-          outputTokens: result.assistant.outputTokens,
-          premiumRequests: result.assistant.premiumRequests,
-          totalApiDurationMs: result.assistant.totalApiDurationMs,
-          sessionDurationMs: result.assistant.sessionDurationMs,
-          tests: result.testResults.tests.map(test => {
-            return {
-              fullName: test.fullName,
-              status: test.status,
-              description: test.description,
-            }
-          }),
-          walkthrough: await getWalkthroughDataUrls(result.walkthrough, runDirectory),
-          workspace: await getWorkspaceFiles(result.workspaceDirectory, runDirectory),
-          transcript: createTranscript(result.assistant.logs),
-          judges: createJudgeDetails(result.judges),
-        }
-      }),
-    ),
+  const results: Array<RunResult> = []
+  for (const result of output.trials.values()) {
+    const summary = summarizeTrials([result])
+    const treatment = treatments.get(result.treatmentId)
+    if (treatment === undefined) {
+      throw new Error(`Unknown treatment "${result.treatmentId}" for trial "${result.id}"`)
+    }
+    const baseUrl = getTrialDataUrl(collection, output.id, date, result.id)
+    results.push({
+      id: result.id,
+      scenarioId: result.scenarioId,
+      treatment,
+      model: result.model.name,
+      reasoningEffort: result.model.reasoningEffort,
+      checkSummary: formatChecks(summary),
+      turns: result.agent.sessions.reduce((total, session) => {
+        return total + session.turns
+      }, 0),
+      outputTokens: summary.outputTokens,
+      premiumRequests: summary.premiumRequests,
+      totalApiDurationMs: summary.totalApiDurationMs,
+      sessionDurationMs: summary.sessionDurationMs,
+      counts: {
+        checks: result.checks.length,
+        transcript: createTrialTranscript(result).length,
+        judges: result.judges.length,
+      },
+      walkthroughPreview: {
+        type: result.walkthrough.type,
+        count:
+          result.walkthrough.type === 'Screenshots'
+            ? result.walkthrough.screenshots.length
+            : result.walkthrough.type === 'Unavailable'
+              ? 0
+              : 1,
+      },
+      detailsUrl: `${baseUrl}/details.json`,
+      transcriptUrl: `${baseUrl}/transcript.json`,
+      workspace: await getWorkspaceFiles(result.artifacts.workspaceDirectory, runDirectory),
+    })
   }
+  return {date, results}
 }
 
-function createJudgeDetails(judges: RunOutputResult['judges']): Array<JudgeDetails> {
+function createJudgeDetails(judges: Array<JudgeOutput>): Array<JudgeDetails> {
   return judges.map(judge => {
     return {
-      config: judge.config,
+      judge: {...judge.judge, files: createReferenceFiles(judge.judge.files)},
       result: judge.result,
     }
   })
 }
 
-async function createBenchmarkRunDetails(run: BenchmarkRun): Promise<RunDetails> {
-  const treatments = new Map(
-    [...run.output.treatments].map(([id, treatment]) => {
-      return [id, treatment.name]
-    }),
-  )
+function createReferenceFiles(files: CheckOutput['check']['files']): CheckOutput['check']['files'] {
+  return files.map(({relativePath}) => {
+    return {filepath: relativePath, relativePath}
+  })
+}
 
+async function createBenchmarkRunDetails(run: BenchmarkRun): Promise<RunDetails> {
+  const output = run.output
+  const details = await createExperimentRunDetails(run.name, output, 'benchmarks', run.directory)
   return {
-    date: run.name,
-    results: await Promise.all(
-      [...run.output.trials.values()].map(async trial => {
-        const sessions = trial.agent.sessions
-        return {
-          id: trial.id,
-          scenarioId: trial.scenarioId,
-          context: trial.capabilityId,
-          treatment: treatments.get(trial.treatmentId) ?? 'Unknown treatment',
-          model: trial.model.name,
-          reasoningEffort: trial.model.reasoningEffort,
-          testsPassed: trial.testResults.numPassedTests,
-          totalTests: trial.testResults.numTotalTests,
-          turns: sessions.reduce((total, session) => {
-            return total + session.turns
-          }, 0),
-          outputTokens: sessions.reduce((total, session) => {
-            return total + session.outputTokens
-          }, 0),
-          premiumRequests: sessions.reduce((total, session) => {
-            return total + session.premiumRequests
-          }, 0),
-          totalApiDurationMs: sessions.reduce((total, session) => {
-            return total + session.totalApiDurationMs
-          }, 0),
-          sessionDurationMs: sessions.reduce((total, session) => {
-            return total + session.sessionDurationMs
-          }, 0),
-          tests: trial.testResults.testResults.flatMap(testResult => {
-            return testResult.assertionResults.map(assertion => {
-              return {
-                fullName: assertion.fullName,
-                status: assertion.status,
-                description: assertion.meta.description,
-              }
-            })
-          }),
-          walkthrough: await getWalkthroughDataUrls(trial.walkthrough, run.directory),
-          workspace: await getWorkspaceFiles(trial.artifacts.workspaceDirectory, run.directory),
-          transcript: createTranscript(
-            sessions.flatMap(session => {
-              return session.messages
-            }),
-          ),
-          judges: createJudgeDetails(trial.judges),
-        }
-      }),
-    ),
+    ...details,
+    results: details.results.map(result => {
+      const trial = output.trials.get(result.id)
+      const capability = trial ? output.capabilities.get(trial.capabilityId) : undefined
+      if (!capability) {
+        throw new Error(`Unknown capability for benchmark trial "${result.id}"`)
+      }
+      return {...result, capability: {id: capability.id, name: capability.name}}
+    }),
   }
 }
 
-export {createBenchmarkRunDetails, createExperimentRunDetails, createTranscript, getWalkthroughDataUrls}
-export type {JudgeDetails, RunDetails, TranscriptEntry, WalkthroughDataUrl}
+export {
+  createBenchmarkRunDetails,
+  createExperimentRunDetails,
+  createTranscript,
+  createTrialDetails,
+  createTrialTranscript,
+  getTrialDataUrl,
+  getWalkthroughAssets,
+}
+export type {JudgeDetails, RunCollection, RunDetails, TranscriptEntry, TrialDetails, WalkthroughUrls}

@@ -33,7 +33,7 @@ export default async function RunPage(props: RunPageProps) {
         collectionHref: '/experiments',
         href: `/experiments/${experiment.id}` as Route,
       }}
-      run={await createExperimentRunDetails(date, run.output, run.directory)}
+      run={await createExperimentRunDetails(date, run.output, 'experiments', run.directory)}
     />
   )
 }
@@ -46,7 +46,7 @@ export async function generateStaticParams() {
 
   return runs.map(run => {
     return {
-      id: run.output.experiment.id,
+      id: run.experimentId,
       date: run.name,
     }
   })

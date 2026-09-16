@@ -1,54 +1,38 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import type {BenchmarkOutput} from '@primer/agent-eval/benchmark'
-import type {Benchmark} from './benchmarks'
+import type {BenchmarkOutput, BenchmarkTrialOutput, CheckSummary} from '@primer/agent-eval'
+import {readBenchmarkOutput} from './result-files'
+import {formatChecks, sortTrialGroups, summarizeTrials} from './check-results'
 
-const {read} = await import(
+const {getCheckValue} = await import(
   /* turbopackIgnore: true */
-  '@primer/agent-eval/benchmark'
+  '@primer/agent-eval'
 )
 
-const REPOSITORY_ROOT = path.resolve(process.cwd(), '..')
-const BENCHMARK_RESULTS_DIR = path.join(REPOSITORY_ROOT, 'results', 'benchmarks')
-
-type BenchmarkOutputTrial = BenchmarkOutput['trials'] extends Map<string, infer Trial> ? Trial : never
-
-type ResultTotals = {
-  passed: number
-  total: number
-  outputTokens: number
-  premiumRequests: number
-  sessionDurationMs: number
-  totalApiDurationMs: number
-}
+const BENCHMARK_RESULTS_DIR = path.resolve(process.cwd(), '..', 'results', 'benchmarks')
 
 export type BenchmarkComparison = {
-  tests: string
+  checks: string
   outputTokens: string
   premiumRequests: string
   sessionTime: string
   apiTime: string
 }
 
-export type BenchmarkCapabilityResult = {
-  id: string
-  name: string
+export type BenchmarkPageResults = {
+  date: string
   comparison: BenchmarkComparison
   scenarios: Array<{
     id: string
     comparison: BenchmarkComparison
-    models: Array<{
-      id: string
-      name: string
-      reasoningEffort: string
-      comparison: BenchmarkComparison
-    }>
+    models: Array<BenchmarkOverviewResult>
   }>
-}
-
-export type BenchmarkPageResults = {
-  date: string
-  capabilities: Array<BenchmarkCapabilityResult>
+  capabilities: Array<{
+    id: string
+    name: string
+    comparison: BenchmarkComparison
+    scenarios: BenchmarkPageResults['scenarios']
+  }>
 }
 
 export type BenchmarkOverviewResult = {
@@ -58,7 +42,15 @@ export type BenchmarkOverviewResult = {
   comparison: BenchmarkComparison
 }
 
-export type BenchmarkTrendMetricId = 'tests' | 'outputTokens' | 'premiumRequests' | 'sessionTime' | 'apiTime'
+export type BenchmarkTrendMetricId = string
+
+export type BenchmarkTrendMetricDefinition = {
+  id: BenchmarkTrendMetricId
+  label: string
+  unit?: string
+  percentage?: boolean
+  scenarioId?: string
+}
 
 export type BenchmarkTrendMetric = {
   value: number | null
@@ -82,6 +74,8 @@ export type BenchmarkOverviewData = {
   date: string | null
   results: Array<BenchmarkOverviewResult>
   trends: Array<BenchmarkTrendPoint>
+  metrics: Array<BenchmarkTrendMetricDefinition>
+  capabilities: Array<{id: string; name: string}>
 }
 
 type OutputCandidate = {
@@ -101,14 +95,12 @@ function isRunDate(value: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
     return false
   }
-
   const date = new Date(`${value}T00:00:00.000Z`)
   return !Number.isNaN(date.getTime()) && date.toISOString().startsWith(value)
 }
 
 async function getDatedCandidates(benchmarkId: string): Promise<Array<OutputCandidate>> {
   const directory = path.join(BENCHMARK_RESULTS_DIR, benchmarkId)
-
   try {
     const entries = await fs.readdir(directory, {withFileTypes: true})
     const candidates = await Promise.all(
@@ -120,20 +112,15 @@ async function getDatedCandidates(benchmarkId: string): Promise<Array<OutputCand
           const filepath = path.join(directory, entry.name, 'output.json')
           try {
             await fs.access(filepath)
-            return {
-              filepath,
-              date: entry.name,
-            }
+            return {filepath, date: entry.name}
           } catch (error) {
             if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
               return null
             }
-
             throw error
           }
         }),
     )
-
     return candidates.filter((candidate): candidate is OutputCandidate => {
       return candidate !== null
     })
@@ -141,81 +128,30 @@ async function getDatedCandidates(benchmarkId: string): Promise<Array<OutputCand
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
       return []
     }
-
     throw error
   }
 }
 
-async function readBenchmarkOutput(candidate: OutputCandidate, benchmarkId: string): Promise<BenchmarkOutput | null> {
-  const output = await read(candidate.filepath)
-  return output.benchmarkId === benchmarkId ? output : null
-}
-
-function getTotals(trials: Array<BenchmarkOutputTrial>): ResultTotals {
-  return trials.reduce(
-    (totals, trial) => {
-      totals.passed += trial.testResults.numPassedTests
-      totals.total += trial.testResults.numTotalTests
-      for (const session of trial.agent.sessions) {
-        totals.outputTokens += session.outputTokens
-        totals.premiumRequests += session.premiumRequests
-        totals.sessionDurationMs += session.sessionDurationMs
-        totals.totalApiDurationMs += session.totalApiDurationMs
-      }
-      return totals
-    },
-    {
-      passed: 0,
-      total: 0,
-      outputTokens: 0,
-      premiumRequests: 0,
-      sessionDurationMs: 0,
-      totalApiDurationMs: 0,
-    },
-  )
-}
-
-function getPassRate(totals: ResultTotals): number | null {
-  if (totals.total === 0) {
+function getPercentDelta(control: number | null, value: number | null): number | null {
+  if (control === null || value === null) {
     return null
   }
-
-  return totals.passed / totals.total
-}
-
-function getPercentDelta(control: number, benchmark: number): number | null {
   if (control === 0) {
-    return benchmark === 0 ? 0 : null
+    return value === 0 ? 0 : null
   }
-
-  return (benchmark - control) / control
+  return ((value - control) / control) * 100
 }
 
-function getPercentDeltaValue(control: number, benchmark: number): number | null {
-  const delta = getPercentDelta(control, benchmark)
-  return delta === null ? null : delta * 100
-}
-
-function formatPercentDelta(control: number, benchmark: number): string {
-  if (control === benchmark) {
-    return '0%'
-  }
-
-  const delta = getPercentDelta(control, benchmark)
+function formatPercentDelta(control: number | null, value: number | null): string {
+  const delta = getPercentDelta(control, value)
   if (delta === null) {
     return 'N/A'
   }
-
-  const sign = delta > 0 ? '+' : ''
-  return `${sign}${(delta * 100).toFixed(1)}%`
-}
-
-function formatValue(value: string, control: number, benchmark: number): string {
-  return `${value} (${formatPercentDelta(control, benchmark)})`
+  return delta === 0 ? '0%' : `${delta > 0 ? '+' : ''}${delta.toFixed(1)}%`
 }
 
 function formatNumber(value: number): string {
-  return new Intl.NumberFormat('en-US').format(value)
+  return new Intl.NumberFormat('en-US', {maximumFractionDigits: 2}).format(value)
 }
 
 function formatDuration(milliseconds: number): string {
@@ -223,333 +159,252 @@ function formatDuration(milliseconds: number): string {
   if (seconds < 60) {
     return `${seconds.toFixed(1)}s`
   }
-
-  const minutes = Math.floor(seconds / 60)
-  const remainingSeconds = seconds - minutes * 60
-  return `${minutes}m ${remainingSeconds.toFixed(1)}s`
+  return `${Math.floor(seconds / 60)}m ${(seconds % 60).toFixed(1)}s`
 }
 
-function createComparison(
-  trials: Array<BenchmarkOutputTrial>,
-  controlTreatmentId: string,
-  benchmarkTreatmentId: string,
-): BenchmarkComparison {
-  const controlTotals = getTotals(
-    trials.filter(trial => {
-      return trial.treatmentId === controlTreatmentId
-    }),
-  )
-  const benchmarkTotals = getTotals(
-    trials.filter(trial => {
-      return trial.treatmentId === benchmarkTreatmentId
-    }),
-  )
-  const controlPassRate = getPassRate(controlTotals) ?? 0
-  const benchmarkPassRate = getPassRate(benchmarkTotals) ?? 0
-
-  return {
-    tests: formatValue(`${benchmarkTotals.passed}/${benchmarkTotals.total}`, controlPassRate, benchmarkPassRate),
-    outputTokens: formatValue(
-      formatNumber(benchmarkTotals.outputTokens),
-      controlTotals.outputTokens,
-      benchmarkTotals.outputTokens,
-    ),
-    premiumRequests: formatValue(
-      formatNumber(benchmarkTotals.premiumRequests),
-      controlTotals.premiumRequests,
-      benchmarkTotals.premiumRequests,
-    ),
-    sessionTime: formatValue(
-      formatDuration(benchmarkTotals.sessionDurationMs),
-      controlTotals.sessionDurationMs,
-      benchmarkTotals.sessionDurationMs,
-    ),
-    apiTime: formatValue(
-      formatDuration(benchmarkTotals.totalApiDurationMs),
-      controlTotals.totalApiDurationMs,
-      benchmarkTotals.totalApiDurationMs,
-    ),
-  }
-}
-
-function getTreatments(output: BenchmarkOutput): {
-  controlTreatmentId: string
-  benchmarkTreatmentId: string
-} {
-  const controlTreatment = [...output.treatments].find(([, treatment]) => {
+function getTreatments(output: BenchmarkOutput): {controlTreatmentId: string; benchmarkTreatmentId: string} {
+  const control = [...output.treatments].find(([, treatment]) => {
     return treatment.name === 'Control'
   })
-  const benchmarkTreatment = [...output.treatments].find(([, treatment]) => {
+  const benchmark = [...output.treatments].find(([, treatment]) => {
     return treatment.name === 'Benchmark'
   })
-
-  if (!controlTreatment || !benchmarkTreatment) {
-    throw new Error(`Benchmark "${output.benchmarkId}" results must include Control and Benchmark treatments`)
+  if (!control || !benchmark) {
+    throw new Error(`Benchmark "${output.id}" results must include Control and Benchmark treatments`)
   }
+  return {controlTreatmentId: control[0], benchmarkTreatmentId: benchmark[0]}
+}
 
+function getSummaries(trials: Array<BenchmarkTrialOutput>, output: BenchmarkOutput) {
+  const {controlTreatmentId, benchmarkTreatmentId} = getTreatments(output)
+  for (const trial of trials) {
+    if (trial.treatmentId !== controlTreatmentId && trial.treatmentId !== benchmarkTreatmentId) {
+      throw new Error(`Unexpected benchmark treatment "${trial.treatmentId}" for trial "${trial.id}"`)
+    }
+  }
   return {
-    controlTreatmentId: controlTreatment[0],
-    benchmarkTreatmentId: benchmarkTreatment[0],
+    control: summarizeTrials(
+      trials.filter(trial => {
+        return trial.treatmentId === controlTreatmentId
+      }),
+    ),
+    benchmark: summarizeTrials(
+      trials.filter(trial => {
+        return trial.treatmentId === benchmarkTreatmentId
+      }),
+    ),
   }
 }
 
-function groupTrialsByModel(trials: Array<BenchmarkOutputTrial>): Array<Array<BenchmarkOutputTrial>> {
-  const modelTrials = new Map<string, Array<BenchmarkOutputTrial>>()
-  for (const trial of trials) {
-    const key = `${trial.model.name}\0${trial.model.reasoningEffort}`
-    const trialsForModel = modelTrials.get(key) ?? []
-    trialsForModel.push(trial)
-    modelTrials.set(key, trialsForModel)
+function createComparison(trials: Array<BenchmarkTrialOutput>, output: BenchmarkOutput): BenchmarkComparison {
+  if (trials.length === 0) {
+    return {checks: 'N/A', outputTokens: 'N/A', premiumRequests: 'N/A', sessionTime: 'N/A', apiTime: 'N/A'}
   }
-  return [...modelTrials.values()]
+  const {control, benchmark} = getSummaries(trials, output)
+  function usage(
+    key: 'outputTokens' | 'premiumRequests' | 'sessionDurationMs' | 'totalApiDurationMs',
+    format: (value: number) => string,
+  ) {
+    if (benchmark.runs === 0) {
+      return 'N/A'
+    }
+    return `${format(benchmark[key])} (${formatPercentDelta(control.runs > 0 ? control[key] : null, benchmark[key])})`
+  }
+  return {
+    checks: formatChecks(benchmark, control),
+    outputTokens: usage('outputTokens', formatNumber),
+    premiumRequests: usage('premiumRequests', formatNumber),
+    sessionTime: usage('sessionDurationMs', formatDuration),
+    apiTime: usage('totalApiDurationMs', formatDuration),
+  }
+}
+
+function groupTrialsByModel(trials: Array<BenchmarkTrialOutput>): Array<Array<BenchmarkTrialOutput>> {
+  const groups = new Map<string, Array<BenchmarkTrialOutput>>()
+  for (const trial of trials) {
+    const key = JSON.stringify([trial.model.name, trial.model.reasoningEffort])
+    const group = groups.get(key) ?? []
+    group.push(trial)
+    groups.set(key, group)
+  }
+  return [...groups.values()]
+}
+
+function createModelResults(
+  trials: Array<BenchmarkTrialOutput>,
+  output: BenchmarkOutput,
+): Array<BenchmarkOverviewResult> {
+  if (trials.length === 0) {
+    return []
+  }
+  const {benchmarkTreatmentId} = getTreatments(output)
+  return sortTrialGroups(groupTrialsByModel(trials), benchmarkTreatmentId).map(group => {
+    const {model} = group[0]
+    return {
+      id: JSON.stringify([model.name, model.reasoningEffort]),
+      model: model.name,
+      reasoningEffort: model.reasoningEffort,
+      comparison: createComparison(group, output),
+    }
+  })
 }
 
 function createTrendMetric(
   value: number | null,
   raw: string,
   controlValue: number | null,
-  controlRaw: string | null,
-  controlDeltaValue: number,
-  benchmarkDeltaValue: number,
+  controlRaw: string,
 ): BenchmarkTrendMetric {
-  return {
-    value,
-    raw,
-    change: getPercentDeltaValue(controlDeltaValue, benchmarkDeltaValue),
-    controlValue,
-    controlRaw,
+  return {value, raw, change: getPercentDelta(controlValue, value), controlValue, controlRaw}
+}
+
+function getCheckMetricId(key: string, check: CheckSummary): string {
+  return JSON.stringify(['check', key, check.type, check.unit ?? null, check.direction ?? null])
+}
+
+function formatCheckValue(check: CheckSummary | undefined, expected: number): string {
+  const value = getCheckValue(check)
+  let formatted =
+    value === null
+      ? 'N/A'
+      : check?.type === 'outcomes'
+        ? `${value.toFixed(1)}%`
+        : `${value}${check?.unit ? ` ${check.unit}` : ''}`
+  const notes: Array<string> = []
+  if ((check?.count ?? 0) !== expected) {
+    notes.push(`${check?.count ?? 0}/${expected} check results with values`)
   }
+  if (check && check.skipped > 0) {
+    notes.push(`${check.skipped} skipped`)
+  }
+  if (check && check.errors > 0) {
+    notes.push(`${check.errors} errors`)
+  }
+  if (notes.length > 0) {
+    formatted += ` [${notes.join('; ')}]`
+  }
+  return formatted
 }
 
 function createTrendPoint(
   date: string,
-  trials: Array<BenchmarkOutputTrial>,
-  controlTreatmentId: string,
-  benchmarkTreatmentId: string,
+  trials: Array<BenchmarkTrialOutput>,
+  output: BenchmarkOutput,
   capabilityId: string | null,
   scenarioId: string | null,
+  definitions: Map<string, BenchmarkTrendMetricDefinition>,
 ): BenchmarkTrendPoint {
-  const trial = trials[0]
-  const controlTotals = getTotals(
-    trials.filter(candidate => {
-      return candidate.treatmentId === controlTreatmentId
-    }),
-  )
-  const benchmarkTotals = getTotals(
-    trials.filter(candidate => {
-      return candidate.treatmentId === benchmarkTreatmentId
-    }),
-  )
-  const controlPassRate = getPassRate(controlTotals)
-  const benchmarkPassRate = getPassRate(benchmarkTotals)
-
+  const {model} = trials[0]
+  const {control, benchmark} = getSummaries(trials, output)
+  const metrics: BenchmarkTrendPoint['metrics'] = {}
+  for (const [id, key, scale, format] of [
+    ['outputTokens', 'outputTokens', 1, formatNumber],
+    ['premiumRequests', 'premiumRequests', 1, formatNumber],
+    ['sessionTime', 'sessionDurationMs', 1000, formatDuration],
+    ['apiTime', 'totalApiDurationMs', 1000, formatDuration],
+  ] as const) {
+    const value = benchmark.runs > 0 ? benchmark[key] : null
+    const baseline = control.runs > 0 ? control[key] : null
+    metrics[id] = createTrendMetric(
+      value === null ? null : value / scale,
+      value === null ? 'N/A' : format(value),
+      baseline === null ? null : baseline / scale,
+      baseline === null ? 'N/A' : format(baseline),
+    )
+  }
+  // Validate matching check types, units, and directions before comparing them.
+  formatChecks(benchmark, control)
+  for (const [key, check] of new Map([...control.checks, ...benchmark.checks])) {
+    const id = getCheckMetricId(key, check)
+    definitions.set(id, {
+      id,
+      label:
+        [check.scenarioId, check.name, check.id]
+          .filter(part => {
+            return part !== undefined
+          })
+          .join(' / ') +
+        (check.type === 'measurements' ? ` (${check.unit ?? 'unitless'}, ${check.direction ?? 'no direction'})` : ''),
+      unit: check.type === 'outcomes' ? '%' : check.unit,
+      percentage: check.type === 'outcomes',
+      scenarioId: check.scenarioId,
+    })
+    metrics[id] = createTrendMetric(
+      getCheckValue(benchmark.checks.get(key)),
+      formatCheckValue(benchmark.checks.get(key), benchmark.scenarioRuns.get(check.scenarioId) ?? 0),
+      getCheckValue(control.checks.get(key)),
+      formatCheckValue(control.checks.get(key), control.scenarioRuns.get(check.scenarioId) ?? 0),
+    )
+  }
   return {
-    id: `${date}:${capabilityId ?? 'all'}:${scenarioId ?? 'all'}:${trial.model.name}:${trial.model.reasoningEffort}`,
+    id: JSON.stringify([date, capabilityId, scenarioId, model.name, model.reasoningEffort]),
     date,
     capabilityId,
     scenarioId,
-    model: trial.model.name,
-    reasoningEffort: trial.model.reasoningEffort,
-    metrics: {
-      tests: createTrendMetric(
-        benchmarkPassRate === null ? null : benchmarkPassRate * 100,
-        `${benchmarkTotals.passed}/${benchmarkTotals.total}`,
-        controlPassRate === null ? null : controlPassRate * 100,
-        `${controlTotals.passed}/${controlTotals.total}`,
-        controlPassRate ?? 0,
-        benchmarkPassRate ?? 0,
-      ),
-      outputTokens: createTrendMetric(
-        benchmarkTotals.outputTokens,
-        formatNumber(benchmarkTotals.outputTokens),
-        controlTotals.outputTokens,
-        formatNumber(controlTotals.outputTokens),
-        controlTotals.outputTokens,
-        benchmarkTotals.outputTokens,
-      ),
-      premiumRequests: createTrendMetric(
-        benchmarkTotals.premiumRequests,
-        formatNumber(benchmarkTotals.premiumRequests),
-        controlTotals.premiumRequests,
-        formatNumber(controlTotals.premiumRequests),
-        controlTotals.premiumRequests,
-        benchmarkTotals.premiumRequests,
-      ),
-      sessionTime: createTrendMetric(
-        benchmarkTotals.sessionDurationMs / 1000,
-        formatDuration(benchmarkTotals.sessionDurationMs),
-        controlTotals.sessionDurationMs / 1000,
-        formatDuration(controlTotals.sessionDurationMs),
-        controlTotals.sessionDurationMs,
-        benchmarkTotals.sessionDurationMs,
-      ),
-      apiTime: createTrendMetric(
-        benchmarkTotals.totalApiDurationMs / 1000,
-        formatDuration(benchmarkTotals.totalApiDurationMs),
-        controlTotals.totalApiDurationMs / 1000,
-        formatDuration(controlTotals.totalApiDurationMs),
-        controlTotals.totalApiDurationMs,
-        benchmarkTotals.totalApiDurationMs,
-      ),
-    },
+    model: model.name,
+    reasoningEffort: model.reasoningEffort,
+    metrics,
   }
 }
 
-function createTrendPoints(
-  date: string,
-  trials: Array<BenchmarkOutputTrial>,
-  controlTreatmentId: string,
-  benchmarkTreatmentId: string,
-  capabilityId: string | null,
-  scenarioId: string | null,
-): Array<BenchmarkTrendPoint> {
-  return groupTrialsByModel(trials).map(modelTrials => {
-    return createTrendPoint(date, modelTrials, controlTreatmentId, benchmarkTreatmentId, capabilityId, scenarioId)
-  })
-}
-
-function compareModelPerformance(
-  a: Array<BenchmarkOutputTrial>,
-  b: Array<BenchmarkOutputTrial>,
-  benchmarkTreatmentId: string,
-): number {
-  const aTotals = getTotals(
-    a.filter(trial => {
-      return trial.treatmentId === benchmarkTreatmentId
-    }),
-  )
-  const bTotals = getTotals(
-    b.filter(trial => {
-      return trial.treatmentId === benchmarkTreatmentId
-    }),
-  )
-
-  return (
-    (getPassRate(bTotals) ?? 0) - (getPassRate(aTotals) ?? 0) ||
-    aTotals.outputTokens - bTotals.outputTokens ||
-    aTotals.premiumRequests - bTotals.premiumRequests ||
-    aTotals.sessionDurationMs - bTotals.sessionDurationMs ||
-    aTotals.totalApiDurationMs - bTotals.totalApiDurationMs
-  )
-}
-
-function createPageResults(benchmark: Benchmark, output: BenchmarkOutput, date: string): BenchmarkPageResults {
-  const {controlTreatmentId, benchmarkTreatmentId} = getTreatments(output)
-
-  const trials = [...output.trials.values()]
-  const capabilities = benchmark.capabilities.map((capability, capabilityIndex) => {
-    const capabilityTrials = trials.filter(trial => {
-      return trial.capabilityId === capability.name
-    })
-
-    return {
-      id: `${capabilityIndex}-${capability.name}`,
-      name: capability.name,
-      comparison: createComparison(capabilityTrials, controlTreatmentId, benchmarkTreatmentId),
-      scenarios: capability.scenarios.map(scenario => {
-        const scenarioTrials = capabilityTrials.filter(trial => {
-          return trial.scenarioId === scenario.id
-        })
-        return {
-          id: scenario.id,
-          comparison: createComparison(scenarioTrials, controlTreatmentId, benchmarkTreatmentId),
-          models: groupTrialsByModel(scenarioTrials)
-            .toSorted((a, b) => {
-              return compareModelPerformance(a, b, benchmarkTreatmentId)
-            })
-            .map(trialsForModel => {
-              const trial = trialsForModel[0]
-              return {
-                id: `${trial.model.name}\0${trial.model.reasoningEffort}`,
-                name: trial.model.name,
-                reasoningEffort: trial.model.reasoningEffort,
-                comparison: createComparison(trialsForModel, controlTreatmentId, benchmarkTreatmentId),
-              }
-            }),
-        }
-      }),
-    }
-  })
-
-  return {date, capabilities}
-}
-
 export function getBenchmarkOverviewData(runs: Array<BenchmarkRun>): BenchmarkOverviewData {
-  const latestRun = runs[0]
-  const results = latestRun
-    ? (() => {
-        const {controlTreatmentId, benchmarkTreatmentId} = getTreatments(latestRun.output)
-        return groupTrialsByModel([...latestRun.output.trials.values()])
-          .toSorted((a, b) => {
-            return compareModelPerformance(a, b, benchmarkTreatmentId)
-          })
-          .map(trials => {
-            const trial = trials[0]
-            return {
-              id: `${trial.model.name}\0${trial.model.reasoningEffort}`,
-              model: trial.model.name,
-              reasoningEffort: trial.model.reasoningEffort,
-              comparison: createComparison(trials, controlTreatmentId, benchmarkTreatmentId),
-            }
-          })
-      })()
-    : []
+  const latest = runs[0]
+  const capabilities = new Map<string, {id: string; name: string}>()
+  for (const run of runs) {
+    for (const capability of run.output.capabilities.values()) {
+      if (!capabilities.has(capability.id)) {
+        capabilities.set(capability.id, {id: capability.id, name: capability.name})
+      }
+    }
+  }
+  const definitions = new Map<string, BenchmarkTrendMetricDefinition>(
+    [
+      {id: 'outputTokens', label: 'Output tokens'},
+      {id: 'premiumRequests', label: 'Premium requests'},
+      {id: 'sessionTime', label: 'Session time', unit: 's'},
+      {id: 'apiTime', label: 'API time', unit: 's'},
+    ].map(metric => {
+      return [metric.id, metric]
+    }),
+  )
   const trends = runs.flatMap(run => {
-    const {controlTreatmentId, benchmarkTreatmentId} = getTreatments(run.output)
     const trials = [...run.output.trials.values()]
-    const scenarioIds = new Set(
-      trials.map(trial => {
-        return trial.scenarioId
-      }),
-    )
-    const allTrendPoints = createTrendPoints(run.name, trials, controlTreatmentId, benchmarkTreatmentId, null, null)
-    const scenarioTrendPoints = [...scenarioIds].flatMap(scenarioId => {
-      return createTrendPoints(
-        run.name,
-        trials.filter(trial => {
-          return trial.scenarioId === scenarioId
+    return [null, ...run.output.capabilities.keys()].flatMap(capabilityId => {
+      const capabilityTrials =
+        capabilityId === null
+          ? trials
+          : trials.filter(trial => {
+              return trial.capabilityId === capabilityId
+            })
+      const scenarioIds = new Set(
+        capabilityTrials.map(trial => {
+          return trial.scenarioId
         }),
-        controlTreatmentId,
-        benchmarkTreatmentId,
-        null,
-        scenarioId,
       )
-    })
-    const capabilityTrendPoints = [...run.output.capabilities.values()].flatMap(capability => {
-      const capabilityTrials = trials.filter(trial => {
-        return trial.capabilityId === capability.name
+      return [null, ...scenarioIds].flatMap(scenarioId => {
+        const selected =
+          scenarioId === null
+            ? capabilityTrials
+            : capabilityTrials.filter(trial => {
+                return trial.scenarioId === scenarioId
+              })
+        return groupTrialsByModel(selected).map(group => {
+          return createTrendPoint(run.name, group, run.output, capabilityId, scenarioId, definitions)
+        })
       })
-      const capabilityPoints = createTrendPoints(
-        run.name,
-        capabilityTrials,
-        controlTreatmentId,
-        benchmarkTreatmentId,
-        capability.name,
-        null,
-      )
-      const capabilityScenarioPoints = capability.scenarioIds.flatMap(scenarioId => {
-        return createTrendPoints(
-          run.name,
-          capabilityTrials.filter(trial => {
-            return trial.scenarioId === scenarioId
-          }),
-          controlTreatmentId,
-          benchmarkTreatmentId,
-          capability.name,
-          scenarioId,
-        )
-      })
-
-      return [...capabilityPoints, ...capabilityScenarioPoints]
     })
-
-    return [...allTrendPoints, ...scenarioTrendPoints, ...capabilityTrendPoints]
   })
-
+  for (const point of trends) {
+    for (const id of definitions.keys()) {
+      point.metrics[id] ??= createTrendMetric(null, 'N/A', null, 'N/A')
+    }
+  }
   return {
-    date: latestRun?.name ?? null,
-    results,
+    date: latest?.name ?? null,
+    results: latest ? createModelResults([...latest.output.trials.values()], latest.output) : [],
     trends,
+    metrics: [...definitions.values()],
+    capabilities: [...capabilities.values()],
   }
 }
 
@@ -557,21 +412,23 @@ export async function listBenchmarkRuns(benchmarkId: string): Promise<Array<Benc
   const candidates = (await getDatedCandidates(benchmarkId)).toSorted((a, b) => {
     return b.date.localeCompare(a.date)
   })
-
   const runs: Array<BenchmarkRun> = []
   for (const candidate of candidates) {
-    const output = await readBenchmarkOutput(candidate, benchmarkId)
-    if (output) {
-      runs.push({
-        id: candidate.date,
-        name: candidate.date,
-        directory: path.dirname(candidate.filepath),
-        date: new Date(`${candidate.date}T00:00:00.000Z`),
-        output,
-      })
+    const output = await readBenchmarkOutput(candidate.filepath)
+    if (output === null) {
+      continue
     }
+    if (output.id !== benchmarkId) {
+      throw new Error(`Benchmark ID "${output.id}" does not match "${benchmarkId}" in ${candidate.filepath}`)
+    }
+    runs.push({
+      id: candidate.date,
+      name: candidate.date,
+      directory: path.dirname(candidate.filepath),
+      date: new Date(`${candidate.date}T00:00:00.000Z`),
+      output,
+    })
   }
-
   return runs
 }
 
@@ -579,7 +436,6 @@ export async function getBenchmarkRun(benchmarkId: string, date: string): Promis
   if (!isRunDate(date)) {
     return null
   }
-
   const runs = await listBenchmarkRuns(benchmarkId)
   return (
     runs.find(run => {
@@ -588,9 +444,47 @@ export async function getBenchmarkRun(benchmarkId: string, date: string): Promis
   )
 }
 
-export function getBenchmarkPageResults(
-  benchmark: Benchmark,
-  run: BenchmarkRun | undefined,
-): BenchmarkPageResults | null {
-  return run ? createPageResults(benchmark, run.output, run.name) : null
+function createScenarioResults(
+  trials: Array<BenchmarkTrialOutput>,
+  output: BenchmarkOutput,
+  scenarioIds: Iterable<string> = new Set(
+    trials.map(trial => {
+      return trial.scenarioId
+    }),
+  ),
+): BenchmarkPageResults['scenarios'] {
+  return [...new Set(scenarioIds)].map(id => {
+    const scenarioTrials = trials.filter(trial => {
+      return trial.scenarioId === id
+    })
+    return {
+      id,
+      comparison: createComparison(scenarioTrials, output),
+      models: createModelResults(scenarioTrials, output),
+    }
+  })
+}
+
+export function getBenchmarkPageResults(run: BenchmarkRun | undefined): BenchmarkPageResults | null {
+  if (!run) {
+    return null
+  }
+  const output = run.output
+  const trials = [...output.trials.values()]
+  return {
+    date: run.name,
+    comparison: createComparison(trials, output),
+    scenarios: createScenarioResults(trials, output),
+    capabilities: [...output.capabilities.values()].map(capability => {
+      const capabilityTrials = trials.filter(trial => {
+        return trial.capabilityId === capability.id
+      })
+      return {
+        id: capability.id,
+        name: capability.name,
+        comparison: createComparison(capabilityTrials, output),
+        scenarios: createScenarioResults(capabilityTrials, output, capability.scenarioIds),
+      }
+    }),
+  }
 }

@@ -8,7 +8,7 @@ import type {BenchmarkPageResults} from '../../../../benchmark-results'
 import type {Benchmark} from '../../../../benchmarks'
 import {Link} from '../../../../components/Link'
 
-type Comparison = BenchmarkPageResults['capabilities'][number]['comparison']
+type Comparison = BenchmarkPageResults['comparison']
 
 type TableResult = {
   id: string
@@ -24,46 +24,55 @@ type BenchmarkRun = {
   id: string
   name: string
   resultCount: number
-  passedTests: number
-  totalTests: number
+  checks: string
 }
 
 function createTableResults(results: BenchmarkPageResults): Array<TableResult> {
-  return results.capabilities.flatMap(capability => {
-    return [
-      {
-        id: capability.id,
-        capability: capability.name,
-        scenario: capability.scenarios.length > 0 ? 'All scenarios' : 'Not measured',
-        model: 'All models',
-        reasoningEffort: '',
-        comparison: capability.comparison,
-      },
-      ...capability.scenarios.flatMap(scenario => {
-        return [
-          {
-            id: `${capability.id}-${scenario.id}`,
-            capability: '',
-            scenario: scenario.id,
-            scenarioId: scenario.id,
-            model: 'All models',
-            reasoningEffort: '',
-            comparison: scenario.comparison,
-          },
-          ...scenario.models.map(model => {
-            return {
-              id: `${capability.id}-${scenario.id}-${model.id}`,
+  return [
+    {
+      id: 'all',
+      capability: 'All capabilities',
+      scenario: 'All scenarios',
+      model: 'All models',
+      reasoningEffort: '',
+      comparison: results.comparison,
+    },
+    ...results.capabilities.flatMap(capability => {
+      return [
+        {
+          id: capability.id,
+          capability: capability.name,
+          scenario: 'All scenarios',
+          model: 'All models',
+          reasoningEffort: '',
+          comparison: capability.comparison,
+        },
+        ...capability.scenarios.flatMap(scenario => {
+          return [
+            {
+              id: `${capability.id}-${scenario.id}`,
               capability: '',
-              scenario: '',
-              model: model.name,
-              reasoningEffort: model.reasoningEffort,
-              comparison: model.comparison,
-            }
-          }),
-        ]
-      }),
-    ]
-  })
+              scenario: scenario.id,
+              scenarioId: scenario.id,
+              model: 'All models',
+              reasoningEffort: '',
+              comparison: scenario.comparison,
+            },
+            ...scenario.models.map(model => {
+              return {
+                id: `${capability.id}-${scenario.id}-${model.id}`,
+                capability: '',
+                scenario: '',
+                model: model.model,
+                reasoningEffort: model.reasoningEffort,
+                comparison: model.comparison,
+              }
+            }),
+          ]
+        }),
+      ]
+    }),
+  ]
 }
 
 export function Page({
@@ -109,15 +118,17 @@ export function Page({
                     )
                   },
                 },
-                {id: 'results', header: 'Results', field: 'resultCount', align: 'end'},
                 {
-                  id: 'tests',
-                  header: 'Tests passed',
-                  field: 'passedTests',
+                  id: 'results',
+                  header: 'Results',
+                  field: 'resultCount',
                   align: 'end',
-                  renderCell: row => {
-                    return `${row.passedTests}/${row.totalTests}`
-                  },
+                },
+                {
+                  id: 'checks',
+                  header: 'Checks',
+                  field: 'checks',
+                  align: 'end',
                 },
               ]}
               data={runs}
@@ -136,8 +147,10 @@ export function Page({
             Capability performance
           </Table.Title>
           <Table.Subtitle as="p" id="capability-results-description">
-            Benchmark results are shown first, followed by the percent change from Control in parentheses. Capability
-            rows aggregate all of their scenario and model results. Latest results:{' '}
+            Capability rows aggregate their scenarios and models. Benchmark results are shown first, followed by the
+            percent change from Control in parentheses. Checks average per-check, per-trial pass percentages or
+            measurement means, keeping units and directions separate. Skips and errors are excluded from values and
+            shown separately. Latest results:{' '}
             <Link href={`/benchmarks/${benchmark.id}/runs/${results.date}` as Route}>
               <time dateTime={results.date}>{results.date}</time>
             </Link>
@@ -179,12 +192,12 @@ export function Page({
                 field: 'reasoningEffort',
               },
               {
-                id: 'tests',
-                header: 'Tests',
+                id: 'checks',
+                header: 'Checks',
                 field: 'comparison',
                 align: 'end',
                 renderCell: row => {
-                  return row.comparison.tests
+                  return row.comparison.checks
                 },
               },
               {

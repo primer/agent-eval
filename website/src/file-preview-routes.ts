@@ -69,13 +69,13 @@ async function getTrialWorkspace(params: FilePreviewParams) {
     }
 
     const run = await getExperimentRun(params.id, params.date)
-    const trial = run.output.results.find(candidate => {
+    const trial = [...run.output.trials.values()].find(candidate => {
       return candidate.id === params.trial
     })
     if (!trial) {
       return null
     }
-    return {directory: run.directory, workspaceDirectory: trial.workspaceDirectory}
+    return {directory: run.directory, workspaceDirectory: trial.artifacts.workspaceDirectory}
   } catch (error) {
     // The experiment reader throws for missing runs rather than returning null.
     if (
@@ -152,10 +152,10 @@ async function generateFilePreviewParams(): Promise<Array<FilePreviewParams>> {
     }
   }
   for (const run of await listExperimentRuns()) {
-    for (const trial of run.output.results) {
+    for (const trial of run.output.trials.values()) {
       await addWorkspace(
-        {collection: 'experiments', id: run.output.experiment.id, date: run.name, trial: trial.id},
-        trial.workspaceDirectory,
+        {collection: 'experiments', id: run.output.id, date: run.name, trial: trial.id},
+        trial.artifacts.workspaceDirectory,
         run.directory,
       )
     }

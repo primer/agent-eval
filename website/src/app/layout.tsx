@@ -12,13 +12,14 @@ export const metadata = {
 
 export default function Layout({children}: {children: React.ReactNode}) {
   return (
+    // BaseStyles loads focus-visible, which adds these root attributes before hydration.
     <html
       lang="en"
+      className="js-focus-visible"
+      data-js-focus-visible=""
       data-color-mode="auto"
       data-light-theme="light"
       data-dark-theme="dark"
-      // Primer's focus-visible polyfill adds attributes here before hydration.
-      suppressHydrationWarning
     >
       <body>
         <BaseStyles>

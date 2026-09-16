@@ -2,21 +2,9 @@
 
 import {Button, FormControl, Heading, Select, Stack, Text} from '@primer/react'
 import {DataTable, Table} from '@primer/react/experimental'
-import {type MouseEvent, useState} from 'react'
-import type {BenchmarkTrendMetricId, BenchmarkTrendPoint} from '../../benchmark-results'
-import type {Benchmark} from '../../benchmarks'
+import {type MouseEvent, useId, useState} from 'react'
+import type {BenchmarkTrendMetricDefinition, BenchmarkTrendMetricId, BenchmarkTrendPoint} from '../../benchmark-results'
 import styles from './BenchmarkTrends.module.css'
-
-const metrics: Array<{
-  id: BenchmarkTrendMetricId
-  label: string
-}> = [
-  {id: 'tests', label: 'Tests passed'},
-  {id: 'outputTokens', label: 'Output tokens'},
-  {id: 'premiumRequests', label: 'Premium requests'},
-  {id: 'sessionTime', label: 'Session time'},
-  {id: 'apiTime', label: 'API time'},
-]
 
 const lineStyles = [
   {color: 'var(--data-blue-color-emphasis, var(--data-blue-color))', dash: undefined},
@@ -28,7 +16,7 @@ const lineStyles = [
 ]
 
 const numberFormatter = new Intl.NumberFormat('en-US', {
-  maximumFractionDigits: 1,
+  maximumSignificantDigits: 3,
 })
 
 type TrendTreatment = 'benchmark' | 'control'
@@ -45,20 +33,16 @@ function formatChange(change: number | null): string {
   return `${change > 0 ? '+' : ''}${numberFormatter.format(change)}%`
 }
 
-function formatAxisValue(metricId: BenchmarkTrendMetricId, value: number): string {
-  if (metricId === 'tests') {
+function formatAxisValue(metric: BenchmarkTrendMetricDefinition, value: number): string {
+  if (metric.percentage) {
     return `${Math.round(value)}%`
   }
 
-  if (metricId === 'sessionTime' || metricId === 'apiTime') {
-    return `${numberFormatter.format(value)}s`
-  }
-
-  return numberFormatter.format(value)
+  return `${numberFormatter.format(value)}${metric.unit ? ` ${metric.unit}` : ''}`
 }
 
 function getAxisDomain(
-  metricId: BenchmarkTrendMetricId,
+  metric: BenchmarkTrendMetricDefinition,
   rawMin: number,
   rawMax: number,
 ): {
@@ -66,11 +50,11 @@ function getAxisDomain(
   max: number
 } {
   const range = rawMax - rawMin
-  const margin = (range || Math.max(rawMax, 1)) * 0.1
+  const margin = (range || Math.max(Math.abs(rawMax), 1)) * 0.1
 
-  if (metricId !== 'tests') {
+  if (!metric.percentage) {
     return {
-      min: Math.max(0, rawMin - margin),
+      min: rawMin < 0 ? rawMin - margin : Math.max(0, rawMin - margin),
       max: rawMax + margin,
     }
   }
@@ -90,7 +74,7 @@ function TrendChart({
   highlightedTreatment,
 }: {
   dates: Array<string>
-  metric: (typeof metrics)[number]
+  metric: BenchmarkTrendMetricDefinition
   points: Array<BenchmarkTrendPoint>
   series: Array<string>
   highlightedSeries: string | null
@@ -113,8 +97,8 @@ function TrendChart({
   })
   const rawMin = values.length > 0 ? Math.min(...values) : 0
   const rawMax = values.length > 0 ? Math.max(...values) : 0
-  const {min, max} = getAxisDomain(metric.id, rawMin, rawMax)
-  const axisValues = metric.id === 'tests' ? [max, Math.round((max + min) / 2), min] : [max, (max + min) / 2, min]
+  const {min, max} = getAxisDomain(metric, rawMin, rawMax)
+  const axisValues = metric.percentage ? [max, Math.round((max + min) / 2), min] : [max, (max + min) / 2, min]
   const getX = (date: string): number => {
     return padding.left + (dates.length === 1 ? plotWidth / 2 : (dates.indexOf(date) / (dates.length - 1)) * plotWidth)
   }
@@ -139,7 +123,7 @@ function TrendChart({
     activePoint && activeValue !== undefined
       ? Math.max(padding.top, Math.min(getY(activeValue) - tooltipHeight - 10, height - padding.bottom - tooltipHeight))
       : 0
-  const tooltipId = `${metric.id}-chart-tooltip`
+  const tooltipId = useId()
   const controlOpacity = highlightedTreatment === 'benchmark' ? 0.15 : highlightedTreatment === 'control' ? 1 : 0.4
   const benchmarkOpacity = highlightedTreatment === 'control' ? 0.15 : 1
   const activateClosestPoint = (
@@ -177,7 +161,7 @@ function TrendChart({
             <g key={value}>
               <line className={styles.gridLine} x1={padding.left} x2={width - padding.right} y1={y} y2={y} />
               <text className={styles.axisLabel} textAnchor="end" x={padding.left - 8} y={y + 4}>
-                {formatAxisValue(metric.id, value)}
+                {formatAxisValue(metric, value)}
               </text>
             </g>
           )
@@ -392,12 +376,14 @@ function TrendChart({
 
 export function BenchmarkTrends({
   capabilities,
+  metrics: allMetrics,
   points,
 }: {
-  capabilities: Benchmark['capabilities']
+  capabilities: Array<{id: string; name: string}>
+  metrics: Array<BenchmarkTrendMetricDefinition>
   points: Array<BenchmarkTrendPoint>
 }) {
-  const [tableMetricId, setTableMetricId] = useState<BenchmarkTrendMetricId>('tests')
+  const [tableMetricId, setTableMetricId] = useState<BenchmarkTrendMetricId>('outputTokens')
   const [selectedCapabilityId, setSelectedCapabilityId] = useState('')
   const [selectedScenarioId, setSelectedScenarioId] = useState('')
   const [selectedSeries, setSelectedSeries] = useState<string | null>(null)
@@ -406,20 +392,23 @@ export function BenchmarkTrends({
   const [hoveredTreatment, setHoveredTreatment] = useState<TrendTreatment | null>(null)
   const scenarios = [
     ...new Set(
-      (selectedCapabilityId
-        ? (capabilities.find(capability => {
-            return capability.name === selectedCapabilityId
-          })?.scenarios ?? [])
-        : capabilities.flatMap(capability => {
-            return capability.scenarios
-          })
-      ).map(scenario => {
-        return scenario.id
-      }),
+      points
+        .filter(point => {
+          return point.capabilityId === (selectedCapabilityId || null)
+        })
+        .flatMap(point => {
+          return point.scenarioId === null ? [] : [point.scenarioId]
+        }),
     ),
   ].toSorted()
   const filteredPoints = points.filter(point => {
     return point.capabilityId === (selectedCapabilityId || null) && point.scenarioId === (selectedScenarioId || null)
+  })
+  const metrics = allMetrics.filter(metric => {
+    return (
+      !metric.scenarioId ||
+      (scenarios.includes(metric.scenarioId) && (!selectedScenarioId || metric.scenarioId === selectedScenarioId))
+    )
   })
   const dates = [
     ...new Set(
@@ -476,35 +465,32 @@ export function BenchmarkTrends({
               Trends
             </Heading>
             <Text as="p" className={styles.description}>
-              Strong lines show Benchmark results and muted lines show Control over time.
+              Strong lines show Benchmark results and muted lines show Control over time. Check charts average each
+              check&apos;s per-trial values; skipped outcomes and errors are excluded.
             </Text>
           </Stack>
           <div className={styles.filters}>
             <FormControl>
               <FormControl.Label>Capability</FormControl.Label>
               <Select
+                value={selectedCapabilityId}
                 onChange={event => {
                   const capabilityId = event.currentTarget.value
-                  const capabilityScenarios =
-                    capabilities.find(capability => {
-                      return capability.name === capabilityId
-                    })?.scenarios ?? []
                   setSelectedCapabilityId(capabilityId)
                   if (
                     selectedScenarioId &&
-                    !capabilityScenarios.some(scenario => {
-                      return scenario.id === selectedScenarioId
+                    !points.some(point => {
+                      return point.capabilityId === (capabilityId || null) && point.scenarioId === selectedScenarioId
                     })
                   ) {
                     setSelectedScenarioId('')
                   }
                 }}
-                value={selectedCapabilityId}
               >
                 <Select.Option value="">All capabilities</Select.Option>
                 {capabilities.map(capability => {
                   return (
-                    <Select.Option key={capability.name} value={capability.name}>
+                    <Select.Option key={capability.id} value={capability.id}>
                       {capability.name}
                     </Select.Option>
                   )
@@ -530,6 +516,7 @@ export function BenchmarkTrends({
               </Select>
             </FormControl>
           </div>
+          {filteredPoints.length === 0 ? <p role="status">No results were recorded for the selected filters.</p> : null}
         </div>
         <Stack gap="normal">
           <div className={styles.legendGroups}>
@@ -677,9 +664,9 @@ export function BenchmarkTrends({
               <FormControl.Label>Metric</FormControl.Label>
               <Select
                 onChange={event => {
-                  setTableMetricId(event.currentTarget.value as BenchmarkTrendMetricId)
+                  setTableMetricId(event.currentTarget.value)
                 }}
-                value={tableMetricId}
+                value={tableMetric.id}
               >
                 {metrics.map(metric => {
                   return (

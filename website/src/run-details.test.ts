@@ -1,161 +1,141 @@
-import type {ExperimentOutput} from '@primer/agent-eval/experiment'
-import {expect, test} from 'vitest'
-import {createBenchmarkRunDetails, createExperimentRunDetails} from './run-details'
-import {normalizeOutput, type RunOutputResult} from './runs'
-
-const session = {
-  turns: 2,
-  outputTokens: 100,
-  premiumRequests: 1,
-  totalApiDurationMs: 200,
-  sessionDurationMs: 300,
-  tools: {},
-  messages: [],
-}
-
-const config = {
-  name: 'empty-state-copy',
-  description: 'Evaluate the empty state.',
-  judge: {instructions: 'Inspect the user-facing copy.'},
-  scores: [
-    {value: 0, description: 'The copy is clear.'},
-    {value: 10, description: 'The copy needs work.'},
-  ],
-}
-
-const judges: RunOutputResult['judges'] = [
-  {
-    config,
-    result: {
-      type: 'result',
-      score: 0,
-      rationale: 'The heading and description encourage creating a project.',
-      findings: [
-        {
-          filepath: 'src/App.tsx',
-          snippet: '<h1>No projects yet</h1>',
-          explanation: 'The heading explains the empty state.',
-        },
-      ],
-    },
-    agent: {session},
-  },
-  {
-    config: {...config, name: 'failed-judge'},
-    result: {type: 'error', message: 'Invalid judge report JSON'},
-    agent: {session},
-  },
-  {
-    config: {...config, name: 'missing-judge'},
-    result: {type: 'unknown'},
-    agent: {session},
-  },
-]
-
-function createOutput(judgeOutputs = judges): ExperimentOutput {
-  return {
-    experimentId: 'test-experiment',
-    scenarios: new Map(),
-    treatments: new Map([['control', {name: 'Control'}]]),
-    trials: new Map([
-      [
-        'trial-1',
-        {
-          id: 'trial-1',
-          model: {name: 'gpt-5.6-sol', reasoningEffort: 'medium'},
-          scenarioId: 'empty-state',
-          treatmentId: 'control',
-          agent: {sessions: [session]},
-          artifacts: {
-            directory: 'artifacts/trial-1',
-            copilotConfigDirectory: 'artifacts/trial-1/copilot',
-            skillsConfigDirectory: 'artifacts/trial-1/skills',
-            testResultsPath: 'artifacts/trial-1/tests.json',
-            workspaceDirectory: 'artifacts/trial-1/workspace',
-          },
-          testResults: {
-            numTotalTests: 1,
-            numPassedTests: 1,
-            numFailedTests: 0,
-            numPendingTests: 0,
-            numTodoTests: 0,
-            success: true,
-            testResults: [
-              {
-                assertionResults: [
-                  {
-                    title: 'renders',
-                    fullName: 'empty state renders',
-                    status: 'passed',
-                    meta: {description: 'Renders an empty state'},
-                  },
-                ],
-              },
-            ],
-          },
-          walkthrough: {type: 'Unavailable'},
-          judges: judgeOutputs,
-        },
-      ],
-    ]),
-  }
-}
+import {expect, test, vi} from 'vitest'
+import {
+  createBenchmarkRunDetails,
+  createExperimentRunDetails,
+  createTrialDetails,
+  createTrialTranscript,
+  getTrialDataUrl,
+} from './run-details'
+import {checks, createBenchmarkOutput, createExperimentOutput, createTrial, judges, session} from './test-fixtures'
 
 test.each([
   {name: 'scored, error, and unknown results', judges},
   {name: 'no judges', judges: []},
-])('preserves $name through experiment normalization and run details', async ({judges: judgeOutputs}) => {
-  const output = normalizeOutput(createOutput(judgeOutputs))
-  expect(output.results[0].judges).toEqual(judgeOutputs)
-
-  const details = await createExperimentRunDetails('2026-09-09', output, '/results/experiment')
-  expect(details.results[0]).toMatchObject({
+])('preserves checks and $name in experiment and benchmark details', async ({judges: judgeOutputs}) => {
+  const trials = [createTrial({judges: judgeOutputs})]
+  const details = await createExperimentRunDetails('2026-09-15', createExperimentOutput(trials))
+  const baseUrl = '/run-data/experiments/test-experiment/2026-09-15/trial-1'
+  expect(details.results[0]).toEqual({
+    id: 'trial-1',
+    scenarioId: 'empty-state',
+    model: 'gpt-5.6-sol',
+    reasoningEffort: 'medium',
     treatment: 'Control',
-    testsPassed: 1,
-    totalTests: 1,
+    checkSummary: '15 ms [1 error]; 50.0% [1 skipped; 1 error]',
     turns: 2,
-    transcript: [],
+    outputTokens: 100,
+    premiumRequests: 1,
+    totalApiDurationMs: 200,
+    sessionDurationMs: 300,
+    counts: {checks: checks.length, transcript: 0, judges: judgeOutputs.length},
+    walkthroughPreview: {type: 'Unavailable', count: 0},
+    detailsUrl: `${baseUrl}/details.json`,
+    transcriptUrl: `${baseUrl}/transcript.json`,
+    workspace: {type: 'unavailable', reason: 'The generated workspace is missing from this result bundle.'},
+  })
+  const trial = await createTrialDetails(trials[0], '/results/experiment', baseUrl)
+  expect(trial).toEqual({
+    id: 'trial-1',
+    checks,
     walkthrough: {type: 'Unavailable'},
-    judges: judgeOutputs.map(judge => {
-      return {config: judge.config, result: judge.result}
+    judges: judgeOutputs.map(output => {
+      return {judge: output.judge, result: output.result}
     }),
   })
-  for (const judge of details.results[0].judges) {
-    expect(judge).not.toHaveProperty('agent')
+  for (const output of trial.judges) {
+    expect(output).not.toHaveProperty('agent')
+  }
+  const benchmark = await createBenchmarkRunDetails({
+    id: '2026-09-15',
+    name: '2026-09-15',
+    date: new Date('2026-09-15'),
+    directory: '/results/benchmark',
+    output: createBenchmarkOutput(trials),
+  })
+  expect(benchmark).toEqual({
+    ...details,
+    results: details.results.map(result => {
+      return {
+        ...result,
+        capability: {id: 'a', name: 'First capability'},
+        detailsUrl: '/run-data/benchmarks/test-benchmark/2026-09-15/trial-1/details.json',
+        transcriptUrl: '/run-data/benchmarks/test-benchmark/2026-09-15/trial-1/transcript.json',
+      }
+    }),
+  })
+})
+
+test('keeps repeated trials and session transcripts distinct while aggregating implementation usage', async () => {
+  const agentSession = {
+    ...session,
+    messages: [
+      {
+        type: 'assistant.message_delta' as const,
+        id: 'event-1',
+        timestamp: '2026-09-15T00:00:00.000Z',
+        parentId: '',
+        ephemeral: true,
+        data: {messageId: 'message-1', deltaContent: 'Hello'},
+      },
+    ],
+  }
+  const output = createExperimentOutput([
+    createTrial({agent: {sessions: [agentSession, agentSession]}}),
+    createTrial({id: 'trial-2'}),
+  ])
+  const details = await createExperimentRunDetails('2026-09-15', output)
+  expect(details.results).toHaveLength(2)
+  expect(details.results[0]).toMatchObject({turns: 4, outputTokens: 200, premiumRequests: 2})
+  expect(details.results[0].counts.transcript).toBe(2)
+  expect(details.results[0]).not.toHaveProperty('transcript')
+  expect(createTrialTranscript([...output.trials.values()][0])).toEqual([
+    {id: '0:event-1', label: 'Assistant', timestamp: '2026-09-15T00:00:00.000Z', content: 'Hello'},
+    {id: '1:event-1', label: 'Assistant', timestamp: '2026-09-15T00:00:00.000Z', content: 'Hello'},
+  ])
+})
+
+test('rejects trials with unknown treatments instead of labeling them as valid results', async () => {
+  await expect(
+    createExperimentRunDetails('2026-09-15', createExperimentOutput([createTrial({treatmentId: 'missing'})])),
+  ).rejects.toThrow('Unknown treatment')
+})
+
+test('includes the deployment base path and encodes identifiers in asset URLs', () => {
+  vi.stubEnv('PAGES_BASE_PATH', '/agent-eval')
+  try {
+    expect(getTrialDataUrl('experiments', 'name with spaces', '2026-09-15', 'trial#1')).toBe(
+      '/agent-eval/run-data/experiments/name%20with%20spaces/2026-09-15/trial%231',
+    )
+  } finally {
+    vi.unstubAllEnvs()
   }
 })
 
-test.each([
-  {name: 'scored, error, and unknown results', judges},
-  {name: 'no judges', judges: []},
-])('preserves $name in benchmark run details', async ({judges: judgeOutputs}) => {
-  const output = createOutput(judgeOutputs)
-  const details = await createBenchmarkRunDetails({
-    id: '2026-09-09',
-    name: '2026-09-09',
-    date: new Date('2026-09-09'),
-    directory: '/results/benchmark',
-    output: {
-      benchmarkId: 'test-benchmark',
-      capabilities: new Map(),
-      scenarios: output.scenarios,
-      treatments: output.treatments,
-      trials: new Map(
-        [...output.trials].map(([id, trial]) => {
-          return [id, {...trial, capabilityId: 'copy'}]
-        }),
-      ),
-    },
+test('keeps heavy trial bodies out of the initial run summaries', async () => {
+  const marker = 'UNLOADED_DETAIL_CONTENT'
+  const trial = createTrial({
+    checks: [
+      {
+        check: {name: 'tests', files: []},
+        result: {type: 'outcomes', outcomes: [{type: 'outcome', status: 'passed', id: marker}]},
+      },
+    ],
+    judges: [{...judges[0], result: {type: 'result', score: 0, rationale: marker, findings: []}}],
+    walkthrough: {type: 'Screenshot', filepath: `artifacts/${marker}.png`},
   })
+  const run = await createExperimentRunDetails('2026-09-15', createExperimentOutput([trial]))
+  expect(JSON.stringify(run)).not.toContain(marker)
+  expect(run.results[0].walkthroughPreview).toEqual({type: 'Screenshot', count: 1})
+  for (const field of ['checks', 'judges', 'transcript', 'walkthrough']) {
+    expect(run.results[0]).not.toHaveProperty(field)
+  }
+})
 
-  const experimentDetails = await createExperimentRunDetails(
-    '2026-09-09',
-    normalizeOutput(output),
-    '/results/experiment',
+test('provides only the gallery shape needed to reserve the initial loading layout', async () => {
+  const run = await createExperimentRunDetails(
+    '2026-09-15',
+    createExperimentOutput([createTrial({walkthrough: {type: 'Screenshots', screenshots: ['one.png', 'two.png']}})]),
   )
-  expect(details.results).toEqual(
-    experimentDetails.results.map(result => {
-      return {...result, context: 'copy'}
-    }),
-  )
+  expect(run.results[0].walkthroughPreview).toEqual({type: 'Screenshots', count: 2})
+  expect(JSON.stringify(run)).not.toContain('one.png')
 })

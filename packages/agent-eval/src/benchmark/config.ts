@@ -32,10 +32,7 @@ const BenchmarkConfigSchema = z.object({
   ),
 })
 
-// Keep declaration emit from expanding the inferred schema into internal types.
-type BenchmarkConfig = {
-  [Key in keyof z.infer<typeof BenchmarkConfigSchema>]: z.infer<typeof BenchmarkConfigSchema>[Key]
-}
+type BenchmarkConfig = z.infer<typeof BenchmarkConfigSchema>
 
 function defineConfig(config: BenchmarkConfig): BenchmarkConfig {
   return config

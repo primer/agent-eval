@@ -236,3 +236,84 @@ test('references screenshot and video files relative to a relocated run without 
     media: [],
   })
 })
+
+test.each([
+  ['Screenshot', 'file'],
+  ['Screenshot', 'parent'],
+  ['Screenshot', 'artifacts'],
+  ['Video', 'file'],
+  ['Video', 'parent'],
+  ['Video', 'artifacts'],
+] as const)('rejects %s media escaping through a %s symlink', async (type, symlinkKind) => {
+  const directory = await createDirectory()
+  const runDirectory = path.join(directory, 'run')
+  const outsideDirectory = path.join(directory, 'artifacts-outside')
+  const filename = type === 'Video' ? 'media.webm' : 'media.png'
+  const relativePath = `artifacts/trial-1/walkthrough/${filename}`
+  const outsideFile = path.join(outsideDirectory, 'trial-1/walkthrough', filename)
+  await fs.mkdir(path.dirname(outsideFile), {recursive: true})
+  await fs.writeFile(outsideFile, 'outside media')
+
+  if (symlinkKind === 'artifacts') {
+    await fs.mkdir(runDirectory)
+    await fs.symlink(outsideDirectory, path.join(runDirectory, 'artifacts'))
+  } else if (symlinkKind === 'parent') {
+    await fs.mkdir(path.join(runDirectory, 'artifacts/trial-1'), {recursive: true})
+    await fs.symlink(path.dirname(outsideFile), path.join(runDirectory, 'artifacts/trial-1/walkthrough'))
+  } else {
+    await fs.mkdir(path.dirname(path.join(runDirectory, relativePath)), {recursive: true})
+    await fs.symlink(outsideFile, path.join(runDirectory, relativePath))
+  }
+
+  await expect(getWalkthroughAssets({type, filepath: relativePath}, runDirectory, '/run-data/example')).rejects.toThrow(
+    'outside its artifacts directory',
+  )
+})
+
+test.each(['file', 'parent', 'run'] as const)(
+  'allows a contained %s symlink and returns canonical media paths',
+  async kind => {
+    const directory = await createDirectory()
+    let runDirectory = path.join(directory, 'run')
+    const mediaDirectory = path.join(runDirectory, 'artifacts/trial-1/walkthrough')
+    const filepath = path.join(mediaDirectory, 'image.png')
+    await fs.mkdir(mediaDirectory, {recursive: true})
+    await fs.writeFile(filepath, 'image')
+    let media = 'artifacts/trial-1/walkthrough/image.png'
+    if (kind === 'file') {
+      await fs.symlink(filepath, path.join(mediaDirectory, 'linked.png'))
+      media = 'artifacts/trial-1/walkthrough/linked.png'
+    } else if (kind === 'parent') {
+      await fs.symlink(mediaDirectory, path.join(runDirectory, 'artifacts/linked'))
+      media = 'artifacts/linked/image.png'
+    } else {
+      const alias = path.join(directory, 'run-alias')
+      await fs.symlink(runDirectory, alias)
+      runDirectory = alias
+    }
+
+    const assets = await getWalkthroughAssets({type: 'Screenshot', filepath: media}, runDirectory, '/run-data/example')
+
+    expect(assets.media).toEqual([{name: 'media-0.png', filepath: await fs.realpath(filepath), mimeType: 'image/png'}])
+  },
+)
+
+test.each([false, true])('enforces legacy artifacts containment (escaping: %s)', async escaping => {
+  const directory = await createDirectory()
+  const sampleFile = path.join(directory, 'sample.png')
+  await fs.writeFile(sampleFile, 'image')
+  const stats = await fs.stat(sampleFile)
+  const legacyDirectory = path.resolve(process.cwd(), '..', 'artifacts')
+  const candidate = path.join(legacyDirectory, 'trial-1/walkthrough/image.png')
+  const resolved = escaping ? `${legacyDirectory}-outside/image.png` : candidate
+  vi.spyOn(fs, 'realpath').mockResolvedValueOnce(path.dirname(legacyDirectory)).mockResolvedValueOnce(resolved)
+  const stat = vi.spyOn(fs, 'stat').mockResolvedValue(stats)
+
+  const assets = getWalkthroughAssets({type: 'Screenshot', filepath: candidate}, directory, '/run-data/example')
+  if (escaping) {
+    await expect(assets).rejects.toThrow('outside its artifacts directory')
+    expect(stat).not.toHaveBeenCalled()
+  } else {
+    expect((await assets).media).toEqual([{name: 'media-0.png', filepath: candidate, mimeType: 'image/png'}])
+  }
+})

@@ -247,11 +247,24 @@ async function getArtifactFile(
 
   for (const candidate of getArtifactCandidates(artifactPath, runDirectory)) {
     try {
-      const stats = await fs.stat(candidate)
+      const runArtifactsDirectory = path.join(runDirectory, 'artifacts')
+      const artifactsDirectory = isWithinDirectory(runArtifactsDirectory, candidate)
+        ? runArtifactsDirectory
+        : LEGACY_ARTIFACTS_DIRECTORY
+      // Resolve the parent so an artifacts-directory symlink cannot redefine the allowed root.
+      const realArtifactsDirectory = path.join(
+        await fs.realpath(path.dirname(artifactsDirectory)),
+        path.basename(artifactsDirectory),
+      )
+      const filepath = await fs.realpath(candidate)
+      if (!isWithinDirectory(realArtifactsDirectory, filepath)) {
+        throw new Error(`Walkthrough artifact points outside its artifacts directory: ${candidate}`)
+      }
+      const stats = await fs.stat(filepath)
       if (!stats.isFile()) {
         throw new Error(`Walkthrough artifact is not a file: ${candidate}`)
       }
-      return candidate
+      return filepath
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
         throw error

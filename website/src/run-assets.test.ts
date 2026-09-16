@@ -126,6 +126,49 @@ test('handles empty run collections without inventing data', async () => {
 })
 
 test.each(['benchmarks', 'experiments'] as const)(
+  'rejects escaping media before reading host data for %s',
+  async collection => {
+    const root = path.resolve('.agents/tmp')
+    await fs.mkdir(root, {recursive: true})
+    const directory = await fs.mkdtemp(path.join(root, 'run-assets-symlink-'))
+    onTestFinished(async () => {
+      await fs.rm(directory, {recursive: true, force: true})
+    })
+    const runDirectory = path.join(directory, 'run')
+    const mediaDirectory = path.join(runDirectory, 'artifacts/trial-1/walkthrough')
+    await fs.mkdir(mediaDirectory, {recursive: true})
+    const outsideFile = path.join(directory, 'private.txt')
+    await fs.writeFile(outsideFile, 'HOST_DATA_MUST_NOT_BE_READ')
+    await fs.symlink(outsideFile, path.join(mediaDirectory, 'image.png'))
+    const trial = createTrial({walkthrough: {type: 'Screenshot', filepath: 'walkthrough/image.png'}})
+    const output = collection === 'benchmarks' ? createBenchmarkOutput([trial]) : createExperimentOutput([trial])
+    const run = {id: '2026-09-15', name: '2026-09-15', date: new Date('2026-09-15'), directory: runDirectory, output}
+    if (collection === 'benchmarks') {
+      const benchmarkRun = {...run, output: createBenchmarkOutput([trial])}
+      vi.mocked(getBenchmarkRun).mockResolvedValue(benchmarkRun)
+      vi.mocked(listBenchmarkRuns).mockResolvedValue([benchmarkRun])
+      vi.mocked(listBenchmarks).mockResolvedValue([
+        {id: output.id, name: 'Benchmark', description: '', models: [], capabilities: []},
+      ])
+    } else {
+      const experimentRun = {...run, experimentId: output.id}
+      vi.mocked(getExperimentRun).mockResolvedValue(experimentRun)
+      vi.mocked(listExperimentRuns).mockResolvedValue([experimentRun])
+    }
+    const readFile = vi.spyOn(fs, 'readFile')
+    onTestFinished(() => {
+      readFile.mockRestore()
+    })
+    const segments = [collection, output.id, run.name, trial.id]
+
+    await expect(getRunAsset([...segments, 'media-0.png'])).rejects.toThrow('outside its artifacts directory')
+    await expect(getRunAsset([...segments, 'details.json'])).rejects.toThrow('outside its artifacts directory')
+    await expect(listRunAssetParams()).rejects.toThrow('outside its artifacts directory')
+    expect(readFile).not.toHaveBeenCalled()
+  },
+)
+
+test.each(['benchmarks', 'experiments'] as const)(
   'exports only scenario-relative reference paths for %s without mutating stored results',
   async collection => {
     const trial = createTrial({

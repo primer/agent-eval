@@ -1,6 +1,5 @@
 ---
-'@primer/agent-eval': minor
+'@primer/agent-eval': patch
 ---
 
-Fix non-portable inferred TypeScript declarations for benchmark, experiment,
-and scenario configs
+Update TypeScript declarations for benchmark, experiment, and scenario configs to be portable

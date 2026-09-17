@@ -1,5 +1,11 @@
 # @primer/agent-eval
 
+## 0.7.1
+
+### Patch Changes
+
+- 2449149: Update TypeScript declarations for benchmark, experiment, and scenario configs to be portable
+
 ## 0.7.0
 
 ### Minor Changes

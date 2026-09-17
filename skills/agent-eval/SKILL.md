@@ -38,6 +38,8 @@ not a prerequisite for every operation.
 - Inspect the plan's combinations before running. Use a fresh output directory.
 - Finish by reading trial results and reporting outcomes and errors separately.
   Command completion alone does not establish quality.
+- Interpret session AI credits using [Trials and results](references/trials-and-results.md);
+  missing usage is not the same as zero cost.
 
 These references describe the source API at authoring time. For an installed
 version, verify its package types and `npx agent-eval <command> --help`

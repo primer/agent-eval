@@ -66,6 +66,13 @@ test.each([false, true])('executes the SDK script and surfaces failures (failed:
       on(callback: (event: object) => void) {
         callback({type: 'assistant.usage', data: {duration: 123}})
         callback({
+          type: 'session.usage_checkpoint',
+          id: 'checkpoint',
+          timestamp: '2026-01-01T00:00:00.000Z',
+          parentId: null,
+          data: {totalNanoAiu: 2_839_800_000},
+        })
+        callback({
           type: 'assistant.message',
           id: 'message',
           timestamp: '2026-01-01T00:00:00.000Z',
@@ -149,7 +156,7 @@ test.each([false, true])('executes the SDK script and surfaces failures (failed:
     const messages = output.flatMap(line => {
       return parseMessage(normalizeCopilotMessage(JSON.parse(line)))
     })
-    expect(getAgentSession(messages)).toMatchObject({outputTokens: 42, totalApiDurationMs: 123})
+    expect(getAgentSession(messages)).toMatchObject({outputTokens: 42, totalApiDurationMs: 123, aiCredits: 2.8398})
   }
 })
 

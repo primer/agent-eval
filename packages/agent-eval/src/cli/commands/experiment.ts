@@ -13,6 +13,7 @@ import {DefaultHost as host} from '../../host'
 import {logger} from '../../logger'
 import {createPlanFromManifest, runPlan} from '../../plan'
 import {parseShard} from '../../shard'
+import {createExperiment} from '../create'
 import {
   copilotConcurrencyOption,
   containerConcurrencyOption,
@@ -31,9 +32,10 @@ import {
 const experimentCommand = defineCommand({
   meta: {
     name: 'experiment',
-    description: 'Run and plan experiments',
+    description: 'Create, run, and plan experiments',
   },
   subCommands: {
+    create: createExperiment,
     merge: defineCommand({
       meta: {
         name: 'merge',

@@ -29,6 +29,9 @@ not a prerequisite for every operation.
 
 ## Execution rules
 
+- Scaffold with `npx agent-eval benchmark create`, `experiment create`, or
+  `scenario create`; see [CLI](references/cli.md) for inputs and templates.
+  Fill in scenario selections and grading criteria before evaluating quality.
 - For a first comparison, use one scenario, one model/effort, and one treatment
   beyond the automatic control.
 - Keep prompts and fixtures treatment-blind. Put the knowledge being tested in

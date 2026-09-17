@@ -40,6 +40,36 @@ experiments. Under-the-hood, we are going through each scenario and setting up a
 sandbox where the agent executes within. When all evaluations are complete, a
 result is returned detailing how each agent performed relative to each other.
 
+### Create evaluations
+
+Create starter configurations and scenario workspaces from your project root:
+
+```bash
+npx agent-eval benchmark create baseline --description "Measure agent capabilities"
+npx agent-eval experiment create comparison --description "Compare agent setups"
+npx agent-eval scenario create task-list --prompt "Build a task list"
+npx agent-eval scenario create task-list-vite --template vite --prompt "Build a task list"
+```
+
+Benchmark and experiment configurations are written to `benchmarks/<name>.ts`
+and `experiments/<name>.ts`. Choose models and fill in scenario IDs and
+capabilities or treatments before planning or running them.
+
+Scenarios are created in `scenarios/<name>` using the official framework
+generators: `--template nextjs` (the default) creates an empty Next.js App Router
+application, and `--template vite` creates a Vite React TypeScript application.
+Both include `scenario.config.ts` with the prompt and optional `--description`.
+Creation requires npm/npx and network access to fetch the generator, but no
+Docker or Copilot token. Dependencies are not installed, and no server is started.
+Run `npm install` inside the new scenario directory for local development.
+Add checks or judges yourself; these starters do not grade the agent's work.
+
+Use `--benchmarks <directory>`, `--experiments <directory>`, or
+`--scenarios <directory>` to change the corresponding creation directory.
+Names must start with a lowercase letter or number and contain only lowercase
+letters, numbers, hyphens, or underscores. Existing files and scenario directories
+are never overwritten. The name `index` is reserved for benchmarks and experiments.
+
 ## Benchmarks
 
 Benchmarks are used to establish a baseline for agent performance on a given task. By default, they live in a `benchmarks` folder in your project. You can create a benchmark by importing and using `defineConfig` from

@@ -19,12 +19,109 @@ import {createScenarioPlan} from '../../scenario/plan'
 import {runPlan} from '../../plan'
 import type {RunTrialResult} from '../../trial/run'
 
+// Docker stuff
+import fs from 'node:fs/promises'
+import {randomUUID} from 'node:crypto'
+import Docker from 'dockerode'
+import {buildScenarioImage, getScenarioIgnoreFiles, getScenarioImageTag} from '../../scenario/scenario'
+import tarStream from 'tar-stream'
+import {listScenarios} from '../../scenario/list'
+
 const scenarioCommand = defineCommand({
   meta: {
     name: 'scenario',
     description: 'Run scenarios',
   },
   subCommands: {
+    image: defineCommand({
+      meta: {
+        name: 'image',
+      },
+      subCommands: {
+        build: defineCommand({
+          meta: {
+            name: 'build',
+            description: 'Build the Docker image for a scenario',
+          },
+          args: {
+            name: {
+              type: 'positional',
+              description: 'The name of the scenario',
+              required: true,
+            },
+            scenarios: scenariosOption,
+          },
+          async run({args}) {
+            logger.info('Building Docker image for scenario: %s', args.name)
+
+            const scenariosDirectory = path.resolve(args.scenarios)
+            const scenario = await getScenario({
+              directory: scenariosDirectory,
+              name: args.name,
+            })
+            const docker = new Docker()
+
+            await buildScenarioImage({
+              docker,
+              scenario,
+            })
+          },
+        }),
+        clean: defineCommand({
+          meta: {
+            name: 'clean',
+            description: 'Remove the Docker image for a scenario, or all scenarios',
+          },
+          args: {
+            name: {
+              type: 'positional',
+              description: 'The name of the scenario',
+              required: false,
+            },
+            scenarios: scenariosOption,
+          },
+          async run({args}) {
+            const scenariosDirectory = path.resolve(args.scenarios)
+            const docker = new Docker()
+
+            // TODO: this won't work if we double-remove an image that has
+            // multiple tags
+            const imageTags = await docker.listImages().then(images => {
+              return images.flatMap(image => {
+                if (image.RepoTags === undefined) {
+                  return []
+                }
+
+                return image.RepoTags.filter(tag => {
+                  return tag.startsWith('agent-eval/scenario-')
+                })
+              })
+            })
+
+            if (args.name) {
+              logger.info('Removing Docker images for scenario: %s', args.name)
+              const scenarioImageTags = imageTags.filter(tag => {
+                return tag.startsWith(`agent-eval/scenario-${args.name}:`)
+              })
+
+              for (const tag of scenarioImageTags) {
+                logger.info('Removing image with tag: %s', tag)
+                const dockerImage = docker.getImage(tag)
+                await dockerImage.remove()
+              }
+            } else {
+              logger.info('Removing all Docker images for scenarios in directory: %s', scenariosDirectory)
+
+              for (const tag of imageTags) {
+                logger.info('Removing image with tag: %s', tag)
+                const dockerImage = docker.getImage(tag)
+                await dockerImage.remove()
+              }
+            }
+          },
+        }),
+      },
+    }),
     run: defineCommand({
       meta: {
         name: 'run',

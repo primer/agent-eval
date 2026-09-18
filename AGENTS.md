@@ -31,6 +31,34 @@
   `SKILL.md` concise, put detailed guidance in references, and use npm/npx in
   skill examples.
 
+## Code
+
+- Parse, don't validate. Use the type system to gurantee correctness.
+  - When possible, use zod/mini to parse as much information as possible from a given input
+  - When parsing, use the most specific type possible. For example:
+    - If a string is expected to be a URL, parse it as a URL instead of a string
+    - If the input is a path to a file, determine the correct path and make sure
+      the file exists
+    - If a collection must have more than one value, use zod to check that it
+      is has more than one value
+  - Handle as much of this logic as possible when ingesting the unknown data
+    instead of having validation and checks sprinkled throughout the library
+
+### Configuration
+
+- Design zod schemas to parse configuration for unknown input
+- When designing them, be as permissive as needed for the configuration but:
+  - Apply reasonable defaults, e.g. `z._defaults(..., [])` for a collection
+  - Transform different inputs into structured types, for example a union of
+    object with different fields becomes a discriminated union with a `type` field
+- Design `parse*` functions instead of allowing for zod schemas to be called
+  directly
+- `parse*` functions may need to take more arguments than just the unknown
+  input, for example if you need to validate that a path exists
+- Accept file paths as either relative (and look them up to get the absolute
+  path) or absolute. Include both cases when designing zod schemas and parsing
+  unknown input
+
 ## Pull Requests
 
 - Title format: <conventional type>: description

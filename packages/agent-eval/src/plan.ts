@@ -6,6 +6,7 @@ import type {Trial} from './trial/trial'
 import type {RunTrialResult} from './trial/run'
 import {runTrial} from './trial/run'
 import {selectShard, type Shard} from './shard'
+import {buildScenarioImage} from './scenario/scenario'
 
 /**
  * A Plan represents an ordered collection of trials to run. Plans are created
@@ -106,8 +107,12 @@ async function runPlan<T extends Trial>({
     plan.trials.map(trial => {
       return retry(() => {
         return containerQueue.add(async () => {
+          const dockerImage = await buildScenarioImage({
+            host,
+            scenario: trial.scenario,
+          })
           await using sandbox = await host.createSandbox({
-            dockerImage,
+            dockerImage: dockerImage.imageTag,
           })
           const result = await runTrial({
             artifactsDirectory,

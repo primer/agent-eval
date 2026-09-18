@@ -1,6 +1,14 @@
+import path from 'node:path'
+import tarFs from 'tar-fs'
 import * as z from 'zod/mini'
 import {CheckSchema, type Check} from '../check'
 import {JudgeSchema, type Judge} from '../judge'
+import Docker from 'dockerode'
+import {isPathInside} from '../path'
+import {DefaultHost, type Host} from '../host'
+import {logger} from '../logger'
+import {TreatmentSetupSchema, type TreatmentSetup} from '../treatment'
+import {NODE_USER} from '../sandbox'
 
 type Scenario = {
   id: string
@@ -10,7 +18,27 @@ type Scenario = {
   tags: Array<string>
   checks: Array<Check>
   judges: Array<Judge>
+  image: DockerImage
+  setup: TreatmentSetup
 }
+
+type DockerImage =
+  {type: 'Reference'; name: string} | {type: 'Build'; dockerfile: string; context: string} | {type: 'Default'}
+
+const DockerImageSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('Reference'),
+    name: z.string(),
+  }),
+  z.object({
+    type: z.literal('Build'),
+    dockerfile: z.string(),
+    context: z._default(z.string(), '.'),
+  }),
+  z.object({
+    type: z.literal('Default'),
+  }),
+]) satisfies z.ZodMiniType<DockerImage>
 
 const ScenarioSchema = z.object({
   id: z.string(),
@@ -20,7 +48,180 @@ const ScenarioSchema = z.object({
   tags: z._default(z.array(z.string()), []),
   checks: z._default(z.array(CheckSchema), []),
   judges: z._default(z.array(JudgeSchema), []),
+  image: DockerImageSchema,
+  setup: TreatmentSetupSchema,
 }) satisfies z.ZodMiniType<Scenario>
 
-export {ScenarioSchema}
+function getScenarioImageTag(scenario: Scenario): string {
+  return `agent-eval/scenario-${scenario.id}:latest`
+}
+
+function getScenarioIgnoreFiles(scenario: Scenario): Array<{filepath: string; relativePath: string}> {
+  const ignored = new Map<string, string>()
+
+  const scenarioConfigPath = path.join(scenario.directory, 'scenario.config.ts')
+  ignored.set(scenarioConfigPath, 'scenario.config.ts')
+
+  const defaultIgnored = new Set(['.cache', '.next', 'dist', '.turbo', 'node_modules'])
+  for (const ignoredPath of defaultIgnored) {
+    const ignoredFilePath = path.join(scenario.directory, ignoredPath)
+    ignored.set(ignoredFilePath, ignoredPath)
+  }
+
+  if (scenario.image.type === 'Build' && isPathInside(scenario.directory, scenario.image.dockerfile)) {
+    ignored.set(scenario.image.dockerfile, path.relative(scenario.directory, scenario.image.dockerfile))
+  }
+
+  for (const check of scenario.checks) {
+    for (const file of check.files) {
+      ignored.set(file.filepath, file.relativePath)
+    }
+  }
+
+  for (const judge of scenario.judges) {
+    for (const file of judge.files) {
+      ignored.set(file.filepath, file.relativePath)
+    }
+  }
+
+  return Array.from(ignored).map(([filepath, relativePath]) => {
+    return {
+      filepath,
+      relativePath,
+    }
+  })
+}
+
+type BuildScenarioImageOptions = {
+  host?: Host
+  scenario: Scenario
+}
+
+const DEFAULT_DOCKERFILE = `FROM node:26.5.0-slim
+
+RUN mkdir -p /home/sandbox/workspace
+WORKDIR /home/sandbox/workspace
+
+COPY . .
+`
+
+type ScenarioBuildImage = {
+  imageTag: string
+}
+
+async function buildScenarioImage({
+  host = DefaultHost,
+  scenario,
+}: BuildScenarioImageOptions): Promise<ScenarioBuildImage> {
+  const imageTag = getScenarioImageTag(scenario)
+
+  logger.info('Building image: %s for scenario: %s', imageTag, scenario.id)
+
+  const ignoreFiles = getScenarioIgnoreFiles(scenario)
+  if (scenario.image.type === 'Build' && isPathInside(scenario.directory, scenario.image.dockerfile)) {
+    ignoreFiles.push({
+      filepath: scenario.image.dockerfile,
+      relativePath: path.relative(scenario.directory, scenario.image.dockerfile),
+    })
+  }
+
+  const dockerfileContents =
+    scenario.image.type === 'Default'
+      ? DEFAULT_DOCKERFILE
+      : scenario.image.type === 'Reference'
+        ? `FROM ${scenario.image.name}
+
+RUN mkdir -p /home/sandbox/workspace
+WORKDIR /home/sandbox/workspace
+
+COPY . .
+`
+        : await host.fs.readFile(scenario.image.dockerfile, 'utf-8')
+
+  const ignored = new Set(
+    ignoreFiles.map(ignoreFile => {
+      return ignoreFile.filepath
+    }),
+  )
+  const context = tarFs.pack(
+    scenario.image.type === 'Default'
+      ? scenario.directory
+      : scenario.image.type === 'Reference'
+        ? scenario.directory
+        : scenario.image.context,
+    {
+      finalize: false,
+      ignore(filepath) {
+        return ignored.has(filepath)
+      },
+      finish(pack) {
+        pack.entry({name: 'Dockerfile'}, dockerfileContents)
+        pack.entry({name: '.dockerignore'}, `Dockerfile\n.dockerignore\n`)
+        pack.finalize()
+      },
+    },
+  )
+  const docker = new Docker()
+  const stream = await docker.buildImage(context, {
+    buildargs: {
+      //
+    },
+    t: imageTag,
+  })
+
+  await new Promise<void>((resolve, reject) => {
+    docker.modem.followProgress(
+      stream,
+      error => {
+        if (error) {
+          logger.error({
+            error,
+            scenario: scenario.id,
+            imageTag,
+          })
+          reject(error)
+        } else {
+          resolve()
+        }
+      },
+      event => {
+        if (event.stream) {
+          logger.info('[%s] [docker] %s', scenario.id, event.stream)
+        }
+      },
+    )
+  })
+
+  return {
+    imageTag,
+  }
+}
+
+const defaultScenarioSetup: TreatmentSetup = async ({sandbox}) => {
+  // logger.info('[%s] Obfuscating package name', trial.id)
+  logger.info('Obfuscating package name')
+  await sandbox.runCommand('npm', ['pkg', 'set', `name=example`], {
+    user: NODE_USER,
+  })
+
+  // logger.info('[%s] Removing workspace dependency', trial.id)
+  logger.info('Removing workspace dependency')
+  await sandbox.runCommand('npm', ['pkg', 'delete', 'devDependencies.@primer/agent-eval'], {
+    user: NODE_USER,
+  })
+
+  logger.info('Installing dependencies')
+  // logger.info('[%s] Installing dependencies', trial.id)
+  await sandbox.runCommand('npm', ['install'], {
+    user: NODE_USER,
+  })
+
+  // logger.info('[%s] Running build script', trial.id)
+  logger.info('Running build script')
+  await sandbox.runCommand('npm', ['run', 'build', '--if-present'], {
+    user: NODE_USER,
+  })
+}
+
+export {ScenarioSchema, getScenarioIgnoreFiles, getScenarioImageTag, buildScenarioImage, defaultScenarioSetup}
 export type {Scenario}

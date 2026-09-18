@@ -90,10 +90,16 @@ const DEFAULT_MCP_CONFIG: McpConfigFile = {
 
 class SystemSandbox implements Sandbox {
   static async create(options: SandboxCreateOptions = {}) {
+    logger.info('Creating sandbox')
+
     const docker = new Docker()
     const baseDockerImage = options.dockerImage?.trim() || DEFAULT_DOCKER_IMAGE
+
     const dockerImage = await ensureDockerImage(docker, baseDockerImage)
+
+    logger.info('Creating container: %s', dockerImage)
     const container = await createContainer(docker, dockerImage)
+
     return new SystemSandbox(options.host ?? DefaultHost, docker, container)
   }
 
@@ -391,6 +397,7 @@ type InitializedContainer = Docker.Container & {
 async function ensureDockerImage(docker: Docker, baseDockerImage: string): Promise<string> {
   let build = dockerImageBuilds.get(baseDockerImage)
   if (!build) {
+    logger.info('Building docker image: %s', baseDockerImage)
     build = buildDockerImage(docker, baseDockerImage).catch(error => {
       dockerImageBuilds.delete(baseDockerImage)
       throw error

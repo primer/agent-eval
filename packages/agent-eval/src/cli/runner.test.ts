@@ -119,6 +119,22 @@ describe.each([
     )
   })
 
+  test('parses the documented dependency and walkthrough skip flags', async () => {
+    await expect(
+      runCommand(command, {
+        rawArgs: [...args, '--token', 'test-token', '--no-install-dependencies', '--no-walkthrough'],
+      }),
+    ).rejects.toBe(stopBeforeRunning)
+    expect(runPlan).toHaveBeenCalledWith(
+      expect.objectContaining({
+        execution: expect.objectContaining({
+          captureWalkthrough: false,
+          installDependencies: false,
+        }),
+      }),
+    )
+  })
+
   test.each(['sdk', 'unknown', ''])('rejects invalid runner %j before starting work', async runner => {
     await expect(
       runCommand(command, {rawArgs: [...args, '--token', 'test-token', '--runner', runner]}),

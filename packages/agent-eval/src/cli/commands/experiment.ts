@@ -23,15 +23,15 @@ import {
   getOutputPath,
   getRunPlanExecutionOptions,
   githubCopilotTokenOption,
+  installDependenciesOption,
   maxRetriesOption,
-  noInstallDependenciesOption,
-  noWalkthroughOption,
   outputDirectoryOption,
   preparedImageOption,
   scenariosOption,
   runnerOption,
   shardOption,
   timeoutMsOption,
+  walkthroughOption,
 } from '../options'
 
 const experimentCommand = defineCommand({
@@ -141,8 +141,7 @@ const experimentCommand = defineCommand({
             'container-concurrency': containerConcurrencyOption,
             'docker-image': dockerImageOption,
             'max-retries': maxRetriesOption,
-            'no-install-dependencies': noInstallDependenciesOption,
-            'no-walkthrough': noWalkthroughOption,
+            'install-dependencies': installDependenciesOption,
             'output-dir': outputDirectoryOption,
             'plan-path': {
               type: 'string',
@@ -155,6 +154,7 @@ const experimentCommand = defineCommand({
             shard: shardOption,
             'timeout-ms': timeoutMsOption,
             token: githubCopilotTokenOption,
+            walkthrough: walkthroughOption,
           },
           async run({args}) {
             const experimentsDirectory = path.resolve(args.experiments)
@@ -224,8 +224,7 @@ const experimentCommand = defineCommand({
         'container-concurrency': containerConcurrencyOption,
         'docker-image': dockerImageOption,
         'max-retries': maxRetriesOption,
-        'no-install-dependencies': noInstallDependenciesOption,
-        'no-walkthrough': noWalkthroughOption,
+        'install-dependencies': installDependenciesOption,
         name: {
           type: 'positional',
           description: 'The name of the experiment to run',
@@ -237,6 +236,7 @@ const experimentCommand = defineCommand({
         runner: runnerOption,
         'timeout-ms': timeoutMsOption,
         token: githubCopilotTokenOption,
+        walkthrough: walkthroughOption,
       },
       async run({args}) {
         logger.info('Running experiment: %s', args.name)

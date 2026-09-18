@@ -11,9 +11,8 @@ import {
   getOutputPath,
   getRunPlanExecutionOptions,
   githubCopilotTokenOption,
+  installDependenciesOption,
   maxRetriesOption,
-  noInstallDependenciesOption,
-  noWalkthroughOption,
   getCopilotToken,
   outputDirectoryOption,
   preparedImageOption,
@@ -21,6 +20,7 @@ import {
   runnerOption,
   shardOption,
   timeoutMsOption,
+  walkthroughOption,
 } from '../options'
 import {logger} from '../../logger'
 import {parseShard} from '../../shard'
@@ -156,8 +156,7 @@ const benchmarkCommand = defineCommand({
             'container-concurrency': containerConcurrencyOption,
             'docker-image': dockerImageOption,
             'max-retries': maxRetriesOption,
-            'no-install-dependencies': noInstallDependenciesOption,
-            'no-walkthrough': noWalkthroughOption,
+            'install-dependencies': installDependenciesOption,
             'output-dir': outputDirectoryOption,
             'plan-path': {
               type: 'string',
@@ -170,6 +169,7 @@ const benchmarkCommand = defineCommand({
             shard: shardOption,
             'timeout-ms': timeoutMsOption,
             token: githubCopilotTokenOption,
+            walkthrough: walkthroughOption,
           },
           async run({args}) {
             const benchmarksDirectory = path.resolve(args.benchmarks)
@@ -249,8 +249,7 @@ const benchmarkCommand = defineCommand({
         'container-concurrency': containerConcurrencyOption,
         'docker-image': dockerImageOption,
         'max-retries': maxRetriesOption,
-        'no-install-dependencies': noInstallDependenciesOption,
-        'no-walkthrough': noWalkthroughOption,
+        'install-dependencies': installDependenciesOption,
         name: {
           type: 'positional',
           description: 'The name of the benchmark to run',
@@ -262,6 +261,7 @@ const benchmarkCommand = defineCommand({
         runner: runnerOption,
         'timeout-ms': timeoutMsOption,
         token: githubCopilotTokenOption,
+        walkthrough: walkthroughOption,
       },
       async run({args}) {
         logger.info(`Running benchmark: %s`, args.name)

@@ -44,16 +44,16 @@ const maxRetriesOption = {
   default: '3',
 } as const
 
-const noInstallDependenciesOption = {
+const installDependenciesOption = {
   type: 'boolean',
-  description: 'Skip installing scenario dependencies before candidate execution',
-  default: false,
+  description: 'Install scenario dependencies before candidate execution',
+  default: true,
 } as const
 
-const noWalkthroughOption = {
+const walkthroughOption = {
   type: 'boolean',
-  description: 'Skip walkthrough setup and the walkthrough Copilot session',
-  default: false,
+  description: 'Capture a walkthrough after checks and judges complete',
+  default: true,
 } as const
 
 const preparedImageOption = {
@@ -95,11 +95,11 @@ function getCopilotToken(value?: string): string {
 
 type ExecutionOptionValues = {
   'docker-image': string
+  'install-dependencies': boolean
   'max-retries': string
-  'no-install-dependencies': boolean
-  'no-walkthrough': boolean
   'prepared-image'?: string
   'timeout-ms'?: string
+  walkthrough: boolean
 }
 
 function parseIntegerOption(value: string, option: string, minimum: number): number {
@@ -118,8 +118,8 @@ function getRunPlanExecutionOptions(args: ExecutionOptionValues) {
     ...(preparedImage ? {preparedImage} : {dockerImage: args['docker-image']}),
     maxRetries: parseIntegerOption(args['max-retries'], 'max-retries', 0),
     execution: {
-      captureWalkthrough: !args['no-walkthrough'],
-      installDependencies: !args['no-install-dependencies'],
+      captureWalkthrough: args.walkthrough,
+      installDependencies: args['install-dependencies'],
       ...(args['timeout-ms'] ? {timeoutMs: parseIntegerOption(args['timeout-ms'], 'timeout-ms', 1)} : {}),
     },
   }
@@ -170,9 +170,8 @@ export {
   dockerImageOption,
   getRunPlanExecutionOptions,
   githubCopilotTokenOption,
+  installDependenciesOption,
   maxRetriesOption,
-  noInstallDependenciesOption,
-  noWalkthroughOption,
   getCopilotToken,
   experimentsOption,
   outputDirectoryOption,
@@ -183,4 +182,5 @@ export {
   runnerOption,
   shardOption,
   timeoutMsOption,
+  walkthroughOption,
 }

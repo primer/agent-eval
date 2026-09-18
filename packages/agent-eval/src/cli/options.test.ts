@@ -3,9 +3,9 @@ import {getRunPlanExecutionOptions} from './options'
 
 const defaults = {
   'docker-image': 'node:26',
+  'install-dependencies': true,
   'max-retries': '3',
-  'no-install-dependencies': false,
-  'no-walkthrough': false,
+  walkthrough: true,
 }
 
 describe('getRunPlanExecutionOptions', () => {
@@ -26,11 +26,11 @@ describe('getRunPlanExecutionOptions', () => {
     expect(
       getRunPlanExecutionOptions({
         ...defaults,
+        'install-dependencies': false,
         'max-retries': '0',
-        'no-install-dependencies': true,
-        'no-walkthrough': true,
         'prepared-image': ` ${preparedImage} `,
         'timeout-ms': '600000',
+        walkthrough: false,
       }),
     ).toEqual({
       preparedImage,

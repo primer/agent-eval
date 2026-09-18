@@ -77,14 +77,60 @@ describe('SystemSandbox lifecycle', () => {
 
     await sandbox[Symbol.asyncDispose]()
 
-    expect(container.remove).toHaveBeenCalledWith({force: true})
+    expect(container.remove).toHaveBeenCalledWith({
+      force: true,
+      abortSignal: expect.any(AbortSignal),
+    })
+  })
+
+  test('aborts container removal after the cleanup deadline', async () => {
+    vi.useFakeTimers()
+    try {
+      const remove = vi.fn(
+        ({abortSignal}: {abortSignal: AbortSignal}) =>
+          new Promise<void>((_resolve, reject) => {
+            abortSignal.addEventListener('abort', () => {
+              reject(new DOMException('The operation was aborted', 'AbortError'))
+            })
+          }),
+      )
+      const sandbox = createSandbox({remove})
+      const disposal = expect(sandbox[Symbol.asyncDispose]()).rejects.toThrow(
+        'Removing the sandbox container timed out after 5000ms',
+      )
+
+      await vi.advanceTimersByTimeAsync(5_000)
+
+      await disposal
+      expect(remove.mock.calls[0]?.[0]?.abortSignal.aborted).toBe(true)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  test('rejects on the cleanup deadline when container removal ignores abort', async () => {
+    vi.useFakeTimers()
+    try {
+      const remove = vi.fn(() => new Promise<void>(() => {}))
+      const sandbox = createSandbox({remove})
+      const disposal = expect(sandbox[Symbol.asyncDispose]()).rejects.toThrow(
+        'Removing the sandbox container timed out after 5000ms',
+      )
+
+      await vi.advanceTimersByTimeAsync(5_000)
+
+      await disposal
+      expect(remove.mock.calls[0]?.[0]?.abortSignal.aborted).toBe(true)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   test('force removes the container when initialization fails', async () => {
     const initializationError = new Error('Failed to start container')
     const container = {
       start: vi.fn().mockRejectedValue(initializationError),
-      remove: vi.fn(),
+      remove: vi.fn().mockResolvedValue(undefined),
     }
     const docker = {
       createContainer: vi.fn().mockResolvedValue(container),
@@ -92,7 +138,10 @@ describe('SystemSandbox lifecycle', () => {
 
     // @ts-expect-error This test only exercises the Docker methods used before container initialization.
     await expect(createContainer(docker, 'test-image')).rejects.toBe(initializationError)
-    expect(container.remove).toHaveBeenCalledWith({force: true})
+    expect(container.remove).toHaveBeenCalledWith({
+      force: true,
+      abortSignal: expect.any(AbortSignal),
+    })
   })
 
   test('removes active containers when the process is terminated', async () => {
@@ -114,7 +163,10 @@ describe('SystemSandbox lifecycle', () => {
 
     await cleanupActiveContainers()
 
-    expect(container.remove).toHaveBeenCalledWith({force: true})
+    expect(container.remove).toHaveBeenCalledWith({
+      force: true,
+      abortSignal: expect.any(AbortSignal),
+    })
     expect(off).toHaveBeenCalledWith('SIGINT', expect.any(Function))
     expect(off).toHaveBeenCalledWith('SIGTERM', expect.any(Function))
 

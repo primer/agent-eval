@@ -45,6 +45,7 @@ import {createCapturedStream} from './captured-stream'
 
 const COPILOT_CLI_VERSION = '1.0.85'
 const NPM_VERSION = '12.0.2'
+const CONTAINER_REMOVAL_TIMEOUT_MS = 5_000
 const DOCKERFILE = `ARG BASE_IMAGE=node:26.5.0-slim
 
 FROM \${BASE_IMAGE} AS base
@@ -473,7 +474,7 @@ async function createContainer(docker: Docker, dockerImage: string): Promise<Ini
     return container as InitializedContainer
   } catch (error) {
     try {
-      await container.remove({force: true})
+      await removeContainer(container)
     } catch (cleanupError) {
       throw new AggregateError([error, cleanupError], 'Failed to initialize and remove sandbox container', {
         cause: cleanupError,
@@ -504,11 +505,31 @@ async function removeContainer(container: Docker.Container): Promise<void> {
   }
 
   const removal = (async () => {
+    const controller = new AbortController()
+    const timeoutError = new Error(`Removing the sandbox container timed out after ${CONTAINER_REMOVAL_TIMEOUT_MS}ms`)
+    let timeout: NodeJS.Timeout | undefined
+    const deadline = new Promise<never>((_resolve, reject) => {
+      timeout = setTimeout(() => {
+        controller.abort(timeoutError)
+        reject(timeoutError)
+      }, CONTAINER_REMOVAL_TIMEOUT_MS)
+    })
+
     try {
-      await container.remove({force: true})
+      const request = container.remove({force: true, abortSignal: controller.signal}).catch(error => {
+        if (controller.signal.aborted) {
+          throw controller.signal.reason
+        }
+        throw error
+      })
+      await Promise.race([request, deadline])
     } catch (error) {
       if (!isDockerNotFoundError(error)) {
         throw error
+      }
+    } finally {
+      if (timeout) {
+        clearTimeout(timeout)
       }
     }
 

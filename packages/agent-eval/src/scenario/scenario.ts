@@ -3,12 +3,12 @@ import tarFs from 'tar-fs'
 import * as z from 'zod/mini'
 import {CheckSchema, type Check} from '../check'
 import {JudgeSchema, type Judge} from '../judge'
-import Docker from 'dockerode'
 import {isPathInside} from '../path'
 import {DefaultHost, type Host} from '../host'
 import {logger} from '../logger'
 import {TreatmentSetupSchema, type TreatmentSetup} from '../treatment'
 import {NODE_USER} from '../sandbox'
+import {buildImage} from '../docker'
 
 type Scenario = {
   id: string
@@ -19,7 +19,7 @@ type Scenario = {
   checks: Array<Check>
   judges: Array<Judge>
   image: DockerImage
-  setup: TreatmentSetup
+  setup?: TreatmentSetup
 }
 
 type DockerImage =
@@ -49,7 +49,7 @@ const ScenarioSchema = z.object({
   checks: z._default(z.array(CheckSchema), []),
   judges: z._default(z.array(JudgeSchema), []),
   image: DockerImageSchema,
-  setup: TreatmentSetupSchema,
+  setup: z.optional(TreatmentSetupSchema),
 }) satisfies z.ZodMiniType<Scenario>
 
 function getScenarioImageTag(scenario: Scenario): string {
@@ -99,6 +99,10 @@ type BuildScenarioImageOptions = {
 
 const DEFAULT_DOCKERFILE = `FROM node:26.5.0-slim
 
+RUN apt-get update \\
+  && apt-get install -y --no-install-recommends ca-certificates chromium curl git \\
+  && rm -rf /var/lib/apt/lists/*
+
 RUN mkdir -p /home/sandbox/workspace
 WORKDIR /home/sandbox/workspace
 
@@ -115,7 +119,7 @@ async function buildScenarioImage({
 }: BuildScenarioImageOptions): Promise<ScenarioBuildImage> {
   const imageTag = getScenarioImageTag(scenario)
 
-  logger.info('Building image: %s for scenario: %s', imageTag, scenario.id)
+  logger.info('Building image: %s', imageTag)
 
   const ignoreFiles = getScenarioIgnoreFiles(scenario)
   if (scenario.image.type === 'Build' && isPathInside(scenario.directory, scenario.image.dockerfile)) {
@@ -161,35 +165,11 @@ COPY . .
       },
     },
   )
-  const docker = new Docker()
-  const stream = await docker.buildImage(context, {
+  await buildImage(context, {
     buildargs: {
       //
     },
     t: imageTag,
-  })
-
-  await new Promise<void>((resolve, reject) => {
-    docker.modem.followProgress(
-      stream,
-      error => {
-        if (error) {
-          logger.error({
-            error,
-            scenario: scenario.id,
-            imageTag,
-          })
-          reject(error)
-        } else {
-          resolve()
-        }
-      },
-      event => {
-        if (event.stream) {
-          logger.info('[%s] [docker] %s', scenario.id, event.stream)
-        }
-      },
-    )
   })
 
   return {

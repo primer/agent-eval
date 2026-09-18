@@ -59,6 +59,11 @@
   path) or absolute. Include both cases when designing zod schemas and parsing
   unknown input
 
+### Type System
+
+- Encode as much information as possible in the system; make illegal states irrepresentable
+  - For example, if a resource requires a state transition (e.g. a docker image needs to be built), represent this as a type and design APIs around using the type that corresponds to the state that it needs instead of needing to code around that state each time it is used
+
 ## Pull Requests
 
 - Title format: <conventional type>: description

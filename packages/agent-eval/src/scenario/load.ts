@@ -48,7 +48,7 @@ async function loadScenario({
       }),
     ),
     image: config.image ?? {type: 'Default'},
-    setup: config.setup ?? defaultScenarioSetup,
+    setup: config.setup ? config.setup : config.image ? undefined : defaultScenarioSetup,
   }
 
   if (config.description) {

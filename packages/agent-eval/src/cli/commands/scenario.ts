@@ -59,10 +59,8 @@ const scenarioCommand = defineCommand({
               directory: scenariosDirectory,
               name: args.name,
             })
-            const docker = new Docker()
 
             await buildScenarioImage({
-              docker,
               scenario,
             })
           },
@@ -84,35 +82,47 @@ const scenarioCommand = defineCommand({
             const scenariosDirectory = path.resolve(args.scenarios)
             const docker = new Docker()
 
-            // TODO: this won't work if we double-remove an image that has
-            // multiple tags
-            const imageTags = await docker.listImages().then(images => {
-              return images.flatMap(image => {
-                if (image.RepoTags === undefined) {
-                  return []
-                }
-
-                return image.RepoTags.filter(tag => {
-                  return tag.startsWith('agent-eval/scenario-')
-                })
-              })
-            })
-
             if (args.name) {
               logger.info('Removing Docker images for scenario: %s', args.name)
-              const scenarioImageTags = imageTags.filter(tag => {
-                return tag.startsWith(`agent-eval/scenario-${args.name}:`)
+              const images = await docker.listImages().then(images => {
+                return images.filter(image => {
+                  return image.RepoTags?.some(tag => {
+                    return tag.startsWith(`agent-eval/scenario-${args.name}:`)
+                  })
+                })
               })
 
-              for (const tag of scenarioImageTags) {
+              for (const image of images) {
+                if (image.RepoTags === undefined) {
+                  throw new Error(`Image ${image.Id} has no tags`)
+                }
+
+                const [tag] = image.RepoTags
+
                 logger.info('Removing image with tag: %s', tag)
                 const dockerImage = docker.getImage(tag)
                 await dockerImage.remove()
               }
             } else {
               logger.info('Removing all Docker images for scenarios in directory: %s', scenariosDirectory)
+              const tagGroups = ['agent-eval/tools', 'agent-eval/sandbox', 'agent-eval/scenario-']
+              const images = await docker.listImages().then(images => {
+                return images.filter(image => {
+                  return image.RepoTags?.some(tag => {
+                    return tagGroups.some(group => {
+                      return tag.startsWith(group)
+                    })
+                  })
+                })
+              })
 
-              for (const tag of imageTags) {
+              for (const image of images) {
+                if (image.RepoTags === undefined) {
+                  throw new Error(`Image ${image.Id} has no tags`)
+                }
+
+                const [tag] = image.RepoTags
+
                 logger.info('Removing image with tag: %s', tag)
                 const dockerImage = docker.getImage(tag)
                 await dockerImage.remove()

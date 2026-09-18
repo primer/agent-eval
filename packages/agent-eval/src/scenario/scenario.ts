@@ -8,7 +8,7 @@ import {DefaultHost, type Host} from '../host'
 import {logger} from '../logger'
 import {TreatmentSetupSchema, type TreatmentSetup} from '../treatment'
 import {NODE_USER} from '../sandbox'
-import {buildImage} from '../docker'
+import {buildImage, getImageReference, type ImageBuild} from '../docker'
 
 type Scenario = {
   id: string
@@ -52,8 +52,12 @@ const ScenarioSchema = z.object({
   setup: z.optional(TreatmentSetupSchema),
 }) satisfies z.ZodMiniType<Scenario>
 
-function getScenarioImageTag(scenario: Scenario): string {
-  return `agent-eval/scenario-${scenario.id}:latest`
+async function getScenarioImageTag(host: Host, scenario: Scenario): Promise<string> {
+  const dockerfile = await getDockerfileContents(host, scenario)
+  return getImageReference({
+    name: `agent-eval/scenario-${scenario.id}`,
+    dockerfile,
+  })
 }
 
 function getScenarioIgnoreFiles(scenario: Scenario): Array<{filepath: string; relativePath: string}> {
@@ -109,15 +113,30 @@ WORKDIR /home/sandbox/workspace
 COPY . .
 `
 
-type ScenarioBuildImage = {
-  imageTag: string
+async function getDockerfileContents(host: Host, scenario: Scenario): Promise<string> {
+  if (scenario.image.type === 'Default') {
+    return DEFAULT_DOCKERFILE
+  }
+
+  if (scenario.image.type === 'Reference') {
+    return `FROM ${scenario.image.name}
+
+      RUN mkdir -p /home/sandbox/workspace
+      WORKDIR /home/sandbox/workspace
+
+      COPY . .
+    `
+  }
+
+  return await host.fs.readFile(scenario.image.dockerfile, 'utf8')
 }
 
-async function buildScenarioImage({
-  host = DefaultHost,
-  scenario,
-}: BuildScenarioImageOptions): Promise<ScenarioBuildImage> {
-  const imageTag = getScenarioImageTag(scenario)
+async function buildScenarioImage({host = DefaultHost, scenario}: BuildScenarioImageOptions): Promise<ImageBuild> {
+  const dockerfileContents = await getDockerfileContents(host, scenario)
+  const imageTag = getImageReference({
+    name: `agent-eval/scenario-${scenario.id}`,
+    dockerfile: dockerfileContents,
+  })
 
   logger.info('Building image: %s', imageTag)
 
@@ -128,19 +147,6 @@ async function buildScenarioImage({
       relativePath: path.relative(scenario.directory, scenario.image.dockerfile),
     })
   }
-
-  const dockerfileContents =
-    scenario.image.type === 'Default'
-      ? DEFAULT_DOCKERFILE
-      : scenario.image.type === 'Reference'
-        ? `FROM ${scenario.image.name}
-
-RUN mkdir -p /home/sandbox/workspace
-WORKDIR /home/sandbox/workspace
-
-COPY . .
-`
-        : await host.fs.readFile(scenario.image.dockerfile, 'utf-8')
 
   const ignored = new Set(
     ignoreFiles.map(ignoreFile => {
@@ -165,38 +171,28 @@ COPY . .
       },
     },
   )
-  await buildImage(context, {
-    buildargs: {
-      //
-    },
+
+  return await buildImage(context, {
     t: imageTag,
   })
-
-  return {
-    imageTag,
-  }
 }
 
 const defaultScenarioSetup: TreatmentSetup = async ({sandbox}) => {
-  // logger.info('[%s] Obfuscating package name', trial.id)
   logger.info('Obfuscating package name')
   await sandbox.runCommand('npm', ['pkg', 'set', `name=example`], {
     user: NODE_USER,
   })
 
-  // logger.info('[%s] Removing workspace dependency', trial.id)
   logger.info('Removing workspace dependency')
   await sandbox.runCommand('npm', ['pkg', 'delete', 'devDependencies.@primer/agent-eval'], {
     user: NODE_USER,
   })
 
   logger.info('Installing dependencies')
-  // logger.info('[%s] Installing dependencies', trial.id)
   await sandbox.runCommand('npm', ['install'], {
     user: NODE_USER,
   })
 
-  // logger.info('[%s] Running build script', trial.id)
   logger.info('Running build script')
   await sandbox.runCommand('npm', ['run', 'build', '--if-present'], {
     user: NODE_USER,

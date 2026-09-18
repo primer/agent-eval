@@ -9,10 +9,16 @@ import {
   getConcurrencyValue,
   getCopilotToken,
   getOutputPath,
+  getRunPlanExecutionOptions,
   githubCopilotTokenOption,
+  maxRetriesOption,
+  noInstallDependenciesOption,
+  noWalkthroughOption,
   outputDirectoryOption,
+  preparedImageOption,
   scenariosOption,
   runnerOption,
+  timeoutMsOption,
 } from '../options'
 import {getScenario} from '../../scenario/get'
 import {createScenarioPlan} from '../../scenario/plan'
@@ -38,14 +44,19 @@ const scenarioCommand = defineCommand({
         'copilot-concurrency': copilotConcurrencyOption,
         'container-concurrency': containerConcurrencyOption,
         'docker-image': dockerImageOption,
+        'max-retries': maxRetriesOption,
+        'no-install-dependencies': noInstallDependenciesOption,
+        'no-walkthrough': noWalkthroughOption,
         name: {
           type: 'positional',
           description: 'The name of the scenario',
           required: true,
         },
         'output-dir': outputDirectoryOption,
+        'prepared-image': preparedImageOption,
         scenarios: scenariosOption,
         runner: runnerOption,
+        'timeout-ms': timeoutMsOption,
         token: githubCopilotTokenOption,
       },
       async run({args}) {
@@ -96,8 +107,8 @@ const scenarioCommand = defineCommand({
           copilotConcurrency,
           containerConcurrency,
           copilotToken,
-          dockerImage: args['docker-image'],
           plan,
+          ...getRunPlanExecutionOptions(args),
         })
 
         type ScenarioOutput = {

@@ -51,12 +51,35 @@ npx agent-eval scenario run --help
 | `--copilot-concurrency <n>`, `-c` | Run and plan run; `1`                             |
 | `--container-concurrency <n>`     | Run and plan run; `5`                             |
 | `--docker-image <image>`          | Run and plan run; package default Node image      |
+| `--prepared-image <digest>`       | Run and plan run; immutable, existing local image |
+| `--max-retries <n>`               | Run and plan run; `3` retries after first attempt |
+| `--timeout-ms <n>`                | Run and plan run; whole-trial execution deadline  |
+| `--no-install-dependencies`       | Run and plan run; skip scenario `npm install`     |
+| `--no-walkthrough`                | Run and plan run; skip walkthrough setup/session  |
 | `--token <token>`                 | Run and plan run; prefer `COPILOT_GITHUB_TOKEN`   |
 | `--log-level <level>`             | Root option; `info`                               |
 
-Concurrency values must be positive integers. Copilot concurrency limits active
-sessions; container concurrency limits active trial containers. Both apply per
-process, so sharding multiplies the aggregate limits. Start small.
+Concurrency and timeout values must be positive integers. Retry count must be a
+non-negative integer; `--max-retries 0` means exactly one attempt. Copilot
+concurrency limits active sessions; container concurrency limits active trial
+containers. Both apply per process, so sharding multiplies the aggregate
+limits. Start small.
+
+`--prepared-image` accepts only an immutable local image ID or repository digest
+and cannot be combined programmatically with `dockerImage`. The CLI prefers the
+prepared image when both it and the defaulted `--docker-image` value are
+present. It does not pull or rebuild a prepared image.
+
+`--timeout-ms` covers setup, candidate execution, checks, judges, walkthrough,
+and artifact saving. After the deadline, Agent Eval has bounded grace periods
+to save failure evidence and remove the sandbox, so the command may return
+shortly after the configured deadline. Failure evidence is written under
+`artifacts/failures/`.
+
+Use `--no-install-dependencies` only with a prepared fixture or image that
+already contains everything the scenario requires. Use `--no-walkthrough` when
+visual evidence is unnecessary or when the extra package installation and
+Copilot session would violate the evaluation contract.
 
 `--runner` accepts `copilot-cli` or `copilot-sdk`. It overrides the runner
 dimension on new runs/plans but only filters trials in an existing plan.
@@ -77,8 +100,9 @@ the combined output and removes shard manifests.
 
 ```sh
 npx agent-eval experiment run comparison --output-dir ./results/comparison-01
+npx agent-eval experiment run comparison --max-retries 0 --no-walkthrough --output-dir ./results/comparison-01
 npx agent-eval benchmark plan create baseline --output-path ./baseline-plan.json
-npx agent-eval benchmark plan run --plan-path ./baseline-plan.json --shard 1/2 --output-dir ./results/baseline-01
+npx agent-eval benchmark plan run --plan-path ./baseline-plan.json --prepared-image "sha256:<image-id>" --no-install-dependencies --timeout-ms 600000 --shard 1/2 --output-dir ./results/baseline-01
 npx agent-eval benchmark merge --output-dir ./results/baseline-01
 ```
 
@@ -101,6 +125,8 @@ intended plan and verify all result paths resolve.
 | Config import fails               | Host dependency installation, Node version, import paths, and unresolved `workspace:*` references                    |
 | Docker connection fails           | Docker daemon is running and accessible to the current user                                                          |
 | Dependency/setup failure          | Fixture installs with npm independently; pinned packages and endpoints are reachable inside Docker                   |
+| Prepared image rejected           | Reference is an image ID/repository digest, exists locally, and is not combined programmatically with `dockerImage`  |
+| Trial timed out                   | Inspect `artifacts/failures/<trial-id>/attempt-<n>/failure.json` and its best-effort workspace capture               |
 | Build fails before implementation | Starting fixture is buildable; setup did not break it                                                                |
 | Token missing or access denied    | Runtime token is supplied and authorized for Copilot and selected models                                             |
 | Unsupported model/effort          | Installed package's model types, not a guessed provider model name                                                   |

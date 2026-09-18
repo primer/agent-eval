@@ -3,7 +3,15 @@ import type Queue from 'p-queue'
 import * as z from 'zod/mini'
 import {DefaultHost, type Host} from '../host'
 import {logger} from '../logger'
-import {AGENTS_DIR, CONTAINER_WORKDIR, COPILOT_DIR, NODE_USER, SKILLS_DIR, type Sandbox} from '../sandbox'
+import {
+  AGENTS_DIR,
+  CONTAINER_WORKDIR,
+  COPILOT_DIR,
+  NODE_USER,
+  SKILLS_DIR,
+  type DownloadOptions,
+  type Sandbox,
+} from '../sandbox'
 import {TrialSchema, type Trial} from './trial'
 import {parseMessage, type Message} from '../copilot-cli'
 import {runCopilotSdk} from '../copilot-sdk'
@@ -26,15 +34,97 @@ const TrialWalkthroughSchema = z.discriminatedUnion('type', [
   z.object({type: z.literal('Video'), filepath: z.string()}),
 ])
 
+const REDACTED_VALUE = '[REDACTED]'
+const CREDENTIAL_FILENAMES = new Set([
+  '.env',
+  '.npmrc',
+  'auth.json',
+  'credentials.json',
+  'hosts.json',
+  'oauth.json',
+  'token.json',
+  'tokens.json',
+])
+
 type TrialWalkthrough = z.infer<typeof TrialWalkthroughSchema>
+
+type TrialExecutionOptions = {
+  /**
+   * Capture a visual walkthrough with a separate Copilot session.
+   * @default true
+   */
+  captureWalkthrough?: boolean
+  /**
+   * Install scenario dependencies before setup and candidate execution.
+   * @default true
+   */
+  installDependencies?: boolean
+  /**
+   * Maximum wall-clock duration for the complete trial.
+   */
+  timeoutMs?: number
+}
+
+type TrialAttemptOptions = {
+  maxRetries: number
+  number: number
+}
+
+type TrialPhase = 'setup' | 'task' | 'checks' | 'judges' | 'walkthrough' | 'save'
+type TrialFailureKind = 'execution' | 'timeout'
+
+type TrialFailure = {
+  artifacts: {
+    directory: string
+    failurePath: string
+    workspaceDirectory: string
+  }
+  artifactCaptureErrors?: Array<string>
+  attempt: number
+  completedAt: string
+  error: {
+    message: string
+    name: string
+  }
+  kind: TrialFailureKind
+  maxRetries: number
+  phase: TrialPhase
+  redactionApplied: boolean
+  startedAt: string
+  status: 'failed'
+  trialId: string
+}
+
+class TrialTimeoutError extends Error {
+  constructor(timeoutMs: number, options?: ErrorOptions) {
+    const suffix = options?.cause ? '; failure evidence capture or sandbox disposal failed' : ''
+    super(`Trial timed out after ${timeoutMs}ms${suffix}`, options)
+    this.name = 'TrialTimeoutError'
+  }
+}
+
+class TrialExecutionError extends Error {
+  failure: TrialFailure
+
+  constructor(failure: TrialFailure, options?: ErrorOptions) {
+    super(
+      `Trial "${failure.trialId}" failed during ${failure.phase} (${failure.kind}); evidence: ${failure.artifacts.failurePath}`,
+      options,
+    )
+    this.name = 'TrialExecutionError'
+    this.failure = failure
+  }
+}
 
 type RunTrialOptions = {
   artifactsDirectory: string
+  attempt?: TrialAttemptOptions
   copilotQueue: Queue
   copilotToken: string
   host?: Host
   sandbox: Sandbox
   trial: Trial
+  execution?: TrialExecutionOptions
 }
 
 const TrialAgentSchema = z.object({
@@ -47,6 +137,7 @@ const TrialArtifactsSchema = z.object({
   skillsConfigDirectory: z.string(),
   walkthroughDirectory: z.string(),
   workspaceDirectory: z.string(),
+  redactionApplied: z.optional(z.boolean()),
 })
 
 const TrialChecksSchema = z.array(CheckOutputSchema)
@@ -71,14 +162,125 @@ async function runTrial({
   host = DefaultHost,
   sandbox,
   trial,
+  execution: executionInput,
+  attempt = {maxRetries: 0, number: 1},
 }: RunTrialOptions): Promise<RunTrialResult> {
+  const execution = validateTrialExecutionOptions(executionInput)
+  const startedAt = new Date().toISOString()
+  const redaction = {applied: false}
+  let phase: TrialPhase = 'setup'
+  let timeoutFailure: TrialFailure | undefined
+
+  try {
+    return await withTrialTimeout(
+      () =>
+        executeTrial({
+          artifactsDirectory,
+          copilotQueue,
+          copilotToken,
+          host,
+          sandbox,
+          trial,
+          execution,
+          redaction,
+          onPhase(nextPhase) {
+            phase = nextPhase
+          },
+        }),
+      execution.timeoutMs,
+      sandbox,
+      async timeoutError => {
+        timeoutFailure = await captureTrialFailure({
+          artifactsDirectory,
+          attempt,
+          copilotToken,
+          error: timeoutError,
+          host,
+          kind: 'timeout',
+          phase,
+          redaction,
+          sandbox,
+          startedAt,
+          trial,
+          workspaceCaptureGraceMs: 1_000,
+        })
+      },
+    )
+  } catch (error) {
+    if (timeoutFailure) {
+      if (error instanceof TrialTimeoutError && error.cause) {
+        timeoutFailure.artifactCaptureErrors = [
+          ...(timeoutFailure.artifactCaptureErrors ?? []),
+          redactExactSecret(getErrorMessage(error.cause), copilotToken, redaction),
+        ]
+        timeoutFailure.redactionApplied = redaction.applied
+        await host.fs.writeFile(timeoutFailure.artifacts.failurePath, JSON.stringify(timeoutFailure, null, 2), 'utf-8')
+      }
+      throw new TrialExecutionError(timeoutFailure, {
+        cause: createRedactedError(error, copilotToken, redaction),
+      })
+    }
+
+    let failure: TrialFailure
+    try {
+      failure = await captureTrialFailure({
+        artifactsDirectory,
+        attempt,
+        copilotToken,
+        error,
+        host,
+        kind: 'execution',
+        phase,
+        redaction,
+        sandbox,
+        startedAt,
+        trial,
+      })
+    } catch (captureError) {
+      const redactedError = createRedactedError(error, copilotToken, redaction)
+      const redactedCaptureError = createRedactedError(captureError, copilotToken, redaction)
+      throw new AggregateError(
+        [redactedError, redactedCaptureError],
+        `Trial "${trial.id}" failed and evidence could not be saved`,
+        {
+          // eslint-disable-next-line preserve-caught-error -- Original errors may contain the active credential.
+          cause: redactedCaptureError,
+        },
+      )
+    }
+    throw new TrialExecutionError(failure, {
+      cause: createRedactedError(error, copilotToken, redaction),
+    })
+  }
+}
+
+type ExecuteTrialOptions = Omit<RunTrialOptions, 'execution'> & {
+  execution: Required<Pick<TrialExecutionOptions, 'captureWalkthrough' | 'installDependencies'>> & TrialExecutionOptions
+  onPhase: (phase: TrialPhase) => void
+  redaction: RedactionState
+}
+
+async function executeTrial({
+  artifactsDirectory,
+  copilotQueue,
+  copilotToken,
+  host = DefaultHost,
+  sandbox,
+  trial,
+  execution,
+  onPhase,
+  redaction,
+}: ExecuteTrialOptions): Promise<RunTrialResult> {
   logger.info('Running trial: %s', trial.id)
 
+  onPhase('setup')
   await setupStage.run({
+    execution,
     sandbox,
     trial,
   })
 
+  onPhase('task')
   const {agent} = await taskStage.run({
     copilotQueue,
     copilotToken,
@@ -86,11 +288,13 @@ async function runTrial({
     trial,
   })
 
+  onPhase('checks')
   const {results: checks} = await verifyStage.run({
     sandbox,
     trial,
   })
 
+  onPhase('judges')
   const {results: judges} = await judgeStage.run({
     copilotQueue,
     copilotToken,
@@ -98,22 +302,28 @@ async function runTrial({
     trial,
   })
 
-  const {walkthrough} = await captureStage.run({
-    copilotQueue,
-    copilotToken,
-    sandbox,
-    trial,
-  })
+  onPhase('walkthrough')
+  const {walkthrough} = execution.captureWalkthrough
+    ? await captureStage.run({
+        copilotQueue,
+        copilotToken,
+        sandbox,
+        trial,
+      })
+    : {walkthrough: {type: 'Unavailable'} as const}
 
+  onPhase('save')
   const {artifacts} = await saveStage.run({
     artifactsDirectory,
     host,
+    copilotToken,
+    redaction,
     sandbox,
     trial,
     walkthrough,
   })
 
-  return {
+  const result: RunTrialResult = {
     artifacts,
     agent,
     checks,
@@ -121,16 +331,20 @@ async function runTrial({
     judges,
     walkthrough,
   }
+  const safeResult = redactValue(result, copilotToken, redaction)
+  safeResult.artifacts.redactionApplied = redaction.applied
+  return safeResult
 }
 
 type SetupStageOptions = {
+  execution: Required<Pick<TrialExecutionOptions, 'captureWalkthrough' | 'installDependencies'>> & TrialExecutionOptions
   sandbox: Sandbox
   trial: Trial
 }
 
 const setupStage = {
   name: 'Setup',
-  async run({sandbox, trial}: SetupStageOptions) {
+  async run({execution, sandbox, trial}: SetupStageOptions) {
     logger.info('[%s] Running setup', trial.id)
 
     logger.info('[%s] Copying files from: %s...', trial.id, trial.scenario.directory)
@@ -178,10 +392,12 @@ const setupStage = {
       user: NODE_USER,
     })
 
-    logger.info('[%s] Installing dependencies', trial.id)
-    await sandbox.runCommand('npm', ['install'], {
-      user: NODE_USER,
-    })
+    if (execution.installDependencies) {
+      logger.info('[%s] Installing dependencies', trial.id)
+      await sandbox.runCommand('npm', ['install'], {
+        user: NODE_USER,
+      })
+    }
 
     if (trial.setup) {
       logger.info('[%s] Running generic setup', trial.id)
@@ -574,7 +790,9 @@ Only capture the walkthrough, do not make any further code changes.`
 
 type SaveStageOptions = {
   artifactsDirectory: string
+  copilotToken: string
   host: Host
+  redaction: RedactionState
   sandbox: Sandbox
   trial: Trial
   walkthrough: TrialWalkthrough
@@ -582,7 +800,7 @@ type SaveStageOptions = {
 
 const saveStage = {
   name: 'Save',
-  async run({artifactsDirectory, host, sandbox, trial, walkthrough}: SaveStageOptions) {
+  async run({artifactsDirectory, copilotToken, host, redaction, sandbox, trial, walkthrough}: SaveStageOptions) {
     logger.info('[%s] Saving trial results', trial.id)
 
     const artifactDirectory = path.join(artifactsDirectory, trial.id)
@@ -638,20 +856,28 @@ const saveStage = {
           name.includes(WALKTHROUGH_DIR)
         )
       },
+      transform: createArtifactRedactor(copilotToken, redaction),
     })
 
     logger.debug('[%s] Downloading copilot config to: %s', trial.id, copilotConfigDirectory)
-    await sandbox.download(COPILOT_DIR, copilotConfigDirectory)
+    await sandbox.download(COPILOT_DIR, copilotConfigDirectory, {
+      ignore: shouldIgnoreCredentialArtifact,
+      transform: createArtifactRedactor(copilotToken, redaction),
+    })
 
     logger.debug('[%s] Downloading skills config to: %s', trial.id, skillsConfigDirectory)
-    await sandbox.download(AGENTS_DIR, skillsConfigDirectory)
+    await sandbox.download(AGENTS_DIR, skillsConfigDirectory, {
+      transform: createArtifactRedactor(copilotToken, redaction),
+    })
 
     if (walkthrough.type !== 'Unavailable') {
       await host.fs.mkdir(walkthroughDirectory, {
         recursive: true,
       })
 
-      await sandbox.download(WALKTHROUGH_DIR, walkthroughDirectory)
+      await sandbox.download(WALKTHROUGH_DIR, walkthroughDirectory, {
+        transform: createArtifactRedactor(copilotToken, redaction),
+      })
     }
 
     return {
@@ -666,13 +892,300 @@ const saveStage = {
   },
 }
 
+function validateTrialExecutionOptions(
+  execution: TrialExecutionOptions = {},
+): Required<Pick<TrialExecutionOptions, 'captureWalkthrough' | 'installDependencies'>> & TrialExecutionOptions {
+  if (execution.timeoutMs !== undefined && (!Number.isSafeInteger(execution.timeoutMs) || execution.timeoutMs < 1)) {
+    throw new Error('timeoutMs must be a positive safe integer')
+  }
+  if (execution.captureWalkthrough !== undefined && typeof execution.captureWalkthrough !== 'boolean') {
+    throw new Error('captureWalkthrough must be a boolean')
+  }
+  if (execution.installDependencies !== undefined && typeof execution.installDependencies !== 'boolean') {
+    throw new Error('installDependencies must be a boolean')
+  }
+
+  return {
+    ...execution,
+    captureWalkthrough: execution.captureWalkthrough ?? true,
+    installDependencies: execution.installDependencies ?? true,
+  }
+}
+
+async function withTrialTimeout<T>(
+  operation: () => Promise<T>,
+  timeoutMs: number | undefined,
+  sandbox: Sandbox,
+  onTimeout: (error: TrialTimeoutError) => Promise<void>,
+): Promise<T> {
+  if (timeoutMs === undefined) {
+    return operation()
+  }
+
+  let timer: NodeJS.Timeout | undefined
+  let timedOut = false
+  const pending = new Promise<never>(() => {})
+  const operationPromise = operation().then(
+    result => (timedOut ? pending : result),
+    error => {
+      if (timedOut) return pending
+      throw error
+    },
+  )
+  const timeout = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => {
+      timedOut = true
+      const timeoutError = new TrialTimeoutError(timeoutMs)
+      void (async () => {
+        const errors: Array<unknown> = []
+        try {
+          await onTimeout(timeoutError)
+        } catch (error) {
+          errors.push(error)
+        }
+        try {
+          await runWithGracePeriod(() => sandbox[Symbol.asyncDispose](), 10_000, 'Sandbox disposal')
+        } catch (error) {
+          errors.push(error)
+        }
+
+        if (errors.length === 0) {
+          reject(timeoutError)
+        } else {
+          reject(
+            new TrialTimeoutError(timeoutMs, {
+              cause: errors.length === 1 ? errors[0] : new AggregateError(errors),
+            }),
+          )
+        }
+      })()
+    }, timeoutMs)
+  })
+
+  try {
+    return await Promise.race([operationPromise, timeout])
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
+}
+
+type CaptureTrialFailureOptions = {
+  artifactsDirectory: string
+  attempt: TrialAttemptOptions
+  copilotToken: string
+  error: unknown
+  host: Host
+  kind: TrialFailureKind
+  phase: TrialPhase
+  redaction: RedactionState
+  sandbox: Sandbox
+  startedAt: string
+  trial: Trial
+  workspaceCaptureGraceMs?: number
+}
+
+async function captureTrialFailure({
+  artifactsDirectory,
+  attempt,
+  copilotToken,
+  error,
+  host,
+  kind,
+  phase,
+  redaction,
+  sandbox,
+  startedAt,
+  trial,
+  workspaceCaptureGraceMs,
+}: CaptureTrialFailureOptions): Promise<TrialFailure> {
+  const directory = path.join(artifactsDirectory, 'failures', trial.id, `attempt-${attempt.number}`)
+  const failurePath = path.join(directory, 'failure.json')
+  const workspaceDirectory = path.join(directory, 'workspace')
+  const artifactCaptureErrors: Array<string> = []
+  const failure: TrialFailure = {
+    artifacts: {
+      directory,
+      failurePath,
+      workspaceDirectory,
+    },
+    attempt: attempt.number,
+    completedAt: new Date().toISOString(),
+    error: {
+      message: redactExactSecret(error instanceof Error ? error.message : String(error), copilotToken, redaction),
+      name: error instanceof Error ? error.name : 'Error',
+    },
+    kind,
+    maxRetries: attempt.maxRetries,
+    phase,
+    redactionApplied: redaction.applied,
+    startedAt,
+    status: 'failed',
+    trialId: trial.id,
+  }
+
+  await host.fs.rm(directory, {recursive: true, force: true})
+  await host.fs.mkdir(directory, {recursive: true})
+  await host.fs.writeFile(failurePath, JSON.stringify(failure, null, 2), 'utf-8')
+
+  try {
+    const captureWorkspace = () =>
+      sandbox.download(CONTAINER_WORKDIR, workspaceDirectory, {
+        ignore(name) {
+          return shouldIgnoreDownloadedArtifact(name)
+        },
+        transform: createArtifactRedactor(copilotToken, redaction),
+      })
+    if (workspaceCaptureGraceMs === undefined) {
+      await captureWorkspace()
+    } else {
+      await runWithGracePeriod(captureWorkspace, workspaceCaptureGraceMs, 'Failure workspace capture')
+    }
+  } catch (captureError) {
+    artifactCaptureErrors.push(
+      redactExactSecret(
+        captureError instanceof Error ? captureError.message : String(captureError),
+        copilotToken,
+        redaction,
+      ),
+    )
+  }
+
+  failure.redactionApplied = redaction.applied
+  if (artifactCaptureErrors.length > 0) {
+    failure.artifactCaptureErrors = artifactCaptureErrors
+  }
+  await host.fs.writeFile(failurePath, JSON.stringify(failure, null, 2), 'utf-8')
+
+  return failure
+}
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof AggregateError) {
+    return error.errors.map(getErrorMessage).join('; ')
+  }
+  return error instanceof Error ? error.message : String(error)
+}
+
+type RedactionState = {
+  applied: boolean
+}
+
+function createRedactedError(error: unknown, secret: string, redaction: RedactionState): Error {
+  if (error instanceof AggregateError) {
+    return new AggregateError(
+      error.errors.map(item => createRedactedError(item, secret, redaction)),
+      redactExactSecret(error.message, secret, redaction),
+    )
+  }
+
+  const result = new Error(redactExactSecret(error instanceof Error ? error.message : String(error), secret, redaction))
+  result.name = error instanceof Error ? error.name : 'Error'
+  return result
+}
+
+function redactExactSecret(contents: string, secret: string, redaction: RedactionState): string {
+  if (!secret || !contents.includes(secret)) {
+    return contents
+  }
+
+  redaction.applied = true
+  return contents.replaceAll(secret, REDACTED_VALUE)
+}
+
+function redactValue<T>(value: T, secret: string, redaction: RedactionState, seen = new WeakMap<object, unknown>()): T {
+  if (typeof value === 'string') {
+    return redactExactSecret(value, secret, redaction) as T
+  }
+  if (typeof value !== 'object' || value === null) {
+    return value
+  }
+
+  const existing = seen.get(value)
+  if (existing !== undefined) {
+    return existing as T
+  }
+
+  if (Array.isArray(value)) {
+    const result: Array<unknown> = []
+    seen.set(value, result)
+    for (const item of value) {
+      result.push(redactValue(item, secret, redaction, seen))
+    }
+    return result as T
+  }
+
+  const result: Record<string, unknown> = {}
+  seen.set(value, result)
+  for (const [key, item] of Object.entries(value)) {
+    result[key] = redactValue(item, secret, redaction, seen)
+  }
+  return result as T
+}
+
+function createArtifactRedactor(secret: string, redaction: RedactionState): NonNullable<DownloadOptions['transform']> {
+  const secretBuffer = Buffer.from(secret)
+  return contents => {
+    const redacted = redactBuffer(contents, secretBuffer)
+    if (redacted !== contents) {
+      redaction.applied = true
+    }
+    return redacted
+  }
+}
+
+function redactBuffer(contents: Buffer, secret: Buffer): Buffer {
+  const firstMatch = contents.indexOf(secret)
+  if (secret.length === 0 || firstMatch === -1) {
+    return contents
+  }
+
+  const replacement = Buffer.from(REDACTED_VALUE)
+  const chunks: Array<Buffer> = []
+  let offset = 0
+  let match = firstMatch
+  while (match !== -1) {
+    chunks.push(contents.subarray(offset, match), replacement)
+    offset = match + secret.length
+    match = contents.indexOf(secret, offset)
+  }
+  chunks.push(contents.subarray(offset))
+  return Buffer.concat(chunks)
+}
+
+function shouldIgnoreDownloadedArtifact(name: string): boolean {
+  const segments = name.split(/[\\/]/)
+  return segments.some(segment => ['node_modules', '.git', '.next', '.turbo', 'dist'].includes(segment))
+}
+
+function shouldIgnoreCredentialArtifact(name: string): boolean {
+  return CREDENTIAL_FILENAMES.has(path.posix.basename(name).toLowerCase())
+}
+
+async function runWithGracePeriod(operation: () => Promise<void>, graceMs: number, description: string): Promise<void> {
+  let timer: NodeJS.Timeout | undefined
+  const timeout = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => {
+      reject(new Error(`${description} did not finish within ${graceMs}ms`))
+    }, graceMs)
+  })
+
+  try {
+    await Promise.race([operation(), timeout])
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
+}
+
 export {
   TrialAgentSchema,
   TrialArtifactsSchema,
   TrialChecksSchema,
+  TrialExecutionError,
   TrialJudgesSchema,
   TrialWalkthroughSchema,
   runTrial,
   RunTrialResultSchema,
+  TrialTimeoutError,
+  validateTrialExecutionOptions,
 }
-export type {RunTrialResult}
+export type {RunTrialResult, TrialExecutionOptions}

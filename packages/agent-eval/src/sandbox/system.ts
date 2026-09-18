@@ -1,6 +1,5 @@
 import {createHash, randomUUID} from 'node:crypto'
 import path from 'node:path'
-import {pipeline} from 'node:stream/promises'
 import Docker from 'dockerode'
 import tarFs from 'tar-fs'
 import type {Headers} from 'tar-fs'
@@ -45,6 +44,8 @@ import {createCapturedStream} from './captured-stream'
 
 const COPILOT_CLI_VERSION = '1.0.85'
 const NPM_VERSION = '12.0.2'
+const CONTAINER_DOWNLOAD_TIMEOUT_MS = 30_000
+const CONTAINER_REMOVAL_TIMEOUT_MS = 5_000
 const DOCKERFILE = `ARG BASE_IMAGE=node:26.5.0-slim
 
 FROM \${BASE_IMAGE} AS base
@@ -91,8 +92,17 @@ const DEFAULT_MCP_CONFIG: McpConfigFile = {
 class SystemSandbox implements Sandbox {
   static async create(options: SandboxCreateOptions = {}) {
     const docker = new Docker()
-    const baseDockerImage = options.dockerImage?.trim() || DEFAULT_DOCKER_IMAGE
-    const dockerImage = await ensureDockerImage(docker, baseDockerImage)
+    const preparedImage = options.preparedImage?.trim()
+    if (options.preparedImage !== undefined && !preparedImage) {
+      throw new Error('preparedImage must not be empty')
+    }
+    if (preparedImage && options.dockerImage?.trim()) {
+      throw new Error('preparedImage cannot be combined with dockerImage')
+    }
+
+    const dockerImage = preparedImage
+      ? await resolvePreparedImage(docker, preparedImage)
+      : await ensureDockerImage(docker, options.dockerImage?.trim() || DEFAULT_DOCKER_IMAGE)
     const container = await createContainer(docker, dockerImage)
     return new SystemSandbox(options.host ?? DefaultHost, docker, container)
   }
@@ -151,34 +161,22 @@ class SystemSandbox implements Sandbox {
 
   async download(containerFilePath: string, hostDestinationPath: string, options: DownloadOptions = {}): Promise<void> {
     const containerPath = resolveContainerPath(containerFilePath)
+    await withAbortTimeout(
+      `Downloading "${containerPath}" from the sandbox`,
+      CONTAINER_DOWNLOAD_TIMEOUT_MS,
+      async signal => {
+        await this.#host.fs.mkdir(hostDestinationPath, {
+          recursive: true,
+        })
 
-    await this.#host.fs.mkdir(hostDestinationPath, {
-      recursive: true,
-    })
+        const archive = await this.#container.getArchive({
+          path: containerPath,
+          abortSignal: signal,
+        })
+        const sourceName = path.posix.basename(containerPath)
 
-    const archive = await this.#container.getArchive({
-      path: containerPath,
-    })
-    const sourceName = path.posix.basename(containerPath)
-
-    await pipeline(
-      archive,
-      tarFs.extract(hostDestinationPath, {
-        readable: true,
-        writable: true,
-        map(header) {
-          const prefix = `${sourceName}/`
-
-          if (header.name === sourceName) {
-            header.name = '.'
-          } else if (header.name.startsWith(prefix)) {
-            header.name = header.name.slice(prefix.length)
-          }
-
-          return header
-        },
-        ignore: options.ignore,
-      }),
+        await extractArchiveToHost(archive, sourceName, hostDestinationPath, options, this.#host)
+      },
     )
   }
 
@@ -441,6 +439,32 @@ async function buildDockerImage(docker: Docker, baseDockerImage: string): Promis
   return dockerImage
 }
 
+async function resolvePreparedImage(docker: Docker, image: string): Promise<string> {
+  assertImmutableImageReference(image)
+
+  try {
+    await docker.getImage(image).inspect()
+  } catch (error) {
+    throw new Error(`Prepared image does not exist locally: ${image}`, {
+      cause: error,
+    })
+  }
+
+  return image
+}
+
+function assertImmutableImageReference(image: string): void {
+  if (/^sha256:[a-f0-9]{64}$/i.test(image)) {
+    return
+  }
+
+  const repositoryDigestPattern =
+    /^(?:[a-z0-9]+(?:[.-][a-z0-9]+)*(?::[0-9]+)?\/)?[a-z0-9]+(?:[._/-][a-z0-9]+)*@sha256:[a-f0-9]{64}$/i
+  if (!repositoryDigestPattern.test(image)) {
+    throw new Error('preparedImage must be a local sha256 image ID or repository digest without a mutable tag')
+  }
+}
+
 function getDockerImageName(baseDockerImage: string, dockerfile = DOCKERFILE): string {
   const digest = createHash('sha256')
     .update(baseDockerImage)
@@ -473,7 +497,7 @@ async function createContainer(docker: Docker, dockerImage: string): Promise<Ini
     return container as InitializedContainer
   } catch (error) {
     try {
-      await container.remove({force: true})
+      await removeContainer(container)
     } catch (cleanupError) {
       throw new AggregateError([error, cleanupError], 'Failed to initialize and remove sandbox container', {
         cause: cleanupError,
@@ -505,7 +529,9 @@ async function removeContainer(container: Docker.Container): Promise<void> {
 
   const removal = (async () => {
     try {
-      await container.remove({force: true})
+      await withAbortTimeout('Removing the sandbox container', CONTAINER_REMOVAL_TIMEOUT_MS, signal => {
+        return container.remove({force: true, abortSignal: signal})
+      })
     } catch (error) {
       if (!isDockerNotFoundError(error)) {
         throw error
@@ -524,6 +550,30 @@ async function removeContainer(container: Docker.Container): Promise<void> {
   })
   containerRemovals.set(container, removal)
   return removal
+}
+
+async function withAbortTimeout<T>(
+  description: string,
+  timeoutMs: number,
+  operation: (signal: AbortSignal) => Promise<T>,
+): Promise<T> {
+  const controller = new AbortController()
+  let timer: NodeJS.Timeout | undefined
+  const timeout = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => {
+      const error = new Error(`${description} timed out after ${timeoutMs}ms`)
+      controller.abort(error)
+      reject(error)
+    }, timeoutMs)
+  })
+
+  try {
+    return await Promise.race([operation(controller.signal), timeout])
+  } finally {
+    if (timer) {
+      clearTimeout(timer)
+    }
+  }
 }
 
 function isDockerNotFoundError(error: unknown): boolean {
@@ -598,6 +648,134 @@ function isExcluded(relativePath: string, excludedPaths: ReadonlySet<string>): b
   }
 
   return false
+}
+
+function getDownloadedRelativePath(header: tarStream.Headers, sourceName: string): string {
+  const prefix = `${sourceName}/`
+  if (header.name === sourceName) {
+    return '.'
+  }
+  if (header.name.startsWith(prefix)) {
+    return header.name.slice(prefix.length)
+  }
+  throw new Error(`Downloaded archive entry is outside the requested path: ${header.name}`)
+}
+
+function resolveDownloadDestination(destinationRoot: string, relativePath: string): string {
+  const destination = path.resolve(destinationRoot, relativePath)
+  const relative = path.relative(destinationRoot, destination)
+  if (relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+    throw new Error(`Downloaded archive entry is outside the destination: ${relativePath}`)
+  }
+  return destination
+}
+
+async function assertDownloadAncestors(host: Host, destinationRoot: string, destination: string): Promise<void> {
+  const relativeParent =
+    destination === destinationRoot ? '' : path.relative(destinationRoot, path.dirname(destination))
+  let directory = destinationRoot
+  for (const segment of ['', ...relativeParent.split(path.sep).filter(Boolean)]) {
+    directory = segment ? path.join(directory, segment) : directory
+    const stats = await downloadStats(host, directory)
+    if (stats?.isSymbolicLink()) {
+      throw new Error(`Cannot extract through a symbolic link: ${path.relative(destinationRoot, directory) || '.'}`)
+    }
+  }
+}
+
+async function extractArchiveToHost(
+  archive: NodeJS.ReadableStream,
+  sourceName: string,
+  hostDestinationPath: string,
+  options: DownloadOptions,
+  host: Host,
+): Promise<void> {
+  const destinationRoot = path.resolve(hostDestinationPath)
+  await host.fs.mkdir(destinationRoot, {
+    recursive: true,
+  })
+
+  const extract = tarStream.extract()
+  await new Promise<void>((resolve, reject) => {
+    extract.on('entry', (header, stream, next) => {
+      void (async () => {
+        const relativePath = getDownloadedRelativePath(header, sourceName)
+        if (options.ignore?.(relativePath)) {
+          stream.resume()
+          return
+        }
+
+        const destination = resolveDownloadDestination(destinationRoot, relativePath)
+        await assertDownloadAncestors(host, destinationRoot, destination)
+        if (header.type === 'directory') {
+          stream.resume()
+          if ((await downloadStats(host, destination))?.isSymbolicLink()) {
+            throw new Error(`Cannot extract directory through a symbolic link: ${relativePath}`)
+          }
+          await host.fs.mkdir(destination, {recursive: true})
+          return
+        }
+
+        if (header.type === 'file') {
+          const contents = await readStream(stream)
+          const transformed = options.transform?.(contents, relativePath) ?? contents
+          await host.fs.mkdir(path.dirname(destination), {recursive: true})
+          if ((await downloadStats(host, destination))?.isSymbolicLink()) {
+            await host.fs.unlink(destination)
+          }
+          await host.fs.writeFile(destination, transformed)
+          return
+        }
+
+        if (header.type === 'symlink') {
+          stream.resume()
+          const target = resolveDownloadDestination(
+            destinationRoot,
+            path.relative(destinationRoot, path.resolve(path.dirname(destination), header.linkname ?? '')),
+          )
+          await assertDownloadAncestors(host, destinationRoot, target)
+          if ((await downloadStats(host, target))?.isSymbolicLink()) {
+            throw new Error(`Cannot extract a symbolic link chain: ${relativePath}`)
+          }
+          await host.fs.mkdir(path.dirname(destination), {recursive: true})
+          await host.fs.rm(destination, {force: true})
+          await host.fs.symlink(header.linkname ?? '', destination)
+          return
+        }
+
+        stream.resume()
+        throw new Error(`Unsupported download archive entry: ${relativePath} (${header.type})`)
+      })().then(next, error => {
+        extract.destroy(error as Error)
+      })
+    })
+    extract.on('finish', resolve)
+    extract.on('error', reject)
+    archive.on('error', reject)
+    archive.pipe(extract)
+  })
+}
+
+async function downloadStats(host: Host, filepath: string) {
+  try {
+    return await host.fs.lstat(filepath)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined
+    throw error
+  }
+}
+
+async function readStream(stream: NodeJS.ReadableStream): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const chunks: Array<Buffer> = []
+    stream.on('data', (chunk: Buffer) => {
+      chunks.push(chunk)
+    })
+    stream.on('end', () => {
+      resolve(Buffer.concat(chunks))
+    })
+    stream.on('error', reject)
+  })
 }
 
 function appendText(contents: string, text: string): string {
@@ -803,4 +981,5 @@ export {
   cleanupActiveContainers,
   createContainer,
   getDockerImageName,
+  resolvePreparedImage,
 }

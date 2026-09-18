@@ -82,4 +82,20 @@ describe('VirtualSandbox', () => {
 
     expect(await host.fs.readFile('/download/result.txt', 'utf8')).toBe('result')
   })
+
+  test('transforms downloaded file contents before writing them to the host', async () => {
+    const host = VirtualHost.create({
+      [CONTAINER_WORKDIR]: {
+        'result.txt': 'before secret after',
+      },
+    })
+    const sandbox = await VirtualSandbox.create({host})
+
+    await sandbox.download('.', '/download', {
+      transform(contents) {
+        return Buffer.from(contents.toString('utf8').replaceAll('secret', '[REDACTED]'))
+      },
+    })
+    expect(await host.fs.readFile('/download/result.txt', 'utf8')).toBe('before [REDACTED] after')
+  })
 })

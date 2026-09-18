@@ -13,6 +13,10 @@ type CopyOptions = {
 
 type DownloadOptions = {
   ignore?: (name: string) => boolean
+  /**
+   * Transforms a complete file before the sandbox writes it to the host.
+   */
+  transform?: (contents: Buffer, name: string) => Buffer
 }
 
 type CommandResult = {
@@ -24,6 +28,12 @@ type CommandResult = {
 type SandboxCreateOptions = {
   dockerImage?: string
   host?: Host
+  /**
+   * Existing local image referenced by immutable image ID or repository digest.
+   * When set, the sandbox uses this image directly instead of building the
+   * default runtime image.
+   */
+  preparedImage?: string
 }
 
 type CustomAgentCopiedFile = {

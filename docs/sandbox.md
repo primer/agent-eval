@@ -5,6 +5,32 @@ a sandboxed environment. This helps to prevent the agent from accessing the host
 
 The sandbox is used in [experiments](./experiments.md) and [benchmarks](./benchmarks.md) to provide a consistent environment for the agent to run in.
 
+## Sandbox images
+
+By default, Agent Eval builds its sandbox image from `dockerImage`. For
+controlled runs that prepare the complete runtime image ahead of time, pass
+`preparedImage` instead. A prepared image must already exist in the local
+Docker daemon and must use an immutable reference:
+
+- a local image ID such as `sha256:<64 hexadecimal characters>`; or
+- a repository digest such as
+  `ghcr.io/example/eval-runtime@sha256:<64 hexadecimal characters>`.
+
+Mutable tags such as `node:latest` are rejected for `preparedImage`.
+`preparedImage` and `dockerImage` are mutually exclusive. Agent Eval verifies
+that a prepared image exists locally and uses it directly without rebuilding or
+pulling it.
+
+Sandbox archive downloads are limited to 30 seconds. Container removal is
+limited to five seconds and receives an abort signal when that deadline is
+reached.
+
+`download` accepts an optional complete-file transform that runs before any
+file is written to the host. Agent Eval uses this boundary to redact exact
+credential values from retained trial evidence. Archive paths are constrained
+to the requested destination, and extraction through symbolic-link ancestors
+is rejected.
+
 The [`Sandbox` interface](../packages/agent-eval/src/sandbox/types.ts) provides the following methods:
 
 | Method                | Description                                                                   |

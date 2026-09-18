@@ -9,12 +9,18 @@ import {
   dockerImageOption,
   getConcurrencyValue,
   getOutputPath,
+  getRunPlanExecutionOptions,
   githubCopilotTokenOption,
+  maxRetriesOption,
+  noInstallDependenciesOption,
+  noWalkthroughOption,
   getCopilotToken,
   outputDirectoryOption,
+  preparedImageOption,
   scenariosOption,
   runnerOption,
   shardOption,
+  timeoutMsOption,
 } from '../options'
 import {logger} from '../../logger'
 import {parseShard} from '../../shard'
@@ -149,6 +155,9 @@ const benchmarkCommand = defineCommand({
             'copilot-concurrency': copilotConcurrencyOption,
             'container-concurrency': containerConcurrencyOption,
             'docker-image': dockerImageOption,
+            'max-retries': maxRetriesOption,
+            'no-install-dependencies': noInstallDependenciesOption,
+            'no-walkthrough': noWalkthroughOption,
             'output-dir': outputDirectoryOption,
             'plan-path': {
               type: 'string',
@@ -157,7 +166,9 @@ const benchmarkCommand = defineCommand({
             },
             scenarios: scenariosOption,
             runner: runnerOption,
+            'prepared-image': preparedImageOption,
             shard: shardOption,
+            'timeout-ms': timeoutMsOption,
             token: githubCopilotTokenOption,
           },
           async run({args}) {
@@ -211,8 +222,8 @@ const benchmarkCommand = defineCommand({
               copilotConcurrency,
               containerConcurrency,
               copilotToken,
-              dockerImage: args['docker-image'],
               plan,
+              ...getRunPlanExecutionOptions(args),
             })
             const output = createBenchmarkOutput({
               benchmark: manifest.benchmark,
@@ -237,14 +248,19 @@ const benchmarkCommand = defineCommand({
         'copilot-concurrency': copilotConcurrencyOption,
         'container-concurrency': containerConcurrencyOption,
         'docker-image': dockerImageOption,
+        'max-retries': maxRetriesOption,
+        'no-install-dependencies': noInstallDependenciesOption,
+        'no-walkthrough': noWalkthroughOption,
         name: {
           type: 'positional',
           description: 'The name of the benchmark to run',
           required: true,
         },
         'output-dir': outputDirectoryOption,
+        'prepared-image': preparedImageOption,
         scenarios: scenariosOption,
         runner: runnerOption,
+        'timeout-ms': timeoutMsOption,
         token: githubCopilotTokenOption,
       },
       async run({args}) {
@@ -283,8 +299,8 @@ const benchmarkCommand = defineCommand({
           copilotConcurrency,
           containerConcurrency,
           copilotToken,
-          dockerImage: args['docker-image'],
           plan,
+          ...getRunPlanExecutionOptions(args),
         })
         const output = createBenchmarkOutput({
           benchmark,

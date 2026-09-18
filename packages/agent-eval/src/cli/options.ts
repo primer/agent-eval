@@ -38,6 +38,34 @@ const dockerImageOption = {
   default: DEFAULT_DOCKER_IMAGE,
 } as const
 
+const maxRetriesOption = {
+  type: 'string',
+  description: 'The number of retries after the first trial attempt',
+  default: '3',
+} as const
+
+const noInstallDependenciesOption = {
+  type: 'boolean',
+  description: 'Skip installing scenario dependencies before candidate execution',
+  default: false,
+} as const
+
+const noWalkthroughOption = {
+  type: 'boolean',
+  description: 'Skip walkthrough setup and the walkthrough Copilot session',
+  default: false,
+} as const
+
+const preparedImageOption = {
+  type: 'string',
+  description: 'An existing immutable local image ID or repository digest to use without rebuilding',
+} as const
+
+const timeoutMsOption = {
+  type: 'string',
+  description: 'The maximum wall-clock duration for each complete trial in milliseconds',
+} as const
+
 const experimentsOption = {
   type: 'string',
   description: 'The directory containing local experiment files',
@@ -63,6 +91,38 @@ function getCopilotToken(value?: string): string {
   throw new Error(
     'Expected a GitHub Copilot token to be provided via the --token option or the COPILOT_GITHUB_TOKEN environment variable',
   )
+}
+
+type ExecutionOptionValues = {
+  'docker-image': string
+  'max-retries': string
+  'no-install-dependencies': boolean
+  'no-walkthrough': boolean
+  'prepared-image'?: string
+  'timeout-ms'?: string
+}
+
+function parseIntegerOption(value: string, option: string, minimum: number): number {
+  const parsed = Number(value)
+  if (!/^\d+$/.test(value.trim()) || !Number.isSafeInteger(parsed) || parsed < minimum) {
+    throw new Error(
+      `Expected --${option} to be an integer greater than or equal to ${minimum}, received: ${JSON.stringify(value)}`,
+    )
+  }
+  return parsed
+}
+
+function getRunPlanExecutionOptions(args: ExecutionOptionValues) {
+  const preparedImage = args['prepared-image']?.trim()
+  return {
+    ...(preparedImage ? {preparedImage} : {dockerImage: args['docker-image']}),
+    maxRetries: parseIntegerOption(args['max-retries'], 'max-retries', 0),
+    execution: {
+      captureWalkthrough: !args['no-walkthrough'],
+      installDependencies: !args['no-install-dependencies'],
+      ...(args['timeout-ms'] ? {timeoutMs: parseIntegerOption(args['timeout-ms'], 'timeout-ms', 1)} : {}),
+    },
+  }
 }
 
 const outputDirectoryOption = {
@@ -108,13 +168,19 @@ export {
   containerConcurrencyOption,
   getConcurrencyValue,
   dockerImageOption,
+  getRunPlanExecutionOptions,
   githubCopilotTokenOption,
+  maxRetriesOption,
+  noInstallDependenciesOption,
+  noWalkthroughOption,
   getCopilotToken,
   experimentsOption,
   outputDirectoryOption,
+  preparedImageOption,
   getOutputPath,
   planOption,
   scenariosOption,
   runnerOption,
   shardOption,
+  timeoutMsOption,
 }

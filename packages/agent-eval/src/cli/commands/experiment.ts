@@ -21,11 +21,17 @@ import {
   getConcurrencyValue,
   getCopilotToken,
   getOutputPath,
+  getRunPlanExecutionOptions,
   githubCopilotTokenOption,
+  maxRetriesOption,
+  noInstallDependenciesOption,
+  noWalkthroughOption,
   outputDirectoryOption,
+  preparedImageOption,
   scenariosOption,
   runnerOption,
   shardOption,
+  timeoutMsOption,
 } from '../options'
 
 const experimentCommand = defineCommand({
@@ -134,6 +140,9 @@ const experimentCommand = defineCommand({
             'copilot-concurrency': copilotConcurrencyOption,
             'container-concurrency': containerConcurrencyOption,
             'docker-image': dockerImageOption,
+            'max-retries': maxRetriesOption,
+            'no-install-dependencies': noInstallDependenciesOption,
+            'no-walkthrough': noWalkthroughOption,
             'output-dir': outputDirectoryOption,
             'plan-path': {
               type: 'string',
@@ -142,7 +151,9 @@ const experimentCommand = defineCommand({
             },
             scenarios: scenariosOption,
             runner: runnerOption,
+            'prepared-image': preparedImageOption,
             shard: shardOption,
+            'timeout-ms': timeoutMsOption,
             token: githubCopilotTokenOption,
           },
           async run({args}) {
@@ -192,8 +203,8 @@ const experimentCommand = defineCommand({
               copilotConcurrency,
               containerConcurrency,
               copilotToken,
-              dockerImage: args['docker-image'],
               plan,
+              ...getRunPlanExecutionOptions(args),
             })
             const output = createExperimentOutput({experiment: manifest.experiment, runPlanResult})
             await writeExperimentOutput({output, outputPath})
@@ -212,14 +223,19 @@ const experimentCommand = defineCommand({
         'copilot-concurrency': copilotConcurrencyOption,
         'container-concurrency': containerConcurrencyOption,
         'docker-image': dockerImageOption,
+        'max-retries': maxRetriesOption,
+        'no-install-dependencies': noInstallDependenciesOption,
+        'no-walkthrough': noWalkthroughOption,
         name: {
           type: 'positional',
           description: 'The name of the experiment to run',
           required: true,
         },
         'output-dir': outputDirectoryOption,
+        'prepared-image': preparedImageOption,
         scenarios: scenariosOption,
         runner: runnerOption,
+        'timeout-ms': timeoutMsOption,
         token: githubCopilotTokenOption,
       },
       async run({args}) {
@@ -255,8 +271,8 @@ const experimentCommand = defineCommand({
           copilotConcurrency,
           containerConcurrency,
           copilotToken,
-          dockerImage: args['docker-image'],
           plan,
+          ...getRunPlanExecutionOptions(args),
         })
         const output = createExperimentOutput({experiment, runPlanResult})
         await writeExperimentOutput({

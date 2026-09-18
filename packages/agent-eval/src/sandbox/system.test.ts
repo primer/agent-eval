@@ -1,4 +1,5 @@
 import Docker from 'dockerode'
+import tarStream from 'tar-stream'
 import {beforeEach, describe, expect, test, vi} from 'vitest'
 import {VirtualHost} from '../host'
 import {MCP_CONFIG_PATH, NODE_USER, SKILLS_DIR} from './constants'
@@ -7,6 +8,7 @@ import {
   cleanupActiveContainers,
   createContainer,
   getDockerImageName,
+  resolvePreparedImage,
   SandboxSchema,
   SystemSandbox,
 } from './system'
@@ -77,7 +79,10 @@ describe('SystemSandbox lifecycle', () => {
 
     await sandbox[Symbol.asyncDispose]()
 
-    expect(container.remove).toHaveBeenCalledWith({force: true})
+    expect(container.remove).toHaveBeenCalledWith({
+      force: true,
+      abortSignal: expect.any(AbortSignal),
+    })
   })
 
   test('force removes the container when initialization fails', async () => {
@@ -92,7 +97,10 @@ describe('SystemSandbox lifecycle', () => {
 
     // @ts-expect-error This test only exercises the Docker methods used before container initialization.
     await expect(createContainer(docker, 'test-image')).rejects.toBe(initializationError)
-    expect(container.remove).toHaveBeenCalledWith({force: true})
+    expect(container.remove).toHaveBeenCalledWith({
+      force: true,
+      abortSignal: expect.any(AbortSignal),
+    })
   })
 
   test('removes active containers when the process is terminated', async () => {
@@ -114,7 +122,10 @@ describe('SystemSandbox lifecycle', () => {
 
     await cleanupActiveContainers()
 
-    expect(container.remove).toHaveBeenCalledWith({force: true})
+    expect(container.remove).toHaveBeenCalledWith({
+      force: true,
+      abortSignal: expect.any(AbortSignal),
+    })
     expect(off).toHaveBeenCalledWith('SIGINT', expect.any(Function))
     expect(off).toHaveBeenCalledWith('SIGTERM', expect.any(Function))
 
@@ -144,6 +155,128 @@ describe('SystemSandbox lifecycle', () => {
     expect(off).toHaveBeenCalledWith('SIGINT', expect.any(Function))
     expect(off).toHaveBeenCalledWith('SIGTERM', expect.any(Function))
     await expect(cleanupActiveContainers()).resolves.toBeUndefined()
+  })
+
+  test('bounds container removal and aborts Docker after the deadline', async () => {
+    vi.useFakeTimers()
+    const remove = vi.fn((options: {abortSignal: AbortSignal; force: boolean}) => {
+      void options
+      return new Promise<void>(() => {})
+    })
+    const sandbox = createSandbox({remove})
+
+    const disposal = sandbox[Symbol.asyncDispose]()
+    const expectedDisposal = expect(disposal).rejects.toThrow('Removing the sandbox container timed out after 5000ms')
+    await vi.advanceTimersByTimeAsync(5_000)
+
+    await expectedDisposal
+    expect(remove.mock.calls[0]?.[0]?.abortSignal.aborted).toBe(true)
+    vi.useRealTimers()
+  })
+})
+
+describe('prepared images', () => {
+  test.each([`sha256:${'a'.repeat(64)}`, `ghcr.io/primer/agent-eval@sha256:${'b'.repeat(64)}`])(
+    'accepts an immutable local image reference: %s',
+    async image => {
+      const inspect = vi.fn().mockResolvedValue({})
+      const docker = {
+        getImage: vi.fn(() => ({inspect})),
+      }
+
+      // @ts-expect-error This test only exercises the Docker image lookup.
+      await expect(resolvePreparedImage(docker, image)).resolves.toBe(image)
+      expect(docker.getImage).toHaveBeenCalledWith(image)
+      expect(inspect).toHaveBeenCalledOnce()
+    },
+  )
+
+  test.each(['node:26', 'ghcr.io/primer/agent-eval:latest', '', `sha256:${'x'.repeat(64)}`])(
+    'rejects a mutable or invalid prepared image reference: %j',
+    async image => {
+      const docker = {
+        getImage: vi.fn(),
+      }
+
+      // @ts-expect-error This test validates before Docker image lookup.
+      await expect(resolvePreparedImage(docker, image)).rejects.toThrow(
+        'preparedImage must be a local sha256 image ID or repository digest without a mutable tag',
+      )
+      expect(docker.getImage).not.toHaveBeenCalled()
+    },
+  )
+
+  test('rejects an immutable image that is not available locally', async () => {
+    const image = `sha256:${'a'.repeat(64)}`
+    const docker = {
+      getImage: vi.fn(() => ({
+        inspect: vi.fn().mockRejectedValue(new Error('missing')),
+      })),
+    }
+
+    // @ts-expect-error This test only exercises the Docker image lookup.
+    await expect(resolvePreparedImage(docker, image)).rejects.toThrow(`Prepared image does not exist locally: ${image}`)
+  })
+})
+
+describe('SystemSandbox downloads', () => {
+  test('transforms downloaded file contents before writing them to the host', async () => {
+    const archive = tarStream.pack()
+    archive.entry({name: 'workspace', type: 'directory'})
+    archive.entry({name: 'workspace/secret.txt'}, 'before secret after')
+    archive.finalize()
+    const container = {
+      getArchive: vi.fn().mockResolvedValue(archive),
+      remove: vi.fn().mockResolvedValue(undefined),
+    }
+    const host = VirtualHost.create()
+    // @ts-expect-error This test only exercises the container archive download.
+    const sandbox = new SystemSandbox(host, new Docker(), container)
+
+    await sandbox.download('/home/sandbox/workspace', '/download', {
+      transform(contents) {
+        return Buffer.from(contents.toString('utf8').replaceAll('secret', '[REDACTED]'))
+      },
+    })
+
+    await expect(host.fs.readFile('/download/secret.txt', 'utf8')).resolves.toBe('before [REDACTED] after')
+  })
+
+  test('rejects archive entries outside the requested path', async () => {
+    const archive = tarStream.pack()
+    archive.entry({name: '../outside.txt'}, 'outside')
+    archive.finalize()
+    const container = {
+      getArchive: vi.fn().mockResolvedValue(archive),
+      remove: vi.fn().mockResolvedValue(undefined),
+    }
+    const host = VirtualHost.create()
+    // @ts-expect-error This test only exercises the container archive download.
+    const sandbox = new SystemSandbox(host, new Docker(), container)
+
+    await expect(sandbox.download('/home/sandbox/workspace', '/download')).rejects.toThrow('outside the requested path')
+    await expect(host.fs.access('/outside.txt')).rejects.toMatchObject({code: 'ENOENT'})
+  })
+
+  test('rejects extraction through a symbolic destination root', async () => {
+    const archive = tarStream.pack()
+    archive.entry({name: 'workspace/file.txt'}, 'outside')
+    archive.finalize()
+    const container = {
+      getArchive: vi.fn().mockResolvedValue(archive),
+      remove: vi.fn().mockResolvedValue(undefined),
+    }
+    const host = VirtualHost.create({
+      '/outside': {},
+    })
+    await host.fs.symlink('/outside', '/download')
+    // @ts-expect-error This test only exercises the container archive download.
+    const sandbox = new SystemSandbox(host, new Docker(), container)
+
+    await expect(sandbox.download('/home/sandbox/workspace', '/download')).rejects.toThrow(
+      'Cannot extract through a symbolic link',
+    )
+    await expect(host.fs.access('/outside/file.txt')).rejects.toMatchObject({code: 'ENOENT'})
   })
 })
 

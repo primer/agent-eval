@@ -3,8 +3,7 @@ import type {CopilotRunner} from './copilot-runner'
 import {DefaultHost, type Host} from './host'
 import {logger} from './logger'
 import type {Trial} from './trial/trial'
-import type {RunTrialResult} from './trial/run'
-import {runTrial} from './trial/run'
+import {runTrial, type RunTrialResult, type TrialExecutionOptions} from './trial/run'
 import {selectShard, type Shard} from './shard'
 
 /**
@@ -71,9 +70,12 @@ type RunPlanOptions<T extends Trial> = {
   copilotConcurrency: number
   containerConcurrency: number
   copilotToken: string
-  dockerImage: string
+  dockerImage?: string
+  execution?: TrialExecutionOptions
   host?: Host
+  maxRetries?: number
   plan: Plan<T>
+  preparedImage?: string
 }
 
 type RunPlanResult<T extends Trial> = {
@@ -86,9 +88,18 @@ async function runPlan<T extends Trial>({
   containerConcurrency,
   copilotToken,
   dockerImage,
+  execution,
   host = DefaultHost,
+  maxRetries = 3,
   plan,
+  preparedImage,
 }: RunPlanOptions<T>): Promise<RunPlanResult<T>> {
+  if (!Number.isSafeInteger(maxRetries) || maxRetries < 0) {
+    throw new Error('maxRetries must be a non-negative safe integer')
+  }
+  if (preparedImage && dockerImage) {
+    throw new Error('preparedImage cannot be combined with dockerImage')
+  }
   logger.debug(
     'Running plan with %s trials: %o',
     plan.trials.length,
@@ -104,10 +115,10 @@ async function runPlan<T extends Trial>({
 
   const results = await Promise.all(
     plan.trials.map(trial => {
-      return retry(() => {
+      return retry(attempt => {
         return containerQueue.add(async () => {
           await using sandbox = await host.createSandbox({
-            dockerImage,
+            ...(preparedImage ? {preparedImage} : {dockerImage}),
           })
           const result = await runTrial({
             artifactsDirectory,
@@ -116,13 +127,18 @@ async function runPlan<T extends Trial>({
             host,
             sandbox,
             trial,
+            execution,
+            attempt: {
+              maxRetries,
+              number: attempt,
+            },
           })
           return {
             trial,
             result,
           }
         })
-      })
+      }, maxRetries)
     }),
   )
 
@@ -143,15 +159,20 @@ function randomize<T>(input: Array<T>): Array<T> {
   return randomized
 }
 
-async function retry<T>(fn: () => Promise<T>, retries: number = 3): Promise<T> {
-  try {
-    return await fn()
-  } catch (error) {
-    if (retries > 0) {
+async function retry<T>(fn: (attempt: number) => Promise<T>, retries: number = 3): Promise<T> {
+  let attempt = 1
+
+  while (true) {
+    try {
+      return await fn(attempt)
+    } catch (error) {
+      if (attempt > retries) {
+        throw error
+      }
+
       logger.error({error}, 'Retrying')
-      return retry(fn, retries - 1)
+      attempt += 1
     }
-    throw error
   }
 }
 

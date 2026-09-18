@@ -15,17 +15,24 @@ treatments. Each trial has its own ID, sandbox, execution, and evidence.
 
 ## Lifecycle
 
-1. Copy the fixture, withhold evaluation files, and install its dependencies.
+1. Copy the fixture, withhold evaluation files, and, unless disabled, install
+   its dependencies.
 2. Run shared setup, treatment setup, and the fixture's build if present.
 3. Run the implementation agent with the scenario prompt.
 4. Restore check files and execute checks.
 5. Run judges against their rubrics.
-6. Attempt visual walkthrough capture, then save artifacts.
+6. Unless disabled, attempt visual walkthrough capture, then save artifacts.
 
 The pre-task build does not verify the agent's finished implementation.
 Configure a check for that. The walkthrough is additional review evidence, not
-a replacement for checks or judges. Capture is attempted even for non-UI
-projects and can be unavailable.
+a replacement for checks or judges. By default, capture is attempted even for
+non-UI projects and can be unavailable. `--no-walkthrough` skips its package
+installation and separate Copilot session.
+
+Runs retry a failed trial three times by default. `--max-retries 0` performs one
+attempt without retrying. `--timeout-ms` applies a wall-clock deadline across
+the complete lifecycle above. After timeout, bounded evidence-capture and
+sandbox-cleanup grace periods may extend the time before the command returns.
 
 ## Read a result bundle
 
@@ -37,6 +44,11 @@ artifacts/
   <trial-id>/
     <trial-id>.json
     ...saved workspace, configuration, and walkthrough files
+  failures/
+    <trial-id>/
+      attempt-<n>/
+        failure.json
+        workspace/
 ```
 
 `output.json` is a manifest. Its `trials` object maps IDs to relative trial JSON
@@ -52,6 +64,23 @@ do not assume every metadata path relocates automatically.
 Standalone `scenario run` writes a different output: `{id, results}`, with
 entries containing `trial: {id}` and an embedded `result`. Do not parse it as a
 benchmark/experiment manifest.
+
+Each failed attempt writes `failure.json` before the error is returned or
+retried. It records the trial ID, attempt and retry limit, current lifecycle
+phase, timeout versus execution failure, timestamps, error name/message, and
+artifact paths. Agent Eval also makes a best-effort workspace capture while
+excluding common generated directories. A timeout may interrupt that capture;
+check `artifactCaptureErrors` rather than assuming the workspace is complete.
+Successful retries do not delete evidence from earlier failed attempts.
+
+Before trial artifacts are written to the host, Agent Eval replaces exact
+occurrences of the active Copilot token with `[REDACTED]`. The same replacement
+is applied to returned result strings and failure messages. Known credential
+files are omitted from saved Copilot configuration. Check `redactionApplied` on
+successful artifact metadata or failure records to determine whether an exact
+replacement occurred. This is a narrow safeguard, not a general secret
+scanner: fixtures and agents must still avoid writing unrelated credentials
+into workspaces.
 
 The package root exposes schemas including `BenchmarkOutputFileSchema`,
 `BenchmarkTrialOutputSchema`, `ExperimentOutputFileSchema`, and

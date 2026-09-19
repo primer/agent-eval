@@ -72,7 +72,6 @@ type RunPlanOptions<T extends Trial> = {
   copilotConcurrency: number
   containerConcurrency: number
   copilotToken: string
-  dockerImage: string
   host?: Host
   plan: Plan<T>
 }
@@ -86,7 +85,6 @@ async function runPlan<T extends Trial>({
   copilotConcurrency,
   containerConcurrency,
   copilotToken,
-  dockerImage,
   host = DefaultHost,
   plan,
 }: RunPlanOptions<T>): Promise<RunPlanResult<T>> {

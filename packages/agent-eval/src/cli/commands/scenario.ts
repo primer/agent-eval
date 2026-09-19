@@ -1,4 +1,5 @@
 import path from 'node:path'
+import Docker from 'dockerode'
 import {defineCommand} from 'citty'
 import {DefaultHost as host} from '../../host'
 import {logger} from '../../logger'
@@ -16,16 +17,9 @@ import {
 } from '../options'
 import {getScenario} from '../../scenario/get'
 import {createScenarioPlan} from '../../scenario/plan'
+import {buildScenarioImage} from '../../scenario/scenario'
 import {runPlan} from '../../plan'
 import type {RunTrialResult} from '../../trial/run'
-
-// Docker stuff
-import fs from 'node:fs/promises'
-import {randomUUID} from 'node:crypto'
-import Docker from 'dockerode'
-import {buildScenarioImage, getScenarioIgnoreFiles, getScenarioImageTag} from '../../scenario/scenario'
-import tarStream from 'tar-stream'
-import {listScenarios} from '../../scenario/list'
 
 const scenarioCommand = defineCommand({
   meta: {
@@ -144,7 +138,6 @@ const scenarioCommand = defineCommand({
         },
         'copilot-concurrency': copilotConcurrencyOption,
         'container-concurrency': containerConcurrencyOption,
-        'docker-image': dockerImageOption,
         name: {
           type: 'positional',
           description: 'The name of the scenario',
@@ -203,7 +196,6 @@ const scenarioCommand = defineCommand({
           copilotConcurrency,
           containerConcurrency,
           copilotToken,
-          dockerImage: args['docker-image'],
           plan,
         })
 

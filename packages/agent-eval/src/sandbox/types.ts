@@ -80,7 +80,7 @@ type CustomAgentOptions = {
 
 interface Sandbox {
   /**
-   * Stops and removes the sandbox container.
+   * Force-removes the sandbox container, rejecting if cleanup is unresolved after 30 seconds.
    */
   [Symbol.asyncDispose](): Promise<void>
 

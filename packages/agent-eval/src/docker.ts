@@ -3,8 +3,10 @@ import Docker from 'dockerode'
 import tarStream from 'tar-stream'
 import {logger} from './logger'
 import {createHash} from 'node:crypto'
+import {withDeadline} from './deadline'
 
 const docker = new Docker()
+const CLEANUP_TIMEOUT_MS = 30_000
 
 type ImageBuildOptions = Omit<Docker.ImageBuildOptions, 't'> & {t: string}
 
@@ -110,7 +112,7 @@ function getImageReference({name, ...rest}: GetImageReferenceOptions) {
   return `${name}:${tag}`
 }
 
-const activeContainers = new Set<RunningContainer>()
+const activeContainers = new Set<Docker.Container>()
 const removedContainers = new WeakSet<Docker.Container>()
 const pendingRemovals = new WeakMap()
 
@@ -142,7 +144,7 @@ async function cleanupActiveContainers() {
   }
 }
 
-async function removeContainer(container: RunningContainer) {
+async function removeContainer(container: Docker.Container) {
   if (removedContainers.has(container)) {
     return
   }
@@ -154,9 +156,12 @@ async function removeContainer(container: RunningContainer) {
 
   const remove = async () => {
     try {
-      await container.remove({
-        force: true,
-      })
+      await withDeadline(
+        async abortSignal => {
+          await container.remove({force: true, abortSignal})
+        },
+        {timeoutMs: CLEANUP_TIMEOUT_MS, description: `Removing container "${container.id}"`},
+      )
     } catch (error) {
       if (!isDockerNotFoundError(error)) {
         throw error
@@ -233,9 +238,7 @@ async function createContainer({image, ...rest}: CreateContainerOptions): Promis
     return container as RunningContainer
   } catch (error) {
     try {
-      await container.remove({
-        force: true,
-      })
+      await removeContainer(container)
     } catch (cleanupError) {
       throw new AggregateError([error, cleanupError], 'Failed to initialize and remove container', {
         cause: cleanupError,

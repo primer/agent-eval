@@ -25,6 +25,9 @@ and a `node` user; the harness layers its tools on top.
 
 ## Methods
 
+Disposal force-removes the container with a 30-second deadline. A timeout is an
+infrastructure error, not confirmation that Docker removed the container.
+
 Use the sandbox supplied to hooks; its runtime implementations are internal.
 
 | Method                | Purpose                                                                      |

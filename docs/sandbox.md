@@ -5,6 +5,11 @@ a sandboxed environment. This helps to prevent the agent from accessing the host
 
 The sandbox is used in [experiments](./experiments.md) and [benchmarks](./benchmarks.md) to provide a consistent environment for the agent to run in.
 
+Container disposal force-removes the container with a 30-second deadline. If
+Docker does not confirm removal in time, cleanup is reported as an infrastructure
+error. Cancelling the request does not guarantee that Docker stopped processing it
+or that the container was removed.
+
 The [`Sandbox` interface](../packages/agent-eval/src/sandbox/types.ts) provides the following methods:
 
 | Method                | Description                                                                   |

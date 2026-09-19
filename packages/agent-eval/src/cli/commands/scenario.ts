@@ -6,7 +6,6 @@ import {logger} from '../../logger'
 import {
   copilotConcurrencyOption,
   containerConcurrencyOption,
-  dockerImageOption,
   getConcurrencyValue,
   getCopilotToken,
   getOutputPath,

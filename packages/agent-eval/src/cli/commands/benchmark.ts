@@ -6,7 +6,6 @@ import {
   benchmarksOption,
   copilotConcurrencyOption,
   containerConcurrencyOption,
-  dockerImageOption,
   getConcurrencyValue,
   getOutputPath,
   githubCopilotTokenOption,

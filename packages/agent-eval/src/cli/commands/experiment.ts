@@ -16,7 +16,6 @@ import {parseShard} from '../../shard'
 import {
   copilotConcurrencyOption,
   containerConcurrencyOption,
-  dockerImageOption,
   experimentsOption,
   getConcurrencyValue,
   getCopilotToken,

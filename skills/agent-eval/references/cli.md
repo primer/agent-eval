@@ -13,19 +13,20 @@ Image commands require Docker but not a Copilot token.
 
 ## Commands
 
-| Command                         | Purpose                          |
-| :------------------------------ | :------------------------------- |
-| `benchmark run <name>`          | Run a benchmark directly         |
-| `benchmark plan create <name>`  | Write a benchmark plan           |
-| `benchmark plan run`            | Execute a saved benchmark plan   |
-| `benchmark merge`               | Merge benchmark shard results    |
-| `experiment run <name>`         | Run an experiment directly       |
-| `experiment plan create <name>` | Write an experiment plan         |
-| `experiment plan run`           | Execute a saved experiment plan  |
-| `experiment merge`              | Merge experiment shard results   |
-| `scenario run <name>`           | Run one scenario                 |
-| `scenario image build <name>`   | Build a scenario workspace image |
-| `scenario image clean [name]`   | Remove local agent-eval images   |
+| Command                           | Purpose                                 |
+| :-------------------------------- | :-------------------------------------- |
+| `benchmark run <name>`            | Run a benchmark directly                |
+| `benchmark plan create <name>`    | Write a benchmark plan                  |
+| `benchmark plan run`              | Execute a saved benchmark plan          |
+| `benchmark merge`                 | Merge benchmark shard results           |
+| `experiment run <name>`           | Run an experiment directly              |
+| `experiment plan create <name>`   | Write an experiment plan                |
+| `experiment plan run`             | Execute a saved experiment plan         |
+| `experiment merge`                | Merge experiment shard results          |
+| `scenario run <name>`             | Run one scenario                        |
+| `scenario image build <name>`     | Build a scenario workspace image        |
+| `scenario image clean [name]`     | Remove local agent-eval images          |
+| `container clean --run-id <uuid>` | Recover containers from an inactive run |
 
 Use singular `benchmark`, `experiment`, and `scenario`. There is no CLI
 scaffolding command; create files with the appropriate `defineConfig` helper.
@@ -91,6 +92,16 @@ including older builds. **Omitting the name also targets all local agent-eval
 scenario, sandbox, and tools images across projects.** Cleanup accepts
 `--scenarios` but does not use it to restrict removal. It forces image removal
 but does not stop running containers.
+
+## Container recovery
+
+Runs log their UUID and save it in `run-<id>.json` in the output directory.
+After the original process exits, use
+`npx agent-eval container clean --run-id <uuid>` from the same host, user, and
+process namespace, against the same Docker daemon. This needs Docker but no
+Copilot token. Recovery only targets matching owned containers whose original
+PID is confirmed absent. It refuses uncertain ownership and does not target
+unlabelled containers from older releases.
 
 ## Command templates
 

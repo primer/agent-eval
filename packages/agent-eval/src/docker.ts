@@ -4,6 +4,7 @@ import tarStream from 'tar-stream'
 import {logger} from './logger'
 import {createHash} from 'node:crypto'
 import {withDeadline} from './deadline'
+import {containerLabels, isRecoverableContainer, parseRunId, recoveryFilters} from './container-ownership'
 
 const docker = new Docker()
 const CLEANUP_TIMEOUT_MS = 30_000
@@ -215,6 +216,8 @@ const terminationHandlers = {
 
 type CreateContainerOptions = Omit<Docker.ContainerCreateOptions, 'Image'> & {
   image: ImageBuild
+  runId?: string
+  trialId?: string
 }
 
 const RUNNING_CONTAINER: unique symbol = Symbol('RUNNING_CONTAINER')
@@ -223,12 +226,16 @@ type RunningContainer = Docker.Container & {
   readonly [RUNNING_CONTAINER]: true
 }
 
-async function createContainer({image, ...rest}: CreateContainerOptions): Promise<RunningContainer> {
+async function createContainer({image, runId, trialId, ...rest}: CreateContainerOptions): Promise<RunningContainer> {
   const container = await docker.createContainer({
     Image: image.tagName,
     Cmd: ['sleep', 'infinity'],
     Tty: true,
     ...rest,
+    Labels: {
+      ...rest.Labels,
+      ...containerLabels(runId, trialId),
+    },
     HostConfig: {
       AutoRemove: true,
       ...rest.HostConfig,
@@ -249,6 +256,42 @@ async function createContainer({image, ...rest}: CreateContainerOptions): Promis
     }
     throw error
   }
+}
+
+async function recoverContainers(input: unknown): Promise<{removed: Array<string>; skipped: Array<string>}> {
+  const runId = parseRunId(input)
+  const containers = await withDeadline(
+    async abortSignal => {
+      return docker.listContainers({all: true, filters: {label: recoveryFilters(runId)}, abortSignal})
+    },
+    {timeoutMs: CLEANUP_TIMEOUT_MS, description: `Listing containers for run "${runId}"`},
+  )
+  const removed: Array<string> = []
+  const skipped: Array<string> = []
+  const errors: Array<Error> = []
+  for (const container of containers) {
+    try {
+      if (!isRecoverableContainer(container.Labels, runId)) {
+        skipped.push(container.Id)
+        logger.warn(
+          {containerId: container.Id, runId},
+          'Skipping container whose inactive ownership could not be confirmed',
+        )
+        continue
+      }
+      await removeContainer(docker.getContainer(container.Id))
+      removed.push(container.Id)
+      logger.info({containerId: container.Id, runId}, 'Removed leftover container')
+    } catch (cause) {
+      const error = new Error(`Failed to recover container "${container.Id}"`, {cause})
+      errors.push(error)
+      logger.error({err: error, containerId: container.Id, runId}, 'Container recovery failed')
+    }
+  }
+  if (errors.length > 0) {
+    throw new AggregateError(errors, 'Some containers could not be recovered')
+  }
+  return {removed, skipped}
 }
 
 type CommandResult = {
@@ -318,5 +361,14 @@ async function exec({container, ...rest}: ExecOptions): Promise<CommandResult> {
   })
 }
 
-export {createContainer, removeContainer, buildImage, buildImageFromDockerfile, exec, getImageTag, getImageReference}
+export {
+  createContainer,
+  removeContainer,
+  recoverContainers,
+  buildImage,
+  buildImageFromDockerfile,
+  exec,
+  getImageTag,
+  getImageReference,
+}
 export type {ImageBuild, RunningContainer}

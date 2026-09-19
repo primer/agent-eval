@@ -18,6 +18,24 @@ budget is full. If cleanup exhausts its retries, new container admission stops;
 already-started trials finish and their results are saved before the CLI reports
 an infrastructure error.
 
+## Recovering leftover containers
+
+Each run logs its UUID and writes `run-<id>.json` into its output directory.
+After the owning evaluation process exits, recover its leftover containers with:
+
+```sh
+npx agent-eval container clean --run-id <run-uuid>
+```
+
+Run recovery from the same host, user, and process namespace used for evaluation,
+against the same Docker daemon. It only targets containers labelled for that
+host/user and exact run, and removes them only when the owning PID is confirmed
+absent. Live, permission-inaccessible, or reused PIDs are skipped. Containers
+from older releases without ownership labels are not targeted.
+
+Explicit removal is the primary cleanup mechanism; Docker's auto-removal is a
+fallback. Recovery does not prune images, unrelated containers, or volumes.
+
 The [`Sandbox` interface](../packages/agent-eval/src/sandbox/types.ts) provides the following methods:
 
 | Method                | Description                                                                   |

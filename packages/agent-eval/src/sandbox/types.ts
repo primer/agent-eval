@@ -25,6 +25,8 @@ type CommandResult = {
 type SandboxCreateOptions = {
   dockerImage?: ImageBuild
   host?: Host
+  runId?: string
+  trialId?: string
 }
 
 type CustomAgentCopiedFile = {

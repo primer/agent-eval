@@ -56,6 +56,8 @@ class SystemSandbox implements Sandbox {
     logger.info('Creating container: %s', sandboxImage.tagName)
     const container = await createContainer({
       image: sandboxImage,
+      runId: options.runId,
+      trialId: options.trialId,
     })
 
     return new SystemSandbox(options.host ?? DefaultHost, container)

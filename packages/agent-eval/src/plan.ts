@@ -1,5 +1,6 @@
 import Queue from 'p-queue'
 import path from 'node:path'
+import {randomUUID} from 'node:crypto'
 import type {CopilotRunner} from './copilot-runner'
 import {DefaultHost, type Host} from './host'
 import {logger} from './logger'
@@ -91,6 +92,15 @@ async function runPlan<T extends Trial>({
   host = DefaultHost,
   plan,
 }: RunPlanOptions<T>): Promise<RunPlanResult<T>> {
+  const runId = randomUUID()
+  const outputDirectory = path.dirname(artifactsDirectory)
+  await host.fs.mkdir(outputDirectory, {recursive: true})
+  await host.fs.writeFile(
+    path.join(outputDirectory, `run-${runId}.json`),
+    JSON.stringify({id: runId}, null, 2),
+    'utf-8',
+  )
+  logger.info({runId}, 'Starting evaluation run')
   logger.debug(
     'Running plan with %s trials: %o',
     plan.trials.length,
@@ -115,7 +125,7 @@ async function runPlan<T extends Trial>({
             scenario: trial.scenario,
           })
           const sandbox = await cleanupQueue.create(() => {
-            return host.createSandbox({dockerImage})
+            return host.createSandbox({dockerImage, runId, trialId: trial.id})
           })
           let outcome: {type: 'completed'; result: RunTrialResult} | {type: 'failed'; error: unknown}
           let cleanup: Promise<boolean>

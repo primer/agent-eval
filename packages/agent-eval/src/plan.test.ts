@@ -114,7 +114,7 @@ test('does not rerun a completed trial when persisting its result fails', async 
   const sandbox = await host.createSandbox()
   vi.spyOn(host, 'createSandbox').mockResolvedValue(sandbox)
   const dispose = vi.spyOn(sandbox, Symbol.asyncDispose)
-  vi.spyOn(host.fs, 'writeFile').mockRejectedValue(new Error('Disk full'))
+  vi.spyOn(host.fs, 'writeFile').mockResolvedValueOnce(undefined).mockRejectedValue(new Error('Disk full'))
   const output = await runPlan(options)
   expect(output.errors).toHaveLength(1)
   expect(runTrial).toHaveBeenCalledTimes(1)

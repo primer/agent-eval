@@ -1,6 +1,8 @@
 import Docker from 'dockerode'
+import {randomUUID} from 'node:crypto'
 import {afterEach, expect, test, vi} from 'vitest'
-import {createContainer, removeContainer} from './docker'
+import {createContainer, recoverContainers, removeContainer} from './docker'
+import {containerLabels} from './container-ownership'
 
 afterEach(() => {
   vi.restoreAllMocks()
@@ -86,4 +88,83 @@ test('keeps unresolved containers registered for signal cleanup', async () => {
   remove.mockResolvedValue(undefined)
   await removeContainer(container)
   expect(process.listenerCount('SIGTERM')).toBe(listeners)
+})
+
+function containerInfo(id: string, labels: Record<string, string>): Docker.ContainerInfo {
+  return {
+    Id: id,
+    Names: [],
+    Image: 'example',
+    ImageID: '',
+    Command: 'sleep infinity',
+    Created: 0,
+    Ports: [],
+    Labels: labels,
+    State: 'running',
+    Status: 'Up',
+    HostConfig: {NetworkMode: 'default'},
+    NetworkSettings: {Networks: {}},
+    Mounts: [],
+  }
+}
+
+test('recovery independently checks ownership and removes only inactive containers for the requested run', async () => {
+  const runId = randomUUID()
+  const labels = containerLabels(runId)
+  vi.spyOn(Docker.prototype, 'listContainers').mockResolvedValue([
+    containerInfo('owned', labels),
+    containerInfo('foreign', {...labels, 'io.primer.agent-eval.owner': 'foreign'}),
+    containerInfo('other-run', containerLabels(randomUUID())),
+    containerInfo('live', {...labels, 'io.primer.agent-eval.pid': '123'}),
+  ])
+  vi.spyOn(process, 'kill').mockImplementation(pid => {
+    if (pid === 123) {
+      return true
+    }
+    throw Object.assign(new Error('Absent'), {code: 'ESRCH'})
+  })
+  const removed = new Docker().getContainer('owned')
+  const getContainer = vi.spyOn(Docker.prototype, 'getContainer').mockReturnValue(removed)
+  const remove = vi.spyOn(removed, 'remove').mockResolvedValue(undefined)
+  expect(await recoverContainers(runId)).toEqual({removed: ['owned'], skipped: ['foreign', 'other-run', 'live']})
+  expect(getContainer).toHaveBeenCalledExactlyOnceWith('owned')
+  expect(remove).toHaveBeenCalledTimes(1)
+})
+
+test('adds ownership labels without allowing callers to override them', async () => {
+  const container = new Docker().getContainer('labelled')
+  const create = vi.spyOn(Docker.prototype, 'createContainer').mockResolvedValue(container)
+  vi.spyOn(container, 'start').mockResolvedValue(undefined)
+  vi.spyOn(container, 'remove').mockResolvedValue(undefined)
+  const runId = randomUUID()
+  await createContainer({
+    image: {tagName: 'example'},
+    runId,
+    trialId: 'trial',
+    Labels: {'io.primer.agent-eval.owner': 'override', custom: 'kept'},
+  })
+  expect(create).toHaveBeenCalledWith(
+    expect.objectContaining({
+      Labels: {...containerLabels(runId, 'trial'), custom: 'kept'},
+    }),
+  )
+  await removeContainer(container)
+})
+
+test('reports recovery errors while continuing cleanup of other owned containers', async () => {
+  const runId = randomUUID()
+  vi.spyOn(Docker.prototype, 'listContainers').mockResolvedValue([
+    containerInfo('failed', containerLabels(runId)),
+    containerInfo('removed', containerLabels(runId)),
+  ])
+  vi.spyOn(process, 'kill').mockImplementation(() => {
+    throw Object.assign(new Error('Absent'), {code: 'ESRCH'})
+  })
+  const failed = new Docker().getContainer('failed')
+  const removed = new Docker().getContainer('removed')
+  vi.spyOn(Docker.prototype, 'getContainer').mockReturnValueOnce(failed).mockReturnValueOnce(removed)
+  vi.spyOn(failed, 'remove').mockRejectedValue(new Error('Docker error'))
+  const remove = vi.spyOn(removed, 'remove').mockResolvedValue(undefined)
+  await expect(recoverContainers(runId)).rejects.toThrow('Some containers could not be recovered')
+  expect(remove).toHaveBeenCalledTimes(1)
 })

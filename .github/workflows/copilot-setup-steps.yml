@@ -20,7 +20,7 @@ jobs:
       - name: set up gh-aw
         uses: github/gh-aw-actions/setup-cli@8e14d3d3690a1555482792fa1540493828a40d16 # v0.89.9
         with:
-          version: v0.88.4
+          version: v0.89.9
       - name: set up pnpm
         uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
         with:

@@ -111,6 +111,11 @@ test.each([undefined, 'copilot-cli', 'copilot-sdk'] as const)(
     })
 
     expect(taskCalls).toBe(1)
+    expect(sandbox.runCommand).toHaveBeenCalledWith(
+      'npm',
+      ['install', '-g', '--prefix', '/home/node/.npm-global', '--allow-scripts=agent-browser', 'agent-browser'],
+      {user: '1000:1000'},
+    )
     expect(checkRun).toHaveBeenCalledOnce()
     expect(result.checks[0]?.result).toEqual({
       type: 'outcomes',

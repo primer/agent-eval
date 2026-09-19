@@ -424,18 +424,9 @@ const captureStage = {
   async run({copilotQueue, copilotToken, sandbox, trial}: CaptureStageOptions) {
     logger.info('[%s] Capturing walkthrough', trial.id)
 
-    // By default, a global install requires ROOT so we give agent-browser  a
-    // local executable to use
     await sandbox.runCommand(
       'npm',
-      [
-        'install',
-        '-g',
-        '--prefix',
-        '/home/node/.local/share/agent-eval/tools',
-        '--allow-scripts=agent-browser',
-        'agent-browser',
-      ],
+      ['install', '-g', '--prefix', '/home/node/.npm-global', '--allow-scripts=agent-browser', 'agent-browser'],
       {
         user: NODE_USER,
       },

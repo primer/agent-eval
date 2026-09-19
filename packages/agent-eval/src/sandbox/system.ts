@@ -204,7 +204,6 @@ class SystemSandbox implements Sandbox {
       env: {
         HOME: options?.user === 'root' ? '/root' : '/home/node',
         ...options?.env,
-        // PATH: `${NPM_GLOBAL_DIR}/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin`,
       },
       user: options?.user ?? NODE_USER,
       allowNonZeroExitCode: options?.allowNonZeroExitCode,

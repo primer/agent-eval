@@ -7,7 +7,7 @@ import {isPathInside} from '../path'
 import {DefaultHost, type Host} from '../host'
 import {logger} from '../logger'
 import {TreatmentSetupSchema, type TreatmentSetup} from '../treatment'
-import {NODE_USER} from '../sandbox'
+import {DEFAULT_DOCKER_IMAGE, NODE_USER} from '../sandbox/constants'
 import {buildImage, getImageReference, type ImageBuild} from '../docker'
 
 type Scenario = {
@@ -93,7 +93,7 @@ type BuildScenarioImageOptions = {
   scenario: Scenario
 }
 
-const DEFAULT_DOCKERFILE = `FROM node:26.5.0-slim
+const DEFAULT_DOCKERFILE = `FROM ${DEFAULT_DOCKER_IMAGE}
 
 RUN apt-get update \\
   && apt-get install -y --no-install-recommends ca-certificates chromium curl git \\
@@ -133,9 +133,11 @@ async function buildScenarioImage({host = DefaultHost, scenario}: BuildScenarioI
 
   const build = async () => {
     const dockerfileContents = await getDockerfileContents(host, scenario)
+    const contextDirectory = scenario.image.type === 'Build' ? scenario.image.context : scenario.directory
     const imageTag = getImageReference({
       name: `agent-eval/scenarios/${scenario.id}`,
       dockerfile: dockerfileContents,
+      context: path.resolve(contextDirectory),
     })
 
     logger.info('Building image: %s', imageTag)
@@ -153,24 +155,17 @@ async function buildScenarioImage({host = DefaultHost, scenario}: BuildScenarioI
         return ignoreFile.filepath
       }),
     )
-    const context = tarFs.pack(
-      scenario.image.type === 'Default'
-        ? scenario.directory
-        : scenario.image.type === 'Reference'
-          ? scenario.directory
-          : scenario.image.context,
-      {
-        finalize: false,
-        ignore(filepath) {
-          return ignored.has(filepath)
-        },
-        finish(pack) {
-          pack.entry({name: 'Dockerfile'}, dockerfileContents)
-          pack.entry({name: '.dockerignore'}, `Dockerfile\n.dockerignore\n`)
-          pack.finalize()
-        },
+    const context = tarFs.pack(contextDirectory, {
+      finalize: false,
+      ignore(filepath) {
+        return ignored.has(filepath)
       },
-    )
+      finish(pack) {
+        pack.entry({name: 'Dockerfile'}, dockerfileContents)
+        pack.entry({name: '.dockerignore'}, `Dockerfile\n.dockerignore\n`)
+        pack.finalize()
+      },
+    })
 
     return await buildImage(context, {
       t: imageTag,

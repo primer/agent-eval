@@ -86,11 +86,11 @@ the starting workspace, not the final sandbox with Copilot tools. It does not
 run setup callbacks, the agent, checks, or judges. Evaluation runs build images
 automatically; manual builds are optional and can reuse Docker's build cache.
 
-Named cleanup targets local images tagged `agent-eval/scenario/<name>:`,
+Named cleanup targets local images tagged `agent-eval/scenarios/<name>:`,
 including older builds. **Omitting the name also targets all local agent-eval
 scenario, sandbox, and tools images across projects.** Cleanup accepts
-`--scenarios` but does not use it to restrict removal. It does not force removal
-or stop containers; Docker can refuse to remove images still in use.
+`--scenarios` but does not use it to restrict removal. It forces image removal
+but does not stop running containers.
 
 ## Command templates
 

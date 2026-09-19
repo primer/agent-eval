@@ -12,7 +12,7 @@ COPY --from=tools /opt/agent-eval /opt/agent-eval
 USER root
 
 RUN apt-get update \
-    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates chromium git \
     && rm -rf /var/lib/apt/lists/*
 
 RUN mkdir -p \\

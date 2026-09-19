@@ -64,14 +64,19 @@ async function buildImageFromDockerfile(dockerfile: string, options: ImageBuildO
 
 type GetImageTagOptions = {
   dockerfile: string
+  context?: string
   buildargs?: Record<string, string | undefined>
   files?: Record<string, string | Buffer | undefined>
 }
 
-function getImageTag({dockerfile, buildargs, files}: GetImageTagOptions): string {
+function getImageTag({dockerfile, context, buildargs, files}: GetImageTagOptions): string {
   const hash = createHash('sha256')
 
   hash.update(dockerfile).update('\0')
+
+  if (context !== undefined) {
+    hash.update(context).update('\0')
+  }
 
   if (buildargs) {
     for (const [key, value] of Object.entries(buildargs).sort(([a], [b]) => a.localeCompare(b))) {
@@ -183,7 +188,7 @@ const terminationHandlers = {
   SIGINT: () => {
     cleanupActiveContainers()
       .catch(error => {
-        logger.error({error}, 'Failed to clean up containers during termination')
+        logger.error({err: error}, 'Failed to clean up containers during termination')
       })
       .finally(() => {
         process.exit(130)
@@ -192,7 +197,7 @@ const terminationHandlers = {
   SIGTERM: () => {
     cleanupActiveContainers()
       .catch(error => {
-        logger.error({error}, 'Failed to clean up containers during termination')
+        logger.error({err: error}, 'Failed to clean up containers during termination')
       })
       .finally(() => {
         process.exit(143)

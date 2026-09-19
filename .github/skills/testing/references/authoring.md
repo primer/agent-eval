@@ -21,10 +21,12 @@
 
 - Import `test` and `expect` from `vitest`; use `test`, not `it`.
 - Name the operation and expected behavior so a failure is understandable alone.
+  Describe the behavior, not incidental fixture values such as filenames.
 - Keep setup, action, and assertions in that order, separated by blank lines.
 - Test one behavior per case; multiple assertions can describe that behavior.
-- Use `test.each` for the same behavior across inputs, with identifiable case
-  names. Keep unrelated behaviors in separate tests.
+- Prefer separate, behavior-named tests. Use `test.each` for a meaningful input
+  matrix, not just to reduce repeated setup. Give each case a descriptive name
+  rather than making readers interpret raw inputs in the title.
 - Create fresh state per test. Keep relevant setup visible instead of hiding
   it in nested hooks or shared mutable fixtures.
 - Await async work and assertions. Dispose resources even when assertions fail.

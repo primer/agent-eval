@@ -7,22 +7,25 @@
 Run from your evaluation project's root with `npx agent-eval`. Names are
 configuration filenames without extensions for benchmarks/experiments and
 folder names for scenarios, not display names or paths to `.ts` files.
-Use a fresh output directory per run. Execution requires Docker and
+Use a fresh output directory per run. Evaluation runs require Docker and
 `COPILOT_GITHUB_TOKEN` or `--token`; planning and merge do not require a token.
+Image commands require Docker but not a Copilot token.
 
 ## Commands
 
-| Command                         | Purpose                         |
-| :------------------------------ | :------------------------------ |
-| `benchmark run <name>`          | Run a benchmark directly        |
-| `benchmark plan create <name>`  | Write a benchmark plan          |
-| `benchmark plan run`            | Execute a saved benchmark plan  |
-| `benchmark merge`               | Merge benchmark shard results   |
-| `experiment run <name>`         | Run an experiment directly      |
-| `experiment plan create <name>` | Write an experiment plan        |
-| `experiment plan run`           | Execute a saved experiment plan |
-| `experiment merge`              | Merge experiment shard results  |
-| `scenario run <name>`           | Run one scenario                |
+| Command                         | Purpose                          |
+| :------------------------------ | :------------------------------- |
+| `benchmark run <name>`          | Run a benchmark directly         |
+| `benchmark plan create <name>`  | Write a benchmark plan           |
+| `benchmark plan run`            | Execute a saved benchmark plan   |
+| `benchmark merge`               | Merge benchmark shard results    |
+| `experiment run <name>`         | Run an experiment directly       |
+| `experiment plan create <name>` | Write an experiment plan         |
+| `experiment plan run`           | Execute a saved experiment plan  |
+| `experiment merge`              | Merge experiment shard results   |
+| `scenario run <name>`           | Run one scenario                 |
+| `scenario image build <name>`   | Build a scenario workspace image |
+| `scenario image clean [name]`   | Remove local agent-eval images   |
 
 Use singular `benchmark`, `experiment`, and `scenario`. There is no CLI
 scaffolding command; create files with the appropriate `defineConfig` helper.
@@ -33,6 +36,8 @@ npx agent-eval --help
 npx agent-eval experiment run --help
 npx agent-eval benchmark plan create --help
 npx agent-eval scenario run --help
+npx agent-eval scenario image build --help
+npx agent-eval scenario image clean --help
 ```
 
 ## Options by scope
@@ -41,7 +46,7 @@ npx agent-eval scenario run --help
 | :-------------------------------- | :------------------------------------------------ |
 | `--benchmarks <dir>`              | Benchmark run and plan commands; `./benchmarks`   |
 | `--experiments <dir>`             | Experiment run and plan commands; `./experiments` |
-| `--scenarios <dir>`               | Run and plan commands; `./scenarios`              |
+| `--scenarios <dir>`               | Run, plan, and image build; `./scenarios`         |
 | `--output-dir <dir>`              | Run, plan run, and merge; `./results`             |
 | `--output-path <file>`            | Plan create only; `plan.json`                     |
 | `--plan-path <file>`              | Plan run only; `./plan.json`                      |
@@ -63,10 +68,29 @@ dimension on new runs/plans but only filters trials in an existing plan.
 There is no `--model` or `--repeat` option; configure model variants and repeat
 commands with unique output directories.
 
-The CLI requires `--token` or `COPILOT_GITHUB_TOKEN` for execution. Host Copilot
+The CLI requires `--token` or `COPILOT_GITHUB_TOKEN` for evaluation runs. Host Copilot
 login alone does not satisfy this check. Plan creation and merge do not require
 a token. Avoid putting token values on command lines, in logs, or in shell
 history.
+
+## Scenario images
+
+```sh
+npx agent-eval scenario image build 001-labels
+npx agent-eval scenario image build 001-labels --scenarios ./fixtures
+npx agent-eval scenario image clean 001-labels
+```
+
+Build uses the scenario's `image` configuration or the default image. It builds
+the starting workspace, not the final sandbox with Copilot tools. It does not
+run setup callbacks, the agent, checks, or judges. Evaluation runs build images
+automatically; manual builds are optional and can reuse Docker's build cache.
+
+Named cleanup targets local images tagged `agent-eval/scenario/<name>:`,
+including older builds. **Omitting the name also targets all local agent-eval
+scenario, sandbox, and tools images across projects.** Cleanup accepts
+`--scenarios` but does not use it to restrict removal. It does not force removal
+or stop containers; Docker can refuse to remove images still in use.
 
 ## Command templates
 

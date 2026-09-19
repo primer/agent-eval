@@ -105,9 +105,72 @@ Judges run after the agent completes the task and return a score with a rational
 
 Check files and judge reference files must stay inside the scenario directory, including after resolving symlinks. Referenced entries must not themselves be symlinks.
 
+### Image
+
+Use `image` to customize the environment where a scenario runs. This is useful when a task needs a different Node.js version, additional system packages, or dependencies installed ahead of time.
+
+If you omit `image`, agent-eval uses its default Node.js image, copies in the scenario files, and runs the default setup to install dependencies and build the starting project.
+
+#### Use an existing image
+
+Provide an image reference to use as the base for the scenario:
+
+```ts
+import {defineConfig} from '@primer/agent-eval/scenario'
+
+export default defineConfig({
+  prompt: 'Add a search feature that filters the list of projects by name.',
+  image: 'node:26-slim',
+})
+```
+
+You can also write this as `image: {name: 'node:26-slim'}`. Agent-eval copies the scenario files into `/home/sandbox/workspace` on top of that image.
+
+#### Build from a Dockerfile
+
+Provide a Dockerfile to control how the starting workspace is built:
+
+```ts
+import {defineConfig} from '@primer/agent-eval/scenario'
+
+export default defineConfig({
+  prompt: 'Add a search feature that filters the list of projects by name.',
+  image: {
+    dockerfile: 'Dockerfile',
+    context: '.',
+  },
+})
+```
+
+Both paths are resolved relative to the scenario directory. Absolute paths are also supported. The build context defaults to the scenario directory when `context` is omitted.
+
+Your Dockerfile is responsible for copying the project into `/home/sandbox/workspace` and preparing it for the agent:
+
+```dockerfile
+FROM node:26-slim
+
+WORKDIR /home/sandbox/workspace
+
+COPY . .
+RUN npm install \
+    && npm run build --if-present
+```
+
+Files declared in a check's or judge's `files` option are excluded from the build context so they are not available to the implementation agent.
+
+#### Setup and compatibility
+
+Setting `image` disables the default scenario setup. Install dependencies and build the starting project in your Dockerfile or in a scenario `setup` callback. An explicit `setup` callback also replaces the default setup when `image` is omitted.
+
+Agent-eval adds its Copilot tools and sandbox configuration on top of the scenario image. The current sandbox expects a Debian-compatible base with `apt-get`, npm, and a `node` user and group with UID/GID `1000`. The Debian-based official Node.js images are a starting point; Alpine images are not supported by this setup.
+
 ## CLI
 
-You can run an individual scenario using the `scenario` subcommand of the `agent-eval` CLI:
+Use the `scenario` subcommand to run a scenario or manage its Docker images. Scenario names are folder names inside `./scenarios`. Use `--scenarios <directory>` to look up scenarios in a different directory.
+
+### Run a scenario
+
+Run an individual scenario:
 
 ```bash
 agent-eval scenario run 001-agent-scenario
@@ -115,4 +178,50 @@ agent-eval scenario run 001-agent-scenario
 
 Use `--check <check-name>` to select a specific check. To compare models or treatments across scenarios, include them in a benchmark or experiment.
 
-Use `agent-eval scenario --help` to see the available commands and options.
+### Build an image
+
+Build a scenario's image without running the agent, checks, or judges:
+
+```bash
+agent-eval scenario image build 001-agent-scenario
+```
+
+The command uses the scenario's `image` configuration, or the default image when none is configured. It builds the starting workspace image, not the final sandbox with Copilot tools, and does not run scenario `setup` callbacks.
+
+This is useful for checking a Dockerfile before starting an evaluation. Evaluation runs build the scenario image automatically, so this is an optional step. Both paths can reuse Docker's build cache.
+
+To build a scenario from another directory:
+
+```bash
+agent-eval scenario image build 001-agent-scenario --scenarios ./fixtures
+```
+
+### Remove images
+
+Remove locally tagged images for a specific scenario:
+
+```bash
+agent-eval scenario image clean 001-agent-scenario
+```
+
+This targets local images with tags matching `agent-eval/scenarios/001-agent-scenario:`, including older builds, rather than only the image for the current configuration.
+
+To clean up agent-eval images more broadly, omit the scenario name:
+
+```bash
+agent-eval scenario image clean
+```
+
+**This targets local scenario, sandbox, and shared tools images across projects.** Cleanup is based on image tags, not the scenarios directory, so `--scenarios` does not limit its scope. Prefer the named command when you only want to clean up one scenario.
+
+### Requirements and help
+
+Image commands require a running Docker daemon but do not require a Copilot token. Running an evaluation also requires `COPILOT_GITHUB_TOKEN` or `--token`.
+
+Use command-specific help to see the available options:
+
+```bash
+agent-eval scenario --help
+agent-eval scenario image build --help
+agent-eval scenario image clean --help
+```

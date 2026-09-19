@@ -40,6 +40,12 @@ experiments. Under-the-hood, we are going through each scenario and setting up a
 sandbox where the agent executes within. When all evaluations are complete, a
 result is returned detailing how each agent performed relative to each other.
 
+Completed trials are checkpointed to `artifacts/<trial-id>/trial-result.json`
+before sandbox cleanup. Cleanup failures do not rerun completed evaluations.
+The CLI saves completed results before exiting with an infrastructure error.
+The checkpoint contains the raw trial result, not the benchmark or experiment
+trial-file format.
+
 ## Benchmarks
 
 Benchmarks are used to establish a baseline for agent performance on a given task. By default, they live in a `benchmarks` folder in your project. You can create a benchmark by importing and using `defineConfig` from

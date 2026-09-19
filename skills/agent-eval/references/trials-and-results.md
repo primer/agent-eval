@@ -21,6 +21,12 @@ treatments. Each trial has its own ID, sandbox, execution, and evidence.
 4. Restore check files and execute checks.
 5. Run judges against their rubrics.
 6. Attempt visual walkthrough capture, then save artifacts.
+7. Save `artifacts/<trial-id>/trial-result.json` before disposing the sandbox.
+
+Cleanup failures do not rerun completed trials. The CLI writes completed results
+to its normal output bundle before reporting infrastructure errors with a nonzero
+exit status. If a run is interrupted during cleanup, `trial-result.json` is the
+raw trial checkpoint, not the benchmark/experiment trial-file format.
 
 The pre-task build does not verify the agent's finished implementation.
 Configure a check for that. The walkthrough is additional review evidence, not

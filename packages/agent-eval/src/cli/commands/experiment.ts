@@ -11,7 +11,7 @@ import {
 import {createExperimentPlan, createExperimentPlanManifest, parseExperimentPlanManifest} from '../../experiment/plan'
 import {DefaultHost as host} from '../../host'
 import {logger} from '../../logger'
-import {createPlanFromManifest, runPlan} from '../../plan'
+import {assertPlanSucceeded, createPlanFromManifest, runPlan} from '../../plan'
 import {parseShard} from '../../shard'
 import {
   copilotConcurrencyOption,
@@ -195,6 +195,7 @@ const experimentCommand = defineCommand({
             const output = createExperimentOutput({experiment: manifest.experiment, runPlanResult})
             await writeExperimentOutput({output, outputPath})
             process.stdout.write(`${createExperimentReport({experiment: manifest.experiment, runPlanResult})}\n`)
+            assertPlanSucceeded(runPlanResult)
           },
         }),
       },
@@ -259,6 +260,7 @@ const experimentCommand = defineCommand({
           outputPath,
         })
         process.stdout.write(`${createExperimentReport({experiment, runPlanResult})}\n`)
+        assertPlanSucceeded(runPlanResult)
       },
     }),
   },

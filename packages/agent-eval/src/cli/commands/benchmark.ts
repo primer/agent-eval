@@ -24,7 +24,7 @@ import {
   mergeBenchmarkOutputFiles,
   writeBenchmarkOutput,
 } from '../../benchmark/output'
-import {createPlanFromManifest, runPlan} from '../../plan'
+import {assertPlanSucceeded, createPlanFromManifest, runPlan} from '../../plan'
 import {DefaultHost as host} from '../../host'
 
 const benchmarkCommand = defineCommand({
@@ -220,6 +220,7 @@ const benchmarkCommand = defineCommand({
               outputPath,
             })
             process.stdout.write(`${createBenchmarkReport({benchmark: manifest.benchmark, runPlanResult})}\n`)
+            assertPlanSucceeded(runPlanResult)
           },
         }),
       },
@@ -290,6 +291,7 @@ const benchmarkCommand = defineCommand({
           outputPath,
         })
         process.stdout.write(`${createBenchmarkReport({benchmark, runPlanResult})}\n`)
+        assertPlanSucceeded(runPlanResult)
       },
     }),
   },

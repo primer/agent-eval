@@ -17,7 +17,7 @@ import {
 import {getScenario} from '../../scenario/get'
 import {createScenarioPlan} from '../../scenario/plan'
 import {buildScenarioImage} from '../../scenario/scenario'
-import {runPlan} from '../../plan'
+import {assertPlanSucceeded, runPlan} from '../../plan'
 import type {RunTrialResult} from '../../trial/run'
 
 const scenarioCommand = defineCommand({
@@ -194,7 +194,7 @@ const scenarioCommand = defineCommand({
           runner: args.runner,
         })
 
-        const {results} = await runPlan({
+        const runPlanResult = await runPlan({
           artifactsDirectory,
           copilotConcurrency,
           containerConcurrency,
@@ -214,7 +214,7 @@ const scenarioCommand = defineCommand({
 
         const output: ScenarioOutput = {
           id: scenario.id,
-          results: results.map(result => {
+          results: runPlanResult.results.map(result => {
             return {
               trial: {
                 id: result.trial.id,
@@ -228,6 +228,7 @@ const scenarioCommand = defineCommand({
           recursive: true,
         })
         await host.fs.writeFile(outputPath, JSON.stringify(output, null, 2), 'utf-8')
+        assertPlanSucceeded(runPlanResult)
       },
     }),
   },

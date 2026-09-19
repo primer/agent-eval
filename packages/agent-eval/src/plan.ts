@@ -1,4 +1,5 @@
 import Queue from 'p-queue'
+import path from 'node:path'
 import type {CopilotRunner} from './copilot-runner'
 import {DefaultHost, type Host} from './host'
 import {logger} from './logger'
@@ -78,6 +79,7 @@ type RunPlanOptions<T extends Trial> = {
 
 type RunPlanResult<T extends Trial> = {
   results: Array<{trial: T; result: RunTrialResult}>
+  errors?: Array<Error>
 }
 
 async function runPlan<T extends Trial>({
@@ -101,36 +103,81 @@ async function runPlan<T extends Trial>({
     concurrency: containerConcurrency,
   })
 
-  const results = await Promise.all(
+  const errors: Array<Error> = []
+  const settled = await Promise.allSettled(
     plan.trials.map(trial => {
-      return retry(() => {
-        return containerQueue.add(async () => {
+      return containerQueue.add(async () => {
+        for (let attempt = 0; attempt < 4; attempt++) {
           const dockerImage = await buildScenarioImage({
             host,
             scenario: trial.scenario,
           })
-          await using sandbox = await host.createSandbox({
+          const sandbox = await host.createSandbox({
             dockerImage,
           })
-          const result = await runTrial({
-            artifactsDirectory,
-            copilotQueue,
-            copilotToken,
-            host,
-            sandbox,
-            trial,
-          })
-          return {
-            trial,
-            result,
+          let outcome: {type: 'completed'; result: RunTrialResult} | {type: 'failed'; error: unknown}
+          let cleanupError: Error | undefined
+          try {
+            try {
+              const result = await runTrial({
+                artifactsDirectory,
+                copilotQueue,
+                copilotToken,
+                host,
+                sandbox,
+                trial,
+              })
+              outcome = {type: 'completed', result}
+            } catch (error) {
+              outcome = {type: 'failed', error}
+            }
+
+            if (outcome.type === 'completed') {
+              const directory = outcome.result.artifacts.directory
+              await host.fs.mkdir(directory, {recursive: true})
+              await host.fs.writeFile(
+                path.join(directory, 'trial-result.json'),
+                JSON.stringify(outcome.result, null, 2),
+                'utf-8',
+              )
+            }
+          } finally {
+            try {
+              await sandbox[Symbol.asyncDispose]()
+            } catch (cause) {
+              cleanupError = new Error(`Failed to clean up sandbox for trial "${trial.id}"`, {cause})
+              errors.push(cleanupError)
+              logger.error({err: cleanupError, trialId: trial.id}, 'Sandbox cleanup failed')
+            }
           }
-        })
+
+          if (outcome.type === 'completed') {
+            return {trial, result: outcome.result}
+          }
+          if (cleanupError || attempt === 3) {
+            throw new Error(`Trial "${trial.id}" failed`, {cause: outcome.error})
+          }
+          logger.error({err: outcome.error, trialId: trial.id}, 'Retrying trial')
+        }
+        throw new Error(`Trial "${trial.id}" exhausted its attempts`)
       })
     }),
   )
 
+  const results: RunPlanResult<T>['results'] = []
+  for (const result of settled) {
+    if (result.status === 'fulfilled') {
+      results.push(result.value)
+    } else {
+      const error = new Error('Trial execution failed', {cause: result.reason})
+      errors.push(error)
+      logger.error({err: error}, 'Trial execution failed')
+    }
+  }
+
   return {
     results,
+    errors,
   }
 }
 
@@ -146,17 +193,14 @@ function randomize<T>(input: Array<T>): Array<T> {
   return randomized
 }
 
-async function retry<T>(fn: () => Promise<T>, retries: number = 3): Promise<T> {
-  try {
-    return await fn()
-  } catch (error) {
-    if (retries > 0) {
-      logger.error({err: error}, 'Retrying')
-      return retry(fn, retries - 1)
-    }
-    throw error
+function assertPlanSucceeded(result: Pick<RunPlanResult<Trial>, 'errors'>): void {
+  if (result.errors?.length) {
+    throw new AggregateError(
+      result.errors,
+      'Evaluation encountered infrastructure errors; completed results were saved',
+    )
   }
 }
 
-export {createPlan, createPlanFromManifest, runPlan}
+export {assertPlanSucceeded, createPlan, createPlanFromManifest, runPlan}
 export type {Plan, RunPlanResult}

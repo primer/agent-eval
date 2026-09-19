@@ -48,3 +48,7 @@ updates:
       default-days: 7
     labels:
       - 'dependencies'
+    groups:
+      gh-aw:
+        patterns:
+          - 'github/gh-aw-actions/*'

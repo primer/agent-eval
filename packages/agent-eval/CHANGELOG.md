@@ -1,5 +1,11 @@
 # @primer/agent-eval
 
+## 0.8.0
+
+### Minor Changes
+
+- 773764a: Add support for "image" config option to scenarios for configuring custom docker images
+
 ## 0.7.1
 
 ### Patch Changes

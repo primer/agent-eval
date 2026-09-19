@@ -38,17 +38,38 @@ fallback. Recovery does not prune images, unrelated containers, or volumes.
 
 The [`Sandbox` interface](../packages/agent-eval/src/sandbox/types.ts) provides the following methods:
 
-| Method                | Description                                                                   |
-| :-------------------- | :---------------------------------------------------------------------------- |
-| `copy`                | Copies a host file or directory into the sandbox                              |
-| `download`            | Downloads a file or directory from the sandbox to the host                    |
-| `readdir`             | Lists the files and directories in a sandbox directory.                       |
-| `readFile`            | Reads a UTF-8 file from the sandbox.                                          |
-| `writeFile`           | Writes a UTF-8 file to the sandbox.                                           |
-| `exists`              | Checks whether a file or directory exists in the sandbox.                     |
-| `runCommand`          | Runs a command and returns its standard output, standard error, and exit code |
-| `addAgentInstruction` | Appends instructions to the sandbox's project-level `AGENTS.md` file.         |
-| `addAgentSkill`       | Adds an agent skill, with optional supporting files.                          |
-| `addCustomAgent`      | Adds a custom agent, with optional supporting files and tools.                |
-| `addMcpServer`        | Adds an MCP server to the sandbox's Copilot configuration.                    |
-| `addCopilotPlugin`    | Installs a remote, local, or marketplace Copilot plugin in the sandbox.       |
+| Method                | Description                                                                            |
+| :-------------------- | :------------------------------------------------------------------------------------- |
+| `copy`                | Copies a host file or directory into the sandbox                                       |
+| `download`            | Downloads a file or directory from the sandbox to the host                             |
+| `readdir`             | Lists the files and directories in a sandbox directory.                                |
+| `readFile`            | Reads a UTF-8 file from the sandbox.                                                   |
+| `writeFile`           | Writes a UTF-8 file to the sandbox.                                                    |
+| `exists`              | Checks whether a file or directory exists in the sandbox.                              |
+| `runCommand`          | Runs a command with a deadline and optional cancellation; returns output and exit code |
+| `addAgentInstruction` | Appends instructions to the sandbox's project-level `AGENTS.md` file.                  |
+| `addAgentSkill`       | Adds an agent skill, with optional supporting files.                                   |
+| `addCustomAgent`      | Adds a custom agent, with optional supporting files and tools.                         |
+| `addMcpServer`        | Adds an MCP server to the sandbox's Copilot configuration.                             |
+| `addCopilotPlugin`    | Installs a remote, local, or marketplace Copilot plugin in the sandbox.                |
+
+## Command deadlines
+
+Commands have a one-hour default deadline covering Docker exec creation, startup,
+output streaming, and exit-status inspection. Pass a positive integer `timeoutMs`
+in milliseconds (at most 2,147,483,647) or an `AbortSignal` through `signal`:
+
+```ts
+const result = await sandbox.runCommand('npm', ['test'], {
+  timeoutMs: 120_000,
+  signal: controller.signal,
+  allowNonZeroExitCode: true,
+})
+```
+
+Timeouts, cancellation after execution starts, and uncertain stream failures
+reject even with `allowNonZeroExitCode: true`. They retire the whole container
+and request forced removal, since closing an exec connection does not stop its
+processes. Do not catch these errors and reuse the sandbox. Cleanup has its own
+deadline and may remain unresolved. Pre-aborted signals and invalid options
+reject without starting a command or retiring the sandbox.

@@ -1,7 +1,8 @@
 import path from 'node:path'
 import {VirtualHost, type Host} from '../host'
 import {resolveContainerPath} from './path'
-import type {CommandResult, CopyOptions, DownloadOptions, Sandbox, SandboxCreateOptions} from './types'
+import type {CommandResult, CopyOptions, DownloadOptions, RunOptions, Sandbox, SandboxCreateOptions} from './types'
+import {parseCommandOptions} from './command-options'
 
 const defaultCreateOptions: SandboxCreateOptions = {}
 
@@ -97,7 +98,9 @@ export class VirtualSandbox implements Sandbox {
     }
   }
 
-  async runCommand(): Promise<CommandResult> {
+  async runCommand(_command: string, _args?: Array<string>, options: RunOptions = {}): Promise<CommandResult> {
+    const {signal} = parseCommandOptions(options)
+    signal?.throwIfAborted()
     return {
       stdout: '',
       stderr: '',

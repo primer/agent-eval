@@ -1,5 +1,7 @@
 import Docker from 'dockerode'
 import {randomUUID} from 'node:crypto'
+import {createServer} from 'node:http'
+import {once} from 'node:events'
 import {afterEach, expect, test, vi} from 'vitest'
 import {createContainer, recoverContainers, removeContainer} from './docker'
 import {containerLabels} from './container-ownership'
@@ -167,4 +169,43 @@ test('reports recovery errors while continuing cleanup of other owned containers
   const remove = vi.spyOn(removed, 'remove').mockResolvedValue(undefined)
   await expect(recoverContainers(runId)).rejects.toThrow('Some containers could not be recovered')
   expect(remove).toHaveBeenCalledTimes(1)
+})
+
+test('aborts a real dockerode HTTP removal request when its deadline expires', async () => {
+  const requested = Promise.withResolvers<void>()
+  const disconnected = Promise.withResolvers<void>()
+  const server = createServer(request => {
+    request.socket.once('close', () => {
+      disconnected.resolve()
+    })
+    requested.resolve()
+  })
+  server.listen(0, '127.0.0.1')
+  await once(server, 'listening')
+  try {
+    const address = server.address()
+    if (!address || typeof address === 'string') {
+      throw new Error('Expected a local TCP listener')
+    }
+    vi.useFakeTimers({toFake: ['setTimeout', 'clearTimeout']})
+    const container = new Docker({host: '127.0.0.1', port: address.port}).getContainer('stalled-http')
+    const result = removeContainer(container)
+    const assertion = expect(result).rejects.toThrow('exceeded its 30000ms deadline')
+    await requested.promise
+    await vi.advanceTimersByTimeAsync(30_000)
+    await assertion
+    await disconnected.promise
+  } finally {
+    vi.useRealTimers()
+    server.closeAllConnections()
+    await new Promise<void>((resolve, reject) => {
+      server.close(error => {
+        if (error) {
+          reject(error)
+        } else {
+          resolve()
+        }
+      })
+    })
+  }
 })

@@ -34,20 +34,20 @@ containers if cleanup exhausts its retries.
 
 Use the sandbox supplied to hooks; its runtime implementations are internal.
 
-| Method                | Purpose                                                                      |
-| :-------------------- | :--------------------------------------------------------------------------- |
-| `copy`                | Copy a host file or directory into the container, optionally excluding paths |
-| `download`            | Copy a container file or directory to the host                               |
-| `readdir`             | List entries in a container directory                                        |
-| `readFile`            | Read UTF-8 text in the container                                             |
-| `writeFile`           | Write UTF-8 text in the container                                            |
-| `exists`              | Check whether a container path exists                                        |
-| `runCommand`          | Run a command and capture stdout, stderr, and exit code                      |
-| `addAgentInstruction` | Append project-level `AGENTS.md` instructions                                |
-| `addAgentSkill`       | Install a skill body and optional supporting files                           |
-| `addCustomAgent`      | Install a custom agent with optional files and tools                         |
-| `addMcpServer`        | Add an MCP server to the container's Copilot configuration                   |
-| `addCopilotPlugin`    | Install a local, remote, or marketplace plugin                               |
+| Method                | Purpose                                                                               |
+| :-------------------- | :------------------------------------------------------------------------------------ |
+| `copy`                | Copy a host file or directory into the container, optionally excluding paths          |
+| `download`            | Copy a container file or directory to the host                                        |
+| `readdir`             | List entries in a container directory                                                 |
+| `readFile`            | Read UTF-8 text in the container                                                      |
+| `writeFile`           | Write UTF-8 text in the container                                                     |
+| `exists`              | Check whether a container path exists                                                 |
+| `runCommand`          | Run a command with a deadline and optional cancellation; capture output and exit code |
+| `addAgentInstruction` | Append project-level `AGENTS.md` instructions                                         |
+| `addAgentSkill`       | Install a skill body and optional supporting files                                    |
+| `addCustomAgent`      | Install a custom agent with optional files and tools                                  |
+| `addMcpServer`        | Add an MCP server to the container's Copilot configuration                            |
+| `addCopilotPlugin`    | Install a local, remote, or marketplace plugin                                        |
 
 See [treatments](treatments.md) for resource installation examples. Consult the
 installed TypeScript interface for signatures and supported options.
@@ -70,6 +70,14 @@ Set `allowNonZeroExitCode` only when you will explicitly interpret
 the result, such as parsing assertion failures. Other options include `env`
 and `user`. Prefer the default `node` user; request `root` only for necessary
 system-level setup.
+
+Commands default to a one-hour deadline across exec creation, startup, output,
+and exit-status inspection. Use `timeoutMs` (a positive integer in milliseconds,
+at most 2,147,483,647) to override it, and `signal` to cancel. Timeout,
+cancellation after execution starts, or an uncertain stream failure rejects
+regardless of `allowNonZeroExitCode`, retires the container, and requests forced
+removal. Do not catch these errors and continue using that sandbox. A
+pre-aborted signal rejects without starting a command.
 
 ## Run and verify
 

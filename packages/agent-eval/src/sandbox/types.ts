@@ -6,6 +6,8 @@ type RunOptions = {
   env?: Record<string, string>
   user?: string
   allowNonZeroExitCode?: boolean
+  timeoutMs?: number
+  signal?: AbortSignal
 }
 
 type CopyOptions = {
@@ -117,7 +119,8 @@ interface Sandbox {
   exists(filepath: string): Promise<boolean>
 
   /**
-   * Runs a command in the sandbox and captures its output and exit code.
+   * Runs a command with a one-hour default deadline and captures its output and exit code.
+   * Timeout or cancellation retires the container; it must not be reused.
    */
   runCommand(command: string, args?: Array<string>, options?: RunOptions): Promise<CommandResult>
 

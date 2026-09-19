@@ -209,6 +209,8 @@ class SystemSandbox implements Sandbox {
       },
       user: options?.user ?? NODE_USER,
       allowNonZeroExitCode: options?.allowNonZeroExitCode,
+      timeoutMs: options?.timeoutMs,
+      signal: options?.signal,
     })
   }
 
@@ -515,6 +517,8 @@ async function execCommand(
     WorkingDir: CONTAINER_WORKDIR,
     Env: env,
     User: options.user,
+    timeoutMs: options.timeoutMs,
+    abortSignal: options.signal,
   })
 
   if (result.exitCode === 0 || options.allowNonZeroExitCode) {

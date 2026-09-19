@@ -1,10 +1,14 @@
 import {PassThrough} from 'node:stream'
+import {finished} from 'node:stream/promises'
+import {setTimeout as delay} from 'node:timers/promises'
+import * as z from 'zod/mini'
 import Docker from 'dockerode'
 import tarStream from 'tar-stream'
 import {logger} from './logger'
 import {createHash} from 'node:crypto'
 import {withDeadline} from './deadline'
 import {containerLabels, isRecoverableContainer, parseRunId, recoveryFilters} from './container-ownership'
+import {parseCommandOptions} from './sandbox/command-options'
 
 const docker = new Docker()
 const CLEANUP_TIMEOUT_MS = 30_000
@@ -120,6 +124,7 @@ type ContainerState =
   | {type: 'removed'}
   | {type: 'cleanup-unresolved'; error: unknown}
 const containerStates = new WeakMap<Docker.Container, ContainerState>()
+const unusableContainers = new WeakSet<Docker.Container>()
 
 function trackContainer(container: Docker.Container) {
   if (activeContainers.size === 0) {
@@ -302,63 +307,81 @@ type CommandResult = {
 
 type ExecOptions = Docker.ExecCreateOptions & {
   container: RunningContainer
+  timeoutMs?: number
 }
 
-async function exec({container, ...rest}: ExecOptions): Promise<CommandResult> {
-  const exec = await container.exec({
-    ...rest,
-    AttachStdout: true,
-    AttachStderr: true,
-  })
-  const stream = await exec.start({
-    hijack: true,
-    stdin: false,
-  })
-  const stdout = new PassThrough()
-  const stderr = new PassThrough()
-  let capturedStdout = ''
-  let capturedStderr = ''
+function parseExecStatus(input: unknown) {
+  return z
+    .discriminatedUnion('Running', [
+      z.object({Running: z.literal(true)}),
+      z.object({Running: z.literal(false), ExitCode: z.number().check(z.int(), z.nonnegative())}),
+    ])
+    .parse(input)
+}
 
-  stdout.setEncoding('utf8').on('data', (text: string) => {
-    // Trim trailing newlines
-    logger.debug('[exec] %s', text.replace(/[\r\n]+$/, ''))
-    capturedStdout += text
-  })
+async function exec({container, timeoutMs, abortSignal, ...rest}: ExecOptions): Promise<CommandResult> {
+  const options = parseCommandOptions({timeoutMs, signal: abortSignal})
+  options.signal?.throwIfAborted()
+  const state = containerStates.get(container)
+  if (unusableContainers.has(container) || (state && state.type !== 'active')) {
+    throw new Error(`Container "${container.id}" is no longer available for commands`)
+  }
 
-  stderr.setEncoding('utf8').on('data', (text: string) => {
-    // Trim trailing newlines
-    logger.debug('[exec] %s', text.replace(/[\r\n]+$/, ''))
-    capturedStderr += text
-  })
+  try {
+    return await withDeadline(
+      async signal => {
+        const command = await container.exec({
+          ...rest,
+          AttachStdout: true,
+          AttachStderr: true,
+          abortSignal: signal,
+        })
+        signal.throwIfAborted()
+        const stream = await command.start({hijack: true, stdin: false, abortSignal: signal})
+        const stdout = new PassThrough()
+        const stderr = new PassThrough()
+        try {
+          signal.throwIfAborted()
+          let capturedStdout = ''
+          let capturedStderr = ''
+          stdout.setEncoding('utf8').on('data', (text: string) => {
+            logger.debug('[exec] %s', text.replace(/[\r\n]+$/, ''))
+            capturedStdout += text
+          })
+          stderr.setEncoding('utf8').on('data', (text: string) => {
+            logger.debug('[exec] %s', text.replace(/[\r\n]+$/, ''))
+            capturedStderr += text
+          })
+          const completed = finished(stream, {readable: true, writable: false, cleanup: true, signal})
+          docker.modem.demuxStream(stream, stdout, stderr)
+          await completed
+          stream.destroy()
+          stdout.end()
+          stderr.end()
 
-  docker.modem.demuxStream(stream, stdout, stderr)
-
-  return new Promise((resolve, reject) => {
-    stream.on('end', async () => {
-      stdout.end()
-      stderr.end()
-
-      try {
-        const inspectInfo = await exec.inspect()
-        const exitCode = inspectInfo.ExitCode ?? 0
-        const result = {
-          stdout: capturedStdout,
-          stderr: capturedStderr,
-          exitCode,
+          let info = parseExecStatus(await command.inspect({abortSignal: signal}))
+          while (info.Running) {
+            await delay(25, undefined, {signal})
+            info = parseExecStatus(await command.inspect({abortSignal: signal}))
+          }
+          signal.throwIfAborted()
+          return {stdout: capturedStdout, stderr: capturedStderr, exitCode: info.ExitCode}
+        } finally {
+          stream.destroy()
+          stdout.destroy()
+          stderr.destroy()
         }
-
-        resolve(result)
-      } catch (error) {
-        reject(error)
-      }
+      },
+      {...options, description: `Command in container "${container.id}"`},
+    )
+  } catch (error) {
+    // Closing an exec connection does not stop its processes.
+    unusableContainers.add(container)
+    void removeContainer(container).catch(cleanupError => {
+      logger.error({err: cleanupError, containerId: container.id}, 'Failed to remove container after command failure')
     })
-
-    stream.on('error', error => {
-      stdout.end()
-      stderr.end()
-      reject(error)
-    })
-  })
+    throw error
+  }
 }
 
 export {

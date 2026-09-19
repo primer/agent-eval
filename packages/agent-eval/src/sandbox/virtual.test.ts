@@ -5,6 +5,20 @@ import {CONTAINER_WORKDIR} from './constants'
 import {VirtualSandbox} from './virtual'
 
 describe('VirtualSandbox', () => {
+  test('honors pre-aborted signals and rejects invalid command deadlines', async () => {
+    const sandbox = await VirtualSandbox.create()
+    await expect(
+      sandbox.runCommand('test', [], {
+        signal: AbortSignal.abort(new Error('Cancelled')),
+      }),
+    ).rejects.toThrow('Cancelled')
+    await expect(sandbox.runCommand('test', [], {timeoutMs: 0})).rejects.toThrow()
+    await expect(sandbox.runCommand('test', [], {timeoutMs: 100})).resolves.toEqual({
+      stdout: '',
+      stderr: '',
+      exitCode: 0,
+    })
+  })
   test('reads, writes, and checks files in the sandbox workspace', async () => {
     const host = VirtualHost.create()
     const sandbox = await VirtualSandbox.create({host})

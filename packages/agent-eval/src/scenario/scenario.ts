@@ -52,14 +52,6 @@ const ScenarioSchema = z.object({
   setup: z.optional(TreatmentSetupSchema),
 }) satisfies z.ZodMiniType<Scenario>
 
-async function getScenarioImageTag(host: Host, scenario: Scenario): Promise<string> {
-  const dockerfile = await getDockerfileContents(host, scenario)
-  return getImageReference({
-    name: `agent-eval/scenario-${scenario.id}`,
-    dockerfile,
-  })
-}
-
 function getScenarioIgnoreFiles(scenario: Scenario): Array<{filepath: string; relativePath: string}> {
   const ignored = new Map<string, string>()
 
@@ -142,7 +134,7 @@ async function buildScenarioImage({host = DefaultHost, scenario}: BuildScenarioI
   const build = async () => {
     const dockerfileContents = await getDockerfileContents(host, scenario)
     const imageTag = getImageReference({
-      name: `agent-eval/scenario/${scenario.id}`,
+      name: `agent-eval/scenarios/${scenario.id}`,
       dockerfile: dockerfileContents,
     })
 
@@ -215,5 +207,5 @@ const defaultScenarioSetup: TreatmentSetup = async ({sandbox}) => {
   })
 }
 
-export {ScenarioSchema, getScenarioIgnoreFiles, getScenarioImageTag, buildScenarioImage, defaultScenarioSetup}
+export {ScenarioSchema, getScenarioIgnoreFiles, buildScenarioImage, defaultScenarioSetup}
 export type {Scenario}

@@ -95,7 +95,9 @@ const scenarioCommand = defineCommand({
 
                 logger.info('Removing image with tag: %s', tag)
                 const dockerImage = docker.getImage(tag)
-                await dockerImage.remove()
+                await dockerImage.remove({
+                  force: true,
+                })
               }
             } else {
               logger.info('Removing all Docker images for scenarios in directory: %s', scenariosDirectory)
@@ -119,7 +121,9 @@ const scenarioCommand = defineCommand({
 
                 logger.info('Removing image with tag: %s', tag)
                 const dockerImage = docker.getImage(tag)
-                await dockerImage.remove()
+                await dockerImage.remove({
+                  force: true,
+                })
               }
             }
           },

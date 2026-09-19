@@ -1,7 +1,6 @@
 import {randomUUID} from 'node:crypto'
 import path from 'node:path'
 import {pipeline} from 'node:stream/promises'
-import Docker from 'dockerode'
 import tarFs from 'tar-fs'
 import type {Headers} from 'tar-fs'
 import tarStream from 'tar-stream'
@@ -50,27 +49,23 @@ const DEFAULT_MCP_CONFIG: McpConfigFile = {
 
 class SystemSandbox implements Sandbox {
   static async create(options: SandboxCreateOptions = {}) {
-    logger.info('Creating sandbox image')
     const sandboxImage = await getSandboxImageBuild({
-      baseImage: options.dockerImage ?? DEFAULT_DOCKER_IMAGE,
+      baseImage: options.dockerImage?.tagName ?? DEFAULT_DOCKER_IMAGE,
     })
 
     logger.info('Creating container: %s', sandboxImage.tagName)
-    const docker = new Docker()
     const container = await createContainer({
       image: sandboxImage,
     })
 
-    return new SystemSandbox(options.host ?? DefaultHost, docker, container)
+    return new SystemSandbox(options.host ?? DefaultHost, container)
   }
 
   #container: RunningContainer
-  #docker: Docker
   #host: Host
 
-  constructor(host: Host, docker: Docker, container: RunningContainer) {
+  constructor(host: Host, container: RunningContainer) {
     this.#host = host
-    this.#docker = docker
     this.#container = container
   }
 

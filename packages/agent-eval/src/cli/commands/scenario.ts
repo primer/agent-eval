@@ -87,7 +87,7 @@ const scenarioCommand = defineCommand({
               const images = await docker.listImages().then(images => {
                 return images.filter(image => {
                   return image.RepoTags?.some(tag => {
-                    return tag.startsWith(`agent-eval/scenario-${args.name}:`)
+                    return tag.startsWith(`agent-eval/scenario/${args.name}:`)
                   })
                 })
               })
@@ -105,7 +105,7 @@ const scenarioCommand = defineCommand({
               }
             } else {
               logger.info('Removing all Docker images for scenarios in directory: %s', scenariosDirectory)
-              const tagGroups = ['agent-eval/tools', 'agent-eval/sandbox', 'agent-eval/scenario-']
+              const tagGroups = ['agent-eval/tools', 'agent-eval/sandbox', 'agent-eval/scenario']
               const images = await docker.listImages().then(images => {
                 return images.filter(image => {
                   return image.RepoTags?.some(tag => {

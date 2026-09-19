@@ -131,49 +131,65 @@ async function getDockerfileContents(host: Host, scenario: Scenario): Promise<st
   return await host.fs.readFile(scenario.image.dockerfile, 'utf8')
 }
 
+const pendingScenarioBuilds = new WeakMap<Scenario, Promise<ImageBuild>>()
+
 async function buildScenarioImage({host = DefaultHost, scenario}: BuildScenarioImageOptions): Promise<ImageBuild> {
-  const dockerfileContents = await getDockerfileContents(host, scenario)
-  const imageTag = getImageReference({
-    name: `agent-eval/scenario-${scenario.id}`,
-    dockerfile: dockerfileContents,
-  })
-
-  logger.info('Building image: %s', imageTag)
-
-  const ignoreFiles = getScenarioIgnoreFiles(scenario)
-  if (scenario.image.type === 'Build' && isPathInside(scenario.directory, scenario.image.dockerfile)) {
-    ignoreFiles.push({
-      filepath: scenario.image.dockerfile,
-      relativePath: path.relative(scenario.directory, scenario.image.dockerfile),
-    })
+  const pendingScenarioBuild = pendingScenarioBuilds.get(scenario)
+  if (pendingScenarioBuild) {
+    return pendingScenarioBuild
   }
 
-  const ignored = new Set(
-    ignoreFiles.map(ignoreFile => {
-      return ignoreFile.filepath
-    }),
-  )
-  const context = tarFs.pack(
-    scenario.image.type === 'Default'
-      ? scenario.directory
-      : scenario.image.type === 'Reference'
-        ? scenario.directory
-        : scenario.image.context,
-    {
-      finalize: false,
-      ignore(filepath) {
-        return ignored.has(filepath)
-      },
-      finish(pack) {
-        pack.entry({name: 'Dockerfile'}, dockerfileContents)
-        pack.entry({name: '.dockerignore'}, `Dockerfile\n.dockerignore\n`)
-        pack.finalize()
-      },
-    },
-  )
+  const build = async () => {
+    const dockerfileContents = await getDockerfileContents(host, scenario)
+    const imageTag = getImageReference({
+      name: `agent-eval/scenario/${scenario.id}`,
+      dockerfile: dockerfileContents,
+    })
 
-  return await buildImage(context, {
-    t: imageTag,
+    logger.info('Building image: %s', imageTag)
+
+    const ignoreFiles = getScenarioIgnoreFiles(scenario)
+    if (scenario.image.type === 'Build' && isPathInside(scenario.directory, scenario.image.dockerfile)) {
+      ignoreFiles.push({
+        filepath: scenario.image.dockerfile,
+        relativePath: path.relative(scenario.directory, scenario.image.dockerfile),
+      })
+    }
+
+    const ignored = new Set(
+      ignoreFiles.map(ignoreFile => {
+        return ignoreFile.filepath
+      }),
+    )
+    const context = tarFs.pack(
+      scenario.image.type === 'Default'
+        ? scenario.directory
+        : scenario.image.type === 'Reference'
+          ? scenario.directory
+          : scenario.image.context,
+      {
+        finalize: false,
+        ignore(filepath) {
+          return ignored.has(filepath)
+        },
+        finish(pack) {
+          pack.entry({name: 'Dockerfile'}, dockerfileContents)
+          pack.entry({name: '.dockerignore'}, `Dockerfile\n.dockerignore\n`)
+          pack.finalize()
+        },
+      },
+    )
+
+    return await buildImage(context, {
+      t: imageTag,
+    })
+  }
+  const promise = build()
+
+  pendingScenarioBuilds.set(scenario, promise)
+
+  return promise.finally(() => {
+    pendingScenarioBuilds.delete(scenario)
   })
 }
 

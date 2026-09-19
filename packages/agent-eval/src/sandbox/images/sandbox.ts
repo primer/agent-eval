@@ -26,6 +26,13 @@ RUN mkdir -p \\
 
 USER node
 
+RUN mkdir -p /home/node/.npm-global \
+  && npm config set prefix /home/node/.npm-global
+
+RUN printf '%s\\n' '{"mcpServers":{}}' > /home/node/.copilot/mcp-config.json
+
+ENV PATH="/home/node/.npm-global/bin:\${PATH}"
+
 FROM base AS sandbox
 
 WORKDIR /home/sandbox/workspace

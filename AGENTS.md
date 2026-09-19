@@ -44,6 +44,13 @@
   - Handle as much of this logic as possible when ingesting the unknown data
     instead of having validation and checks sprinkled throughout the library
 
+### Errors and logging
+
+- When logging errors, use the `err` field, not `error`, for example
+  `logger.error({err: error}, 'Failed to run trial')`. Pino's default error
+  serializer handles `err` and preserves the error message and stack trace.
+  Using `{error}` can omit those details and hide the underlying cause.
+
 ### Configuration
 
 - Design zod schemas to parse configuration for unknown input

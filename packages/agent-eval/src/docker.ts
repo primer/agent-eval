@@ -65,9 +65,10 @@ async function buildImageFromDockerfile(dockerfile: string, options: ImageBuildO
 type GetImageTagOptions = {
   dockerfile: string
   buildargs?: Record<string, string | undefined>
+  files?: Record<string, string | Buffer | undefined>
 }
 
-function getImageTag({dockerfile, buildargs}: GetImageTagOptions): string {
+function getImageTag({dockerfile, buildargs, files}: GetImageTagOptions): string {
   const hash = createHash('sha256')
 
   hash.update(dockerfile).update('\0')
@@ -79,6 +80,16 @@ function getImageTag({dockerfile, buildargs}: GetImageTagOptions): string {
       }
 
       hash.update(key).update('\0').update(value).update('\0')
+    }
+  }
+
+  if (files) {
+    for (const [path, content] of Object.entries(files).sort(([a], [b]) => a.localeCompare(b))) {
+      if (content === undefined) {
+        continue
+      }
+
+      hash.update(path).update('\0').update(content).update('\0')
     }
   }
 
@@ -137,15 +148,22 @@ async function removeContainer(container: RunningContainer) {
   }
 
   const remove = async () => {
-    await container.remove({
-      force: true,
-    })
-    removedContainers.add(container)
-    activeContainers.delete(container)
+    try {
+      await container.remove({
+        force: true,
+      })
+    } catch (error) {
+      if (!isDockerNotFoundError(error)) {
+        throw error
+      }
+    } finally {
+      removedContainers.add(container)
+      activeContainers.delete(container)
 
-    if (activeContainers.size === 0) {
-      process.removeListener('SIGINT', terminationHandlers.SIGINT)
-      process.removeListener('SIGTERM', terminationHandlers.SIGTERM)
+      if (activeContainers.size === 0) {
+        process.removeListener('SIGINT', terminationHandlers.SIGINT)
+        process.removeListener('SIGTERM', terminationHandlers.SIGTERM)
+      }
     }
   }
   const promise = remove().finally(() => {
@@ -155,6 +173,10 @@ async function removeContainer(container: RunningContainer) {
   pendingRemovals.set(container, promise)
 
   return promise
+}
+
+function isDockerNotFoundError(error: unknown): boolean {
+  return error instanceof Error && 'statusCode' in error && error.statusCode === 404
 }
 
 const terminationHandlers = {

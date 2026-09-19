@@ -112,7 +112,7 @@ async function runPlan<T extends Trial>({
             scenario: trial.scenario,
           })
           await using sandbox = await host.createSandbox({
-            dockerImage: dockerImage.imageTag,
+            dockerImage,
           })
           const result = await runTrial({
             artifactsDirectory,
@@ -153,7 +153,7 @@ async function retry<T>(fn: () => Promise<T>, retries: number = 3): Promise<T> {
     return await fn()
   } catch (error) {
     if (retries > 0) {
-      logger.error({error}, 'Retrying')
+      logger.error({err: error}, 'Retrying')
       return retry(fn, retries - 1)
     }
     throw error

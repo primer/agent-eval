@@ -1,3 +1,4 @@
+import type {ImageBuild} from '../docker'
 import type {Host} from '../host'
 import type {McpServerConfig} from '../mcp-config'
 
@@ -22,7 +23,7 @@ type CommandResult = {
 }
 
 type SandboxCreateOptions = {
-  dockerImage?: string
+  dockerImage?: ImageBuild
   host?: Host
 }
 

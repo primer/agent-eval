@@ -8,6 +8,7 @@ import type {RunTrialResult} from './trial/run'
 import {runTrial} from './trial/run'
 import {selectShard, type Shard} from './shard'
 import {buildScenarioImage} from './scenario/scenario'
+import {SandboxCleanupQueue} from './cleanup'
 
 /**
  * A Plan represents an ordered collection of trials to run. Plans are created
@@ -102,6 +103,7 @@ async function runPlan<T extends Trial>({
   const containerQueue = new Queue({
     concurrency: containerConcurrency,
   })
+  const cleanupQueue = new SandboxCleanupQueue(containerConcurrency)
 
   const errors: Array<Error> = []
   const settled = await Promise.allSettled(
@@ -112,11 +114,11 @@ async function runPlan<T extends Trial>({
             host,
             scenario: trial.scenario,
           })
-          const sandbox = await host.createSandbox({
-            dockerImage,
+          const sandbox = await cleanupQueue.create(() => {
+            return host.createSandbox({dockerImage})
           })
           let outcome: {type: 'completed'; result: RunTrialResult} | {type: 'failed'; error: unknown}
-          let cleanupError: Error | undefined
+          let cleanup: Promise<boolean>
           try {
             try {
               const result = await runTrial({
@@ -142,19 +144,14 @@ async function runPlan<T extends Trial>({
               )
             }
           } finally {
-            try {
-              await sandbox[Symbol.asyncDispose]()
-            } catch (cause) {
-              cleanupError = new Error(`Failed to clean up sandbox for trial "${trial.id}"`, {cause})
-              errors.push(cleanupError)
-              logger.error({err: cleanupError, trialId: trial.id}, 'Sandbox cleanup failed')
-            }
+            cleanup = cleanupQueue.dispose(sandbox, trial.id)
           }
 
           if (outcome.type === 'completed') {
             return {trial, result: outcome.result}
           }
-          if (cleanupError || attempt === 3) {
+          const removed = await cleanup
+          if (!removed || attempt === 3) {
             throw new Error(`Trial "${trial.id}" failed`, {cause: outcome.error})
           }
           logger.error({err: outcome.error, trialId: trial.id}, 'Retrying trial')
@@ -163,6 +160,8 @@ async function runPlan<T extends Trial>({
       })
     }),
   )
+  await cleanupQueue.drain()
+  errors.push(...cleanupQueue.errors)
 
   const results: RunPlanResult<T>['results'] = []
   for (const result of settled) {

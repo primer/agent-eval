@@ -120,3 +120,32 @@ test('does not rerun a completed trial when persisting its result fails', async 
   expect(runTrial).toHaveBeenCalledTimes(1)
   expect(dispose).toHaveBeenCalledTimes(1)
 })
+
+test('starts another trial while completed trial cleanup is pending, then drains cleanup before returning', async () => {
+  const {host, options, result} = setup()
+  const first = await host.createSandbox()
+  const second = await host.createSandbox()
+  vi.spyOn(host, 'createSandbox').mockResolvedValueOnce(first).mockResolvedValueOnce(second)
+  const removal = Promise.withResolvers<void>()
+  const secondStarted = Promise.withResolvers<void>()
+  vi.spyOn(first, Symbol.asyncDispose).mockReturnValue(removal.promise)
+  vi.mocked(runTrial).mockImplementation(async args => {
+    if (args.trial.id === 'second') {
+      secondStarted.resolve()
+    }
+    return {
+      ...result,
+      trial: args.trial,
+      artifacts: {...result.artifacts, directory: `/artifacts/${args.trial.id}`},
+    }
+  })
+  const output = runPlan({...options, plan: {trials: [trial, {...trial, id: 'second'}]}})
+  await secondStarted.promise
+  let finished = false
+  void output.then(() => {
+    finished = true
+  })
+  expect(finished).toBe(false)
+  removal.resolve()
+  expect((await output).results).toHaveLength(2)
+})

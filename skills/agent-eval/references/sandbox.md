@@ -27,6 +27,10 @@ and a `node` user; the harness layers its tools on top.
 
 Disposal force-removes the container with a 30-second deadline. A timeout is an
 infrastructure error, not confirmation that Docker removed the container.
+Cleanup retries up to three times independently of trial execution. The harness
+allows at most twice `--container-concurrency` allocated containers, counting
+pending and unresolved cleanup. It waits at that limit and stops admitting new
+containers if cleanup exhausts its retries.
 
 Use the sandbox supplied to hooks; its runtime implementations are internal.
 

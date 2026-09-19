@@ -8,7 +8,15 @@ The sandbox is used in [experiments](./experiments.md) and [benchmarks](./benchm
 Container disposal force-removes the container with a 30-second deadline. If
 Docker does not confirm removal in time, cleanup is reported as an infrastructure
 error. Cancelling the request does not guarantee that Docker stopped processing it
-or that the container was removed.
+or that the container was removed. Cleanup retries up to three times without
+rerunning a completed trial.
+
+Trials can proceed while prior containers are being removed. Cleanup concurrency
+matches `--container-concurrency`, and the total budget for running, queued for
+cleanup, and unresolved containers is twice that value. Admission waits when the
+budget is full. If cleanup exhausts its retries, new container admission stops;
+already-started trials finish and their results are saved before the CLI reports
+an infrastructure error.
 
 The [`Sandbox` interface](../packages/agent-eval/src/sandbox/types.ts) provides the following methods:
 

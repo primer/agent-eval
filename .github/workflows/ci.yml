@@ -70,9 +70,9 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .turbo
-          key: turbo-${{ runner.os }}-${{ github.job }}-${{ github.sha }}
+          key: turbo-${{ runner.os }}-${{ github.workflow }}-${{ github.job }}-${{ github.sha }}
           restore-keys: |
-            turbo-${{ runner.os }}-${{ github.job }}-
+            turbo-${{ runner.os }}-${{ github.workflow }}-${{ github.job }}-
       - name: Build project
         run: pnpm run build
 
@@ -111,9 +111,9 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .turbo
-          key: turbo-${{ runner.os }}-${{ github.job }}-${{ github.sha }}
+          key: turbo-${{ runner.os }}-${{ github.workflow }}-${{ github.job }}-${{ github.sha }}
           restore-keys: |
-            turbo-${{ runner.os }}-${{ github.job }}-
+            turbo-${{ runner.os }}-${{ github.workflow }}-${{ github.job }}-
       - name: Lint JavaScript
         run: pnpm exec turbo run lint
       - name: Lint npm packages
@@ -154,8 +154,8 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .turbo
-          key: turbo-${{ runner.os }}-${{ github.job }}-${{ github.sha }}
+          key: turbo-${{ runner.os }}-${{ github.workflow }}-${{ github.job }}-${{ github.sha }}
           restore-keys: |
-            turbo-${{ runner.os }}-${{ github.job }}-
+            turbo-${{ runner.os }}-${{ github.workflow }}-${{ github.job }}-
       - name: Type check
         run: pnpm exec turbo run type-check

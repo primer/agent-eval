@@ -113,16 +113,21 @@ function getImageReference({name, ...rest}: GetImageReferenceOptions) {
 }
 
 const activeContainers = new Set<Docker.Container>()
-const removedContainers = new WeakSet<Docker.Container>()
-const pendingRemovals = new WeakMap()
+type ContainerState =
+  | {type: 'active'}
+  | {type: 'removing'; promise: Promise<void>}
+  | {type: 'removed'}
+  | {type: 'cleanup-unresolved'; error: unknown}
+const containerStates = new WeakMap<Docker.Container, ContainerState>()
 
-function trackContainer(container: RunningContainer) {
+function trackContainer(container: Docker.Container) {
   if (activeContainers.size === 0) {
     process.once('SIGINT', terminationHandlers.SIGINT)
     process.once('SIGTERM', terminationHandlers.SIGTERM)
   }
 
   activeContainers.add(container)
+  containerStates.set(container, {type: 'active'})
 }
 
 async function cleanupActiveContainers() {
@@ -145,13 +150,13 @@ async function cleanupActiveContainers() {
 }
 
 async function removeContainer(container: Docker.Container) {
-  if (removedContainers.has(container)) {
+  const state = containerStates.get(container)
+  if (state?.type === 'removed') {
     return
   }
 
-  const pending = pendingRemovals.get(container)
-  if (pending) {
-    return pending
+  if (state?.type === 'removing') {
+    return state.promise
   }
 
   const remove = async () => {
@@ -164,23 +169,21 @@ async function removeContainer(container: Docker.Container) {
       )
     } catch (error) {
       if (!isDockerNotFoundError(error)) {
+        containerStates.set(container, {type: 'cleanup-unresolved', error})
         throw error
       }
-    } finally {
-      removedContainers.add(container)
-      activeContainers.delete(container)
+    }
+    containerStates.set(container, {type: 'removed'})
+    activeContainers.delete(container)
 
-      if (activeContainers.size === 0) {
-        process.removeListener('SIGINT', terminationHandlers.SIGINT)
-        process.removeListener('SIGTERM', terminationHandlers.SIGTERM)
-      }
+    if (activeContainers.size === 0) {
+      process.removeListener('SIGINT', terminationHandlers.SIGINT)
+      process.removeListener('SIGTERM', terminationHandlers.SIGTERM)
     }
   }
-  const promise = remove().finally(() => {
-    pendingRemovals.delete(container)
-  })
+  const promise = remove()
 
-  pendingRemovals.set(container, promise)
+  containerStates.set(container, {type: 'removing', promise})
 
   return promise
 }
@@ -232,9 +235,9 @@ async function createContainer({image, ...rest}: CreateContainerOptions): Promis
     },
   })
 
+  trackContainer(container)
   try {
     await container.start()
-    trackContainer(container as RunningContainer)
     return container as RunningContainer
   } catch (error) {
     try {

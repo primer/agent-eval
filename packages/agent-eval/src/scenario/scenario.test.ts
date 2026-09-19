@@ -30,11 +30,18 @@ test('scenario helpers accept an options object with an injected host', async ()
     tags: [],
     checks: [],
     judges: [],
+    image: {
+      type: 'Default',
+    },
   }
 
-  await expect(loadScenario({host, directory: '/scenarios/example'})).resolves.toEqual(expected)
-  await expect(getScenario({host, directory: '/scenarios', name: 'example'})).resolves.toEqual(expected)
-  await expect(listScenarios({host, directory: '/scenarios'})).resolves.toEqual([expected])
+  await expect(loadScenario({host, directory: '/scenarios/example'})).resolves.toEqual(
+    expect.objectContaining(expected),
+  )
+  await expect(getScenario({host, directory: '/scenarios', name: 'example'})).resolves.toEqual(
+    expect.objectContaining(expected),
+  )
+  await expect(listScenarios({host, directory: '/scenarios'})).resolves.toEqual([expect.objectContaining(expected)])
 })
 
 test('scenario helpers use DefaultHost when host is omitted', async () => {

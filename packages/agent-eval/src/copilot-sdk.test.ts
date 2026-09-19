@@ -175,14 +175,14 @@ test('uses the bundled SDK runner and private Node without writing the token to 
   })
   expect(runCommand).toHaveBeenCalledExactlyOnceWith(
     '/opt/agent-eval/node/bin/node',
-    ['/opt/agent-eval/sdk-runner/run.cjs', '/tmp/agent-eval-copilot-sdk-runner-config.json'],
+    ['/opt/agent-eval/sdk-runner/run.cjs', '/opt/agent-eval/sdk-runner/config.json'],
     {
       user: NODE_USER,
       env: {COPILOT_GITHUB_TOKEN: 'test-token'},
     },
   )
   expect(writeFile).toHaveBeenCalledExactlyOnceWith(
-    '/tmp/agent-eval-copilot-sdk-runner-config.json',
+    '/opt/agent-eval/sdk-runner/config.json',
     JSON.stringify({
       copilotHome: COPILOT_DIR,
       model: 'gpt-5.5',

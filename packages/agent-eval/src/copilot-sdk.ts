@@ -1,12 +1,10 @@
-import path from 'node:path'
 import {parseMessage, type Message} from './copilot-cli'
-import {logger} from './logger'
 import type {ModelVariant} from './model'
-import {COPILOT_DIR, NODE_USER, NPM_GLOBAL_DIR, type Sandbox} from './sandbox'
+import {COPILOT_DIR, NODE_USER} from './sandbox/constants'
+import type {Sandbox} from './sandbox/types'
 
-const COPILOT_SDK_VERSION = '1.0.11'
-const COPILOT_SDK_RUNNER_PATH = '/tmp/agent-eval-copilot-sdk-runner.cjs'
-const COPILOT_SDK_RUNNER_CONFIG_PATH = '/tmp/agent-eval-copilot-sdk-runner-config.json'
+const COPILOT_SDK_RUNNER_PATH = '/opt/agent-eval/sdk-runner/run.cjs'
+const COPILOT_SDK_RUNNER_CONFIG_PATH = '/opt/agent-eval/sdk-runner/config.json'
 
 function normalizeCopilotMessage(message: Record<string, unknown>): Record<string, unknown> {
   const normalized = {...message, parentId: message.parentId ?? ''}
@@ -160,15 +158,6 @@ async function runCopilotSdk({
   model: ModelVariant
   copilotToken: string
 }): Promise<Array<Message>> {
-  logger.info('Installing copilot sdk...')
-  await sandbox.runCommand(
-    'npm',
-    ['install', '-g', '--allow-scripts=koffi', `@github/copilot-sdk@${COPILOT_SDK_VERSION}`],
-    {
-      user: NODE_USER,
-    },
-  )
-  await sandbox.writeFile(COPILOT_SDK_RUNNER_PATH, getCopilotSdkRunnerScript())
   await sandbox.writeFile(
     COPILOT_SDK_RUNNER_CONFIG_PATH,
     JSON.stringify({
@@ -179,13 +168,16 @@ async function runCopilotSdk({
       timeoutMs: 60 * 60 * 1000,
     }),
   )
-  const output = await sandbox.runCommand('node', [COPILOT_SDK_RUNNER_PATH, COPILOT_SDK_RUNNER_CONFIG_PATH], {
-    user: NODE_USER,
-    env: {
-      COPILOT_GITHUB_TOKEN: copilotToken,
-      NODE_PATH: path.posix.join(NPM_GLOBAL_DIR, 'lib/node_modules'),
+  const output = await sandbox.runCommand(
+    '/opt/agent-eval/node/bin/node',
+    [COPILOT_SDK_RUNNER_PATH, COPILOT_SDK_RUNNER_CONFIG_PATH],
+    {
+      user: NODE_USER,
+      env: {
+        COPILOT_GITHUB_TOKEN: copilotToken,
+      },
     },
-  })
+  )
 
   return output.stdout.split('\n').flatMap(line => {
     const trimmed = line.trim()

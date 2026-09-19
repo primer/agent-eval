@@ -31,6 +31,46 @@
   `SKILL.md` concise, put detailed guidance in references, and use npm/npx in
   skill examples.
 
+## Code
+
+- Parse, don't validate. Use the type system to gurantee correctness.
+  - When possible, use zod/mini to parse as much information as possible from a given input
+  - When parsing, use the most specific type possible. For example:
+    - If a string is expected to be a URL, parse it as a URL instead of a string
+    - If the input is a path to a file, determine the correct path and make sure
+      the file exists
+    - If a collection must have more than one value, use zod to check that it
+      is has more than one value
+  - Handle as much of this logic as possible when ingesting the unknown data
+    instead of having validation and checks sprinkled throughout the library
+
+### Errors and logging
+
+- When logging errors, use the `err` field, not `error`, for example
+  `logger.error({err: error}, 'Failed to run trial')`. Pino's default error
+  serializer handles `err` and preserves the error message and stack trace.
+  Using `{error}` can omit those details and hide the underlying cause.
+
+### Configuration
+
+- Design zod schemas to parse configuration for unknown input
+- When designing them, be as permissive as needed for the configuration but:
+  - Apply reasonable defaults, e.g. `z._defaults(..., [])` for a collection
+  - Transform different inputs into structured types, for example a union of
+    object with different fields becomes a discriminated union with a `type` field
+- Design `parse*` functions instead of allowing for zod schemas to be called
+  directly
+- `parse*` functions may need to take more arguments than just the unknown
+  input, for example if you need to validate that a path exists
+- Accept file paths as either relative (and look them up to get the absolute
+  path) or absolute. Include both cases when designing zod schemas and parsing
+  unknown input
+
+### Type System
+
+- Encode as much information as possible in the system; make illegal states irrepresentable
+  - For example, if a resource requires a state transition (e.g. a docker image needs to be built), represent this as a type and design APIs around using the type that corresponds to the state that it needs instead of needing to code around that state each time it is used
+
 ## Pull Requests
 
 - Title format: <conventional type>: description

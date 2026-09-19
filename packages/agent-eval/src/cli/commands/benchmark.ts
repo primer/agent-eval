@@ -6,7 +6,6 @@ import {
   benchmarksOption,
   copilotConcurrencyOption,
   containerConcurrencyOption,
-  dockerImageOption,
   getConcurrencyValue,
   getOutputPath,
   githubCopilotTokenOption,
@@ -148,7 +147,6 @@ const benchmarkCommand = defineCommand({
             benchmarks: benchmarksOption,
             'copilot-concurrency': copilotConcurrencyOption,
             'container-concurrency': containerConcurrencyOption,
-            'docker-image': dockerImageOption,
             'output-dir': outputDirectoryOption,
             'plan-path': {
               type: 'string',
@@ -211,7 +209,6 @@ const benchmarkCommand = defineCommand({
               copilotConcurrency,
               containerConcurrency,
               copilotToken,
-              dockerImage: args['docker-image'],
               plan,
             })
             const output = createBenchmarkOutput({
@@ -236,7 +233,6 @@ const benchmarkCommand = defineCommand({
         benchmarks: benchmarksOption,
         'copilot-concurrency': copilotConcurrencyOption,
         'container-concurrency': containerConcurrencyOption,
-        'docker-image': dockerImageOption,
         name: {
           type: 'positional',
           description: 'The name of the benchmark to run',
@@ -283,7 +279,6 @@ const benchmarkCommand = defineCommand({
           copilotConcurrency,
           containerConcurrency,
           copilotToken,
-          dockerImage: args['docker-image'],
           plan,
         })
         const output = createBenchmarkOutput({

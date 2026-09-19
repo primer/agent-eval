@@ -1,7 +1,6 @@
-import {createHash, randomUUID} from 'node:crypto'
+import {randomUUID} from 'node:crypto'
 import path from 'node:path'
 import {pipeline} from 'node:stream/promises'
-import Docker from 'dockerode'
 import tarFs from 'tar-fs'
 import type {Headers} from 'tar-fs'
 import tarStream from 'tar-stream'
@@ -13,9 +12,9 @@ import {
   CONTAINER_WORKDIR,
   COPILOT_PLUGIN_SOURCES_DIR,
   CUSTOM_AGENTS_DIR,
+  DEFAULT_DOCKER_IMAGE,
   MCP_CONFIG_PATH,
   NODE_USER,
-  NPM_GLOBAL_DIR,
   SANDBOX_GID,
   SANDBOX_UID,
   SKILLS_DIR,
@@ -41,48 +40,8 @@ import {DefaultHost, type Host} from '../host'
 import {VirtualSandbox} from './virtual'
 import {resolveContainerPath} from './path'
 import {logger} from '../logger'
-import {createCapturedStream} from './captured-stream'
-
-const COPILOT_CLI_VERSION = '1.0.85'
-const NPM_VERSION = '12.0.2'
-const DOCKERFILE = `ARG BASE_IMAGE=node:26.5.0-slim
-
-FROM \${BASE_IMAGE} AS base
-
-ARG NPM_VERSION
-ARG COPILOT_CLI_VERSION
-
-RUN apt-get update \\
-  && apt-get install -y --no-install-recommends ca-certificates chromium curl git \\
-  && rm -rf /var/lib/apt/lists/*
-
-RUN npm install --global "npm@\${NPM_VERSION}"
-
-RUN mkdir -p \\
-    /home/sandbox/workspace \\
-    /home/node/.npm-global \\
-    /home/node/.copilot/agents \\
-    /home/node/.agents/skills \\
-  && chown -R node:node \\
-    /home/sandbox \\
-    /home/node/.npm-global \\
-    /home/node/.copilot \\
-    /home/node/.agents
-
-USER node
-
-RUN npm config set prefix /home/node/.npm-global \\
-  && npm install --global "@github/copilot@\${COPILOT_CLI_VERSION}" \\
-  && printf '%s\\n' '{"mcpServers":{}}' > /home/node/.copilot/mcp-config.json
-
-ENV PATH="/home/node/.npm-global/bin:\${PATH}"
-
-FROM base AS sandbox
-
-WORKDIR /home/sandbox/workspace
-
-CMD ["sleep", "infinity"]
-`
+import {createContainer, removeContainer, exec, type RunningContainer} from '../docker'
+import {getSandboxImageBuild} from './images/sandbox'
 
 const DEFAULT_MCP_CONFIG: McpConfigFile = {
   mcpServers: {},
@@ -90,20 +49,23 @@ const DEFAULT_MCP_CONFIG: McpConfigFile = {
 
 class SystemSandbox implements Sandbox {
   static async create(options: SandboxCreateOptions = {}) {
-    const docker = new Docker()
-    const baseDockerImage = options.dockerImage?.trim() || DEFAULT_DOCKER_IMAGE
-    const dockerImage = await ensureDockerImage(docker, baseDockerImage)
-    const container = await createContainer(docker, dockerImage)
-    return new SystemSandbox(options.host ?? DefaultHost, docker, container)
+    const sandboxImage = await getSandboxImageBuild({
+      baseImage: options.dockerImage?.tagName ?? DEFAULT_DOCKER_IMAGE,
+    })
+
+    logger.info('Creating container: %s', sandboxImage.tagName)
+    const container = await createContainer({
+      image: sandboxImage,
+    })
+
+    return new SystemSandbox(options.host ?? DefaultHost, container)
   }
 
-  #container: Docker.Container
-  #docker: Docker
+  #container: RunningContainer
   #host: Host
 
-  constructor(host: Host, docker: Docker, container: InitializedContainer) {
+  constructor(host: Host, container: RunningContainer) {
     this.#host = host
-    this.#docker = docker
     this.#container = container
   }
 
@@ -125,7 +87,7 @@ class SystemSandbox implements Sandbox {
       throw new Error(`Cannot copy "${sourcePath}" to "${destinationPath}" because the destination must include a name`)
     }
 
-    await execCommand(this.#docker, this.#container, 'mkdir', ['-p', containerDirectory], {
+    await execCommand(this.#container, 'mkdir', ['-p', containerDirectory], {
       user: NODE_USER,
     })
 
@@ -183,7 +145,7 @@ class SystemSandbox implements Sandbox {
   }
 
   async readdir(filepath: string): Promise<Array<string>> {
-    const result = await execCommand(this.#docker, this.#container, 'ls', ['-1A', resolveContainerPath(filepath)], {
+    const result = await execCommand(this.#container, 'ls', ['-1A', resolveContainerPath(filepath)], {
       user: NODE_USER,
       allowNonZeroExitCode: true,
     })
@@ -228,7 +190,7 @@ class SystemSandbox implements Sandbox {
   }
 
   async exists(filepath: string): Promise<boolean> {
-    const result = await execCommand(this.#docker, this.#container, 'test', ['-e', resolveContainerPath(filepath)], {
+    const result = await execCommand(this.#container, 'test', ['-e', resolveContainerPath(filepath)], {
       user: NODE_USER,
       allowNonZeroExitCode: true,
     })
@@ -238,11 +200,10 @@ class SystemSandbox implements Sandbox {
 
   async runCommand(command: string, args: Array<string> = [], options?: RunOptions): Promise<CommandResult> {
     logger.debug('[sandbox] Running command: %s %s', command, args.join(' '))
-    return execCommand(this.#docker, this.#container, command, args, {
+    return execCommand(this.#container, command, args, {
       env: {
         HOME: options?.user === 'root' ? '/root' : '/home/node',
         ...options?.env,
-        PATH: `${NPM_GLOBAL_DIR}/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin`,
       },
       user: options?.user ?? NODE_USER,
       allowNonZeroExitCode: options?.allowNonZeroExitCode,
@@ -362,197 +323,6 @@ class SystemSandbox implements Sandbox {
     await this.writeFile(filepath, '')
     return ''
   }
-}
-
-const INITIALIZED_CONTAINER: unique symbol = Symbol('InitializedContainer')
-
-const DEFAULT_DOCKER_IMAGE = 'node:26.5.0-slim'
-const activeContainers = new Set<Docker.Container>()
-const containerRemovals = new WeakMap<Docker.Container, Promise<void>>()
-const removedContainers = new WeakSet<Docker.Container>()
-const dockerImageBuilds = new Map<string, Promise<string>>()
-let terminationCleanup: Promise<void> | undefined
-
-type TerminationSignal = 'SIGINT' | 'SIGTERM'
-
-const terminationHandlers: Record<TerminationSignal, () => void> = {
-  SIGINT() {
-    handleTermination('SIGINT')
-  },
-  SIGTERM() {
-    handleTermination('SIGTERM')
-  },
-}
-
-type InitializedContainer = Docker.Container & {
-  readonly [INITIALIZED_CONTAINER]?: true
-}
-
-async function ensureDockerImage(docker: Docker, baseDockerImage: string): Promise<string> {
-  let build = dockerImageBuilds.get(baseDockerImage)
-  if (!build) {
-    build = buildDockerImage(docker, baseDockerImage).catch(error => {
-      dockerImageBuilds.delete(baseDockerImage)
-      throw error
-    })
-    dockerImageBuilds.set(baseDockerImage, build)
-  }
-
-  return build
-}
-
-async function buildDockerImage(docker: Docker, baseDockerImage: string): Promise<string> {
-  const dockerImage = getDockerImageName(baseDockerImage)
-  logger.debug('Building sandbox image %s from %s...', dockerImage, baseDockerImage)
-
-  const dockerfile = Buffer.from(DOCKERFILE)
-  const context = tarStream.pack()
-  context.entry(
-    {
-      name: 'Dockerfile',
-      size: dockerfile.byteLength,
-    },
-    dockerfile,
-  )
-  context.finalize()
-
-  const stream = await docker.buildImage(context, {
-    buildargs: {
-      BASE_IMAGE: baseDockerImage,
-      COPILOT_CLI_VERSION,
-      NPM_VERSION,
-    },
-    dockerfile: 'Dockerfile',
-    t: dockerImage,
-    target: 'sandbox',
-  })
-
-  await new Promise<void>((resolve, reject) => {
-    docker.modem.followProgress(stream, error => {
-      if (error) {
-        reject(error)
-        return
-      }
-
-      resolve()
-    })
-  })
-
-  return dockerImage
-}
-
-function getDockerImageName(baseDockerImage: string, dockerfile = DOCKERFILE): string {
-  const digest = createHash('sha256')
-    .update(baseDockerImage)
-    .update('\0')
-    .update(dockerfile)
-    .update('\0')
-    .update(NPM_VERSION)
-    .update('\0')
-    .update(COPILOT_CLI_VERSION)
-    .digest('hex')
-    .slice(0, 16)
-
-  return `agent-eval-sandbox:${digest}`
-}
-
-async function createContainer(docker: Docker, dockerImage: string): Promise<InitializedContainer> {
-  const container = await docker.createContainer({
-    Image: dockerImage,
-    Cmd: ['sleep', 'infinity'],
-    WorkingDir: CONTAINER_WORKDIR,
-    Tty: true,
-    HostConfig: {
-      AutoRemove: true,
-    },
-  })
-
-  try {
-    await container.start()
-    trackContainer(container)
-    return container as InitializedContainer
-  } catch (error) {
-    try {
-      await container.remove({force: true})
-    } catch (cleanupError) {
-      throw new AggregateError([error, cleanupError], 'Failed to initialize and remove sandbox container', {
-        cause: cleanupError,
-      })
-    }
-    throw error
-  }
-}
-
-function trackContainer(container: Docker.Container): void {
-  activeContainers.add(container)
-  if (activeContainers.size !== 1) {
-    return
-  }
-
-  process.once('SIGINT', terminationHandlers.SIGINT)
-  process.once('SIGTERM', terminationHandlers.SIGTERM)
-}
-
-async function removeContainer(container: Docker.Container): Promise<void> {
-  if (removedContainers.has(container)) {
-    return
-  }
-
-  const activeRemoval = containerRemovals.get(container)
-  if (activeRemoval) {
-    return activeRemoval
-  }
-
-  const removal = (async () => {
-    try {
-      await container.remove({force: true})
-    } catch (error) {
-      if (!isDockerNotFoundError(error)) {
-        throw error
-      }
-    }
-
-    removedContainers.add(container)
-    activeContainers.delete(container)
-
-    if (activeContainers.size === 0) {
-      process.off('SIGINT', terminationHandlers.SIGINT)
-      process.off('SIGTERM', terminationHandlers.SIGTERM)
-    }
-  })().finally(() => {
-    containerRemovals.delete(container)
-  })
-  containerRemovals.set(container, removal)
-  return removal
-}
-
-function isDockerNotFoundError(error: unknown): boolean {
-  return error instanceof Error && 'statusCode' in error && error.statusCode === 404
-}
-
-async function cleanupActiveContainers(): Promise<void> {
-  const results = await Promise.allSettled(Array.from(activeContainers, container => removeContainer(container)))
-  const errors = results.flatMap(result => {
-    if (result.status === 'rejected') {
-      return [result.reason]
-    }
-
-    return []
-  })
-
-  if (errors.length > 0) {
-    throw new AggregateError(errors, 'Failed to remove active sandbox containers')
-  }
-}
-
-function handleTermination(signal: TerminationSignal): void {
-  terminationCleanup ??= cleanupActiveContainers()
-    .catch(error => {
-      logger.error({error}, 'Failed to clean up sandbox containers during termination')
-    })
-    .then(() => {
-      process.exit(signal === 'SIGINT' ? 130 : 143)
-    })
 }
 
 function mapCopiedHeader(header: Headers, sourceName: string, destinationName: string): Headers {
@@ -728,15 +498,15 @@ class CommandError extends Error {
 }
 
 async function execCommand(
-  docker: Docker,
-  container: Docker.Container,
+  container: RunningContainer,
   command: string,
   args: Array<string>,
   options: RunOptions,
 ): Promise<CommandResult> {
   const cmd = [command, ...args]
   const env = options.env ? Object.entries(options.env).map(([key, value]) => `${key}=${value}`) : undefined
-  const exec = await container.exec({
+  const result = await exec({
+    container,
     Cmd: cmd,
     AttachStdout: true,
     AttachStderr: true,
@@ -745,62 +515,15 @@ async function execCommand(
     User: options.user,
   })
 
-  const stream = await exec.start({
-    hijack: true,
-    stdin: false,
-  })
+  if (result.exitCode === 0 || options.allowNonZeroExitCode) {
+    return result
+  }
 
-  return new Promise((resolve, reject) => {
-    const stdout = createCapturedStream(line => {
-      logger.debug('[sandbox]: %s', line)
-    })
-    const stderr = createCapturedStream(line => {
-      logger.debug('[sandbox]: %s', line)
-    })
-
-    docker.modem.demuxStream(stream, stdout.stream, stderr.stream)
-
-    stream.on('end', async () => {
-      try {
-        stdout.flush()
-        stderr.flush()
-
-        const inspectInfo = await exec.inspect()
-        const exitCode = inspectInfo.ExitCode ?? 0
-        const result = {
-          stdout: stdout.read(),
-          stderr: stderr.read(),
-          exitCode,
-        }
-
-        if (exitCode === 0 || options.allowNonZeroExitCode) {
-          resolve(result)
-          return
-        }
-
-        reject(new CommandError(cmd, result))
-      } catch (error) {
-        reject(error)
-      }
-    })
-    stream.on('error', error => {
-      stdout.flush()
-      stderr.flush()
-      reject(error)
-    })
-  })
+  throw new CommandError(cmd, result)
 }
 
 const SandboxSchema = z.custom<Sandbox>(value => {
   return value instanceof SystemSandbox || value instanceof VirtualSandbox
 })
 
-export {
-  SandboxSchema,
-  SystemSandbox,
-  DEFAULT_DOCKER_IMAGE,
-  buildDockerImage,
-  cleanupActiveContainers,
-  createContainer,
-  getDockerImageName,
-}
+export {SandboxSchema, SystemSandbox, DEFAULT_DOCKER_IMAGE}

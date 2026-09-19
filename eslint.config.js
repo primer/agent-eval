@@ -39,6 +39,7 @@ const config = defineConfig([
     },
     rules: {
       '@typescript-eslint/array-type': 'off',
+      '@typescript-eslint/no-shadow': 'off',
       'eslint-comments/no-unlimited-disable': 'off',
       'eslint-comments/no-use': 'off',
       'filenames/match-regex': 'off',

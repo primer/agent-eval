@@ -6,6 +6,7 @@ import type {Trial} from './trial/trial'
 import type {RunTrialResult} from './trial/run'
 import {runTrial} from './trial/run'
 import {selectShard, type Shard} from './shard'
+import {buildScenarioImage} from './scenario/scenario'
 
 /**
  * A Plan represents an ordered collection of trials to run. Plans are created
@@ -71,7 +72,6 @@ type RunPlanOptions<T extends Trial> = {
   copilotConcurrency: number
   containerConcurrency: number
   copilotToken: string
-  dockerImage: string
   host?: Host
   plan: Plan<T>
 }
@@ -85,7 +85,6 @@ async function runPlan<T extends Trial>({
   copilotConcurrency,
   containerConcurrency,
   copilotToken,
-  dockerImage,
   host = DefaultHost,
   plan,
 }: RunPlanOptions<T>): Promise<RunPlanResult<T>> {
@@ -106,6 +105,10 @@ async function runPlan<T extends Trial>({
     plan.trials.map(trial => {
       return retry(() => {
         return containerQueue.add(async () => {
+          const dockerImage = await buildScenarioImage({
+            host,
+            scenario: trial.scenario,
+          })
           await using sandbox = await host.createSandbox({
             dockerImage,
           })
@@ -148,7 +151,7 @@ async function retry<T>(fn: () => Promise<T>, retries: number = 3): Promise<T> {
     return await fn()
   } catch (error) {
     if (retries > 0) {
-      logger.error({error}, 'Retrying')
+      logger.error({err: error}, 'Retrying')
       return retry(fn, retries - 1)
     }
     throw error

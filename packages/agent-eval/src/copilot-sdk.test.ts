@@ -3,7 +3,7 @@ import {expect, test, vi} from 'vitest'
 import {getAgentSession} from './agent'
 import {parseMessage} from './copilot-cli'
 import {getCopilotSdkRunnerScript, normalizeCopilotMessage, runCopilotSdk} from './copilot-sdk'
-import {COPILOT_DIR, NODE_USER, NPM_GLOBAL_DIR, VirtualSandbox} from './sandbox'
+import {COPILOT_DIR, NODE_USER, VirtualSandbox} from './sandbox'
 
 test('normalizes SDK messages for existing session parsing', () => {
   const message = parseMessage(
@@ -153,31 +153,70 @@ test.each([false, true])('executes the SDK script and surfaces failures (failed:
   }
 })
 
-test('allows only koffi install scripts when installing the SDK without writing the token to disk', async () => {
+test('uses the bundled SDK runner and private Node without writing the token to disk', async () => {
   await using sandbox = await VirtualSandbox.create()
-  const runCommand = vi.spyOn(sandbox, 'runCommand').mockResolvedValue({stdout: '', stderr: '', exitCode: 0})
+  const runCommand = vi.spyOn(sandbox, 'runCommand').mockResolvedValue({
+    stdout: `\n${JSON.stringify({
+      type: 'assistant.message',
+      id: 'message',
+      timestamp: '2026-01-01T00:00:00.000Z',
+      parentId: null,
+      data: {messageId: 'assistant-message', content: 'Done', outputTokens: 42},
+    })}\n\n`,
+    stderr: '',
+    exitCode: 0,
+  })
   const writeFile = vi.spyOn(sandbox, 'writeFile')
-  await runCopilotSdk({
+  const messages = await runCopilotSdk({
     sandbox,
     copilotToken: 'test-token',
     prompt: 'Build a page',
     model: {name: 'gpt-5.5', reasoningEffort: 'high'},
   })
-  expect(runCommand).toHaveBeenNthCalledWith(
-    1,
-    'npm',
-    ['install', '-g', '--allow-scripts=koffi', '@github/copilot-sdk@1.0.11'],
+  expect(runCommand).toHaveBeenCalledExactlyOnceWith(
+    '/opt/agent-eval/node/bin/node',
+    ['/opt/agent-eval/sdk-runner/run.cjs', '/opt/agent-eval/sdk-runner/config.json'],
     {
       user: NODE_USER,
+      env: {COPILOT_GITHUB_TOKEN: 'test-token'},
     },
   )
-  expect(runCommand).toHaveBeenNthCalledWith(
-    2,
-    'node',
-    ['/tmp/agent-eval-copilot-sdk-runner.cjs', '/tmp/agent-eval-copilot-sdk-runner-config.json'],
-    {user: NODE_USER, env: {COPILOT_GITHUB_TOKEN: 'test-token', NODE_PATH: `${NPM_GLOBAL_DIR}/lib/node_modules`}},
+  expect(writeFile).toHaveBeenCalledExactlyOnceWith(
+    '/opt/agent-eval/sdk-runner/config.json',
+    JSON.stringify({
+      copilotHome: COPILOT_DIR,
+      model: 'gpt-5.5',
+      prompt: 'Build a page',
+      reasoningEffort: 'high',
+      timeoutMs: 60 * 60 * 1000,
+    }),
   )
   for (const [, contents] of writeFile.mock.calls) {
     expect(contents).not.toContain('test-token')
   }
+  expect(messages).toEqual([
+    parseMessage(
+      normalizeCopilotMessage({
+        type: 'assistant.message',
+        id: 'message',
+        timestamp: '2026-01-01T00:00:00.000Z',
+        parentId: null,
+        data: {messageId: 'assistant-message', content: 'Done', outputTokens: 42},
+      }),
+    ),
+  ])
+})
+
+test('propagates bundled runner failures', async () => {
+  await using sandbox = await VirtualSandbox.create()
+  const error = new Error('SDK runner failed')
+  vi.spyOn(sandbox, 'runCommand').mockRejectedValue(error)
+  await expect(
+    runCopilotSdk({
+      sandbox,
+      copilotToken: 'test-token',
+      prompt: 'Build a page',
+      model: {name: 'gpt-5.5', reasoningEffort: 'high'},
+    }),
+  ).rejects.toBe(error)
 })

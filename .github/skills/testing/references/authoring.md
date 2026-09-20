@@ -13,15 +13,21 @@
 - Colocate tests with the module: `check.ts` and `check.test.ts`.
 - Group tests by exported operation, then behavior: normal inputs, defaults,
   boundaries, and failures.
-- Prefer flat `test` cases; use `describe` only when grouping adds context.
+- When a file covers multiple exports with distinct sets of cases, use one
+  `describe` block per export.
+- Inside each group, name tests by behavior without repeating the export's name.
+- Keep tests for a single export flat unless separate behavioral contexts make
+  grouping useful.
+- Avoid nesting groups just to share setup.
 - Keep fixtures and helpers local until multiple files need the same setup.
 - Share small, typed fixture builders, not a configurable test framework.
 
 ## Test structure
 
 - Import `test` and `expect` from `vitest`; use `test`, not `it`.
-- Name the operation and expected behavior so a failure is understandable alone.
-  Describe the behavior, not incidental fixture values such as filenames.
+- Make the full test name (including any `describe` group) identify the operation
+  and expected behavior so a failure is understandable alone. Describe the
+  behavior, not incidental fixture values such as filenames.
 - Keep setup, action, and assertions in that order, separated by blank lines.
 - Test one behavior per case; multiple assertions can describe that behavior.
 - Prefer separate, behavior-named tests. Use `test.each` for a meaningful input

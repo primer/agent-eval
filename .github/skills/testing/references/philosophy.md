@@ -2,9 +2,25 @@
 
 ## Contents
 
+- [Is this worth testing?](#is-this-worth-testing)
 - [Test contracts](#test-contracts)
 - [Choose cases](#choose-cases)
 - [Choose boundaries](#choose-boundaries)
+
+## Is this worth testing?
+
+- Identify who relies on the behavior and a plausible regression the test would
+  catch. Small size or missing coverage alone is not a reason to add a test.
+- Weigh the protection against setup and maintenance cost. Module resets,
+  elaborate stubs, or duplicated fixtures can cost more than a trivial adapter
+  test provides.
+- Prefer testing a thin wrapper through its caller when that protects the
+  meaningful behavior. Do not invent contracts for incidental implementation
+  details or duplicate behavior already covered there.
+- A small function can still deserve direct tests when its contract matters.
+  Judge the risk, not the line count.
+- If no useful case emerges, explain why and skip the test rather than forcing
+  coverage.
 
 ## Test contracts
 

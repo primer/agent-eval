@@ -17,7 +17,8 @@ implementation details or external services.
 
 ## Workflow
 
-- Identify the contract and the regression a failing test would catch.
+- First ask [is this worth testing?](references/philosophy.md#is-this-worth-testing).
+  Identify a meaningful contract and a plausible regression before adding tests.
 - Read the relevant references; existing tests are examples, not rules to copy.
 - Use real logic with in-memory dependencies wherever possible.
 - Run the focused tests and confirm they fail when the intended behavior breaks.

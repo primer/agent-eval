@@ -1,6 +1,7 @@
 'use client'
 
 import {Button, Spinner} from '@primer/react'
+import {Blankslate} from '@primer/react/experimental'
 import {ChevronLeftIcon, ChevronRightIcon} from '@primer/octicons-react'
 import Image from 'next/image'
 import {useLayoutEffect, useRef, useState} from 'react'
@@ -150,7 +151,12 @@ function ScreenshotCarousel({
   const [index, setIndex] = useState(0)
   const source = screenshots[index]
   if (!source) {
-    return <p>No UI walkthrough was recorded.</p>
+    return (
+      <Blankslate border>
+        <Blankslate.Heading as="h3">No UI walkthrough</Blankslate.Heading>
+        <Blankslate.Description>No UI walkthrough was recorded for this scenario.</Blankslate.Description>
+      </Blankslate>
+    )
   }
 
   return (

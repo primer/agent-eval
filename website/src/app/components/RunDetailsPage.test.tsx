@@ -208,7 +208,8 @@ test('renders an empty state for an empty screenshots collection', () => {
   const html = renderToStaticMarkup(
     <UiWalkthrough scenarioId="example" eager walkthrough={{type: 'Screenshots', screenshots: []}} />,
   )
-  expect(html).toContain('No UI walkthrough was recorded.')
+  expect(html).toContain('No UI walkthrough')
+  expect(html).toContain('No UI walkthrough was recorded for this scenario.')
   expect(html).not.toContain('<img')
   expect(html).not.toContain('<button')
 })

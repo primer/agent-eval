@@ -2,6 +2,7 @@ import {renderToStaticMarkup} from 'react-dom/server'
 import type {Route} from 'next'
 import {afterEach, expect, test, vi} from 'vitest'
 import {createBenchmarkRunDetails, createExperimentRunDetails} from '../../run-details'
+import type {WalkthroughUrls} from '../../run-details'
 import {createBenchmarkOutput, createExperimentOutput, createTrial} from '../../test-fixtures'
 import {RunDetailsPage} from './RunDetailsPage'
 import {RunDetailsView} from './RunDetailsView'
@@ -163,9 +164,53 @@ test.each([true, false])('reserves image placeholders before determining viewpor
     expect(images[0]).toContain('loading="eager"')
   }
   expect(html).not.toContain('data:image')
-  expect(html.match(/data-component="Spinner"/g)).toHaveLength(2)
+  expect(html).not.toContain('/media/second.png')
+  expect(html.match(/data-component="Spinner"/g)).toHaveLength(1)
   expect(html.match(/role="status"/g)).toHaveLength(2)
-  expect(html.match(/aspect-\[8\/5\]/g)).toHaveLength(2)
+  expect(html.match(/aspect-\[8\/5\]/g)).toHaveLength(1)
+})
+
+test('renders one full-width carousel slide with labeled navigation and a live image count', () => {
+  const html = renderToStaticMarkup(
+    <UiWalkthrough
+      scenarioId="example"
+      eager
+      walkthrough={{type: 'Screenshots', screenshots: ['/media/first.png', '/media/second.png']}}
+    />,
+  )
+  expect(html).toContain('aria-roledescription="carousel"')
+  expect(html).toContain('aria-label="UI walkthrough for example"')
+  expect(html).toContain('aria-roledescription="slide"')
+  expect(html).toContain('aria-label="1 of 2"')
+  expect(html).toContain('aria-live="polite"')
+  expect(html).toContain('Image 1 of 2')
+  expect(html).toContain('alt="UI walkthrough step 1 for example"')
+  expect(html).not.toContain('grid-cols')
+  const previous = html.match(/<button[^>]*aria-label="Previous image"[^>]*>/)?.[0]
+  const next = html.match(/<button[^>]*aria-label="Next image"[^>]*>/)?.[0]
+  expect(previous).toContain('disabled=""')
+  expect(next).toBeDefined()
+  expect(next).not.toContain('disabled=""')
+})
+
+test.each([
+  {type: 'Screenshot', screenshot: '/media/only.png'},
+  {type: 'Screenshots', screenshots: ['/media/only.png']},
+] satisfies Array<WalkthroughUrls>)('omits carousel controls for a single image ($type)', walkthrough => {
+  const html = renderToStaticMarkup(<UiWalkthrough scenarioId="example" eager walkthrough={walkthrough} />)
+  expect(html.match(/<img[^>]+>/g)).toHaveLength(1)
+  expect(html).toContain('src="/media/only.png"')
+  expect(html).not.toContain('Previous image')
+  expect(html).not.toContain('Next image')
+})
+
+test('renders an empty state for an empty screenshots collection', () => {
+  const html = renderToStaticMarkup(
+    <UiWalkthrough scenarioId="example" eager walkthrough={{type: 'Screenshots', screenshots: []}} />,
+  )
+  expect(html).toContain('No UI walkthrough was recorded.')
+  expect(html).not.toContain('<img')
+  expect(html).not.toContain('<button')
 })
 
 test('does not preload the bytes of an external walkthrough video', () => {
@@ -178,15 +223,15 @@ test('does not preload the bytes of an external walkthrough video', () => {
   expect(html).not.toContain('data-component="Spinner"')
 })
 
-test('reserves matching browser frames and gallery columns while walkthrough details load', async () => {
+test('reserves one full-width browser frame while walkthrough details load', async () => {
   const run = await createExperimentRunDetails(
     '2026-09-15',
     createExperimentOutput([createTrial({walkthrough: {type: 'Screenshots', screenshots: ['one.png', 'two.png']}})]),
   )
   const html = renderToStaticMarkup(<RunDetailsPage resource={resource} run={run} />)
-  expect(html).toContain('grid-cols-1 sm:grid-cols-2')
-  expect(html.match(/data-component="Spinner"/g)).toHaveLength(2)
-  expect(html.match(/aspect-\[8\/5\]/g)).toHaveLength(2)
+  expect(html).not.toContain('grid-cols-1 sm:grid-cols-2')
+  expect(html.match(/data-component="Spinner"/g)).toHaveLength(1)
+  expect(html.match(/aspect-\[8\/5\]/g)).toHaveLength(1)
   expect(html).toContain('Loading walkthrough image 1')
   expect(html).not.toContain('<img')
 })

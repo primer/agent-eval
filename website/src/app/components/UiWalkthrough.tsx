@@ -1,6 +1,7 @@
 'use client'
 
 import {Button, Spinner} from '@primer/react'
+import {ChevronLeftIcon, ChevronRightIcon} from '@primer/octicons-react'
 import Image from 'next/image'
 import {useLayoutEffect, useRef, useState} from 'react'
 import type {WalkthroughUrls} from '../../run-details'
@@ -137,6 +138,62 @@ function WalkthroughVideo({source}: {source: string}) {
   )
 }
 
+function ScreenshotCarousel({
+  scenarioId,
+  screenshots,
+  eager,
+}: {
+  scenarioId: string
+  screenshots: Array<string>
+  eager: boolean
+}) {
+  const [index, setIndex] = useState(0)
+  const source = screenshots[index]
+  if (!source) {
+    return <p>No UI walkthrough was recorded.</p>
+  }
+
+  return (
+    <section aria-label={`UI walkthrough for ${scenarioId}`} aria-roledescription="carousel" className="w-full">
+      {screenshots.length > 1 ? (
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <Button
+            aria-label="Previous image"
+            disabled={index === 0}
+            leadingVisual={ChevronLeftIcon}
+            onClick={() => {
+              setIndex(index - 1)
+            }}
+          >
+            Previous
+          </Button>
+          <span aria-live="polite" aria-atomic="true" role="status" className="text-muted text-body-small">
+            {`Image ${index + 1} of ${screenshots.length}`}
+          </span>
+          <Button
+            aria-label="Next image"
+            disabled={index === screenshots.length - 1}
+            trailingVisual={ChevronRightIcon}
+            onClick={() => {
+              setIndex(index + 1)
+            }}
+          >
+            Next
+          </Button>
+        </div>
+      ) : null}
+      <div role="group" aria-roledescription="slide" aria-label={`${index + 1} of ${screenshots.length}`}>
+        <BrowserScreenshot
+          alt={`UI walkthrough step ${index + 1} for ${scenarioId}`}
+          eager={eager || index > 0}
+          key={source}
+          source={source}
+        />
+      </div>
+    </section>
+  )
+}
+
 function UiWalkthrough({
   scenarioId,
   walkthrough,
@@ -151,18 +208,12 @@ function UiWalkthrough({
   }
   if (walkthrough.type === 'Screenshots') {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {walkthrough.screenshots.map((source, index) => {
-          return (
-            <BrowserScreenshot
-              alt={`UI walkthrough step ${index + 1} for ${scenarioId}`}
-              eager={eager && index === 0}
-              key={source}
-              source={source}
-            />
-          )
-        })}
-      </div>
+      <ScreenshotCarousel
+        eager={eager}
+        key={JSON.stringify([scenarioId, walkthrough.screenshots])}
+        scenarioId={scenarioId}
+        screenshots={walkthrough.screenshots}
+      />
     )
   }
   if (walkthrough.type === 'Screenshot') {

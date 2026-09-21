@@ -56,10 +56,12 @@ and cached during the browser session; failures show an error and a retry button
 Changing the selection cannot display a previous trial's pending response.
 
 Screenshots and videos are served as separate files, not embedded base64 data.
-The first walkthrough image and any images in the viewport load eagerly;
-offscreen images load lazily, and videos use `preload="none"`.
-Walkthrough loading placeholders reserve the preview's aspect ratio and gallery
-layout, using Primer spinners until images finish loading. Other tabs use Primer
+Multiple screenshots appear in a full-width carousel with Previous and Next
+buttons and an image count. Only the selected image loads; the first walkthrough
+image and visible images load eagerly, while offscreen walkthroughs load lazily.
+Videos use `preload="none"`.
+Walkthrough loading placeholders reserve a single full-width preview's aspect
+ratio, using Primer spinners until images finish loading. Other tabs use Primer
 skeletons and loading indicators. Media failures offer a retry; idle videos do
 not show a spinner until playback is buffering.
 

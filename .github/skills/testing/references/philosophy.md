@@ -50,6 +50,11 @@
 
 ## Choose boundaries
 
+- Test each behavior where it is defined. Cover parsing, defaults, and
+  normalization at the module that owns them.
+- At calling layers, test wiring and caller-owned decisions with representative
+  cases, not a dependency's full input matrix. Check existing coverage before
+  adding overlapping assertions.
 - Default to fast, deterministic tests of real logic with
   [in-memory dependencies](isolation.md#existing-dependencies).
 - Test collaborating modules together when their interaction is the contract;

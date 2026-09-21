@@ -41,17 +41,10 @@ function RunDetailsLoading({tab, result}: {tab: ResultTab; result: RunResult}) {
         </div>
       )
     }
-    const frames = Array.from({length: preview.count}, (_, index) => {
-      return (
-        <BrowserFrame key={index}>
-          <MediaLoading label={`walkthrough image ${index + 1}`} />
-        </BrowserFrame>
-      )
-    })
-    return preview.type === 'Screenshots' ? (
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{frames}</div>
-    ) : (
-      frames
+    return (
+      <BrowserFrame>
+        <MediaLoading label="walkthrough image 1" />
+      </BrowserFrame>
     )
   }
 

@@ -2,6 +2,14 @@ import * as z from 'zod/mini'
 
 const models = [
   {
+    name: 'claude-fable-5',
+    reasoningEfforts: ['low', 'medium', 'high', 'xhigh', 'max'],
+  },
+  {
+    name: 'claude-fable-5.1',
+    reasoningEfforts: ['low', 'medium', 'high', 'xhigh', 'max'],
+  },
+  {
     name: 'claude-opus-4.6',
     reasoningEfforts: ['low', 'medium', 'high', 'max'],
   },
@@ -55,6 +63,10 @@ const models = [
   },
   {
     name: 'gpt-5.6-terra',
+    reasoningEfforts: ['low', 'medium', 'high', 'xhigh', 'max'],
+  },
+  {
+    name: 'gpt-6-astra',
     reasoningEfforts: ['low', 'medium', 'high', 'xhigh', 'max'],
   },
 ] as const
@@ -153,6 +165,18 @@ const ModelVariantConfigSchema = z.union([
   z.object({
     name: z.literal(models[13].name),
     reasoningEfforts: z.optional(z.array(z.enum(models[13].reasoningEfforts))),
+  }),
+  z.object({
+    name: z.literal(models[14].name),
+    reasoningEfforts: z.optional(z.array(z.enum(models[14].reasoningEfforts))),
+  }),
+  z.object({
+    name: z.literal(models[15].name),
+    reasoningEfforts: z.optional(z.array(z.enum(models[15].reasoningEfforts))),
+  }),
+  z.object({
+    name: z.literal(models[16].name),
+    reasoningEfforts: z.optional(z.array(z.enum(models[16].reasoningEfforts))),
   }),
 ])
 

@@ -16,7 +16,6 @@ import {parseShard} from '../../shard'
 import {
   copilotConcurrencyOption,
   containerConcurrencyOption,
-  dockerImageOption,
   experimentsOption,
   getConcurrencyValue,
   getCopilotToken,
@@ -133,7 +132,6 @@ const experimentCommand = defineCommand({
             experiments: experimentsOption,
             'copilot-concurrency': copilotConcurrencyOption,
             'container-concurrency': containerConcurrencyOption,
-            'docker-image': dockerImageOption,
             'output-dir': outputDirectoryOption,
             'plan-path': {
               type: 'string',
@@ -192,7 +190,6 @@ const experimentCommand = defineCommand({
               copilotConcurrency,
               containerConcurrency,
               copilotToken,
-              dockerImage: args['docker-image'],
               plan,
             })
             const output = createExperimentOutput({experiment: manifest.experiment, runPlanResult})
@@ -211,7 +208,6 @@ const experimentCommand = defineCommand({
         experiments: experimentsOption,
         'copilot-concurrency': copilotConcurrencyOption,
         'container-concurrency': containerConcurrencyOption,
-        'docker-image': dockerImageOption,
         name: {
           type: 'positional',
           description: 'The name of the experiment to run',
@@ -255,7 +251,6 @@ const experimentCommand = defineCommand({
           copilotConcurrency,
           containerConcurrency,
           copilotToken,
-          dockerImage: args['docker-image'],
           plan,
         })
         const output = createExperimentOutput({experiment, runPlanResult})

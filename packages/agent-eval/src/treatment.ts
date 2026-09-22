@@ -1,6 +1,12 @@
 import * as z from 'zod/mini'
 import {hash} from './hash'
-import {SandboxSchema} from './sandbox'
+import {SandboxSchema, type Sandbox} from './sandbox'
+
+type TreatmentSetupOptions = {
+  sandbox: Sandbox
+}
+
+type TreatmentSetup = (options: TreatmentSetupOptions) => Promise<void>
 
 const TreatmentSetupSchema = z.function({
   input: [
@@ -9,9 +15,7 @@ const TreatmentSetupSchema = z.function({
     }),
   ],
   output: z.promise(z.void()),
-})
-
-type TreatmentSetup = z.infer<typeof TreatmentSetupSchema>
+}) satisfies z.ZodMiniType<TreatmentSetup>
 
 const TreatmentConfigSchema = z.object({
   name: z.string(),

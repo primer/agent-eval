@@ -1,12 +1,26 @@
 import * as z from 'zod/mini'
-import {TreatmentSetupSchema} from '../treatment'
-import {ModelVariantConfigSchema} from '../model'
+import {TreatmentSetupSchema, type TreatmentSetup} from '../treatment'
+import {ModelVariantConfigSchema, type ModelVariantConfig} from '../model'
+
+type CapabilityConfig = {
+  name: string
+  scenarios: Array<string>
+  setup?: TreatmentSetup
+}
+
+type BenchmarkConfig = {
+  name: string
+  description: string
+  models: Array<ModelVariantConfig>
+  setup?: TreatmentSetup
+  capabilities: Array<CapabilityConfig>
+}
 
 const CapabilityConfigSchema = z.object({
   name: z.string(),
   scenarios: z.array(z.string()),
   setup: z.optional(TreatmentSetupSchema),
-})
+}) satisfies z.ZodMiniType<CapabilityConfig>
 
 const BenchmarkConfigSchema = z.object({
   name: z.string(),
@@ -30,11 +44,9 @@ const BenchmarkConfigSchema = z.object({
       },
     ),
   ),
-})
+}) satisfies z.ZodMiniType<BenchmarkConfig>
 
-type BenchmarkConfig = z.infer<typeof BenchmarkConfigSchema>
-
-function defineConfig<const Config extends BenchmarkConfig>(config: Config): Config {
+function defineConfig(config: BenchmarkConfig): BenchmarkConfig {
   return config
 }
 

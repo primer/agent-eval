@@ -15,7 +15,7 @@ test.each([undefined, 'copilot-cli', 'copilot-sdk'] as const)(
       '/scenarios/example/scenario.test.ts': 'legacy test',
       '/scenarios/example/vitest.config.scenario.ts': 'private check config',
       '/scenarios/example/checks/reference.json': 'private reference',
-      '/scenarios/example/src/reference.json': 'ordinary source',
+      '/home/sandbox/workspace/src/reference.json': 'ordinary source',
       [`${COPILOT_DIR}/config.json`]: '{}',
       [`${AGENTS_DIR}/config.json`]: '{}',
     })
@@ -37,6 +37,7 @@ test.each([undefined, 'copilot-cli', 'copilot-sdk'] as const)(
         prompt: 'Update the example',
         tags: [],
         judges: [],
+        image: {type: 'Default'},
         checks: [
           {
             name: 'custom-check',
@@ -59,13 +60,15 @@ test.each([undefined, 'copilot-cli', 'copilot-sdk'] as const)(
     const copilotQueue = new Queue({concurrency: 1})
     vi.spyOn(sandbox, 'runCommand').mockImplementation(async (command, args = []) => {
       if (
-        (command === 'copilot' && args.includes(trial.scenario.prompt)) ||
-        (command === 'node' && args[0] === '/tmp/agent-eval-copilot-sdk-runner.cjs')
+        (command === '/opt/agent-eval/copilot/bin/copilot' && args.includes(trial.scenario.prompt)) ||
+        (command === '/opt/agent-eval/node/bin/node' && args[0] === '/opt/agent-eval/sdk-runner/run.cjs')
       ) {
         taskCalls++
         expect(copilotQueue.pending).toBe(1)
-        expect(command).toBe(runner === 'copilot-sdk' ? 'node' : 'copilot')
-        if (command === 'node') {
+        expect(command).toBe(
+          runner === 'copilot-sdk' ? '/opt/agent-eval/node/bin/node' : '/opt/agent-eval/copilot/bin/copilot',
+        )
+        if (runner === 'copilot-sdk') {
           expect(JSON.parse(await sandbox.readFile(args[1]))).toMatchObject({
             model: trial.model.name,
             reasoningEffort: trial.model.reasoningEffort,
@@ -81,7 +84,7 @@ test.each([undefined, 'copilot-cli', 'copilot-sdk'] as const)(
         exitCode: 0,
         stderr: '',
         stdout:
-          command === 'copilot' || command === 'node'
+          command === '/opt/agent-eval/copilot/bin/copilot' || command === '/opt/agent-eval/node/bin/node'
             ? JSON.stringify({
                 type: 'result',
                 timestamp: '2026-09-15T00:00:00.000Z',
@@ -108,6 +111,11 @@ test.each([undefined, 'copilot-cli', 'copilot-sdk'] as const)(
     })
 
     expect(taskCalls).toBe(1)
+    expect(sandbox.runCommand).toHaveBeenCalledWith(
+      'npm',
+      ['install', '-g', '--prefix', '/home/node/.npm-global', '--allow-scripts=agent-browser', 'agent-browser'],
+      {user: '1000:1000'},
+    )
     expect(checkRun).toHaveBeenCalledOnce()
     expect(result.checks[0]?.result).toEqual({
       type: 'outcomes',

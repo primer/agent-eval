@@ -52,6 +52,16 @@ const NODE_USER = `${SANDBOX_UID}:${SANDBOX_GID}` as const
  */
 const NPM_GLOBAL_DIR = '/home/node/.npm-global'
 
+/**
+ * The default version of Node.js used for Docker images
+ */
+const DEFAULT_NODE_VERSION = '26.8.2'
+
+/**
+ * The default Node.js Docker image used for containers
+ */
+const DEFAULT_DOCKER_IMAGE = `node:${DEFAULT_NODE_VERSION}-slim`
+
 export {
   AGENT_INSTRUCTIONS_PATH,
   AGENTS_DIR,
@@ -65,4 +75,6 @@ export {
   SANDBOX_GID,
   SANDBOX_UID,
   SKILLS_DIR,
+  DEFAULT_DOCKER_IMAGE,
+  DEFAULT_NODE_VERSION,
 }

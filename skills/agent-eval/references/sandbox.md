@@ -9,7 +9,6 @@ between the host and a trial's Docker workspace.
 | :------------------------ | :------------------------------------------------ |
 | Access                    | Use the `sandbox` supplied to setup/check hooks   |
 | Lifecycle                 | The harness creates and disposes trial containers |
-| Public imports            | `@primer/agent-eval/sandbox`                      |
 | Default user              | `node`                                            |
 | Command working directory | `/home/sandbox/workspace`                         |
 | Command result            | `{stdout, stderr, exitCode}`                      |
@@ -26,7 +25,7 @@ and a `node` user; the harness layers its tools on top.
 
 ## Methods
 
-Import public runtime and types from `@primer/agent-eval/sandbox`.
+Use the sandbox supplied to hooks; its runtime implementations are internal.
 
 | Method                | Purpose                                                                      |
 | :-------------------- | :--------------------------------------------------------------------------- |

@@ -22,7 +22,7 @@ not a prerequisite for every operation.
 | Create a task, starting workspace, or custom image      | [Scenarios](references/scenarios.md)                                               |
 | Add deterministic grading or a subjective rubric        | [Checks](references/checks.md) or [judges](references/judges.md)                   |
 | Select models, effort, or execution backends            | [Models and runners](references/models-and-runners.md)                             |
-| Install resources or run commands in a trial            | [Sandbox](references/sandbox.md)                                                   |
+| Find files, install resources, or run trial commands    | [Sandbox](references/sandbox.md)                                                   |
 | Inspect a run matrix, shard, or merge                   | [Plans](references/plans.md)                                                       |
 | Read results or diagnose agent behavior                 | [Trials and results](references/trials-and-results.md)                             |
 | Find a command, flag, or runtime failure                | [CLI](references/cli.md)                                                           |

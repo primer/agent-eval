@@ -1,5 +1,11 @@
 import {describe, expect, test} from 'vitest'
-import {formatDuration, formatPercentDelta, formatTable, type TableRow} from './format'
+import {formatDuration, formatNumber, formatPercentDelta, formatTable, type TableRow} from './format'
+
+describe('formatNumber', () => {
+  test('uses en-US thousands separators', () => {
+    expect(formatNumber(10_000)).toBe('10,000')
+  })
+})
 
 describe('formatDuration', () => {
   test.each([

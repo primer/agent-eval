@@ -35,6 +35,57 @@ function formatDuration(milliseconds: number): string {
   return `${(milliseconds / 1000).toFixed(1)} s`
 }
 
+export function ToolBreakdown({tools}: {tools: RunResult['tools']}) {
+  const total = tools.reduce((count, tool) => {
+    return count + tool.count
+  }, 0)
+
+  return (
+    <section className="mb-6">
+      <h3 className="text-title-small mt-0 mb-2">Tool breakdown</h3>
+      {tools.length === 0 ? (
+        <p className="text-muted">No tool calls were recorded.</p>
+      ) : (
+        <>
+          <p className="text-caption text-muted">Calls across implementation sessions for the selected trial.</p>
+          <table className="w-full text-body-medium" aria-label="Tool breakdown">
+            <thead>
+              <tr className="border-b border-default">
+                <th className="text-left p-2" scope="col">
+                  Tool
+                </th>
+                <th className="text-right p-2" scope="col">
+                  Calls
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {tools.map(tool => {
+                return (
+                  <tr className="border-b border-muted" key={tool.name}>
+                    <th className="text-left font-normal p-2 break-all" scope="row">
+                      <code>{tool.name}</code>
+                    </th>
+                    <td className="text-right p-2">{tool.count.toLocaleString('en-US')}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+            <tfoot>
+              <tr>
+                <th className="text-left p-2" scope="row">
+                  Total
+                </th>
+                <td className="text-right font-semibold p-2">{total.toLocaleString('en-US')}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </>
+      )}
+    </section>
+  )
+}
+
 function Transcript({entries}: {entries: Array<TranscriptEntry>}) {
   if (entries.length === 0) {
     return <p>No transcript messages were recorded.</p>
@@ -224,21 +275,20 @@ function ResultTabs({index, result}: {index: number; result: RunResult}) {
         {selectedTab === 'code' ? (
           <FileExplorer key={result.id} workspace={result.workspace} />
         ) : selectedTab === 'transcript' ? (
-          <AsyncContent
-            key={result.transcriptUrl}
-            url={result.transcriptUrl}
-            load={loadTrialTranscript}
-            label="transcript"
-            fallback={<RunDetailsLoading tab="transcript" result={result} />}
-          >
-            {entries => {
-              return (
-                <div className="w-full max-w-3xl mx-auto">
-                  <Transcript entries={entries} />
-                </div>
-              )
-            }}
-          </AsyncContent>
+          <div className="w-full max-w-3xl mx-auto">
+            <ToolBreakdown tools={result.tools} />
+            <AsyncContent
+              key={result.transcriptUrl}
+              url={result.transcriptUrl}
+              load={loadTrialTranscript}
+              label="transcript"
+              fallback={<RunDetailsLoading tab="transcript" result={result} />}
+            >
+              {entries => {
+                return <Transcript entries={entries} />
+              }}
+            </AsyncContent>
+          </div>
         ) : (
           <AsyncContent
             key={result.detailsUrl}

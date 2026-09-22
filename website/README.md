@@ -55,6 +55,10 @@ JSON file. Transcripts load only when their tab is opened. Requests are shared
 and cached during the browser session; failures show an error and a retry button.
 Changing the selection cannot display a previous trial's pending response.
 
+The **Transcript** tab includes a tool breakdown with each tool's call count and
+a total, sorted by most-used tools first. Counts combine the selected trial's
+implementation sessions and exclude judge sessions.
+
 Screenshots and videos are served as separate files, not embedded base64 data.
 Multiple screenshots appear in a full-width carousel with Previous and Next
 buttons and an image count. Only the selected image loads; the first walkthrough

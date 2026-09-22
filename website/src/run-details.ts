@@ -41,6 +41,7 @@ type RunResult = {
   premiumRequests: number
   totalApiDurationMs: number
   sessionDurationMs: number
+  tools: Array<{name: string; count: number}>
   counts: {checks: number; transcript: number; judges: number}
   walkthroughPreview: {type: Walkthrough['type']; count: number}
   detailsUrl: string
@@ -348,6 +349,12 @@ async function createExperimentRunDetails(
       throw new Error(`Unknown treatment "${result.treatmentId}" for trial "${result.id}"`)
     }
     const baseUrl = getTrialDataUrl(collection, output.id, date, result.id)
+    const tools = new Map<string, number>()
+    for (const session of result.agent.sessions) {
+      for (const [name, count] of Object.entries(session.tools)) {
+        tools.set(name, (tools.get(name) ?? 0) + count)
+      }
+    }
     results.push({
       id: result.id,
       scenarioId: result.scenarioId,
@@ -363,6 +370,11 @@ async function createExperimentRunDetails(
       premiumRequests: summary.premiumRequests,
       totalApiDurationMs: summary.totalApiDurationMs,
       sessionDurationMs: summary.sessionDurationMs,
+      tools: Array.from(tools, ([name, count]) => {
+        return {name, count}
+      }).toSorted((first, second) => {
+        return second.count - first.count || first.name.localeCompare(second.name)
+      }),
       counts: {
         checks: result.checks.length,
         transcript: createTrialTranscript(result).length,

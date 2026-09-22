@@ -28,6 +28,7 @@ test.each([
     premiumRequests: 1,
     totalApiDurationMs: 200,
     sessionDurationMs: 300,
+    tools: [],
     counts: {checks: checks.length, transcript: 0, judges: judgeOutputs.length},
     walkthroughPreview: {type: 'Unavailable', count: 0},
     detailsUrl: `${baseUrl}/details.json`,
@@ -100,6 +101,40 @@ test('rejects trials with unknown treatments instead of labeling them as valid r
     createExperimentRunDetails('2026-09-15', createExperimentOutput([createTrial({treatmentId: 'missing'})])),
   ).rejects.toThrow('Unknown treatment')
 })
+
+test.each(['copilot-cli', 'copilot-sdk'] as const)(
+  'aggregates recorded tool counts for each %s trial without including judges',
+  async runner => {
+    const trial = createTrial({
+      runner,
+      agent: {
+        sessions: [
+          {...session, tools: {view: 2, bash: 1, 'github/search': 1}},
+          {...session, tools: {bash: 3, edit: 1}},
+        ],
+      },
+      judges: [{...judges[0], agent: {session: {...session, tools: {judgeOnly: 100, bash: 100}}}}],
+    })
+    const output = createExperimentOutput([trial, createTrial({id: 'trial-2'})])
+    const details = await createExperimentRunDetails('2026-09-15', output)
+    const expected = [
+      {name: 'bash', count: 4},
+      {name: 'view', count: 2},
+      {name: 'edit', count: 1},
+      {name: 'github/search', count: 1},
+    ]
+    expect(details.results[0].tools).toEqual(expected)
+    expect(details.results[1].tools).toEqual([])
+    const benchmark = await createBenchmarkRunDetails({
+      id: '2026-09-15',
+      name: '2026-09-15',
+      date: new Date('2026-09-15'),
+      directory: '/results/benchmark',
+      output: createBenchmarkOutput([trial]),
+    })
+    expect(benchmark.results[0].tools).toEqual(expected)
+  },
+)
 
 test.each([undefined, 'copilot-cli', 'copilot-sdk'] as const)(
   'preserves runner metadata with a legacy CLI default: %s',

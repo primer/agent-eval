@@ -5,7 +5,7 @@ import {createBenchmarkRunDetails, createExperimentRunDetails} from '../../run-d
 import type {WalkthroughUrls} from '../../run-details'
 import {createBenchmarkOutput, createExperimentOutput, createTrial} from '../../test-fixtures'
 import {RunDetailsPage} from './RunDetailsPage'
-import {RunDetailsView} from './RunDetailsView'
+import {RunDetailsView, ToolBreakdown} from './RunDetailsView'
 import {UiWalkthrough} from './UiWalkthrough'
 import {RunDetailsLoading} from './RunDetailsLoading'
 
@@ -14,7 +14,7 @@ vi.mock('server-only', () => {
 })
 vi.mock('./RunDetailsView', async importOriginal => {
   const original = await importOriginal<typeof import('./RunDetailsView')>()
-  return {RunDetailsView: vi.fn(original.RunDetailsView)}
+  return {...original, RunDetailsView: vi.fn(original.RunDetailsView)}
 })
 
 afterEach(() => {
@@ -29,6 +29,38 @@ const resource = {
   collectionHref: '/experiments' as const,
   href: '/experiments/noop' as Route,
 }
+
+test('renders tool names, individual counts, and the total in an accessible table', () => {
+  const html = renderToStaticMarkup(
+    <ToolBreakdown
+      tools={[
+        {name: 'bash', count: 1200},
+        {name: 'github/search', count: 2},
+      ]}
+    />,
+  )
+  expect(html).toContain('aria-label="Tool breakdown"')
+  expect(html).toContain('scope="col">Tool</th>')
+  expect(html).toContain('scope="col">Calls</th>')
+  expect(html).toContain('<code>bash</code>')
+  expect(html).toContain('<code>github/search</code>')
+  expect(html).toContain('>1,200</td>')
+  expect(html).toContain('>2</td>')
+  expect(html).toContain('scope="row">Total</th>')
+  expect(html).toContain('>1,202</td>')
+})
+
+test('renders an empty state when no tool calls were recorded', () => {
+  const html = renderToStaticMarkup(<ToolBreakdown tools={[]} />)
+  expect(html).toContain('No tool calls were recorded.')
+  expect(html).not.toContain('<table')
+})
+
+test('renders tool names as escaped text', () => {
+  const html = renderToStaticMarkup(<ToolBreakdown tools={[{name: '<script>alert(1)</script>', count: 1}]} />)
+  expect(html).toContain('&lt;script&gt;')
+  expect(html).not.toContain('<script>')
+})
 
 test('provides a selector for every repeated trial and the new checks tab', async () => {
   const run = await createExperimentRunDetails(

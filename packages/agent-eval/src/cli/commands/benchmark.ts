@@ -11,6 +11,7 @@ import {
   githubCopilotTokenOption,
   getCopilotToken,
   outputDirectoryOption,
+  progressOption,
   scenariosOption,
   runnerOption,
   shardOption,
@@ -26,6 +27,7 @@ import {
 } from '../../benchmark/output'
 import {createPlanFromManifest, runPlan} from '../../plan'
 import {DefaultHost as host} from '../../host'
+import {createProgressReporter} from '../progress'
 
 const benchmarkCommand = defineCommand({
   meta: {
@@ -153,12 +155,14 @@ const benchmarkCommand = defineCommand({
               description: 'The path to the plan to run',
               default: './plan.json',
             },
+            progress: progressOption,
             scenarios: scenariosOption,
             runner: runnerOption,
             shard: shardOption,
             token: githubCopilotTokenOption,
           },
           async run({args}) {
+            using progress = createProgressReporter(args.progress)
             const benchmarksDirectory = path.resolve(args.benchmarks)
             const copilotConcurrency = getConcurrencyValue(args['copilot-concurrency'], 'copilot-concurrency')
             const containerConcurrency = getConcurrencyValue(args['container-concurrency'], 'container-concurrency')
@@ -210,6 +214,7 @@ const benchmarkCommand = defineCommand({
               containerConcurrency,
               copilotToken,
               plan,
+              onProgress: progress.update,
             })
             const output = createBenchmarkOutput({
               benchmark: manifest.benchmark,
@@ -239,11 +244,13 @@ const benchmarkCommand = defineCommand({
           required: true,
         },
         'output-dir': outputDirectoryOption,
+        progress: progressOption,
         scenarios: scenariosOption,
         runner: runnerOption,
         token: githubCopilotTokenOption,
       },
       async run({args}) {
+        using progress = createProgressReporter(args.progress)
         logger.info(`Running benchmark: %s`, args.name)
 
         const benchmarksDirectory = path.resolve(args.benchmarks)
@@ -280,6 +287,7 @@ const benchmarkCommand = defineCommand({
           containerConcurrency,
           copilotToken,
           plan,
+          onProgress: progress.update,
         })
         const output = createBenchmarkOutput({
           benchmark,

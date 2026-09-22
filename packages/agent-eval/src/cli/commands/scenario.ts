@@ -11,6 +11,7 @@ import {
   getOutputPath,
   githubCopilotTokenOption,
   outputDirectoryOption,
+  progressOption,
   scenariosOption,
   runnerOption,
 } from '../options'
@@ -19,6 +20,7 @@ import {createScenarioPlan} from '../../scenario/plan'
 import {buildScenarioImage} from '../../scenario/scenario'
 import {runPlan} from '../../plan'
 import type {RunTrialResult} from '../../trial/run'
+import {createProgressReporter} from '../progress'
 
 const scenarioCommand = defineCommand({
   meta: {
@@ -147,11 +149,13 @@ const scenarioCommand = defineCommand({
           required: true,
         },
         'output-dir': outputDirectoryOption,
+        progress: progressOption,
         scenarios: scenariosOption,
         runner: runnerOption,
         token: githubCopilotTokenOption,
       },
       async run({args}) {
+        using progress = createProgressReporter(args.progress)
         logger.info('Running scenario: %s', args.name)
 
         const copilotConcurrency = getConcurrencyValue(args['copilot-concurrency'], 'copilot-concurrency')
@@ -200,6 +204,7 @@ const scenarioCommand = defineCommand({
           containerConcurrency,
           copilotToken,
           plan,
+          onProgress: progress.update,
         })
 
         type ScenarioOutput = {

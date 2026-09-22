@@ -36,6 +36,7 @@ not a prerequisite for every operation.
 - Withhold grader files using `files`. Verify the starter fails for the intended
   reasons and a correct solution passes; restore the starter before execution.
 - Inspect the plan's combinations before running. Use a fresh output directory.
+- Use `--progress` on run commands for trial counts instead of informational logs.
 - Finish by reading trial results and reporting outcomes and errors separately.
   Command completion alone does not establish quality.
 

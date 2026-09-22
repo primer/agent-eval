@@ -1,6 +1,6 @@
 import {defineConfig} from '@primer/agent-eval/scenario'
 import type {ESLint} from 'eslint'
-import type {JsonTestResults} from 'vitest/reporters'
+import type {JsonTestResults} from 'vitest/node'
 
 export default defineConfig({
   prompt: `Example prompt`,

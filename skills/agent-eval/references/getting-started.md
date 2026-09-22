@@ -117,7 +117,7 @@ Create `scenarios/001-labels/scenario.config.ts`:
 
 ```ts
 import {defineConfig} from '@primer/agent-eval/scenario'
-import type {JsonTestResults} from 'vitest/reporters'
+import type {JsonTestResults} from 'vitest/node'
 
 export default defineConfig({
   description: 'Smoke-test an agent implementing a small data transformation',

@@ -40,6 +40,44 @@ experiments. Under-the-hood, we are going through each scenario and setting up a
 sandbox where the agent executes within. When all evaluations are complete, a
 result is returned detailing how each agent performed relative to each other.
 
+### View results
+
+Start a local viewer for benchmark, experiment, and scenario results:
+
+```bash
+agent-eval ui dev
+agent-eval ui dev --results ./results/my-run --port 3001
+```
+
+Open the printed `http://127.0.0.1:3000` URL. The viewer searches `./results`
+recursively for `output.json` and shard manifests (`output-<number>.json`).
+You can also point `--results` at a single bundle directory. Relative paths
+are resolved from the current directory; absolute paths are supported.
+Expand a trial to inspect its checks, judges, and full result data.
+The page refreshes automatically within a few seconds when runs or trial
+results are added, changed, or removed. You can start the viewer before the
+results directory exists. Incomplete or invalid bundles are shown as errors
+and retried automatically.
+
+Build a static snapshot for sharing:
+
+```bash
+agent-eval ui build --results ./results --output-dir ./out
+```
+
+The output defaults to `./out` and must not overlap the results directory.
+The command fails if any discovered bundle is incomplete or invalid. Open
+`out/index.html` directly, or deploy the contents of `out` to GitHub Pages
+(for Actions deployments, upload `out` with `actions/upload-pages-artifact`
+and deploy it with `actions/deploy-pages`). The self-contained page works at
+either a domain root or a repository subpath without a base-path option.
+Rebuild to publish updated results.
+
+Neither UI command requires Docker, a Copilot token, or a repository checkout.
+The viewer includes trial JSON, not workspace files or screenshot/video files.
+**Review the results before publishing:** trial data can contain prompts,
+agent messages, local paths, and other private evaluation information.
+
 ## Benchmarks
 
 Benchmarks are used to establish a baseline for agent performance on a given task. By default, they live in a `benchmarks` folder in your project. You can create a benchmark by importing and using `defineConfig` from

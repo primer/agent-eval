@@ -26,6 +26,8 @@ Image commands require Docker but not a Copilot token.
 | `scenario run <name>`           | Run one scenario                 |
 | `scenario image build <name>`   | Build a scenario workspace image |
 | `scenario image clean [name]`   | Remove local agent-eval images   |
+| `ui dev`                        | View results with live refresh   |
+| `ui build`                      | Export a static results site     |
 
 Use singular `benchmark`, `experiment`, and `scenario`. There is no CLI
 scaffolding command; create files with the appropriate `defineConfig` helper.
@@ -91,6 +93,32 @@ including older builds. **Omitting the name also targets all local agent-eval
 scenario, sandbox, and tools images across projects.** Cleanup accepts
 `--scenarios` but does not use it to restrict removal. It forces image removal
 but does not stop running containers.
+
+## Results UI
+
+```sh
+npx agent-eval ui dev --results ./results --port 3000
+npx agent-eval ui build --results ./results --output-dir ./out
+```
+
+Both commands work without Docker or a token. `--results` defaults to
+`./results`, accepts relative or absolute paths, and can select one bundle
+directory or a directory containing many runs. The viewer recursively finds
+`output.json` and `output-<number>.json` manifests and displays benchmark,
+experiment, and scenario trials, checks, judges, and full result JSON.
+It does not copy or serve workspace files or screenshot/video artifacts.
+
+`ui dev` binds to `127.0.0.1` on port `3000` by default. Open the printed URL.
+It checks for updates every two seconds, including newly created or deleted
+results. Missing directories are initially empty; invalid/incomplete bundles
+are displayed as errors and retried.
+
+`ui build` writes a self-contained `index.html` and `.nojekyll` to `./out` by
+default. Input and output directories must not overlap. Invalid bundles fail
+the build instead of producing a partial site. Deploy the output directory to
+GitHub Pages or another static host; no base-path setting is needed for a
+repository subpath. Rebuild when results change. Review the embedded trial
+data for private information before publishing.
 
 ## Command templates
 

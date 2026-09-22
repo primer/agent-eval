@@ -1,11 +1,66 @@
 'use client'
 
 import {Stack} from '@primer/react'
-import {DataTable, Table} from '@primer/react/experimental'
+import {Blankslate, DataTable, Table} from '@primer/react/experimental'
 import type {Benchmark} from '../../benchmarks'
 import type {Experiment} from '../../experiments'
 import {Link} from '../../components/Link'
 import type {ScenarioSummary} from '../../scenarios'
+import {getRunHref} from '../../run-url'
+
+export function RunsTable({
+  runs,
+}: {
+  runs: Array<{
+    id: string
+    collection: 'benchmarks' | 'experiments'
+    resourceId: string
+    date: string
+    trials: number
+  }>
+}) {
+  return (
+    <Stack padding="normal">
+      <h1 className="text-title-medium" id="runs-heading">
+        Runs
+      </h1>
+      {runs.length > 0 ? (
+        <Table.Container>
+          <DataTable
+            aria-labelledby="runs-heading"
+            columns={[
+              {
+                id: 'date',
+                header: 'Date',
+                field: 'date',
+                rowHeader: true,
+                renderCell: row => (
+                  <Link href={getRunHref(row.collection, row.resourceId, row.date)}>
+                    <time dateTime={row.date}>{row.date}</time>
+                  </Link>
+                ),
+              },
+              {
+                id: 'type',
+                header: 'Type',
+                field: 'collection',
+                renderCell: row => (row.collection === 'benchmarks' ? 'Benchmark' : 'Experiment'),
+              },
+              {id: 'resource', header: 'Name', field: 'resourceId'},
+              {id: 'trials', header: 'Trials', field: 'trials', align: 'end'},
+            ]}
+            data={runs}
+          />
+        </Table.Container>
+      ) : (
+        <Blankslate border>
+          <Blankslate.Heading as="h2">No runs</Blankslate.Heading>
+          <Blankslate.Description>No results have been recorded yet.</Blankslate.Description>
+        </Blankslate>
+      )}
+    </Stack>
+  )
+}
 
 type ResourceTableProps = {
   headingLevel?: 'h1' | 'h2'

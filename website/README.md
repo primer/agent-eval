@@ -10,19 +10,25 @@ hydration warnings.
 
 ## Routes
 
-| URL                           | Description                                          |
-| :---------------------------- | :--------------------------------------------------- |
-| `/`                           | View the latest benchmark and experiment results     |
-| `/benchmarks`                 | List benchmarks                                      |
-| `/benchmarks/:id`             | View benchmark results and dated runs                |
-| `/benchmarks/:id/runs/:date`  | View benchmark run details and walkthroughs          |
-| `/experiments`                | List experiments                                     |
-| `/experiments/:id`            | Compare latest treatments, scenarios, and dated runs |
-| `/experiments/:id/runs/:date` | View experiment run details and walkthroughs         |
-| `/scenarios`                  | List scenarios                                       |
-| `/scenarios/:id`              | View scenario details                                |
+| URL                | Description                                          |
+| :----------------- | :--------------------------------------------------- |
+| `/`                | View the latest benchmark and experiment results     |
+| `/benchmarks`      | List benchmarks                                      |
+| `/benchmarks/:id`  | View benchmark results and dated runs                |
+| `/runs`            | List benchmark and experiment runs                   |
+| `/runs/:run-id`    | View run details and scenario walkthroughs           |
+| `/experiments`     | List experiments                                     |
+| `/experiments/:id` | Compare latest treatments, scenarios, and dated runs |
+| `/scenarios`       | List scenarios                                       |
+| `/scenarios/:id`   | View scenario details                                |
 
 ## Results
+
+Run links use `/runs/:run-id` rather than nested benchmark or experiment routes.
+Run IDs combine the collection, resource ID, and date (for example,
+`benchmarks-design-system-2026-09-22`), so runs from different resources on the
+same date have distinct URLs. Scenario output links open the matching scenario
+within this shared run viewer.
 
 The website reads portable result bundles from:
 

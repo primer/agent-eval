@@ -3,6 +3,7 @@
 import {Breadcrumbs, Stack} from '@primer/react'
 import {Blankslate, DataTable, Table} from '@primer/react/experimental'
 import type {Route} from 'next'
+import {getRunHref} from '../../../../run-url'
 import NextLink from 'next/link'
 import type {BenchmarkPageResults} from '../../../../benchmark-results'
 import type {Benchmark} from '../../../../benchmarks'
@@ -112,7 +113,7 @@ export function Page({
                   rowHeader: true,
                   renderCell: row => {
                     return (
-                      <Link href={`/benchmarks/${benchmark.id}/runs/${row.name}` as Route}>
+                      <Link href={getRunHref('benchmarks', benchmark.id, row.name)}>
                         <time dateTime={row.name}>{row.name}</time>
                       </Link>
                     )
@@ -151,7 +152,7 @@ export function Page({
             percent change from Control in parentheses. Checks average per-check, per-trial pass percentages or
             measurement means, keeping units and directions separate. Skips and errors are excluded from values and
             shown separately. Latest results:{' '}
-            <Link href={`/benchmarks/${benchmark.id}/runs/${results.date}` as Route}>
+            <Link href={getRunHref('benchmarks', benchmark.id, results.date)}>
               <time dateTime={results.date}>{results.date}</time>
             </Link>
             .

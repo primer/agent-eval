@@ -57,6 +57,8 @@ test('renders an empty state for a current run without trials', () => {
   )
 
   expect(html).toContain('No trial results were recorded.')
+  expect(html).toContain('href="/runs"')
+  expect(html).toContain('href="/experiments/noop"')
 })
 
 test.each([

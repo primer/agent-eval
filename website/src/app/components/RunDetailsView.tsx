@@ -501,14 +501,14 @@ export function RunDetailsView({resource, run}: RunDetailsViewProps) {
     <Stack padding="normal">
       <div className="w-full max-w-screen-xl mx-auto flex flex-col gap-6">
         <Breadcrumbs>
-          <Breadcrumbs.Item as={Link} href={resource.collectionHref}>
-            {resource.collectionLabel}
-          </Breadcrumbs.Item>
-          <Breadcrumbs.Item as={Link} href={resource.href}>
-            {resource.id}
+          <Breadcrumbs.Item as={Link} href="/runs">
+            Runs
           </Breadcrumbs.Item>
           <Breadcrumbs.Item selected>{run.date}</Breadcrumbs.Item>
         </Breadcrumbs>
+        <p>
+          {resource.collectionLabel}: <Link href={resource.href}>{resource.name}</Link>
+        </p>
         <h1 className="sr-only">Run results for {resource.name}</h1>
         {capabilities.size > 0 ? (
           <FormControl>

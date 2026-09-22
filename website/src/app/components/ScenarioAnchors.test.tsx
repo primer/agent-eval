@@ -34,6 +34,7 @@ test.each(['001-button', 'space / literal%20 # caf\u00e9'])(
     const href = /href="([^"]+#scenario-[^"]+)"/.exec(overview)?.[1]
     const target = /<article[^>]+id="([^"]+)"/.exec(details)?.[1]
     expect(href).toBeDefined()
+    expect(href).toMatch(/^\/runs\/experiments-noop-2026-09-10#scenario-/)
     expect(target).toBeDefined()
     expect(decodeURIComponent(new URL(href!, 'https://example.test').hash.slice(1))).toBe(target)
     expect(target).not.toMatch(/\s/)

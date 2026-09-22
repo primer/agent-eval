@@ -4,7 +4,7 @@ import {Breadcrumbs, Stack} from '@primer/react'
 import {Blankslate, DataTable, Table} from '@primer/react/experimental'
 import type {Experiment} from '../../../../experiments'
 import {Link} from '../../../../components/Link'
-import type {Route} from 'next'
+import {getRunHref} from '../../../../run-url'
 import NextLink from 'next/link'
 import type {ExperimentResults} from '../../../../experiment-results'
 import {LatestExperimentResults} from '../../../components/ExperimentResults'
@@ -50,7 +50,7 @@ export function Page({experiment, runs, results}: Props) {
                   rowHeader: true,
                   renderCell: row => {
                     return (
-                      <Link href={`/experiments/${experiment.id}/runs/${row.name}` as Route}>
+                      <Link href={getRunHref('experiments', experiment.id, row.name)}>
                         <time dateTime={row.name}>{row.name}</time>
                       </Link>
                     )

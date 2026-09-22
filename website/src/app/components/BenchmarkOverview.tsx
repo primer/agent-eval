@@ -2,7 +2,7 @@
 
 import {Stack} from '@primer/react'
 import {Blankslate, DataTable, Table} from '@primer/react/experimental'
-import type {Route} from 'next'
+import {getRunHref} from '../../run-url'
 import type {BenchmarkOverviewData} from '../../benchmark-results'
 import type {Benchmark} from '../../benchmarks'
 import {Link} from '../../components/Link'
@@ -59,7 +59,7 @@ function BenchmarkResultsTable({
           <>
             {' '}
             Latest results:{' '}
-            <Link href={`/benchmarks/${benchmark.id}/runs/${date}` as Route}>
+            <Link href={getRunHref('benchmarks', benchmark.id, date)}>
               <time dateTime={date}>{date}</time>
             </Link>
             .

@@ -6,6 +6,7 @@ import {useId} from 'react'
 import type {ExperimentResults, TreatmentResult} from '../../experiment-results'
 import {Link} from '../../components/Link'
 import {getScenarioAnchor} from '../../scenario-anchor'
+import {getRunHref} from '../../run-url'
 
 type ExperimentSummary = {
   id: string
@@ -114,7 +115,7 @@ export function ExperimentsOverview({experiments}: {experiments: Array<Experimen
             {experiment.date ? (
               <p>
                 Latest run:{' '}
-                <Link href={`/experiments/${experiment.id}/runs/${experiment.date}` as Route}>
+                <Link href={getRunHref('experiments', experiment.id, experiment.date)}>
                   <time dateTime={experiment.date}>{experiment.date}</time>
                 </Link>
                 . <Link href={`/experiments/${experiment.id}`}>View scenario results and run history</Link>
@@ -151,7 +152,7 @@ export function LatestExperimentResults({id, results}: {id: string; results: Exp
       </h2>
       <p>
         Run:{' '}
-        <Link href={`/experiments/${id}/runs/${results.date}` as Route}>
+        <Link href={getRunHref('experiments', id, results.date)}>
           <time dateTime={results.date}>{results.date}</time>
         </Link>
       </p>
@@ -176,7 +177,9 @@ export function LatestExperimentResults({id, results}: {id: string; results: Exp
                 <TreatmentResultsTable label={`Treatment results for ${scenario.id}`} results={scenario.treatments} />
                 <p>
                   <Link
-                    href={`/experiments/${id}/runs/${results.date}${getScenarioAnchor(scenario.id).fragment}` as Route}
+                    href={
+                      `${getRunHref('experiments', id, results.date)}${getScenarioAnchor(scenario.id).fragment}` as Route
+                    }
                   >
                     View output for {scenario.id}
                   </Link>

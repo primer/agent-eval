@@ -10,6 +10,7 @@ const session: ExperimentTrialOutput['agent']['sessions'][number] = {
   turns: 2,
   outputTokens: 100,
   premiumRequests: 1,
+  aiCredits: 0.5,
   totalApiDurationMs: 200,
   sessionDurationMs: 300,
   tools: {},

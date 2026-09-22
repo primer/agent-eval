@@ -110,6 +110,15 @@ function BenchmarkResultsTable({
             },
           },
           {
+            id: 'ai-credits',
+            header: 'AI credits',
+            field: 'comparison',
+            align: 'end',
+            renderCell: row => {
+              return <Metric value={row.comparison.aiCredits} />
+            },
+          },
+          {
             id: 'session-time',
             header: 'Session time',
             field: 'comparison',

@@ -15,6 +15,9 @@ function summarizeTrials(trials: Array<ExperimentTrialOutput>): TrialSummary {
     for (const session of trial.agent.sessions) {
       summary.outputTokens += session.outputTokens
       summary.premiumRequests += session.premiumRequests
+      if (session.aiCredits !== undefined) {
+        summary.aiCredits = (summary.aiCredits ?? 0) + session.aiCredits
+      }
       summary.sessionDurationMs += session.sessionDurationMs
       summary.totalApiDurationMs += session.totalApiDurationMs
     }

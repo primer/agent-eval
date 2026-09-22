@@ -71,6 +71,10 @@ it rather than reporting zero. When available, it is the latest session-wide
 These totals already include subagents; do not sum cumulative checkpoints or
 add subagent totals again. Premium requests remain a separate metric.
 
+Trial summaries aggregate `aiCredits` across sessions and reports compare the
+total with control alongside other usage metrics. The summary total is `null`,
+reported as `N/A`, when no session recorded usage totals.
+
 Implementation-session usage is not automatically a full evaluation bill:
 judges, walkthrough capture, setup, and container execution also have costs.
 Keep usage units explicit and do not translate them into money without a

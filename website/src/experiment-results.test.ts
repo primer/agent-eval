@@ -65,6 +65,7 @@ test('averages checks and implementation usage per trial, not per scenario or ou
       checks: '66.7%',
       outputTokens: 500 / 3,
       premiumRequests: 5 / 3,
+      aiCredits: 2 / 3,
       sessionDurationMs: 10000 / 3,
       totalApiDurationMs: 5000 / 3,
     },

@@ -1,5 +1,5 @@
 import type {RunTrialResult} from './run'
-import {formatDuration, formatNumber, type TableRow} from '../report/format'
+import {formatCredits, formatDuration, formatNumber, type TableRow} from '../report/format'
 import {
   addCheckResults,
   formatCheckSummaries,
@@ -15,11 +15,12 @@ type TrialSummary = {
   scenarioRuns: Map<string, number>
   outputTokens: number
   premiumRequests: number
+  aiCredits: number | null
   sessionDurationMs: number
   totalApiDurationMs: number
 }
 
-const TRIAL_SUMMARY_COLUMNS = ['Runs', 'Output Tokens', 'Premium Requests', 'Session Time', 'API Time']
+const TRIAL_SUMMARY_COLUMNS = ['Runs', 'Output Tokens', 'Premium Requests', 'AI Credits', 'Session Time', 'API Time']
 
 const REPORT_USAGE_NOTE = 'Usage totals include implementation-agent sessions only (judge sessions excluded).'
 
@@ -35,6 +36,7 @@ function createTrialSummary(): TrialSummary {
     scenarioRuns: new Map(),
     outputTokens: 0,
     premiumRequests: 0,
+    aiCredits: null,
     sessionDurationMs: 0,
     totalApiDurationMs: 0,
   }
@@ -49,6 +51,9 @@ function addTrialResultToSummary(summary: TrialSummary, result: RunTrialResult):
   for (const session of result.agent.sessions) {
     summary.outputTokens += session.outputTokens
     summary.premiumRequests += session.premiumRequests
+    if (session.aiCredits !== undefined) {
+      summary.aiCredits = (summary.aiCredits ?? 0) + session.aiCredits
+    }
     summary.sessionDurationMs += session.sessionDurationMs
     summary.totalApiDurationMs += session.totalApiDurationMs
   }
@@ -114,6 +119,7 @@ function formatTrialSummary(summary: TrialSummary, dimensions: Array<CheckDimens
     ...formatCheckSummaries(summary, dimensions),
     'Output Tokens': formatNumber(summary.outputTokens),
     'Premium Requests': formatNumber(summary.premiumRequests),
+    'AI Credits': summary.aiCredits === null ? 'N/A' : formatCredits(summary.aiCredits),
     'Session Time': formatDuration(summary.sessionDurationMs),
     'API Time': formatDuration(summary.totalApiDurationMs),
   }

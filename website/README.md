@@ -1,14 +1,40 @@
-# website
+# @primer/agent-eval-website
 
-## Development
+## Local results
 
-Run `pnpm --dir website dev` from the repository root.
+Install the optional website alongside `@primer/agent-eval` to view results without
+cloning this repository. Core evaluation commands do not require the website or
+its Next.js, React, and Primer dependencies.
 
-The root layout renders the attributes that Primer's `focus-visible` polyfill
-adds before hydration, so the server and client markup match without suppressing
-hydration warnings.
+```sh
+npm install --save-dev @primer/agent-eval @primer/agent-eval-website
+npx agent-eval ui dev --results ./results
+npx agent-eval ui build --results ./results --output-dir ./out
+```
 
-## Routes
+`--results` accepts a directory of portable experiment, benchmark, or scenario
+results, or a single JSON bundle. Development serves localhost on port 3000
+(`--port` overrides it), and automatically refreshes as result JSON files are
+added, updated, or deleted. It can start before the results directory exists.
+Invalid bundles appear as errors in development and fail a static build.
+
+The local viewer reuses the website's Primer shell and run viewer: model,
+treatment and trial selection, checks, judges, transcripts, walkthroughs, and
+read-only saved workspace previews. It reads recorded JSON rather than executing
+project configuration. Local workspace previews are plain text.
+
+Builds produce a complete Next.js static export and `.nojekyll`. For hosting
+under a subpath, add `--base-path /my-repository`. The destination must be empty
+and must not overlap the results directory. Source results and the installed
+package are never modified; the app builds in a disposable workspace in the
+current directory, which must be writable. Review saved workspace and transcript
+contents before publishing.
+
+## Hosted website
+
+The repository's default website retains its overview and configured resource
+pages. The following routes and details describe that website; the optional
+local viewer provides a single results page.
 
 | URL                           | Description                                          |
 | :---------------------------- | :--------------------------------------------------- |

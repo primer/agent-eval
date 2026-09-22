@@ -23,7 +23,7 @@ export default function Layout({children}: {children: React.ReactNode}) {
     >
       <body>
         <BaseStyles>
-          <PageHeader />
+          <PageHeader local={Boolean(process.env.AGENT_EVAL_UI_RESULTS)} />
           <main>{children}</main>
         </BaseStyles>
       </body>

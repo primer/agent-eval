@@ -15,7 +15,7 @@ function getArtifactCandidates(artifactPath: string, runDirectory: string): Arra
     return isWithinDirectory(runArtifactsDirectory, candidate) ? [candidate] : []
   }
 
-  if (isWithinDirectory(LEGACY_ARTIFACTS_DIRECTORY, artifactPath)) {
+  if (!process.env.AGENT_EVAL_UI_RESULTS && isWithinDirectory(LEGACY_ARTIFACTS_DIRECTORY, artifactPath)) {
     return [artifactPath]
   }
 
@@ -28,7 +28,7 @@ function getArtifactCandidates(artifactPath: string, runDirectory: string): Arra
   const artifactSegments = segments.slice(artifactsIndex + 1)
   return [
     path.join(runArtifactsDirectory, ...artifactSegments),
-    path.join(LEGACY_ARTIFACTS_DIRECTORY, ...artifactSegments),
+    ...(!process.env.AGENT_EVAL_UI_RESULTS ? [path.join(LEGACY_ARTIFACTS_DIRECTORY, ...artifactSegments)] : []),
   ].filter(candidate => {
     return (
       isWithinDirectory(runArtifactsDirectory, candidate) || isWithinDirectory(LEGACY_ARTIFACTS_DIRECTORY, candidate)

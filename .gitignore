@@ -18,6 +18,7 @@ node_modules
 .next
 next-env.d.ts
 out
+.agent-eval-ui-*/
 
 # TypeScript
 *.tsbuildinfo

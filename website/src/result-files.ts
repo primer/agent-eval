@@ -10,6 +10,7 @@ const {
   ExperimentTrialOutputSchema,
 } = await import(
   /* turbopackIgnore: true */
+  /* webpackIgnore: true */
   '@primer/agent-eval'
 )
 

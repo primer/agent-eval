@@ -97,28 +97,35 @@ but does not stop running containers.
 ## Results UI
 
 ```sh
+npm install --save-dev @primer/agent-eval-website
 npx agent-eval ui dev --results ./results --port 3000
 npx agent-eval ui build --results ./results --output-dir ./out
+npx agent-eval ui build --results ./results --output-dir ./out --base-path /my-repository
 ```
+
+The website package is opt-in. Core installs and non-UI commands do not install
+or load Next.js, React, or Primer. Install the website package in the project
+where you invoke the CLI. Both UI commands reuse the website's Next.js app and
+Primer result views.
 
 Both commands work without Docker or a token. `--results` defaults to
 `./results`, accepts relative or absolute paths, and can select one bundle
 directory or a directory containing many runs. The viewer recursively finds
 `output.json` and `output-<number>.json` manifests and displays benchmark,
-experiment, and scenario trials, checks, judges, and full result JSON.
-It does not copy or serve workspace files or screenshot/video artifacts.
+experiment, and scenario trials with the website's checks, judges, transcript,
+walkthrough, and workspace preview tabs.
 
 `ui dev` binds to `127.0.0.1` on port `3000` by default. Open the printed URL.
 It checks for updates every two seconds, including newly created or deleted
 results. Missing directories are initially empty; invalid/incomplete bundles
 are displayed as errors and retried.
 
-`ui build` writes a self-contained `index.html` and `.nojekyll` to `./out` by
-default. Input and output directories must not overlap. Invalid bundles fail
+`ui build` writes a Next.js static export and `.nojekyll` to `./out` by
+default. The output directory must be empty; input and output directories must not overlap. Invalid bundles fail
 the build instead of producing a partial site. Deploy the output directory to
-GitHub Pages or another static host; no base-path setting is needed for a
-repository subpath. Rebuild when results change. Review the embedded trial
-data for private information before publishing.
+GitHub Pages or another static HTTP host; set `--base-path /my-repository` for a
+repository subpath. Do not open the export via `file://`. Rebuild when results change. Review the embedded trial
+data, workspace previews, and media for private information before publishing.
 
 ## Command templates
 

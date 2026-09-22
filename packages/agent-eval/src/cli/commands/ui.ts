@@ -1,6 +1,5 @@
 import {defineCommand} from 'citty'
-import {buildUi, startUi} from '../../ui/server'
-import {logger} from '../../logger'
+import {runUi} from '../../ui/load'
 
 const resultsOption = {
   type: 'string',
@@ -18,11 +17,7 @@ const ui = defineCommand({
         port: {type: 'string', default: '3000', description: 'Local server port'},
       },
       async run({args}) {
-        const server = await startUi(args.results, args.port)
-        const address = server.address()
-        if (address && typeof address !== 'string') {
-          logger.info('Results UI: http://127.0.0.1:%s', address.port)
-        }
+        await runUi({mode: 'dev', results: args.results, port: args.port})
       },
     }),
     build: defineCommand({
@@ -30,10 +25,15 @@ const ui = defineCommand({
       args: {
         results: resultsOption,
         'output-dir': {type: 'string', default: './out', description: 'Directory for the static site'},
+        'base-path': {type: 'string', default: '', description: 'Hosting subpath, for example /my-repository'},
       },
       async run({args}) {
-        const directory = await buildUi(args.results, args['output-dir'])
-        logger.info('Results site written to %s', directory)
+        await runUi({
+          mode: 'build',
+          results: args.results,
+          outputDirectory: args['output-dir'],
+          basePath: args['base-path'],
+        })
       },
     }),
   },

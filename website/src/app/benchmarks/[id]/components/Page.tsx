@@ -2,8 +2,7 @@
 
 import {Breadcrumbs, Stack} from '@primer/react'
 import {Blankslate, DataTable, Table} from '@primer/react/experimental'
-import type {Route} from 'next'
-import NextLink from 'next/link'
+import {RouterLink as NextLink, type Route} from '../../../../components/RouterLink'
 import type {BenchmarkPageResults} from '../../../../benchmark-results'
 import type {Benchmark} from '../../../../benchmarks'
 import {Link} from '../../../../components/Link'

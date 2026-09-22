@@ -1,4 +1,3 @@
-import 'server-only'
 import {getFilePreviewKey} from '../../file-preview-key'
 import type {FilePreviewReference} from '../../file-preview'
 import type {RunDetails} from '../../run-details'
@@ -26,6 +25,10 @@ function renderEntry(entry: WorkspaceEntry, previewBase: string): WorkspaceEntry
 type Props = Omit<RunDetailsViewProps, 'run'> & {run: RunDetails}
 
 export function RunDetailsPage({resource, run}: Props) {
+  return <RunDetailsView resource={resource} run={prepareRunDetails(resource, run)} />
+}
+
+export function prepareRunDetails(resource: Props['resource'], run: RunDetails): RunDetailsViewProps['run'] {
   const results = run.results.map(result => {
     const workspace = result.workspace
     const segments = [resource.id, run.date, result.id].map(segment => {
@@ -46,5 +49,5 @@ export function RunDetailsPage({resource, run}: Props) {
     }
   })
 
-  return <RunDetailsView resource={resource} run={{...run, results}} />
+  return {...run, results}
 }

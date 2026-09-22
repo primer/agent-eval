@@ -1,10 +1,10 @@
 'use client'
 
-import NextLink, {type LinkProps as NextLinkProps} from 'next/link'
+import {RouterLink} from './RouterLink'
 import {Link as PrimerLink, type LinkProps as PrimerLinkProps} from '@primer/react'
 
-type LinkProps<RouteType> = NextLinkProps<RouteType> & PrimerLinkProps
+type LinkProps = PrimerLinkProps & {href: string}
 
-export function Link<RouteType>(props: LinkProps<RouteType>) {
-  return <PrimerLink as={NextLink} {...props} />
+export function Link(props: LinkProps) {
+  return <PrimerLink as={RouterLink} {...props} />
 }

@@ -1,5 +1,5 @@
 import {renderToStaticMarkup} from 'react-dom/server'
-import type {Route} from 'next'
+import type {Route} from '../../components/RouterLink'
 import {expect, test, vi} from 'vitest'
 import {getExperimentResults} from '../../experiment-results'
 import {createExperimentRunDetails} from '../../run-details'

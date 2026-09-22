@@ -4,7 +4,7 @@ import {Breadcrumbs, PageHeader, PageLayout, Stack} from '@primer/react'
 import type {Experiment} from '../../../../experiments'
 import {Link} from '../../../../components/Link'
 import type {Scenario} from '../../../../scenarios'
-import NextLink from 'next/link'
+import {RouterLink as NextLink} from '../../../../components/RouterLink'
 
 type Props = {
   scenario: Scenario

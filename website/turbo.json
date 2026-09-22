@@ -1,0 +1,11 @@
+{
+  "extends": ["//"],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "env": ["PAGES_BASE_PATH"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/results/**", "$TURBO_ROOT$/benchmarks/**", "$TURBO_ROOT$/experiments/**", "$TURBO_ROOT$/scenarios/**", "$TURBO_ROOT$/script/export-website.mjs"],
+      "outputs": ["dist/**", "out/**"]
+    }
+  }
+}

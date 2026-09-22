@@ -1,13 +1,13 @@
 'use client'
 
 import {MarkGithubIcon} from '@primer/octicons-react'
-import Link from 'next/link'
+import {RouterLink as Link} from '../../components/RouterLink'
 import {UnderlineNav} from '@primer/react'
-import {usePathname} from 'next/navigation'
+import {useLocation} from '@tanstack/react-router'
 import styles from './PageHeader.module.css'
 
 export function PageHeader() {
-  const pathname = usePathname()
+  const pathname = useLocation({select: location => location.pathname}).replace(import.meta.env.BASE_URL.replace(/\/$/, ''), '') || '/'
 
   return (
     <>

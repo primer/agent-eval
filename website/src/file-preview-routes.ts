@@ -1,4 +1,3 @@
-import 'server-only'
 import {getBenchmarkRun, listBenchmarkRuns} from './benchmark-results'
 import {list as listBenchmarks} from './benchmarks'
 import {getFilePreviewKey} from './file-preview-key'
@@ -203,5 +202,10 @@ async function generateFilePreviewParams(): Promise<Array<FilePreviewParams>> {
   return params.length > 0 ? params : [{...EMPTY_PREVIEW_PARAMS}]
 }
 
-export {generateFilePreviewParams, getFilePreview}
+async function getFilePreviewResponse(params: FilePreviewParams): Promise<Response> {
+  const preview = await getFilePreview(params)
+  return Response.json(preview ?? {error: 'File preview not found.'}, {status: preview ? 200 : 404})
+}
+
+export {generateFilePreviewParams, getFilePreview, getFilePreviewResponse}
 export type {FilePreviewParams}

@@ -2,7 +2,7 @@
 
 import {Stack} from '@primer/react'
 import {Blankslate, DataTable, Table} from '@primer/react/experimental'
-import type {Route} from 'next'
+import type {Route} from '../../components/RouterLink'
 import type {BenchmarkOverviewData} from '../../benchmark-results'
 import type {Benchmark} from '../../benchmarks'
 import {Link} from '../../components/Link'

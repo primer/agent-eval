@@ -1,12 +1,6 @@
 import {afterEach, beforeEach, expect, test, vi} from 'vitest'
 import {getFilePreviewKey} from './file-preview-key'
-import {generateFilePreviewParams, getFilePreview, type FilePreviewParams} from './file-preview-routes'
-import {
-  dynamic,
-  dynamicParams,
-  generateStaticParams,
-  GET,
-} from './app/file-previews/[collection]/[id]/[date]/[trial]/[file]/preview.json/route'
+import {generateFilePreviewParams, getFilePreview, getFilePreviewResponse, type FilePreviewParams} from './file-preview-routes'
 import type {WorkspaceFile, WorkspaceFiles} from './workspace-files'
 
 const mocks = vi.hoisted(() => {
@@ -143,7 +137,7 @@ test('enumerates both collections and nested files without highlighting or overl
 })
 
 test.each(['benchmarks', 'experiments'])('highlights only the requested %s file', async collection => {
-  const response = await GET(new Request('https://example.test/'), {params: Promise.resolve(params(collection))})
+  const response = await getFilePreviewResponse(params(collection))
 
   expect(response.status).toBe(200)
   expect(response.headers.get('content-type')).toContain('application/json')
@@ -164,9 +158,7 @@ test.each(['benchmarks', 'experiments'])('returns 404 for a missing %s trial', a
 })
 
 test.each(['missing.ts', 'empty.txt', 'link'])('returns explicit 404 JSON for %s', async filepath => {
-  const response = await GET(new Request('https://example.test/'), {
-    params: Promise.resolve({...params(), file: getFilePreviewKey(filepath)}),
-  })
+  const response = await getFilePreviewResponse({...params(), file: getFilePreviewKey(filepath)})
   expect(response.status).toBe(404)
   expect(await response.json()).toEqual({error: 'File preview not found.'})
   expect(mocks.highlightFile).not.toHaveBeenCalled()
@@ -215,13 +207,11 @@ test.each([
 
 test('uses a 404 sentinel when no previewable files exist', async () => {
   mocks.getWorkspaceFiles.mockResolvedValue({type: 'available', entries: [], truncated: false})
-  const generated = await generateStaticParams()
-  expect(dynamic).toBe('force-static')
-  expect(dynamicParams).toBe(false)
+  const generated = await generateFilePreviewParams()
   expect(generated).toEqual([
     {collection: 'benchmarks', id: '__no-runs__', date: '__no-runs__', trial: '__no-runs__', file: '__no-runs__'},
   ])
-  const response = await GET(new Request('https://example.test/'), {params: Promise.resolve(generated[0])})
+  const response = await getFilePreviewResponse(generated[0])
   expect(response.status).toBe(404)
   expect(await response.json()).toEqual({error: 'File preview not found.'})
   expect(mocks.getBenchmarkRun).not.toHaveBeenCalled()

@@ -1,4 +1,3 @@
-import 'server-only'
 import path from 'node:path'
 import {bundledLanguages, bundledLanguagesInfo, codeToTokens, type BundledLanguage} from 'shiki'
 import type {FilePreviewData} from './file-preview'

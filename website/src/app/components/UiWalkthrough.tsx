@@ -3,7 +3,6 @@
 import {Button, Spinner} from '@primer/react'
 import {Blankslate} from '@primer/react/experimental'
 import {ChevronLeftIcon, ChevronRightIcon} from '@primer/octicons-react'
-import Image from 'next/image'
 import {useLayoutEffect, useRef, useState} from 'react'
 import type {WalkthroughUrls} from '../../run-details'
 import {BrowserFrame, MediaLoading} from './RunDetailsLoading'
@@ -63,7 +62,7 @@ function BrowserScreenshot({alt, source, eager}: {alt: string; source: string; e
           <>
             {status === 'loading' ? <MediaLoading label={alt} /> : null}
             {loading !== null ? (
-              <Image
+              <img
                 alt={alt}
                 className={`block w-full h-auto ${status === 'loading' ? 'absolute inset-0 opacity-0' : ''}`}
                 height={900}
@@ -75,7 +74,6 @@ function BrowserScreenshot({alt, source, eager}: {alt: string; source: string; e
                   setStatus('error')
                 }}
                 src={source}
-                unoptimized
                 width={1440}
               />
             ) : null}

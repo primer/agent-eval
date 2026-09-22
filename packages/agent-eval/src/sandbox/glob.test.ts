@@ -9,6 +9,8 @@ import {afterEach, beforeEach, describe, expect, expectTypeOf, test, vi} from 'v
 import type {RunningContainer} from '../docker'
 import {DefaultHost, VirtualHost} from '../host'
 import {CONTAINER_WORKDIR} from './constants'
+import {createSandboxGlob} from './glob'
+import {createContainerGlobFileSystem} from './glob-fs'
 import {SystemSandbox} from './system'
 import type {Sandbox} from './types'
 import {VirtualSandbox} from './virtual'
@@ -67,6 +69,7 @@ describe.each(['virtual', 'container'] as const)('sandbox.glob (%s filesystem)',
 
   test('supports file URL cwd, absolute patterns, and no matches', async () => {
     expect(await sandbox.glob('index.ts', {cwd: pathToFileURL(path.join(cwd, 'src'))})).toEqual(['index.ts'])
+    expect(await sandbox.glob('index.ts', {cwd: pathToFileURL(path.join(cwd, 'src')).href})).toEqual(['index.ts'])
     expect(await sandbox.glob(`${cwd}/src/*.ts`)).toEqual([`${cwd}/src/index.ts`])
     expect(await sandbox.glob('**/*.missing', {cwd})).toEqual([])
     expect(await sandbox.glob('**/*', {cwd: path.join(cwd, 'missing')})).toEqual([])
@@ -124,4 +127,28 @@ test('defaults to the virtual workspace, resolves relative cwd, and never reads 
   expect(await sandbox.glob('**/*.ts')).toEqual(['src/index.ts'])
   expect(await sandbox.glob('*.ts', {cwd: './src'})).toEqual(['index.ts'])
   expect(await sandbox.glob(`${process.cwd()}/package.json`)).toEqual([])
+})
+
+test('rejects Docker transport failures instead of returning no matches', async () => {
+  const cause = new Error('Docker daemon disconnected')
+  const glob = createSandboxGlob(
+    createContainerGlobFileSystem(async () => {
+      throw cause
+    }),
+  )
+  await expect(glob('**/*.ts')).rejects.toMatchObject({cause})
+})
+
+test.each(['not json', '{}', '{"value":null}'])('rejects invalid container responses: %s', async stdout => {
+  const glob = createSandboxGlob(createContainerGlobFileSystem(async () => ({stdout, stderr: '', exitCode: 0})))
+  await expect(glob('**/*.ts')).rejects.toThrow()
+})
+
+test('preserves filesystem error codes from the container', async () => {
+  const fs = createContainerGlobFileSystem(async () => ({
+    stdout: JSON.stringify({error: {message: 'No such file', code: 'ENOENT'}}),
+    stderr: '',
+    exitCode: 0,
+  }))
+  await expect(fs.lstat('/missing')).rejects.toMatchObject({code: 'ENOENT'})
 })

@@ -1,5 +1,5 @@
 import * as z from 'zod/mini'
-import type {GlobFileSystem} from './glob'
+import {GlobFileSystemError, type GlobFileSystem} from './glob'
 import type {CommandResult} from './types'
 
 const fileTypeSchema = z.enum([
@@ -106,19 +106,28 @@ function createContainerGlobFileSystem(
   run: (command: string, args: Array<string>) => Promise<CommandResult>,
 ): GlobFileSystem {
   async function request<T>(operation: string, filepath: string, schema: z.ZodMiniType<T>): Promise<T> {
-    const result = await run('/opt/agent-eval/node/bin/node', [
-      '--input-type=commonjs',
-      '-e',
-      `(async () => {${filesystemScript}})()`,
-      '--',
-      operation,
-      filepath,
-    ])
-    const response = z.parse(responseSchema, JSON.parse(result.stdout))
+    let response: z.infer<typeof responseSchema>
+    try {
+      const result = await run('/opt/agent-eval/node/bin/node', [
+        '--input-type=commonjs',
+        '-e',
+        `(async () => {${filesystemScript}})()`,
+        '--',
+        operation,
+        filepath,
+      ])
+      response = z.parse(responseSchema, JSON.parse(result.stdout))
+    } catch (cause) {
+      throw new GlobFileSystemError('Failed to access the sandbox filesystem', {cause})
+    }
     if ('error' in response) {
       throw Object.assign(new Error(response.error.message), {code: response.error.code})
     }
-    return z.parse(schema, response.value)
+    try {
+      return z.parse(schema, response.value)
+    } catch (cause) {
+      throw new GlobFileSystemError('Invalid sandbox filesystem response', {cause})
+    }
   }
 
   return {

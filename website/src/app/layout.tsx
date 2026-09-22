@@ -1,5 +1,5 @@
 import './globals.css'
-import {BaseStyles} from '@primer/react'
+import {BaseStyles} from './components/BaseStyles'
 import {PageHeader} from './components/PageHeader'
 
 export const metadata = {

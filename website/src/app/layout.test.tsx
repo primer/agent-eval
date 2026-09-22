@@ -25,5 +25,7 @@ test('renders Primer focus-visible markers on the server without suppressing hyd
   expect(openingTag).toContain('data-light-theme="light"')
   expect(openingTag).toContain('data-dark-theme="dark"')
   expect(Layout({children: null}).props.suppressHydrationWarning).not.toBe(true)
+  expect(html).toContain('data-component="BaseStyles"')
+  expect(html).toContain('data-portal-root="true"')
   expect(html).toContain('<main><button>Focusable content</button></main>')
 })

@@ -1,23 +1,17 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import type {BenchmarkOutput, ExperimentOutput} from '@primer/agent-eval'
+import {core} from 'zod/mini'
 
-const {
-  BenchmarkOutputFileSchema,
-  BenchmarkTrialOutputSchema,
-  parseBenchmarkTrialOutput,
-  ExperimentOutputFileSchema,
-  ExperimentTrialOutputSchema,
-} = await import(
-  /* turbopackIgnore: true */
-  '@primer/agent-eval'
-)
+const {BenchmarkOutputFileSchema, parseBenchmarkTrialOutput, ExperimentOutputFileSchema, ExperimentTrialOutputSchema} =
+  await import(
+    /* turbopackIgnore: true */
+    '@primer/agent-eval'
+  )
 
-type ResultSchema<T> = {
-  safeParse: (json: unknown) => {success: true; data: T} | {success: false; error: {message: string}}
-}
+type ResultParser<T> = (json: unknown) => T
 
-async function readResultFile<T>(filepath: string, schema: ResultSchema<T>): Promise<T | null> {
+async function readResultFile<T>(filepath: string, parse: ResultParser<T>): Promise<T | null> {
   const contents = await fs.readFile(filepath, 'utf8')
   let json: unknown
   try {
@@ -29,18 +23,21 @@ async function readResultFile<T>(filepath: string, schema: ResultSchema<T>): Pro
     console.warn(`Skipping result bundle with invalid JSON in "${filepath}": ${error.message}`)
     return null
   }
-  const result = schema.safeParse(json)
-  if (result.success === false) {
-    console.warn(`Skipping result bundle with incompatible data in "${filepath}": ${result.error.message}`)
+  try {
+    return parse(json)
+  } catch (error) {
+    if (!(error instanceof core.$ZodError)) {
+      throw error
+    }
+    console.warn(`Skipping result bundle with incompatible data in "${filepath}": ${error.message}`)
     return null
   }
-  return result.data
 }
 
 async function readTrials<T extends {id: string}>(
   filepath: string,
   trials: Record<string, string>,
-  schema: ResultSchema<T>,
+  parse: ResultParser<T>,
 ): Promise<Map<string, T> | null> {
   const directory = await fs.realpath(path.dirname(filepath))
   const results = new Map<string, T>()
@@ -53,7 +50,7 @@ async function readTrials<T extends {id: string}>(
     if (relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
       throw new Error(`Trial "${id}" points outside the result bundle: ${filepath}`)
     }
-    const trial = await readResultFile(trialPath, schema)
+    const trial = await readResultFile(trialPath, parse)
     if (trial === null) {
       return null
     }
@@ -66,17 +63,16 @@ async function readTrials<T extends {id: string}>(
 }
 
 async function readBenchmarkOutput(filepath: string): Promise<BenchmarkOutput | null> {
-  const file = await readResultFile(filepath, BenchmarkOutputFileSchema)
+  const file = await readResultFile(filepath, BenchmarkOutputFileSchema.parse)
   if (file === null) {
     return null
   }
   const capabilities = new Map(Object.entries(file.capabilities))
-  const trials = await readTrials(filepath, file.trials, BenchmarkTrialOutputSchema)
+  const trials = await readTrials(filepath, file.trials, json => {
+    return parseBenchmarkTrialOutput(json, capabilities)
+  })
   if (trials === null) {
     return null
-  }
-  for (const [id, trial] of trials) {
-    trials.set(id, parseBenchmarkTrialOutput(trial, capabilities))
   }
   return {
     id: file.id,
@@ -88,11 +84,11 @@ async function readBenchmarkOutput(filepath: string): Promise<BenchmarkOutput | 
 }
 
 async function readExperimentOutput(filepath: string): Promise<ExperimentOutput | null> {
-  const file = await readResultFile(filepath, ExperimentOutputFileSchema)
+  const file = await readResultFile(filepath, ExperimentOutputFileSchema.parse)
   if (file === null) {
     return null
   }
-  const trials = await readTrials(filepath, file.trials, ExperimentTrialOutputSchema)
+  const trials = await readTrials(filepath, file.trials, ExperimentTrialOutputSchema.parse)
   if (trials === null) {
     return null
   }

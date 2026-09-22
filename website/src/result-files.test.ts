@@ -123,6 +123,17 @@ test('does not infer omitted capability IDs even when only one capability matche
   expect(warn).toHaveBeenCalledWith(expect.stringContaining('capabilityId'))
 })
 
+test.each([{capabilityId: 'unknown'}, {scenarioId: 'unrelated-scenario'}])(
+  'rejects inconsistent benchmark capability references: %j',
+  async overrides => {
+    const directory = await createDirectory()
+    const output = createBenchmarkOutput([{...createTrial(), ...overrides}])
+    const filepath = await writeBundle(directory, output)
+
+    await expect(readBenchmarkOutput(filepath)).rejects.toThrow('Invalid capability')
+  },
+)
+
 test.each(['benchmarks', 'experiments'] as const)(
   'excludes incompatible %s bundles from run discovery',
   async collection => {

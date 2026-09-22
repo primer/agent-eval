@@ -634,6 +634,9 @@ importers:
       shiki:
         specifier: ^4.4.3
         version: 4.4.3
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
     dependenciesMeta:
       '@primer/agent-eval':
         injected: true

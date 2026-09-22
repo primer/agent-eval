@@ -116,6 +116,70 @@ test('does not retain failed reads when a trial is repaired', async () => {
   expect(await readExperimentOutput(filepath)).toEqual(output)
 })
 
+test('retries a failed file read without requiring the file to change', async () => {
+  const directory = await createDirectory()
+  const output = createExperimentOutput()
+  const filepath = await writeBundle(directory, output)
+  vi.spyOn(fs, 'readFile').mockRejectedValueOnce(new Error('Temporary read failure'))
+
+  await expect(readExperimentOutput(filepath)).rejects.toThrow('Temporary read failure')
+  expect(await readExperimentOutput(filepath)).toEqual(output)
+})
+
+test.each(['benchmark', 'experiment'] as const)('bounds the %s trial cache by source bytes', async kind => {
+  const directory = await createDirectory()
+  const output = kind === 'benchmark' ? createBenchmarkOutput() : createExperimentOutput()
+  const filepath = await writeBundle(directory, output)
+  const read = kind === 'benchmark' ? readBenchmarkOutput : readExperimentOutput
+  const trialPath = path.join(directory, 'artifacts/trial-1/trial-1.json')
+  const stats = await fs.stat(trialPath)
+  // Exercise the byte limit without allocating oversized fixtures.
+  vi.spyOn(fs, 'stat').mockImplementation(async () => {
+    return Object.assign(Object.create(Object.getPrototypeOf(stats)), stats, {size: 65 * 1024 * 1024})
+  })
+  const readFile = vi.spyOn(fs, 'readFile')
+
+  expect(await read(filepath)).toEqual(output)
+  expect(await read(filepath)).toEqual(output)
+  expect(readFile).toHaveBeenCalledTimes(4)
+})
+
+test('evicts older trials when the source byte budget is exhausted', async () => {
+  const directory = await createDirectory()
+  const output = createExperimentOutput([createTrial(), createTrial({id: 'trial-2'})])
+  const filepath = await writeBundle(directory, output)
+  const stat = fs.stat.bind(fs)
+  vi.spyOn(fs, 'stat').mockImplementation(async (...args) => {
+    const stats = await stat(...args)
+    if (String(args[0]).endsWith('output.json')) {
+      return stats
+    }
+    return Object.assign(Object.create(Object.getPrototypeOf(stats)), stats, {size: 33 * 1024 * 1024})
+  })
+  const readFile = vi.spyOn(fs, 'readFile')
+
+  expect(await readExperimentOutput(filepath)).toEqual(output)
+  readFile.mockClear()
+  expect(await readExperimentOutput(filepath)).toEqual(output)
+  expect(readFile).toHaveBeenCalledTimes(2)
+})
+
+test('rechecks benchmark capability membership when the cached manifest changes', async () => {
+  const directory = await createDirectory()
+  const output = createBenchmarkOutput()
+  const filepath = await writeBundle(directory, output)
+  expect(await readBenchmarkOutput(filepath)).toEqual(output)
+
+  await fs.writeFile(
+    filepath,
+    JSON.stringify({
+      ...JSON.parse(await fs.readFile(filepath, 'utf8')),
+      capabilities: {},
+    }),
+  )
+  await expect(readBenchmarkOutput(filepath)).rejects.toThrow('Invalid capability')
+})
+
 test('rechecks trial existence and symlink containment after caching a bundle', async () => {
   const directory = await createDirectory()
   const bundle = path.join(directory, 'bundle')

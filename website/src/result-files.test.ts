@@ -67,6 +67,72 @@ test.each(['benchmark', 'experiment'] as const)(
   },
 )
 
+test.each(['benchmark', 'experiment'] as const)(
+  'reuses unchanged %s files across concurrent and repeated reads',
+  async kind => {
+    const directory = await createDirectory()
+    const output = kind === 'benchmark' ? createBenchmarkOutput() : createExperimentOutput()
+    const filepath = await writeBundle(directory, output)
+    const read = kind === 'benchmark' ? readBenchmarkOutput : readExperimentOutput
+    const readFile = vi.spyOn(fs, 'readFile')
+
+    expect(await Promise.all([read(filepath), read(filepath)])).toEqual([output, output])
+    expect(await read(filepath)).toEqual(output)
+    expect(readFile).toHaveBeenCalledTimes(2)
+  },
+)
+
+test.each(['benchmark', 'experiment'] as const)(
+  'refreshes cached %s trials and manifests when files change',
+  async kind => {
+    const directory = await createDirectory()
+    const output = kind === 'benchmark' ? createBenchmarkOutput() : createExperimentOutput()
+    const filepath = await writeBundle(directory, output)
+    const read = kind === 'benchmark' ? readBenchmarkOutput : readExperimentOutput
+    expect(await read(filepath)).toEqual(output)
+
+    const trial = output.trials.get('trial-1')!
+    trial.model = {name: 'claude-opus-5', reasoningEffort: 'high'}
+    await fs.writeFile(path.join(directory, 'artifacts/trial-1/trial-1.json'), JSON.stringify(trial))
+    expect(await read(filepath)).toEqual(output)
+
+    output.id = 'updated-bundle'
+    await writeBundle(directory, output)
+    expect(await read(filepath)).toEqual(output)
+  },
+)
+
+test('does not retain failed reads when a trial is repaired', async () => {
+  const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+  const directory = await createDirectory()
+  const output = createExperimentOutput()
+  const filepath = await writeBundle(directory, output)
+  const trialPath = path.join(directory, 'artifacts/trial-1/trial-1.json')
+  await fs.writeFile(trialPath, '{')
+  expect(await readExperimentOutput(filepath)).toBeNull()
+  expect(warn).toHaveBeenCalledWith(expect.stringContaining('invalid JSON'))
+
+  await fs.writeFile(trialPath, JSON.stringify(output.trials.get('trial-1')))
+  expect(await readExperimentOutput(filepath)).toEqual(output)
+})
+
+test('rechecks trial existence and symlink containment after caching a bundle', async () => {
+  const directory = await createDirectory()
+  const bundle = path.join(directory, 'bundle')
+  const output = createExperimentOutput()
+  const filepath = await writeBundle(bundle, output)
+  const trialPath = path.join(bundle, 'artifacts/trial-1/trial-1.json')
+  expect(await readExperimentOutput(filepath)).toEqual(output)
+
+  await fs.unlink(trialPath)
+  await expect(readExperimentOutput(filepath)).rejects.toThrow('ENOENT')
+
+  const outside = path.join(directory, 'outside.json')
+  await fs.writeFile(outside, JSON.stringify(output.trials.get('trial-1')))
+  await fs.symlink(outside, trialPath)
+  await expect(readExperimentOutput(filepath)).rejects.toThrow('outside the result bundle')
+})
+
 test.each([
   {key: 'benchmarkId', read: readBenchmarkOutput},
   {key: 'experimentId', read: readExperimentOutput},

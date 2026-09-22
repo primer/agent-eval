@@ -17,6 +17,67 @@ type ResultSchema<T> = {
   safeParse: (json: unknown) => {success: true; data: T} | {success: false; error: {message: string}}
 }
 
+// Bound each reader by source bytes as well as entry count.
+const MAX_CACHED_BYTES = 64 * 1024 * 1024
+const MAX_CACHED_FILES = 128
+
+function createResultReader<T>(schema: ResultSchema<T>) {
+  const cache = new Map<string, {version: string; size: number; result: Promise<T | null>}>()
+  let cachedBytes = 0
+
+  function remove(filepath: string) {
+    const entry = cache.get(filepath)
+    if (entry) {
+      cachedBytes -= entry.size
+      cache.delete(filepath)
+    }
+  }
+
+  return async (filepath: string): Promise<T | null> => {
+    const stats = await fs.stat(filepath)
+    const version = `${stats.dev}:${stats.ino}:${stats.size}:${stats.mtimeMs}:${stats.ctimeMs}`
+    const cached = cache.get(filepath)
+    if (cached?.version === version) {
+      cache.delete(filepath)
+      cache.set(filepath, cached)
+      return cached.result
+    }
+    remove(filepath)
+
+    const result = readResultFile(filepath, schema)
+    if (stats.size > MAX_CACHED_BYTES) {
+      return result
+    }
+    while (cache.size >= MAX_CACHED_FILES || cachedBytes + stats.size > MAX_CACHED_BYTES) {
+      const oldest = cache.keys().next().value
+      if (oldest === undefined) {
+        break
+      }
+      remove(oldest)
+    }
+    cache.set(filepath, {version, size: stats.size, result})
+    cachedBytes += stats.size
+
+    try {
+      const data = await result
+      if (data === null && cache.get(filepath)?.result === result) {
+        remove(filepath)
+      }
+      return data
+    } catch (error) {
+      if (cache.get(filepath)?.result === result) {
+        remove(filepath)
+      }
+      throw error
+    }
+  }
+}
+
+const readBenchmarkFile = createResultReader(BenchmarkOutputFileSchema)
+const readBenchmarkTrial = createResultReader(BenchmarkTrialOutputSchema)
+const readExperimentFile = createResultReader(ExperimentOutputFileSchema)
+const readExperimentTrial = createResultReader(ExperimentTrialOutputSchema)
+
 async function readResultFile<T>(filepath: string, schema: ResultSchema<T>): Promise<T | null> {
   const contents = await fs.readFile(filepath, 'utf8')
   let json: unknown
@@ -40,7 +101,7 @@ async function readResultFile<T>(filepath: string, schema: ResultSchema<T>): Pro
 async function readTrials<T extends {id: string}>(
   filepath: string,
   trials: Record<string, string>,
-  schema: ResultSchema<T>,
+  readTrial: (filepath: string) => Promise<T | null>,
 ): Promise<Map<string, T> | null> {
   const directory = await fs.realpath(path.dirname(filepath))
   const results = new Map<string, T>()
@@ -53,7 +114,7 @@ async function readTrials<T extends {id: string}>(
     if (relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
       throw new Error(`Trial "${id}" points outside the result bundle: ${filepath}`)
     }
-    const trial = await readResultFile(trialPath, schema)
+    const trial = await readTrial(trialPath)
     if (trial === null) {
       return null
     }
@@ -66,12 +127,12 @@ async function readTrials<T extends {id: string}>(
 }
 
 async function readBenchmarkOutput(filepath: string): Promise<BenchmarkOutput | null> {
-  const file = await readResultFile(filepath, BenchmarkOutputFileSchema)
+  const file = await readBenchmarkFile(filepath)
   if (file === null) {
     return null
   }
   const capabilities = new Map(Object.entries(file.capabilities))
-  const trials = await readTrials(filepath, file.trials, BenchmarkTrialOutputSchema)
+  const trials = await readTrials(filepath, file.trials, readBenchmarkTrial)
   if (trials === null) {
     return null
   }
@@ -88,11 +149,11 @@ async function readBenchmarkOutput(filepath: string): Promise<BenchmarkOutput | 
 }
 
 async function readExperimentOutput(filepath: string): Promise<ExperimentOutput | null> {
-  const file = await readResultFile(filepath, ExperimentOutputFileSchema)
+  const file = await readExperimentFile(filepath)
   if (file === null) {
     return null
   }
-  const trials = await readTrials(filepath, file.trials, ExperimentTrialOutputSchema)
+  const trials = await readTrials(filepath, file.trials, readExperimentTrial)
   if (trials === null) {
     return null
   }

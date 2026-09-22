@@ -2,6 +2,7 @@
 
 import {CopilotIcon, PersonIcon} from '@primer/octicons-react'
 import {Breadcrumbs, Button, FormControl, Label, Select, Stack, UnderlineNav} from '@primer/react'
+import {Blankslate} from '@primer/react/experimental'
 import type {RunDetails, TranscriptEntry} from '../../run-details'
 import {loadTrialDetails, loadTrialTranscript} from '../../run-data-client'
 import type {Route} from 'next'
@@ -44,7 +45,10 @@ export function ToolBreakdown({tools}: {tools: RunResult['tools']}) {
     <section className="mb-6">
       <h3 className="text-title-small mt-0 mb-2">Tool breakdown</h3>
       {tools.length === 0 ? (
-        <p className="text-muted">No tool calls were recorded.</p>
+        <Blankslate border>
+          <Blankslate.Heading as="h4">No tool calls</Blankslate.Heading>
+          <Blankslate.Description>No tool calls were recorded.</Blankslate.Description>
+        </Blankslate>
       ) : (
         <>
           <p className="text-caption text-muted">Calls across implementation sessions for the selected trial.</p>

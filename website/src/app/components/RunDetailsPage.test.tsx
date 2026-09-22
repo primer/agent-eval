@@ -50,8 +50,10 @@ test('renders tool names, individual counts, and the total in an accessible tabl
   expect(html).toContain('>1,202</td>')
 })
 
-test('renders an empty state when no tool calls were recorded', () => {
+test('renders a blankslate when no tool calls were recorded', () => {
   const html = renderToStaticMarkup(<ToolBreakdown tools={[]} />)
+  expect(html).toMatch(/<h4\b[^>]*>No tool calls<\/h4>/)
+  expect(html).toContain('data-component="Blankslate"')
   expect(html).toContain('No tool calls were recorded.')
   expect(html).not.toContain('<table')
 })

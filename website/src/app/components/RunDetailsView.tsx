@@ -42,8 +42,7 @@ export function ToolBreakdown({tools}: {tools: RunResult['tools']}) {
   }, 0)
 
   return (
-    <section className="mb-6">
-      <h3 className="text-title-small mt-0 mb-2">Tool breakdown</h3>
+    <section className="w-full max-w-3xl mx-auto">
       {tools.length === 0 ? (
         <Blankslate border>
           <Blankslate.Heading as="h4">No tool calls</Blankslate.Heading>
@@ -201,12 +200,13 @@ function AsyncContent<T>({
 }
 
 function ResultTabs({index, result}: {index: number; result: RunResult}) {
-  const [selectedTab, setSelectedTab] = useState<ResultTab | 'code'>('walkthrough')
+  const [selectedTab, setSelectedTab] = useState<ResultTab | 'tools' | 'code'>('walkthrough')
   const tabIds = {
     walkthrough: `result-${index}-walkthrough-tab`,
     checks: `result-${index}-checks-tab`,
     judges: `result-${index}-judges-tab`,
     transcript: `result-${index}-transcript-tab`,
+    tools: `result-${index}-tools-tab`,
     code: `result-${index}-code-tab`,
   }
   const panelId = `result-${index}-${selectedTab}-panel`
@@ -264,6 +264,18 @@ function ResultTabs({index, result}: {index: number; result: RunResult}) {
           Transcript
         </UnderlineNav.Item>
         <UnderlineNav.Item
+          aria-current={selectedTab === 'tools' ? 'page' : undefined}
+          counter={result.tools.length}
+          href={`#result-${index}-tools-panel`}
+          id={tabIds.tools}
+          onSelect={event => {
+            event.preventDefault()
+            setSelectedTab('tools')
+          }}
+        >
+          Tools
+        </UnderlineNav.Item>
+        <UnderlineNav.Item
           aria-current={selectedTab === 'code' ? 'page' : undefined}
           href={`#result-${index}-code-panel`}
           id={tabIds.code}
@@ -278,9 +290,10 @@ function ResultTabs({index, result}: {index: number; result: RunResult}) {
       <div aria-labelledby={tabIds[selectedTab]} className="p-4" id={panelId} role="region">
         {selectedTab === 'code' ? (
           <FileExplorer key={result.id} workspace={result.workspace} />
+        ) : selectedTab === 'tools' ? (
+          <ToolBreakdown tools={result.tools} />
         ) : selectedTab === 'transcript' ? (
           <div className="w-full max-w-3xl mx-auto">
-            <ToolBreakdown tools={result.tools} />
             <AsyncContent
               key={result.transcriptUrl}
               url={result.transcriptUrl}

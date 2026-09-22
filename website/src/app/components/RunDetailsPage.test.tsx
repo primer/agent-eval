@@ -64,7 +64,7 @@ test('renders tool names as escaped text', () => {
   expect(html).not.toContain('<script>')
 })
 
-test('provides a selector for every repeated trial and the new checks tab', async () => {
+test('provides a selector for every repeated trial and result detail tab', async () => {
   const run = await createExperimentRunDetails(
     '2026-09-15',
     createExperimentOutput([createTrial(), createTrial({id: 'trial-2'})]),
@@ -73,6 +73,7 @@ test('provides a selector for every repeated trial and the new checks tab', asyn
   expect(html).toContain('Trial 1 (trial-1)')
   expect(html).toContain('Trial 2 (trial-2)')
   expect(html).toContain('result-0-checks-tab')
+  expect(html).toContain('result-0-tools-tab')
   expect(html).toContain('result-0-code-tab')
   expect(html).not.toContain('Tests passed')
   expect(html).toContain('No UI walkthrough was recorded.')

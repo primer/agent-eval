@@ -25,6 +25,7 @@ not a prerequisite for every operation.
 | Install resources or run commands in a trial            | [Sandbox](references/sandbox.md)                                                   |
 | Inspect a run matrix, shard, or merge                   | [Plans](references/plans.md)                                                       |
 | Read results or diagnose agent behavior                 | [Trials and results](references/trials-and-results.md)                             |
+| Install the optional UI, view results, or export a site | [CLI](references/cli.md#results-ui)                                                |
 | Find a command, flag, or runtime failure                | [CLI](references/cli.md)                                                           |
 
 ## Execution rules

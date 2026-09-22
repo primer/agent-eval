@@ -26,6 +26,8 @@ Image commands require Docker but not a Copilot token.
 | `scenario run <name>`           | Run one scenario                 |
 | `scenario image build <name>`   | Build a scenario workspace image |
 | `scenario image clean [name]`   | Remove local agent-eval images   |
+| `ui dev`                        | View results with live refresh   |
+| `ui build`                      | Export a static results site     |
 
 Use singular `benchmark`, `experiment`, and `scenario`. There is no CLI
 scaffolding command; create files with the appropriate `defineConfig` helper.
@@ -91,6 +93,39 @@ including older builds. **Omitting the name also targets all local agent-eval
 scenario, sandbox, and tools images across projects.** Cleanup accepts
 `--scenarios` but does not use it to restrict removal. It forces image removal
 but does not stop running containers.
+
+## Results UI
+
+```sh
+npm install --save-dev @primer/agent-eval-website
+npx agent-eval ui dev --results ./results --port 3000
+npx agent-eval ui build --results ./results --output-dir ./out
+npx agent-eval ui build --results ./results --output-dir ./out --base-path /my-repository
+```
+
+The website package is opt-in. Core installs and non-UI commands do not install
+or load Next.js, React, or Primer. Install the website package in the project
+where you invoke the CLI. Both UI commands reuse the website's Next.js app and
+Primer result views.
+
+Both commands work without Docker or a token. `--results` defaults to
+`./results`, accepts relative or absolute paths, and can select one bundle
+directory or a directory containing many runs. The viewer recursively finds
+`output.json` and `output-<number>.json` manifests and displays benchmark,
+experiment, and scenario trials with the website's checks, judges, transcript,
+walkthrough, and workspace preview tabs.
+
+`ui dev` binds to `127.0.0.1` on port `3000` by default. Open the printed URL.
+It checks for updates every two seconds, including newly created or deleted
+results. Missing directories are initially empty; invalid/incomplete bundles
+are displayed as errors and retried.
+
+`ui build` writes a Next.js static export and `.nojekyll` to `./out` by
+default. The output directory must be empty; input and output directories must not overlap. Invalid bundles fail
+the build instead of producing a partial site. Deploy the output directory to
+GitHub Pages or another static HTTP host; set `--base-path /my-repository` for a
+repository subpath. Do not open the export via `file://`. Rebuild when results change. Review the embedded trial
+data, workspace previews, and media for private information before publishing.
 
 ## Command templates
 

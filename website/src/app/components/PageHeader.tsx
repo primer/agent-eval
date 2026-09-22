@@ -6,7 +6,7 @@ import {UnderlineNav} from '@primer/react'
 import {usePathname} from 'next/navigation'
 import styles from './PageHeader.module.css'
 
-export function PageHeader() {
+export function PageHeader({local = false}: {local?: boolean}) {
   const pathname = usePathname()
 
   return (
@@ -21,29 +21,33 @@ export function PageHeader() {
         </Link>
         <UnderlineNav aria-label="Agent eval" className={`${styles.navigation} grow shrink basis-full`}>
           <UnderlineNav.Item as={Link} href="/" aria-current={pathname === '/' ? 'page' : undefined}>
-            Overview
+            {local ? 'Local results' : 'Overview'}
           </UnderlineNav.Item>
-          <UnderlineNav.Item
-            as={Link}
-            href="/benchmarks"
-            aria-current={pathname.startsWith('/benchmarks') ? 'page' : undefined}
-          >
-            Benchmarks
-          </UnderlineNav.Item>
-          <UnderlineNav.Item
-            as={Link}
-            href="/experiments"
-            aria-current={pathname.startsWith('/experiments') ? 'page' : undefined}
-          >
-            Experiments
-          </UnderlineNav.Item>
-          <UnderlineNav.Item
-            as={Link}
-            href="/scenarios"
-            aria-current={pathname.startsWith('/scenarios') ? 'page' : undefined}
-          >
-            Scenarios
-          </UnderlineNav.Item>
+          {!local ? (
+            <>
+              <UnderlineNav.Item
+                as={Link}
+                href="/benchmarks"
+                aria-current={pathname.startsWith('/benchmarks') ? 'page' : undefined}
+              >
+                Benchmarks
+              </UnderlineNav.Item>
+              <UnderlineNav.Item
+                as={Link}
+                href="/experiments"
+                aria-current={pathname.startsWith('/experiments') ? 'page' : undefined}
+              >
+                Experiments
+              </UnderlineNav.Item>
+              <UnderlineNav.Item
+                as={Link}
+                href="/scenarios"
+                aria-current={pathname.startsWith('/scenarios') ? 'page' : undefined}
+              >
+                Scenarios
+              </UnderlineNav.Item>
+            </>
+          ) : null}
         </UnderlineNav>
       </header>
     </>

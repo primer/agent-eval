@@ -40,6 +40,54 @@ experiments. Under-the-hood, we are going through each scenario and setting up a
 sandbox where the agent executes within. When all evaluations are complete, a
 result is returned detailing how each agent performed relative to each other.
 
+### View results
+
+Install the optional website package to view benchmark, experiment, and scenario
+results with the same Next.js and Primer UI used by the agent-eval website:
+
+```bash
+npm install --save-dev @primer/agent-eval-website
+agent-eval ui dev
+agent-eval ui dev --results ./results/my-run --port 3001
+```
+
+The core `@primer/agent-eval` package does not install the website, Next.js,
+React, or Primer. The CLI loads the website package only when you run a UI
+command. Install it in the project where you run the command.
+
+Open the printed `http://127.0.0.1:3000` URL. The viewer searches `./results`
+recursively for `output.json` and shard manifests (`output-<number>.json`).
+You can also point `--results` at a single bundle directory. Relative paths
+are resolved from the current directory; absolute paths are supported.
+Select a run to inspect its trial checks, judges, transcripts, walkthroughs,
+and available workspace previews using the website's result tabs.
+The page refreshes automatically within a few seconds when runs or trial
+results are added, changed, or removed. You can start the viewer before the
+results directory exists. Incomplete or invalid bundles are shown as errors
+and retried automatically.
+
+Build a static snapshot for sharing:
+
+```bash
+agent-eval ui build --results ./results --output-dir ./out
+# For a GitHub Pages project site at https://<owner>.github.io/<repository>/
+agent-eval ui build --results ./results --output-dir ./out --base-path /<repository>
+```
+
+The output defaults to `./out`, must be empty, and must not overlap the results directory.
+The command fails if any discovered bundle is incomplete or invalid.
+Serve the output with a static HTTP server, or deploy the contents of `out` to GitHub Pages
+(for Actions deployments, upload `out` with `actions/upload-pages-artifact`
+and deploy it with `actions/deploy-pages`). Use `--base-path` for a repository
+subpath; omit it when hosting at the domain root. The export includes HTML,
+JavaScript, CSS, and result assets; it is not intended to be opened via `file://`.
+Rebuild to publish updated results.
+
+Neither UI command requires Docker, a Copilot token, or a repository checkout.
+**Review the results before publishing:** the export can include prompts,
+agent messages, local paths, workspace previews, screenshots, videos, and other
+private evaluation information.
+
 ## Benchmarks
 
 Benchmarks are used to establish a baseline for agent performance on a given task. By default, they live in a `benchmarks` folder in your project. You can create a benchmark by importing and using `defineConfig` from

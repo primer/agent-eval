@@ -3,6 +3,7 @@ import type {ExperimentTrialOutput, TrialSummary} from '@primer/agent-eval'
 const {addCheckResults, createTrialSummary, createTrialSummaryComparator, formatCheckSummaries, getCheckDimensions} =
   await import(
     /* turbopackIgnore: true */
+    /* webpackIgnore: true */
     '@primer/agent-eval'
   )
 

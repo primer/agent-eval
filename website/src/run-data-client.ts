@@ -21,7 +21,9 @@ function loadJson<T>(url: string, cache: Map<string, Promise<T>>): Promise<T> {
       cache.delete(url)
       throw error
     })
-  cache.set(url, pending)
+  if (!url.startsWith('data:')) {
+    cache.set(url, pending)
+  }
   return pending
 }
 

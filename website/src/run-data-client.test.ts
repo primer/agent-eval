@@ -31,6 +31,16 @@ test('loads and caches transcripts separately when requested', async () => {
   expect(fetchMock).toHaveBeenCalledExactlyOnceWith('/trial/transcript.json')
 })
 
+test('does not retain inline local snapshots in the global request cache', async () => {
+  const fetchMock = vi.fn().mockImplementation(async () => Response.json([]))
+  vi.stubGlobal('fetch', fetchMock)
+  const {loadTrialTranscript} = await import('./run-data-client')
+  const url = 'data:application/json;base64,W10='
+  expect(await loadTrialTranscript(url)).toEqual([])
+  expect(await loadTrialTranscript(url)).toEqual([])
+  expect(fetchMock).toHaveBeenCalledTimes(2)
+})
+
 test.each([
   {
     name: 'HTTP errors',

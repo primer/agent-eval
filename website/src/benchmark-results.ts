@@ -15,6 +15,7 @@ export type BenchmarkComparison = {
   checks: string
   outputTokens: string
   premiumRequests: string
+  aiCredits: string
   sessionTime: string
   apiTime: string
 }
@@ -154,6 +155,10 @@ function formatNumber(value: number): string {
   return new Intl.NumberFormat('en-US', {maximumFractionDigits: 2}).format(value)
 }
 
+function formatCredits(value: number): string {
+  return new Intl.NumberFormat('en-US', {maximumFractionDigits: 3}).format(value)
+}
+
 function formatDuration(milliseconds: number): string {
   const seconds = milliseconds / 1000
   if (seconds < 60) {
@@ -198,22 +203,31 @@ function getSummaries(trials: Array<BenchmarkTrialOutput>, output: BenchmarkOutp
 
 function createComparison(trials: Array<BenchmarkTrialOutput>, output: BenchmarkOutput): BenchmarkComparison {
   if (trials.length === 0) {
-    return {checks: 'N/A', outputTokens: 'N/A', premiumRequests: 'N/A', sessionTime: 'N/A', apiTime: 'N/A'}
+    return {
+      checks: 'N/A',
+      outputTokens: 'N/A',
+      premiumRequests: 'N/A',
+      aiCredits: 'N/A',
+      sessionTime: 'N/A',
+      apiTime: 'N/A',
+    }
   }
   const {control, benchmark} = getSummaries(trials, output)
   function usage(
-    key: 'outputTokens' | 'premiumRequests' | 'sessionDurationMs' | 'totalApiDurationMs',
+    key: 'outputTokens' | 'premiumRequests' | 'aiCredits' | 'sessionDurationMs' | 'totalApiDurationMs',
     format: (value: number) => string,
   ) {
-    if (benchmark.runs === 0) {
+    const value = benchmark.runs === 0 ? null : benchmark[key]
+    if (value === null) {
       return 'N/A'
     }
-    return `${format(benchmark[key])} (${formatPercentDelta(control.runs > 0 ? control[key] : null, benchmark[key])})`
+    return `${format(value)} (${formatPercentDelta(control.runs > 0 ? control[key] : null, value)})`
   }
   return {
     checks: formatChecks(benchmark, control),
     outputTokens: usage('outputTokens', formatNumber),
     premiumRequests: usage('premiumRequests', formatNumber),
+    aiCredits: usage('aiCredits', formatCredits),
     sessionTime: usage('sessionDurationMs', formatDuration),
     apiTime: usage('totalApiDurationMs', formatDuration),
   }
@@ -300,6 +314,7 @@ function createTrendPoint(
   for (const [id, key, scale, format] of [
     ['outputTokens', 'outputTokens', 1, formatNumber],
     ['premiumRequests', 'premiumRequests', 1, formatNumber],
+    ['aiCredits', 'aiCredits', 1, formatCredits],
     ['sessionTime', 'sessionDurationMs', 1000, formatDuration],
     ['apiTime', 'totalApiDurationMs', 1000, formatDuration],
   ] as const) {
@@ -361,6 +376,7 @@ export function getBenchmarkOverviewData(runs: Array<BenchmarkRun>): BenchmarkOv
     [
       {id: 'outputTokens', label: 'Output tokens'},
       {id: 'premiumRequests', label: 'Premium requests'},
+      {id: 'aiCredits', label: 'AI credits'},
       {id: 'sessionTime', label: 'Session time', unit: 's'},
       {id: 'apiTime', label: 'API time', unit: 's'},
     ].map(metric => {

@@ -148,6 +148,35 @@ test.each(['benchmarks', 'experiments'] as const)(
   },
 )
 
+test.each(['directory', 'symlink'] as const)('discovers shared runs from a local results %s', async kind => {
+  const directory = await createDirectory()
+  const results = path.join(directory, kind === 'symlink' ? 'bundles' : 'results')
+  await fs.mkdir(results)
+  if (kind === 'symlink') {
+    await fs.symlink(results, path.join(directory, 'results'))
+  }
+  const benchmark = createBenchmarkOutput()
+  const experiment = createExperimentOutput()
+  const date = '2026-09-20'
+  await writeBundle(path.join(results, 'benchmarks', benchmark.id, date), benchmark)
+  await writeBundle(path.join(results, 'experiments', experiment.id, date), experiment)
+  vi.spyOn(process, 'cwd').mockReturnValue(path.join(directory, 'website'))
+  vi.resetModules()
+  vi.spyOn(await import('./benchmarks'), 'list').mockResolvedValue([
+    {id: benchmark.id, name: 'Benchmark', description: '', models: [], capabilities: []},
+  ])
+  const {listRuns, getRun} = await import('./run-catalog')
+  const runs = await listRuns()
+  expect(runs.map(({id}) => id)).toEqual([`benchmarks-${benchmark.id}-${date}`, `experiments-${experiment.id}-${date}`])
+  for (const entry of runs) {
+    expect(await getRun(entry.id)).toEqual(entry)
+    expect(entry.run.output.trials.size).toBe(1)
+    expect(await fs.readFile(path.join(entry.run.directory, 'artifacts/trial-1/trial-1.json'), 'utf8')).toContain(
+      'trial-1',
+    )
+  }
+})
+
 test('rejects missing trial files, mismatched IDs, and paths outside the bundle', async () => {
   const directory = await createDirectory()
   const bundle = path.join(directory, 'bundle')

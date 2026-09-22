@@ -30,5 +30,5 @@ out
 
 # Generated files
 artifacts/
-results/
+results
 output.json

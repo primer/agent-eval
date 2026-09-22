@@ -42,6 +42,8 @@ import {resolveContainerPath} from './path'
 import {logger} from '../logger'
 import {createContainer, removeContainer, exec, type RunningContainer} from '../docker'
 import {getSandboxImageBuild} from './images/sandbox'
+import {createSandboxGlob} from './glob'
+import {createContainerGlobFileSystem} from './glob-fs'
 
 const DEFAULT_MCP_CONFIG: McpConfigFile = {
   mcpServers: {},
@@ -64,9 +66,12 @@ class SystemSandbox implements Sandbox {
   #container: RunningContainer
   #host: Host
 
+  glob: Sandbox['glob']
+
   constructor(host: Host, container: RunningContainer) {
     this.#host = host
     this.#container = container
+    this.glob = createSandboxGlob(createContainerGlobFileSystem((command, args) => this.runCommand(command, args)))
   }
 
   async [Symbol.asyncDispose]() {

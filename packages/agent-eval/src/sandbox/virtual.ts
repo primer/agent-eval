@@ -1,6 +1,7 @@
 import path from 'node:path'
 import {VirtualHost, type Host} from '../host'
 import {resolveContainerPath} from './path'
+import {createSandboxGlob} from './glob'
 import type {CommandResult, CopyOptions, DownloadOptions, Sandbox, SandboxCreateOptions} from './types'
 
 const defaultCreateOptions: SandboxCreateOptions = {}
@@ -16,8 +17,11 @@ export class VirtualSandbox implements Sandbox {
 
   #host: Host
 
+  glob: Sandbox['glob']
+
   constructor(host: Host) {
     this.#host = host
+    this.glob = createSandboxGlob(host.fs)
   }
 
   async copy(sourcePath: string, destinationPath: string, options: CopyOptions = {}): Promise<void> {

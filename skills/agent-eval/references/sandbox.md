@@ -32,6 +32,7 @@ Use the sandbox supplied to hooks; its runtime implementations are internal.
 | `copy`                | Copy a host file or directory into the container, optionally excluding paths |
 | `download`            | Copy a container file or directory to the host                               |
 | `readdir`             | List entries in a container directory                                        |
+| `glob`                | Find sandbox paths using npm glob patterns and options                       |
 | `readFile`            | Read UTF-8 text in the container                                             |
 | `writeFile`           | Write UTF-8 text in the container                                            |
 | `exists`              | Check whether a container path exists                                        |
@@ -44,6 +45,26 @@ Use the sandbox supplied to hooks; its runtime implementations are internal.
 
 See [treatments](treatments.md) for resource installation examples. Consult the
 installed TypeScript interface for signatures and supported options.
+
+## Finding files
+
+`sandbox.glob(pattern, options?)` uses the npm `glob` library's asynchronous API.
+Patterns can be a string or array of strings; options include `ignore`, `dot`,
+`nodir`, `absolute`, and `withFileTypes`.
+
+```ts
+const files = await sandbox.glob('src/**/*.{ts,tsx}', {
+  nodir: true,
+  ignore: ['**/*.test.ts'],
+})
+```
+
+The default `cwd` is `/home/sandbox/workspace`; relative `cwd` values resolve
+against that directory. Absolute paths and file URLs refer to the sandbox.
+Matches are relative to `cwd` by default. With a custom `cwd`, use
+`absolute: true` to pass matches directly to `sandbox.readFile`.
+`withFileTypes: true` returns glob `Path` objects; use their asynchronous
+filesystem methods, not the synchronous methods. No scenario dependency is needed.
 
 ## Command fragment
 

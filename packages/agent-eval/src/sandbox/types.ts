@@ -1,3 +1,4 @@
+import type {glob} from 'glob'
 import type {ImageBuild} from '../docker'
 import type {Host} from '../host'
 import type {McpServerConfig} from '../mcp-config'
@@ -98,6 +99,11 @@ interface Sandbox {
    * Lists the files and directories in a sandbox directory.
    */
   readdir(filepath: string): Promise<Array<string>>
+
+  /**
+   * Finds sandbox paths using glob patterns, relative to the workspace by default.
+   */
+  glob: typeof glob.glob
 
   /**
    * Reads a UTF-8 file from the sandbox.

@@ -42,4 +42,4 @@ fi
 
 # Build
 cd $repository_root
-pnpm turbo --filter '@primer/agent-eval' run build
+pnpm exec turbo run build --filter=@primer/agent-eval

@@ -4,7 +4,7 @@ import {SkeletonBox, Spinner} from '@primer/react'
 import type {ReactNode} from 'react'
 import type {RunDetails} from '../../run-details'
 
-type ResultTab = 'walkthrough' | 'checks' | 'judges' | 'transcript'
+type ResultTab = 'walkthrough' | 'checks' | 'judges' | 'transcript' | 'tools'
 type RunResult = Pick<RunDetails['results'][number], 'walkthroughPreview'>
 
 function BrowserFrame({children}: {children: ReactNode}) {
@@ -49,7 +49,7 @@ function RunDetailsLoading({tab, result}: {tab: ResultTab; result: RunResult}) {
   }
 
   return (
-    <div className={`min-h-64 ${tab === 'transcript' ? 'max-w-3xl mx-auto' : ''}`} role="status">
+    <div className={`min-h-64 ${tab === 'transcript' ? 'max-w-4xl mx-auto' : ''}`} role="status">
       <div className="flex items-center gap-2 text-muted mb-4">
         <Spinner size="small" srText={null} />
         <span>Loading {tab}...</span>
@@ -58,8 +58,15 @@ function RunDetailsLoading({tab, result}: {tab: ResultTab; result: RunResult}) {
         {Array.from({length: 3}, (_, index) => {
           return (
             <div className="flex gap-3" key={index}>
-              {tab === 'transcript' ? <SkeletonBox width={32} height={32} className="rounded-full shrink-0" /> : null}
-              <div className="border border-default rounded-md p-4 flex-1 flex flex-col gap-3">
+              <div
+                className={`flex-1 flex flex-col gap-3 ${
+                  tab === 'transcript'
+                    ? index === 0
+                      ? 'max-w-[85%] ml-auto bg-muted rounded-xl p-4'
+                      : 'py-2'
+                    : 'border border-default rounded-md p-4'
+                }`}
+              >
                 <SkeletonBox height={16} width="35%" />
                 <SkeletonBox height={12} width="90%" />
                 {tab !== 'checks' ? <SkeletonBox height={12} width="70%" /> : null}

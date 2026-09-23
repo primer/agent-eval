@@ -67,8 +67,8 @@ process, so sharding multiplies the aggregate limits. Start small.
 Use `--progress` to show completed/total trials, a percentage, and in-flight
 trials on stderr instead of informational logs. Warnings and errors remain
 visible (subject to `--log-level`), and final reports and result files are
-unchanged. Terminals update one line; redirected output receives one line per
-update. Totals reflect the selected shard and runner. In-flight trials include
+unchanged. Terminals update one progress bar; redirected output receives periodic
+progress lines and the final state. Totals reflect the selected shard and runner. In-flight trials include
 image preparation, setup, agent execution, checks, and artifact collection;
 queued trials are excluded and retries do not increase the completed count.
 

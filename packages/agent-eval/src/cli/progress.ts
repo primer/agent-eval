@@ -1,15 +1,20 @@
+import {SingleBar} from 'cli-progress'
 import {logger} from '../logger'
 import type {PlanProgress} from '../plan'
 
-type ProgressStream = {
-  isTTY?: boolean
-  write(text: string): unknown
-}
-
-function createProgressReporter(enabled: boolean, stream: ProgressStream = process.stderr) {
+function createProgressReporter(enabled: boolean, stream: NodeJS.WritableStream = process.stderr) {
   const previousLevel = logger.level
   let disposed = false
-  let lineActive = false
+  let started = false
+  const bar = enabled
+    ? new SingleBar({
+        stream,
+        format: '[{bar}] Trials: {value}/{total} ({percentage}%) | In flight: {inFlight}',
+        barsize: 20,
+        noTTYOutput: true,
+        emptyOnZero: false,
+      })
+    : undefined
 
   if (enabled && logger.levelVal < logger.levels.values.warn) {
     logger.level = 'warn'
@@ -17,23 +22,26 @@ function createProgressReporter(enabled: boolean, stream: ProgressStream = proce
 
   return {
     update({total, completed, inFlight}: PlanProgress) {
-      if (!enabled || disposed) {
+      if (!bar || disposed) {
         return
       }
 
-      const percentage = total === 0 ? 100 : Math.floor((completed / total) * 100)
-      const line = `Trials: ${completed}/${total} (${percentage}%) | In flight: ${inFlight}`
-      lineActive = Boolean(stream.isTTY) && completed < total
-      stream.write(`${stream.isTTY ? '\r\x1b[2K' : ''}${line}${lineActive ? '' : '\n'}`)
+      if (!started) {
+        started = true
+        bar.start(total, completed, {inFlight})
+      } else {
+        bar.update(completed, {inFlight})
+      }
+      if (completed === total) {
+        bar.stop()
+      }
     },
     [Symbol.dispose]() {
       if (disposed) {
         return
       }
       disposed = true
-      if (lineActive) {
-        stream.write('\n')
-      }
+      bar?.stop()
       if (enabled) {
         logger.level = previousLevel
       }

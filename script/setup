@@ -41,5 +41,5 @@ if [[ -n "$artifact_ids" ]]; then
 fi
 
 # Build
-cd $repository_root
+cd "$repository_root"
 pnpm exec turbo run build --filter=@primer/agent-eval

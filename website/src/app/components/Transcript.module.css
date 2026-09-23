@@ -1,0 +1,140 @@
+.markdown {
+  overflow-wrap: anywhere;
+}
+
+.markdown p,
+.markdown ul,
+.markdown ol,
+.markdown pre,
+.markdown blockquote,
+.tableWrapper {
+  margin: 0 0 var(--base-size-12);
+}
+
+.markdown h1,
+.markdown h2,
+.markdown h3,
+.markdown h4,
+.markdown h5,
+.markdown h6 {
+  margin: var(--base-size-16) 0 var(--base-size-8);
+  font-size: 1em;
+  font-weight: var(--base-text-weight-semibold);
+}
+
+.markdown h1 {
+  font-size: 1.5em;
+}
+
+.markdown h2 {
+  font-size: 1.25em;
+}
+
+.markdown ul,
+.markdown ol {
+  padding-left: var(--base-size-24);
+}
+
+.markdown ul {
+  list-style: disc;
+}
+
+.markdown ol {
+  list-style: decimal;
+}
+
+.markdown li + li {
+  margin-top: var(--base-size-4);
+}
+
+.markdown li > ul,
+.markdown li > ol {
+  margin-block: var(--base-size-4) 0;
+}
+
+.markdown :global(.task-list-item) {
+  list-style: none;
+}
+
+.markdown input[type='checkbox'] {
+  margin-right: var(--base-size-4);
+}
+
+.markdown a {
+  color: var(--fgColor-accent);
+  text-decoration: underline;
+}
+
+.markdown blockquote {
+  padding-left: var(--base-size-12);
+  border-left: var(--base-size-4) solid var(--borderColor-default);
+  color: var(--fgColor-muted);
+}
+
+.markdown code,
+.markdown pre {
+  font-family: var(--fontStack-monospace);
+  font-size: inherit;
+  font-style: normal;
+}
+
+.markdown code {
+  padding: 0.15em 0.3em;
+  border-radius: var(--borderRadius-small);
+  background: var(--bgColor-muted);
+}
+
+.markdown pre {
+  max-width: 100%;
+  padding: var(--base-size-12);
+  overflow: auto;
+  border: 1px solid var(--borderColor-default);
+  border-radius: var(--borderRadius-medium);
+  white-space: pre;
+  overflow-wrap: normal;
+}
+
+.markdown pre code {
+  padding: 0;
+  background: none;
+}
+
+.tableWrapper {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.markdown table {
+  border-collapse: collapse;
+}
+
+.markdown th,
+.markdown td {
+  padding: var(--base-size-8);
+  border: 1px solid var(--borderColor-default);
+}
+
+.markdown th {
+  background: var(--bgColor-muted);
+  font-weight: var(--base-text-weight-semibold);
+}
+
+.markdown hr {
+  margin-block: var(--base-size-16);
+  border: 0;
+  border-top: 1px solid var(--borderColor-default);
+}
+
+.markdown img {
+  max-width: 100%;
+  height: auto;
+}
+
+.markdown > :first-child {
+  margin-top: 0;
+}
+
+.markdown > :last-child,
+.markdown blockquote > :last-child {
+  margin-bottom: 0;
+}

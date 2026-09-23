@@ -17,6 +17,12 @@ type TranscriptEntry = {
   label: string
   timestamp?: string
   content: string
+  toolCall?: {
+    name: string
+    arguments?: string
+    status: 'Started' | 'Completed successfully' | 'Failed'
+    output?: string
+  }
 }
 
 type WalkthroughUrls =
@@ -42,6 +48,7 @@ type RunResult = {
   aiCredits: number | null
   totalApiDurationMs: number
   sessionDurationMs: number
+  tools: Array<{name: string; count: number}>
   counts: {checks: number; transcript: number; judges: number}
   walkthroughPreview: {type: Walkthrough['type']; count: number}
   detailsUrl: string
@@ -82,7 +89,7 @@ function createTranscript(logs: Array<LogMessage>): Array<TranscriptEntry> {
   const entries: Array<TranscriptEntry> = []
   const messageEntries = new Map<string, TranscriptEntry>()
   const reasoningEntries = new Map<string, TranscriptEntry>()
-  const toolNames = new Map<string, string>()
+  const toolCalls = new Map<string, NonNullable<TranscriptEntry['toolCall']>>()
 
   for (const [index, message] of logs.entries()) {
     const record = asRecord(message)
@@ -159,20 +166,44 @@ function createTranscript(logs: Array<LogMessage>): Array<TranscriptEntry> {
       case 'tool.execution_start': {
         const toolName = getString(data, 'toolName') ?? 'Unknown tool'
         const toolCallId = getString(data, 'toolCallId')
-        if (toolCallId) {
-          toolNames.set(toolCallId, toolName)
+        const args = data?.arguments
+        const toolCall: NonNullable<TranscriptEntry['toolCall']> = {
+          name: toolName,
+          arguments: typeof args === 'string' ? args : JSON.stringify(args, null, 2),
+          status: 'Started',
         }
-        entries.push({id, label: `Tool call: ${toolName}`, timestamp, content: 'Started'})
+        if (toolCallId) {
+          toolCalls.set(toolCallId, toolCall)
+        }
+        entries.push({
+          id,
+          label: `Tool call: ${toolName}`,
+          timestamp,
+          content: toolCall.arguments ?? 'No arguments recorded.',
+          toolCall,
+        })
         break
       }
       case 'tool.execution_complete': {
         const toolCallId = getString(data, 'toolCallId')
-        const toolName = toolCallId ? toolNames.get(toolCallId) : undefined
+        const toolCall = toolCallId ? toolCalls.get(toolCallId) : undefined
+        const status = data?.success === true ? 'Completed successfully' : 'Failed'
+        const result = asRecord(data?.result)
+        const error = asRecord(data?.error)
+        const output =
+          data?.success === true
+            ? getString(result, 'detailedContent') || getString(result, 'content')
+            : [getString(error, 'code'), getString(error, 'message')].filter(Boolean).join(': ') || undefined
+        if (toolCall) {
+          toolCall.status = status
+          toolCall.output = output
+        }
         entries.push({
           id,
-          label: `Tool result: ${toolName ?? 'Unknown tool'}`,
+          label: `Tool result: ${toolCall?.name ?? 'Unknown tool'}`,
           timestamp,
-          content: data?.success === true ? 'Completed successfully' : 'Failed',
+          content: output ? `${status}\n\n${output}` : status,
+          ...(!toolCall ? {toolCall: {name: 'Unknown tool', status, output}} : {}),
         })
         break
       }
@@ -194,7 +225,7 @@ function createTranscript(logs: Array<LogMessage>): Array<TranscriptEntry> {
   }
 
   return entries.filter(entry => {
-    return entry.content.length > 0
+    return entry.content.length > 0 || entry.toolCall !== undefined
   })
 }
 
@@ -349,6 +380,12 @@ async function createExperimentRunDetails(
       throw new Error(`Unknown treatment "${result.treatmentId}" for trial "${result.id}"`)
     }
     const baseUrl = getTrialDataUrl(collection, output.id, date, result.id)
+    const tools = new Map<string, number>()
+    for (const session of result.agent.sessions) {
+      for (const [name, count] of Object.entries(session.tools)) {
+        tools.set(name, (tools.get(name) ?? 0) + count)
+      }
+    }
     results.push({
       id: result.id,
       scenarioId: result.scenarioId,
@@ -365,6 +402,11 @@ async function createExperimentRunDetails(
       aiCredits: summary.aiCredits,
       totalApiDurationMs: summary.totalApiDurationMs,
       sessionDurationMs: summary.sessionDurationMs,
+      tools: Array.from(tools, ([name, count]) => {
+        return {name, count}
+      }).toSorted((first, second) => {
+        return second.count - first.count || first.name.localeCompare(second.name)
+      }),
       counts: {
         checks: result.checks.length,
         transcript: createTrialTranscript(result).length,

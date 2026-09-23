@@ -51,9 +51,24 @@ such as `walkthrough/screenshot.png` are resolved through
 
 Run pages initially include only trial summaries, tab counts, and data URLs.
 Selecting a trial loads its checks, judges, and walkthrough URLs from a separate
-JSON file. Transcripts load only when their tab is opened. Requests are shared
+JSON file. Transcripts load only when the Transcript or Tools tab is opened. Requests are shared
 and cached during the browser session; failures show an error and a retry button.
 Changing the selection cannot display a previous trial's pending response.
+
+The **Tools** tab includes a Primer table with each tool's call count and
+a total, sorted by most-used tools first. Counts combine the selected trial's
+implementation sessions and exclude judge sessions. A second table shows each
+invocation's name, status, and expandable arguments and output. Missing details
+are marked as not recorded. The **Transcript** tab also includes tool arguments,
+result content, and errors alongside the other session messages. Tool calls and
+results are collapsed by default; select a tool row to expand its content. User
+messages appear in muted bubbles, while assistant responses remain unboxed.
+Reasoning appears as muted, italic **Thinking** text with a comment icon. It uses
+the same disclosure controls as tool rows but starts expanded.
+Assistant responses, Thinking, and summaries support GitHub Flavored Markdown, including
+tables, task lists, and fenced code blocks. The renderer loads only when a
+transcript is opened. Embedded HTML is ignored; user messages and tool arguments
+and results remain literal text.
 
 Screenshots and videos are served as separate files, not embedded base64 data.
 Multiple screenshots appear in a full-width carousel with Previous and Next

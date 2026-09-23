@@ -1,12 +1,12 @@
 'use client'
 
-import {CopilotIcon, PersonIcon} from '@primer/octicons-react'
 import {Breadcrumbs, Button, FormControl, Label, Select, Stack, UnderlineNav} from '@primer/react'
+import {Blankslate, DataTable, Table} from '@primer/react/experimental'
 import type {RunDetails, TranscriptEntry} from '../../run-details'
 import {loadTrialDetails, loadTrialTranscript} from '../../run-data-client'
 import type {Route} from 'next'
 import Link from 'next/link'
-import {useEffect, useState, type ReactNode} from 'react'
+import {lazy, Suspense, useEffect, useId, useState, type ReactNode} from 'react'
 import {getScenarioAnchor} from '../../scenario-anchor'
 import {JudgeResults} from './JudgeResults'
 import {CheckResults} from './CheckResults'
@@ -15,6 +15,11 @@ import {UiWalkthrough} from './UiWalkthrough'
 import {FileExplorer} from './FileExplorer'
 import type {FilePreviewReference} from '../../file-preview'
 import type {WorkspaceFiles} from '../../workspace-files'
+
+const Transcript = lazy(async () => {
+  const module = await import('./Transcript')
+  return {default: module.Transcript}
+})
 
 type RunResult = Omit<RunDetails['results'][number], 'workspace'> & {
   workspace: WorkspaceFiles<FilePreviewReference>
@@ -35,51 +40,119 @@ function formatDuration(milliseconds: number): string {
   return `${(milliseconds / 1000).toFixed(1)} s`
 }
 
-function Transcript({entries}: {entries: Array<TranscriptEntry>}) {
-  if (entries.length === 0) {
-    return <p>No transcript messages were recorded.</p>
-  }
+export function ToolBreakdown({tools}: {tools: RunResult['tools']}) {
+  const headingId = useId()
+  const total = tools.reduce((count, tool) => {
+    return count + tool.count
+  }, 0)
 
   return (
-    <ol className="list-none p-0 m-0 flex flex-col gap-4">
-      {entries.map(entry => {
-        const isUser = entry.label === 'User'
-        const isAssistant = entry.label === 'Assistant'
+    <section className="w-full max-w-3xl mx-auto">
+      {tools.length === 0 ? (
+        <Blankslate border>
+          <Blankslate.Heading as="h4">No tool calls</Blankslate.Heading>
+          <Blankslate.Description>No tool calls were recorded.</Blankslate.Description>
+        </Blankslate>
+      ) : (
+        <>
+          <p className="text-caption text-muted">Calls across implementation sessions for the selected trial.</p>
+          <Table.Container>
+            <Table.Title as="h3" id={headingId}>
+              Tool breakdown
+            </Table.Title>
+            <DataTable
+              aria-labelledby={headingId}
+              data={tools.map(tool => {
+                return {...tool, id: tool.name}
+              })}
+              columns={[
+                {
+                  header: 'Tool',
+                  field: 'name',
+                  rowHeader: true,
+                  renderCell: tool => {
+                    return <code className="break-all">{tool.name}</code>
+                  },
+                },
+                {
+                  header: 'Calls',
+                  field: 'count',
+                  align: 'end',
+                  renderCell: tool => {
+                    return tool.count.toLocaleString('en-US')
+                  },
+                },
+              ]}
+            />
+          </Table.Container>
+          <p className="text-body-medium font-semibold">Total: {total.toLocaleString('en-US')}</p>
+        </>
+      )}
+    </section>
+  )
+}
 
-        return (
-          <li className={`flex items-start gap-3 ${isUser ? 'flex-row-reverse' : ''}`} key={entry.id}>
-            <span
-              className={`rounded-full size-8 shrink-0 flex items-center justify-center ${
-                isUser ? 'bg-accent-emphasis text-on-emphasis' : 'bg-neutral-muted text-default'
-              }`}
-            >
-              {isUser ? <PersonIcon /> : <CopilotIcon />}
-            </span>
-            <div
-              className={`border rounded-lg min-w-0 overflow-hidden ${
-                isUser
-                  ? 'bg-accent-muted border-accent-muted'
-                  : isAssistant
-                    ? 'bg-default border-default flex-1'
-                    : 'bg-muted border-muted flex-1'
-              }`}
-            >
-              <div className="px-3 pt-3 flex items-baseline justify-between gap-3">
-                <strong className="text-body-medium">{entry.label}</strong>
-                {entry.timestamp ? (
-                  <time className="text-caption text-muted whitespace-nowrap" dateTime={entry.timestamp}>
-                    {entry.timestamp}
-                  </time>
-                ) : null}
-              </div>
-              <pre className="font-sans m-0 px-3 pb-3 pt-2 whitespace-pre-wrap break-words overflow-x-auto text-body-medium">
-                {entry.content}
-              </pre>
-            </div>
-          </li>
-        )
-      })}
-    </ol>
+function ToolContent({content, label}: {content: string | undefined; label: string}) {
+  if (content === undefined) {
+    return <span className="text-muted">Not recorded</span>
+  }
+  if (content.length === 0) {
+    return <span className="text-muted">Empty</span>
+  }
+  return (
+    <details>
+      <summary className="cursor-pointer">{label}</summary>
+      <pre className="m-0 mt-2 max-h-96 overflow-auto whitespace-pre-wrap break-words text-body-small">{content}</pre>
+    </details>
+  )
+}
+
+export function ToolCalls({entries}: {entries: Array<TranscriptEntry>}) {
+  const headingId = useId()
+  const calls = entries.flatMap(entry => {
+    return entry.toolCall ? [{id: entry.id, ...entry.toolCall}] : []
+  })
+  if (calls.length === 0) {
+    return <p>No tool call details were recorded.</p>
+  }
+  return (
+    <Table.Container>
+      <Table.Title as="h3" id={headingId}>
+        Tool calls
+      </Table.Title>
+      <DataTable
+        aria-labelledby={headingId}
+        data={calls}
+        columns={[
+          {
+            header: 'Tool',
+            field: 'name',
+            rowHeader: true,
+            maxWidth: '20ch',
+            renderCell: call => {
+              return <code className="break-all">{call.name}</code>
+            },
+          },
+          {
+            header: 'Arguments',
+            field: 'arguments',
+            maxWidth: '1fr',
+            renderCell: call => {
+              return <ToolContent content={call.arguments} label="View arguments" />
+            },
+          },
+          {header: 'Status', field: 'status', maxWidth: '22ch'},
+          {
+            header: 'Output',
+            field: 'output',
+            maxWidth: '1fr',
+            renderCell: call => {
+              return <ToolContent content={call.output} label="View output" />
+            },
+          },
+        ]}
+      />
+    </Table.Container>
   )
 }
 
@@ -152,6 +225,7 @@ function ResultTabs({index, result}: {index: number; result: RunResult}) {
     checks: `result-${index}-checks-tab`,
     judges: `result-${index}-judges-tab`,
     transcript: `result-${index}-transcript-tab`,
+    tools: `result-${index}-tools-tab`,
     code: `result-${index}-code-tab`,
   }
   const panelId = `result-${index}-${selectedTab}-panel`
@@ -209,6 +283,18 @@ function ResultTabs({index, result}: {index: number; result: RunResult}) {
           Transcript
         </UnderlineNav.Item>
         <UnderlineNav.Item
+          aria-current={selectedTab === 'tools' ? 'page' : undefined}
+          counter={result.tools.length}
+          href={`#result-${index}-tools-panel`}
+          id={tabIds.tools}
+          onSelect={event => {
+            event.preventDefault()
+            setSelectedTab('tools')
+          }}
+        >
+          Tools
+        </UnderlineNav.Item>
+        <UnderlineNav.Item
           aria-current={selectedTab === 'code' ? 'page' : undefined}
           href={`#result-${index}-code-panel`}
           id={tabIds.code}
@@ -223,22 +309,39 @@ function ResultTabs({index, result}: {index: number; result: RunResult}) {
       <div aria-labelledby={tabIds[selectedTab]} className="p-4" id={panelId} role="region">
         {selectedTab === 'code' ? (
           <FileExplorer key={result.id} workspace={result.workspace} />
+        ) : selectedTab === 'tools' ? (
+          <div className="flex flex-col gap-4">
+            <ToolBreakdown tools={result.tools} />
+            <AsyncContent
+              key={result.transcriptUrl}
+              url={result.transcriptUrl}
+              load={loadTrialTranscript}
+              label="tool calls"
+              fallback={<RunDetailsLoading tab="tools" result={result} />}
+            >
+              {entries => {
+                return <ToolCalls entries={entries} />
+              }}
+            </AsyncContent>
+          </div>
         ) : selectedTab === 'transcript' ? (
-          <AsyncContent
-            key={result.transcriptUrl}
-            url={result.transcriptUrl}
-            load={loadTrialTranscript}
-            label="transcript"
-            fallback={<RunDetailsLoading tab="transcript" result={result} />}
-          >
-            {entries => {
-              return (
-                <div className="w-full max-w-3xl mx-auto">
-                  <Transcript entries={entries} />
-                </div>
-              )
-            }}
-          </AsyncContent>
+          <div className="w-full max-w-4xl mx-auto py-2">
+            <AsyncContent
+              key={result.transcriptUrl}
+              url={result.transcriptUrl}
+              load={loadTrialTranscript}
+              label="transcript"
+              fallback={<RunDetailsLoading tab="transcript" result={result} />}
+            >
+              {entries => {
+                return (
+                  <Suspense fallback={<RunDetailsLoading tab="transcript" result={result} />}>
+                    <Transcript entries={entries} />
+                  </Suspense>
+                )
+              }}
+            </AsyncContent>
+          </div>
         ) : (
           <AsyncContent
             key={result.detailsUrl}

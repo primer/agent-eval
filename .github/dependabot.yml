@@ -18,6 +18,10 @@ updates:
           - '@eslint/*'
           - 'eslint'
           - 'eslint-plugin-*'
+      primer:
+        patterns:
+          - '@primer/*'
+          - 'eslint-plugin-primer-react'
       react:
         patterns:
           - 'react'

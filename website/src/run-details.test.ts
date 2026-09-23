@@ -157,6 +157,7 @@ test.each([
     turns: 2,
     outputTokens: 100,
     premiumRequests: 1,
+    aiCredits: 0.5,
     totalApiDurationMs: 200,
     sessionDurationMs: 300,
     tools: [],
@@ -218,7 +219,7 @@ test('keeps repeated trials and session transcripts distinct while aggregating i
   ])
   const details = await createExperimentRunDetails('2026-09-15', output)
   expect(details.results).toHaveLength(2)
-  expect(details.results[0]).toMatchObject({turns: 4, outputTokens: 200, premiumRequests: 2})
+  expect(details.results[0]).toMatchObject({turns: 4, outputTokens: 200, premiumRequests: 2, aiCredits: 1})
   expect(details.results[0].counts.transcript).toBe(2)
   expect(details.results[0]).not.toHaveProperty('transcript')
   expect(createTrialTranscript([...output.trials.values()][0])).toEqual([

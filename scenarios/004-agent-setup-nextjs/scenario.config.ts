@@ -1,5 +1,5 @@
 import {defineConfig} from '@primer/agent-eval/scenario'
-import type {JsonTestResults} from 'vitest/reporters'
+import type {JsonTestResults} from 'vitest/node'
 
 export default defineConfig({
   description: 'Evaluate whether the agent configures a Next.js project to use Primer.',

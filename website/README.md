@@ -127,7 +127,8 @@ run history is loaded on the experiment page.
 Experiment pages compare treatments separately for each model and reasoning
 effort, both across the run and within each scenario. Check summaries use the
 same per-trial averaging and missing-value reporting described above. Output tokens, premium
-requests, session time, and API time are averages per recorded trial. Trial and
+requests, AI credits, session time, and API time are averages per recorded trial.
+AI credits are `N/A` when no session reported usage totals. Trial and
 scenario counts are shown so differences in coverage are visible; these are
 descriptive results, not paired comparisons or significance estimates.
 

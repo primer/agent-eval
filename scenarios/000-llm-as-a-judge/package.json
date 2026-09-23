@@ -8,8 +8,8 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
   },
   "devDependencies": {
     "@primer/agent-eval": "workspace:*",
@@ -17,6 +17,6 @@
     "@types/react-dom": "^19",
     "typescript": "^6",
     "vite": "^8",
-    "vitest": "^4.1.11"
+    "vitest": "^5.0.1"
   }
 }

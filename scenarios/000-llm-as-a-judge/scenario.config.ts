@@ -1,5 +1,5 @@
 import {defineConfig} from '@primer/agent-eval/scenario'
-import type {JsonTestResults} from 'vitest/reporters'
+import type {JsonTestResults} from 'vitest/node'
 
 export default defineConfig({
   description: 'A lightweight end-to-end smoke test for judge scoring, rationale, and file-backed findings.',

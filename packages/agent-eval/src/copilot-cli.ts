@@ -252,14 +252,24 @@ const SessionUsageCheckpointMessageSchema = z.object({
   ...EventFieldsSchema,
   data: z.object({
     totalNanoAiu: z.number(),
-    totalPremiumRequests: z.number(),
-    modelCacheState: z.array(
-      z.object({
-        modelId: z.string(),
-        cacheExpiresAt: z.string(),
-        cacheTtlSeconds: z.number(),
-      }),
+    totalPremiumRequests: z.optional(z.number()),
+    modelCacheState: z.optional(
+      z.array(
+        z.object({
+          modelId: z.string(),
+          cacheExpiresAt: z.string(),
+          cacheTtlSeconds: z.number(),
+        }),
+      ),
     ),
+  }),
+})
+
+const SessionShutdownMessageSchema = z.looseObject({
+  type: z.literal('session.shutdown'),
+  ...EventFieldsSchema,
+  data: z.looseObject({
+    totalNanoAiu: z.optional(z.number()),
   }),
 })
 
@@ -335,6 +345,7 @@ const KnownMessageSchema = z.discriminatedUnion('type', [
   AssistantTurnEndMessageSchema,
   AssistantIdleMessageSchema,
   SessionUsageCheckpointMessageSchema,
+  SessionShutdownMessageSchema,
   SessionInfoMessageSchema,
   SessionBackgroundTasksChangedMessageSchema,
   ToolExecutionPartialResultMessageSchema,
@@ -362,6 +373,7 @@ const KNOWN_MESSAGE_TYPES = new Set([
   'assistant.turn_end',
   'assistant.idle',
   'session.usage_checkpoint',
+  'session.shutdown',
   'session.info',
   'session.background_tasks_changed',
   'tool.execution_partial_result',

@@ -19,6 +19,10 @@ function formatNumber(value: number): string {
   return value.toLocaleString('en-US', {maximumFractionDigits: 1})
 }
 
+function formatCredits(value: number): string {
+  return value.toLocaleString('en-US', {maximumFractionDigits: 3})
+}
+
 function TreatmentResultsTable({results, label}: {results: Array<TreatmentResult>; label: string}) {
   const labelId = useId()
   return (
@@ -57,6 +61,15 @@ function TreatmentResultsTable({results, label}: {results: Array<TreatmentResult
             align: 'end',
             renderCell: row => {
               return formatNumber(row.premiumRequests)
+            },
+          },
+          {
+            id: 'credits',
+            header: 'AI credits',
+            field: 'aiCredits',
+            align: 'end',
+            renderCell: row => {
+              return row.aiCredits === null ? 'N/A' : formatCredits(row.aiCredits)
             },
           },
           {

@@ -45,6 +45,7 @@ type RunResult = {
   turns: number
   outputTokens: number
   premiumRequests: number
+  aiCredits: number | null
   totalApiDurationMs: number
   sessionDurationMs: number
   tools: Array<{name: string; count: number}>
@@ -398,6 +399,7 @@ async function createExperimentRunDetails(
       }, 0),
       outputTokens: summary.outputTokens,
       premiumRequests: summary.premiumRequests,
+      aiCredits: summary.aiCredits,
       totalApiDurationMs: summary.totalApiDurationMs,
       sessionDurationMs: summary.sessionDurationMs,
       tools: Array.from(tools, ([name, count]) => {

@@ -135,6 +135,34 @@ test('isolates capability comparisons and trends when the same scenario appears 
   }
 })
 
+test('compares AI credits and reports sessions without usage totals as unmeasured', () => {
+  const sessionWithoutCredits = {...session, aiCredits: undefined}
+  const output = createBenchmarkOutput([
+    createTrial({id: 'control', agent: {sessions: [{...session, aiCredits: 0.25}]}}),
+    createTrial({
+      id: 'benchmark',
+      treatmentId: 'benchmark',
+      agent: {sessions: [{...session, aiCredits: 0.5}]},
+    }),
+  ])
+  const overview = getBenchmarkOverviewData([run(output)])
+  expect(overview.results[0].comparison.aiCredits).toBe('0.5 (+100.0%)')
+  expect(overview.trends[0].metrics.aiCredits).toMatchObject({value: 0.5, controlValue: 0.25, change: 100})
+  expect(
+    overview.metrics.find(metric => {
+      return metric.id === 'aiCredits'
+    }),
+  ).toEqual({id: 'aiCredits', label: 'AI credits'})
+
+  const withoutCredits = createBenchmarkOutput([
+    createTrial({id: 'control', agent: {sessions: [sessionWithoutCredits]}}),
+    createTrial({id: 'benchmark', treatmentId: 'benchmark', agent: {sessions: [sessionWithoutCredits]}}),
+  ])
+  const missing = getBenchmarkOverviewData([run(withoutCredits)])
+  expect(missing.results[0].comparison.aiCredits).toBe('N/A')
+  expect(missing.trends[0].metrics.aiCredits).toMatchObject({value: null, raw: 'N/A', controlValue: null})
+})
+
 test('charts measurements and outcomes separately and leaves absent treatments null, not zero', () => {
   const overview = getBenchmarkOverviewData([run()])
   const point = overview.trends.find(candidate => {

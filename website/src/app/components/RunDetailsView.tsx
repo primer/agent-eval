@@ -539,7 +539,7 @@ function ScenarioResults({group, index}: {group: ScenarioResultGroup; index: num
             </h3>
             <Label aria-label={`Runner: ${getRunnerLabel(selectedResult)}`}>{getRunnerLabel(selectedResult)}</Label>
           </div>
-          <dl className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 m-0">
+          <dl className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3 m-0">
             <div className="bg-muted rounded-md p-3">
               <dt className="text-caption text-muted">Checks</dt>
               <dd className="text-title-small m-0">{selectedResult.checkSummary}</dd>
@@ -555,6 +555,14 @@ function ScenarioResults({group, index}: {group: ScenarioResultGroup; index: num
             <div className="bg-muted rounded-md p-3">
               <dt className="text-caption text-muted">Premium requests</dt>
               <dd className="text-title-small m-0">{selectedResult.premiumRequests}</dd>
+            </div>
+            <div className="bg-muted rounded-md p-3">
+              <dt className="text-caption text-muted">AI credits</dt>
+              <dd className="text-title-small m-0">
+                {selectedResult.aiCredits === null
+                  ? 'N/A'
+                  : selectedResult.aiCredits.toLocaleString('en-US', {maximumFractionDigits: 3})}
+              </dd>
             </div>
             <div className="bg-muted rounded-md p-3">
               <dt className="text-caption text-muted">API time</dt>

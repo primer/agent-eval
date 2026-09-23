@@ -12,6 +12,7 @@ export type TreatmentResult = {
   checks: string
   outputTokens: number
   premiumRequests: number
+  aiCredits: number | null
   sessionDurationMs: number
   totalApiDurationMs: number
 }
@@ -56,6 +57,7 @@ function summarizeTreatments(run: Run, results: Array<ExperimentTrialOutput>): A
       checks: formatChecks(totals),
       outputTokens: totals.outputTokens / trials.length,
       premiumRequests: totals.premiumRequests / trials.length,
+      aiCredits: totals.aiCredits === null ? null : totals.aiCredits / trials.length,
       sessionDurationMs: totals.sessionDurationMs / trials.length,
       totalApiDurationMs: totals.totalApiDurationMs / trials.length,
     }

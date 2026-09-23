@@ -219,6 +219,15 @@ export function Page({
                 },
               },
               {
+                id: 'ai-credits',
+                header: 'AI credits',
+                field: 'comparison',
+                align: 'end',
+                renderCell: row => {
+                  return row.comparison.aiCredits
+                },
+              },
+              {
                 id: 'session-time',
                 header: 'Session time',
                 field: 'comparison',

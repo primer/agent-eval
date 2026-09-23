@@ -1,7 +1,14 @@
 import type {ModelVariant} from '../model'
 import type {CopilotRunner} from '../copilot-runner'
 import type {RunPlanResult} from '../plan'
-import {formatDuration, formatNumber, formatPercentDelta, formatTable, type TableRow} from '../report/format'
+import {
+  formatCredits,
+  formatDuration,
+  formatNumber,
+  formatPercentDelta,
+  formatTable,
+  type TableRow,
+} from '../report/format'
 import {formatCheckSummaries, getCheckDimensions, type CheckDimension} from '../report/checks'
 import {ControlTreatment, getTreatmentId} from '../treatment'
 import {
@@ -29,23 +36,21 @@ type CreateBenchmarkReportOptions = {
   runPlanResult: RunPlanResult<BenchmarkTrial>
 }
 
-type UsageMetric = 'outputTokens' | 'premiumRequests' | 'sessionDurationMs' | 'totalApiDurationMs'
+type UsageMetric = 'outputTokens' | 'premiumRequests' | 'aiCredits' | 'sessionDurationMs' | 'totalApiDurationMs'
 
 function formatBenchmarkValue(
   comparison: BenchmarkComparison,
   metric: UsageMetric,
   format: (value: number) => string,
 ): string {
-  if (comparison.benchmarkTreatment.runs === 0) {
+  const treatment = comparison.benchmarkTreatment.runs === 0 ? null : comparison.benchmarkTreatment[metric]
+  if (treatment === null) {
     return 'N/A'
   }
 
-  const value = format(comparison.benchmarkTreatment[metric])
-  const delta =
-    comparison.control.runs === 0
-      ? 'N/A'
-      : formatPercentDelta(comparison.control[metric], comparison.benchmarkTreatment[metric])
-  return `${value} (${delta})`
+  const control = comparison.control.runs === 0 ? null : comparison.control[metric]
+  const delta = control === null ? 'N/A' : formatPercentDelta(control, treatment)
+  return `${format(treatment)} (${delta})`
 }
 
 function formatBenchmarkComparison(
@@ -66,6 +71,7 @@ function formatBenchmarkComparison(
     ...formatCheckSummaries(comparison.benchmarkTreatment, dimensions, comparison.control),
     'Output Tokens': formatBenchmarkValue(comparison, 'outputTokens', formatNumber),
     'Premium Requests': formatBenchmarkValue(comparison, 'premiumRequests', formatNumber),
+    'AI Credits': formatBenchmarkValue(comparison, 'aiCredits', formatCredits),
     'Session Time': formatBenchmarkValue(comparison, 'sessionDurationMs', formatDuration),
     'API Time': formatBenchmarkValue(comparison, 'totalApiDurationMs', formatDuration),
   }
@@ -184,6 +190,7 @@ function createBenchmarkReport({benchmark, runPlanResult}: CreateBenchmarkReport
       ...(dimensions.length > 0 ? ['Checks'] : []),
       'Output Tokens',
       'Premium Requests',
+      'AI Credits',
       'Session Time',
       'API Time',
     ]),

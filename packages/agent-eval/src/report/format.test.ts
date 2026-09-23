@@ -1,9 +1,19 @@
 import {describe, expect, test} from 'vitest'
-import {formatDuration, formatNumber, formatPercentDelta, formatTable, type TableRow} from './format'
+import {formatCredits, formatDuration, formatNumber, formatPercentDelta, formatTable, type TableRow} from './format'
 
 describe('formatNumber', () => {
   test('uses en-US thousands separators', () => {
     expect(formatNumber(10_000)).toBe('10,000')
+  })
+})
+
+describe('formatCredits', () => {
+  test.each([
+    {name: 'whole credits', value: 1200, expected: '1,200'},
+    {name: 'fractional credits', value: 0.123456, expected: '0.123'},
+    {name: 'credits below the displayed precision', value: 0.0001, expected: '0'},
+  ])('displays $name', ({value, expected}) => {
+    expect(formatCredits(value)).toBe(expected)
   })
 })
 

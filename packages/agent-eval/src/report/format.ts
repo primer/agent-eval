@@ -16,6 +16,10 @@ function formatNumber(value: number): string {
   return new Intl.NumberFormat('en-US').format(value)
 }
 
+function formatCredits(value: number): string {
+  return new Intl.NumberFormat('en-US', {maximumFractionDigits: 3}).format(value)
+}
+
 function formatPercentDelta(control: number, treatment: number): string {
   if (control === treatment) {
     return '0%'
@@ -71,5 +75,5 @@ function formatTable(rows: Array<TableRow>, columns: Array<string>): string {
   ].join('\n')
 }
 
-export {formatDuration, formatNumber, formatPercentDelta, formatTable}
+export {formatCredits, formatDuration, formatNumber, formatPercentDelta, formatTable}
 export type {TableRow}

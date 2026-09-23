@@ -279,6 +279,19 @@ describe(parseMessage, () => {
     expect(parseMessage(message)).toEqual(message)
   })
 
+  test('preserves shutdown usage and other SDK shutdown details', () => {
+    const message = {
+      type: 'session.shutdown',
+      id: 'shutdown',
+      timestamp: '2026-09-16T00:00:00.000Z',
+      parentId: '',
+      data: {totalNanoAiu: 2_839_800_000, totalApiDurationMs: 123, modelMetrics: {}},
+    }
+
+    expect(parseMessage(message)).toEqual(message)
+    expect(() => parseMessage({...message, data: {totalNanoAiu: 'invalid'}})).toThrow()
+  })
+
   test('parses sub-agent user messages without an agent mode', () => {
     const message = {
       type: 'user.message',

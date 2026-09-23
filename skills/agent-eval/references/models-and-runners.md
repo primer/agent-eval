@@ -20,6 +20,9 @@ Model names and allowed efforts must be supported by the installed package
 [upstream model definitions](https://github.com/primer/agent-eval/blob/main/packages/agent-eval/src/model.ts);
 do not assume arbitrary Copilot model names are accepted.
 
+`gpt-6-sol`, `gpt-6-luna`, and `claude-opus-5.5` support `low`, `medium`,
+`high`, `xhigh`, and `max` reasoning effort.
+
 There is no `--model` flag. Use an experiment with one model variant when model
 selection matters. Judge and walkthrough sessions use the CLI even when
 implementation uses the SDK.

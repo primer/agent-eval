@@ -18,7 +18,7 @@ test('ModelVariantConfigSchema rejects arrays and invalid model configs', () => 
   expect(ModelVariantConfigSchema.safeParse({name: 'gpt-5.4', reasoningEfforts: ['max']}).success).toBe(false)
 })
 
-test.each(['claude-fable-5', 'claude-fable-5.1', 'gpt-6-astra'] as const)(
+test.each(['claude-fable-5', 'claude-fable-5.1', 'claude-opus-5.5', 'gpt-6-astra', 'gpt-6-luna', 'gpt-6-sol'] as const)(
   '%s supports configuration and variant expansion',
   name => {
     const reasoningEfforts = ['low', 'medium', 'high', 'xhigh', 'max'] as const

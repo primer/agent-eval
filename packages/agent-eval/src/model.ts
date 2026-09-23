@@ -26,6 +26,10 @@ const models = [
     reasoningEfforts: ['low', 'medium', 'high', 'xhigh', 'max'],
   },
   {
+    name: 'claude-opus-5.5',
+    reasoningEfforts: ['low', 'medium', 'high', 'xhigh', 'max'],
+  },
+  {
     name: 'claude-sonnet-4.6',
     reasoningEfforts: ['low', 'medium', 'high', 'max'],
   },
@@ -67,6 +71,14 @@ const models = [
   },
   {
     name: 'gpt-6-astra',
+    reasoningEfforts: ['low', 'medium', 'high', 'xhigh', 'max'],
+  },
+  {
+    name: 'gpt-6-luna',
+    reasoningEfforts: ['low', 'medium', 'high', 'xhigh', 'max'],
+  },
+  {
+    name: 'gpt-6-sol',
     reasoningEfforts: ['low', 'medium', 'high', 'xhigh', 'max'],
   },
 ] as const
@@ -177,6 +189,18 @@ const ModelVariantConfigSchema = z.union([
   z.object({
     name: z.literal(models[16].name),
     reasoningEfforts: z.optional(z.array(z.enum(models[16].reasoningEfforts))),
+  }),
+  z.object({
+    name: z.literal(models[17].name),
+    reasoningEfforts: z.optional(z.array(z.enum(models[17].reasoningEfforts))),
+  }),
+  z.object({
+    name: z.literal(models[18].name),
+    reasoningEfforts: z.optional(z.array(z.enum(models[18].reasoningEfforts))),
+  }),
+  z.object({
+    name: z.literal(models[19].name),
+    reasoningEfforts: z.optional(z.array(z.enum(models[19].reasoningEfforts))),
   }),
 ])
 

@@ -1,5 +1,12 @@
 # @primer/agent-eval
 
+## 0.9.0
+
+### Minor Changes
+
+- b0e36fa: Add support for `gpt-6-sol`, `gpt-6-luna`, and `claude-opus-5.5` with `low`, `medium`, `high`, `xhigh`, and `max` reasoning effort.
+- d1aa8c7: Include AI usage credits in agent-session statistics when Copilot reports usage totals. Trial summaries aggregate credits as `aiCredits`, and benchmark and experiment reports compare the total against control. Older results without credit information remain supported and report `N/A`.
+
 ## 0.8.0
 
 ### Minor Changes

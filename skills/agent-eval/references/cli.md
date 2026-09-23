@@ -55,6 +55,7 @@ npx agent-eval scenario image clean --help
 | `--check <name>`                  | Scenario run only; selects one configured check   |
 | `--copilot-concurrency <n>`, `-c` | Run and plan run; `1`                             |
 | `--container-concurrency <n>`     | Run and plan run; `5`                             |
+| `--progress`                      | Run and plan run; off by default                  |
 | `--docker-image <image>`          | Run and plan run; package default Node image      |
 | `--token <token>`                 | Run and plan run; prefer `COPILOT_GITHUB_TOKEN`   |
 | `--log-level <level>`             | Root option; `info`                               |
@@ -62,6 +63,14 @@ npx agent-eval scenario image clean --help
 Concurrency values must be positive integers. Copilot concurrency limits active
 sessions; container concurrency limits active trial containers. Both apply per
 process, so sharding multiplies the aggregate limits. Start small.
+
+Use `--progress` to show completed/total trials, a percentage, and in-flight
+trials on stderr instead of informational logs. Warnings and errors remain
+visible (subject to `--log-level`), and final reports and result files are
+unchanged. Terminals update one progress bar; redirected output receives periodic
+progress lines and the final state. Totals reflect the selected shard and runner. In-flight trials include
+image preparation, setup, agent execution, checks, and artifact collection;
+queued trials are excluded and retries do not increase the completed count.
 
 `--runner` accepts `copilot-cli` or `copilot-sdk`. It overrides the runner
 dimension on new runs/plans but only filters trials in an existing plan.

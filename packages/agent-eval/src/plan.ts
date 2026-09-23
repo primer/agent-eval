@@ -73,7 +73,14 @@ type RunPlanOptions<T extends Trial> = {
   containerConcurrency: number
   copilotToken: string
   host?: Host
+  onProgress?: (progress: PlanProgress) => void
   plan: Plan<T>
+}
+
+type PlanProgress = {
+  total: number
+  completed: number
+  inFlight: number
 }
 
 type RunPlanResult<T extends Trial> = {
@@ -86,6 +93,7 @@ async function runPlan<T extends Trial>({
   containerConcurrency,
   copilotToken,
   host = DefaultHost,
+  onProgress,
   plan,
 }: RunPlanOptions<T>): Promise<RunPlanResult<T>> {
   logger.debug(
@@ -100,32 +108,48 @@ async function runPlan<T extends Trial>({
   const containerQueue = new Queue({
     concurrency: containerConcurrency,
   })
+  let completed = 0
+  let inFlight = 0
+  const reportProgress = () => {
+    onProgress?.({total: plan.trials.length, completed, inFlight})
+  }
+  reportProgress()
 
   const results = await Promise.all(
-    plan.trials.map(trial => {
-      return retry(() => {
+    plan.trials.map(async trial => {
+      const result = await retry(() => {
         return containerQueue.add(async () => {
-          const dockerImage = await buildScenarioImage({
-            host,
-            scenario: trial.scenario,
-          })
-          await using sandbox = await host.createSandbox({
-            dockerImage,
-          })
-          const result = await runTrial({
-            artifactsDirectory,
-            copilotQueue,
-            copilotToken,
-            host,
-            sandbox,
-            trial,
-          })
-          return {
-            trial,
-            result,
+          inFlight++
+          reportProgress()
+          try {
+            const dockerImage = await buildScenarioImage({
+              host,
+              scenario: trial.scenario,
+            })
+            await using sandbox = await host.createSandbox({
+              dockerImage,
+            })
+            const result = await runTrial({
+              artifactsDirectory,
+              copilotQueue,
+              copilotToken,
+              host,
+              sandbox,
+              trial,
+            })
+            return {
+              trial,
+              result,
+            }
+          } finally {
+            inFlight--
+            reportProgress()
           }
         })
       })
+      completed++
+      reportProgress()
+      return result
     }),
   )
 
@@ -159,4 +183,4 @@ async function retry<T>(fn: () => Promise<T>, retries: number = 3): Promise<T> {
 }
 
 export {createPlan, createPlanFromManifest, runPlan}
-export type {Plan, RunPlanResult}
+export type {Plan, PlanProgress, RunPlanResult}

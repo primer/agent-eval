@@ -96,6 +96,19 @@ agent-eval benchmarks run <benchmark-name>
 
 To learn more about benchmarks, visit our [benchmark docs](../../docs/benchmarks.md).
 
+Add `--progress` to benchmark, experiment, or scenario runs (including
+`benchmark plan run` and `experiment plan run`) to display completed/total
+trials, percentage complete, and in-flight trials on stderr instead of
+informational logs:
+
+```bash
+agent-eval benchmark run <benchmark-name> --progress
+```
+
+Warnings and errors remain visible, and final reports and result files are
+unchanged. Totals reflect the selected shard and runner; retries are not counted
+as additional trials.
+
 ## Experiments
 
 Experiments are used to test different approaches to improve performance on a set of tasks. By default, they live in an `experiments` folder in your project. You can create an experiment by importing and using `defineConfig` from

@@ -22,10 +22,12 @@ import {
   getOutputPath,
   githubCopilotTokenOption,
   outputDirectoryOption,
+  progressOption,
   scenariosOption,
   runnerOption,
   shardOption,
 } from '../options'
+import {createProgressReporter} from '../progress'
 
 const experimentCommand = defineCommand({
   meta: {
@@ -138,12 +140,14 @@ const experimentCommand = defineCommand({
               description: 'The path to the plan to run',
               default: './plan.json',
             },
+            progress: progressOption,
             scenarios: scenariosOption,
             runner: runnerOption,
             shard: shardOption,
             token: githubCopilotTokenOption,
           },
           async run({args}) {
+            using progress = createProgressReporter(args.progress)
             const experimentsDirectory = path.resolve(args.experiments)
             const copilotConcurrency = getConcurrencyValue(args['copilot-concurrency'], 'copilot-concurrency')
             const containerConcurrency = getConcurrencyValue(args['container-concurrency'], 'container-concurrency')
@@ -191,6 +195,7 @@ const experimentCommand = defineCommand({
               containerConcurrency,
               copilotToken,
               plan,
+              onProgress: progress.update,
             })
             const output = createExperimentOutput({experiment: manifest.experiment, runPlanResult})
             await writeExperimentOutput({output, outputPath})
@@ -214,11 +219,13 @@ const experimentCommand = defineCommand({
           required: true,
         },
         'output-dir': outputDirectoryOption,
+        progress: progressOption,
         scenarios: scenariosOption,
         runner: runnerOption,
         token: githubCopilotTokenOption,
       },
       async run({args}) {
+        using progress = createProgressReporter(args.progress)
         logger.info('Running experiment: %s', args.name)
 
         const experimentsDirectory = path.resolve(args.experiments)
@@ -252,6 +259,7 @@ const experimentCommand = defineCommand({
           containerConcurrency,
           copilotToken,
           plan,
+          onProgress: progress.update,
         })
         const output = createExperimentOutput({experiment, runPlanResult})
         await writeExperimentOutput({

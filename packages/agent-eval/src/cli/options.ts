@@ -85,6 +85,12 @@ const planOption = {
   description: 'The path to a plan for a benchmark or experiment run',
 } as const
 
+const progressOption = {
+  type: 'boolean',
+  description: 'Show trial progress instead of informational logs',
+  default: false,
+} as const
+
 const scenariosOption = {
   type: 'string',
   description: 'The directory containing scenario directories',
@@ -114,6 +120,7 @@ export {
   outputDirectoryOption,
   getOutputPath,
   planOption,
+  progressOption,
   scenariosOption,
   runnerOption,
   shardOption,

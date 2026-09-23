@@ -30,6 +30,7 @@ test('createProgressReporter writes readable redirected progress and restores lo
     using reporter = createProgressReporter(true, stream)
     expect(logger.level).toBe('warn')
     reporter.update({total: 2, completed: 0, inFlight: 2})
+    vi.advanceTimersByTime(2000)
     reporter.update({total: 2, completed: 1, inFlight: 1})
     vi.advanceTimersByTime(2000)
     reporter.update({total: 2, completed: 2, inFlight: 0})
@@ -68,6 +69,7 @@ test('createProgressReporter replaces terminal lines and ends the final line', (
   {
     using reporter = createProgressReporter(true, stream)
     reporter.update({total: 2, completed: 0, inFlight: 2})
+    vi.advanceTimersByTime(1000)
     reporter.update({total: 2, completed: 2, inFlight: 0})
   }
 
@@ -76,6 +78,22 @@ test('createProgressReporter replaces terminal lines and ends the final line', (
   expect(stream.output).toContain('\x1b')
   expect(stream.output.endsWith('\n')).toBe(true)
   expect(vi.getTimerCount()).toBe(0)
+})
+
+test('createProgressReporter does not save the cursor or change persistent terminal modes', () => {
+  const stream = createStream(true)
+  {
+    using reporter = createProgressReporter(true, stream)
+    reporter.update({total: 2, completed: 0, inFlight: 1})
+    vi.advanceTimersByTime(1000)
+    stream.write('\nWarning: trial retry\nWarning: another retry\n')
+  }
+
+  expect(stream.output).not.toContain('\x1b7')
+  expect(stream.output).not.toContain('\x1b8')
+  expect(stream.output).not.toContain('\x1b[?7l')
+  expect(stream.output).not.toContain('\x1b[?25l')
+  expect(stream.output).toContain('Warning: trial retry\nWarning: another retry\n')
 })
 
 test('createProgressReporter cleans up terminal output and logging after failure', () => {

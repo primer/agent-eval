@@ -1,20 +1,29 @@
-import {SingleBar} from 'cli-progress'
+import {MultiBar, type SingleBar} from 'cli-progress'
 import {logger} from '../logger'
 import type {PlanProgress} from '../plan'
 
 function createProgressReporter(enabled: boolean, stream: NodeJS.WritableStream = process.stderr) {
   const previousLevel = logger.level
   let disposed = false
-  let started = false
-  const bar = enabled
-    ? new SingleBar({
+  let stopped = false
+  let bar: SingleBar | undefined
+  const progress = enabled
+    ? new MultiBar({
         stream,
         format: '[{bar}] Trials: {value}/{total} ({percentage}%) | In flight: {inFlight}',
         barsize: 20,
         noTTYOutput: true,
         emptyOnZero: false,
+        linewrap: true,
       })
     : undefined
+
+  const stop = () => {
+    if (bar && !stopped) {
+      stopped = true
+      progress?.stop()
+    }
+  }
 
   if (enabled && logger.levelVal < logger.levels.values.warn) {
     logger.level = 'warn'
@@ -22,18 +31,17 @@ function createProgressReporter(enabled: boolean, stream: NodeJS.WritableStream 
 
   return {
     update({total, completed, inFlight}: PlanProgress) {
-      if (!bar || disposed) {
+      if (!progress || disposed || stopped) {
         return
       }
 
-      if (!started) {
-        started = true
-        bar.start(total, completed, {inFlight})
+      if (!bar) {
+        bar = progress.create(total, completed, {inFlight})
       } else {
         bar.update(completed, {inFlight})
       }
       if (completed === total) {
-        bar.stop()
+        stop()
       }
     },
     [Symbol.dispose]() {
@@ -41,7 +49,7 @@ function createProgressReporter(enabled: boolean, stream: NodeJS.WritableStream 
         return
       }
       disposed = true
-      bar?.stop()
+      stop()
       if (enabled) {
         logger.level = previousLevel
       }

@@ -55,7 +55,7 @@ const NPM_GLOBAL_DIR = '/home/node/.npm-global'
 /**
  * The default version of Node.js used for Docker images
  */
-const DEFAULT_NODE_VERSION = '26.8.2'
+const DEFAULT_NODE_VERSION = '26.10.0'
 
 /**
  * The default Node.js Docker image used for containers

@@ -21,7 +21,7 @@ on:
           Docker base image to layer the treatment environment on.
           Must be a Debian-based Node image with npm, apt-get, and a node user.
         required: false
-        default: 'node:26.5.0-slim'
+        default: 'node:26.10.0-slim'
         type: string
 
 concurrency:
@@ -97,7 +97,7 @@ jobs:
           COPILOT_CONCURRENCY: ${{ inputs.copilot-concurrency }}
           CONTAINER_CONCURRENCY: ${{ inputs.container-concurrency }}
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
-          DOCKER_IMAGE: ${{ inputs.docker-image || 'node:26.5.0-slim' }}
+          DOCKER_IMAGE: ${{ inputs.docker-image || 'node:26.10.0-slim' }}
           RUN_DATE: ${{ needs.plan.outputs.run-date }}
           SHARD: ${{ matrix.shard }}/${{ strategy.job-total }}
         run: script/run-experiment.sh "${{ inputs.experiment }}" shard

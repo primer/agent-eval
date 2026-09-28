@@ -18,32 +18,37 @@ test('ModelVariantConfigSchema rejects arrays and invalid model configs', () => 
   expect(ModelVariantConfigSchema.safeParse({name: 'gpt-5.4', reasoningEfforts: ['max']}).success).toBe(false)
 })
 
-test.each(['claude-fable-5', 'claude-fable-5.1', 'claude-opus-5.5', 'gpt-6-astra', 'gpt-6-luna', 'gpt-6-sol'] as const)(
-  '%s supports configuration and variant expansion',
-  name => {
-    const reasoningEfforts = ['low', 'medium', 'high', 'xhigh', 'max'] as const
-    const config = {name, reasoningEfforts: [...reasoningEfforts]}
-    expect(ModelVariantConfigSchema.parse(name)).toBe(name)
-    expect(ModelVariantConfigSchema.parse(config)).toEqual(config)
-    expect(getModelVariants([config])).toEqual(
-      reasoningEfforts.map(reasoningEffort => {
-        return {name, reasoningEffort}
-      }),
-    )
-    for (const input of [name, {name}, {name, reasoningEfforts: []}]) {
-      expect(ModelVariantConfigSchema.parse(input)).toEqual(input)
-      expect(getModelVariants([input])).toEqual([{name, reasoningEffort: 'medium'}])
-    }
-    for (const reasoningEffort of reasoningEfforts) {
-      const variant = {name, reasoningEffort}
-      expect(ModelVariantSchema.parse(variant)).toEqual(variant)
-    }
-    for (const reasoningEffort of ['none', 'minimal', 'unknown']) {
-      expect(ModelVariantConfigSchema.safeParse({name, reasoningEfforts: [reasoningEffort]}).success).toBe(false)
-      expect(ModelVariantSchema.safeParse({name, reasoningEffort}).success).toBe(false)
-    }
-  },
-)
+test.each([
+  'claude-fable-5',
+  'claude-fable-5.1',
+  'claude-opus-5.5',
+  'claude-sonnet-5.5',
+  'gpt-6-astra',
+  'gpt-6-luna',
+  'gpt-6-sol',
+] as const)('%s supports configuration and variant expansion', name => {
+  const reasoningEfforts = ['low', 'medium', 'high', 'xhigh', 'max'] as const
+  const config = {name, reasoningEfforts: [...reasoningEfforts]}
+  expect(ModelVariantConfigSchema.parse(name)).toBe(name)
+  expect(ModelVariantConfigSchema.parse(config)).toEqual(config)
+  expect(getModelVariants([config])).toEqual(
+    reasoningEfforts.map(reasoningEffort => {
+      return {name, reasoningEffort}
+    }),
+  )
+  for (const input of [name, {name}, {name, reasoningEfforts: []}]) {
+    expect(ModelVariantConfigSchema.parse(input)).toEqual(input)
+    expect(getModelVariants([input])).toEqual([{name, reasoningEffort: 'medium'}])
+  }
+  for (const reasoningEffort of reasoningEfforts) {
+    const variant = {name, reasoningEffort}
+    expect(ModelVariantSchema.parse(variant)).toEqual(variant)
+  }
+  for (const reasoningEffort of ['none', 'minimal', 'unknown']) {
+    expect(ModelVariantConfigSchema.safeParse({name, reasoningEfforts: [reasoningEffort]}).success).toBe(false)
+    expect(ModelVariantSchema.safeParse({name, reasoningEffort}).success).toBe(false)
+  }
+})
 
 test.each(models)('$name has an object schema for every registered reasoning effort', ({name, reasoningEfforts}) => {
   const config = {name, reasoningEfforts: [...reasoningEfforts]}

@@ -38,6 +38,10 @@ const models = [
     reasoningEfforts: ['low', 'medium', 'high', 'xhigh', 'max'],
   },
   {
+    name: 'claude-sonnet-5.5',
+    reasoningEfforts: ['low', 'medium', 'high', 'xhigh', 'max'],
+  },
+  {
     name: 'gemini-3.1-pro-preview',
     reasoningEfforts: ['low', 'medium', 'high'],
   },
@@ -201,6 +205,10 @@ const ModelVariantConfigSchema = z.union([
   z.object({
     name: z.literal(models[19].name),
     reasoningEfforts: z.optional(z.array(z.enum(models[19].reasoningEfforts))),
+  }),
+  z.object({
+    name: z.literal(models[20].name),
+    reasoningEfforts: z.optional(z.array(z.enum(models[20].reasoningEfforts))),
   }),
 ])
 

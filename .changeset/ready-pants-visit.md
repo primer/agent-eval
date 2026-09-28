@@ -1,5 +1,5 @@
 ---
-'@primer/agent-eval': patch
+'@primer/agent-eval': minor
 ---
 
 Update evaluation sandboxes to Copilot CLI 1.0.89 and Node.js 26.10.0.

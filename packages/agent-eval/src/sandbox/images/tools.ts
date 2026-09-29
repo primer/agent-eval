@@ -4,7 +4,7 @@ import {DEFAULT_DOCKER_IMAGE} from '../constants'
 import {getCopilotSdkRunnerScript} from '../../copilot-sdk'
 
 const COPILOT_CLI_VERSION = '1.0.89'
-const COPILOT_SDK_VERSION = '1.0.14'
+const COPILOT_SDK_VERSION = '1.0.15'
 
 const DOCKERFILE = `ARG BASE_IMAGE
 

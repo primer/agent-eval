@@ -1,5 +1,12 @@
 # @primer/agent-eval
 
+## 0.10.0
+
+### Minor Changes
+
+- 86f7717: Update evaluation sandboxes to Copilot CLI 1.0.89 and Node.js 26.10.0.
+- 4bd54d3: Add support for `claude-sonnet-5.5` in benchmarks, experiments, and judges with `low`, `medium`, `high`, `xhigh`, and `max` reasoning efforts.
+
 ## 0.9.0
 
 ### Minor Changes

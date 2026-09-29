@@ -38,7 +38,7 @@ case "$mode" in
       --experiments "$repository_root/experiments" \
       --copilot-concurrency "${COPILOT_CONCURRENCY:-2}" \
       --container-concurrency "${CONTAINER_CONCURRENCY:-2}" \
-      --docker-image "${DOCKER_IMAGE:-node:26.5.0-slim}" \
+      --docker-image "${DOCKER_IMAGE:-node:26.10.0-slim}" \
       --output-dir "$run_directory" \
       --scenarios "$repository_root/scenarios" \
       "$@"
@@ -61,7 +61,7 @@ case "$mode" in
       experiment plan run \
       --copilot-concurrency "${COPILOT_CONCURRENCY:-2}" \
       --container-concurrency "${CONTAINER_CONCURRENCY:-2}" \
-      --docker-image "${DOCKER_IMAGE:-node:26.5.0-slim}" \
+      --docker-image "${DOCKER_IMAGE:-node:26.10.0-slim}" \
       --experiments "$repository_root/experiments" \
       --plan-path "$plan_path" \
       --output-dir "$run_directory" \

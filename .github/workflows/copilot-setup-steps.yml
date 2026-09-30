@@ -18,9 +18,9 @@ jobs:
       - name: checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: set up gh-aw
-        uses: github/gh-aw-actions/setup-cli@8e14d3d3690a1555482792fa1540493828a40d16 # v0.89.9
+        uses: github/gh-aw-actions/setup-cli@045beb2d14bda8d0c1f2e83b41527f63770d2855 # v0.89.15
         with:
-          version: v0.89.9
+          version: v0.89.15
       - name: set up pnpm
         uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
         with:

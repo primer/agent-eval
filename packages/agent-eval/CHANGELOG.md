@@ -1,5 +1,11 @@
 # @primer/agent-eval
 
+## 0.11.0
+
+### Minor Changes
+
+- 17d323f: Add support for `gpt-6.1-sol` in benchmarks, experiments, and judges with `low`, `medium`, `high`, `xhigh`, and `max` reasoning efforts.
+
 ## 0.10.0
 
 ### Minor Changes

@@ -14,6 +14,13 @@ export {listScenarios} from './scenario/list'
 export type {Scenario} from './scenario/scenario'
 export type {CheckOutput} from './check'
 export type {JudgeOutput} from './judge'
+export {
+  visualFidelityJudge,
+  interactionClarityJudge,
+  accessibilityJudge,
+  codeMaintainabilityJudge,
+  testQualityJudge,
+} from './judge-presets'
 export {addCheckResults, formatCheckSummaries, getCheckDimensions, getCheckValue} from './report/checks'
 export type {CheckSummary} from './report/checks'
 export {createTrialSummary, createTrialSummaryComparator} from './trial/report'

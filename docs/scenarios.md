@@ -105,6 +105,73 @@ Judges run after the agent completes the task and return a score with a rational
 
 Check files and judge reference files must stay inside the scenario directory, including after resolving symlinks. Referenced entries must not themselves be symlinks.
 
+#### Reusable judge examples
+
+Import these rubric presets from `@primer/agent-eval` and place them directly in `judges`:
+
+| Export                     | What to try                                                                                         |
+| :------------------------- | :-------------------------------------------------------------------------------------------------- |
+| `visualFidelityJudge`      | Compare a rendered page with a design reference: layout, spacing, typography, color, and hierarchy. |
+| `interactionClarityJudge`  | Review labels, actions, feedback, and recovery guidance for an interaction.                         |
+| `accessibilityJudge`       | Review semantics, accessible names, keyboard support, focus, and announcements.                     |
+| `codeMaintainabilityJudge` | Review readability, responsibility boundaries, reuse, and consistency with the codebase.            |
+| `testQualityJudge`         | Review whether implementation tests protect meaningful behavior and plausible regressions.          |
+
+These are starting points to calibrate against human-reviewed examples, not validated quality metrics. Each provides instructions and a three-point rubric: `0` for major problems or insufficient evidence, `1` for a partial result with material gaps, and `2` for satisfying its criteria within the inspected scope. Read the rationale to distinguish poor work from missing evidence; scores from different judges are not interchangeable.
+
+For a coding task, start with one or two judges:
+
+```ts
+import {codeMaintainabilityJudge, testQualityJudge} from '@primer/agent-eval'
+import {defineConfig} from '@primer/agent-eval/scenario'
+
+export default defineConfig({
+  prompt: 'Add project search and tests for matching, no matches, and clearing the query.',
+  judges: [
+    {
+      ...codeMaintainabilityJudge,
+      instructions: `${codeMaintainabilityJudge.instructions}
+Evaluate only the project search implementation and its integration with the existing list.`,
+    },
+    {
+      ...testQualityJudge,
+      instructions: `${testQualityJudge.instructions}
+Evaluate tests for matching projects, no matches, and clearing the query.`,
+    },
+  ],
+})
+```
+
+For a UI task, choose the relevant design judges:
+
+```ts
+import {accessibilityJudge, interactionClarityJudge, visualFidelityJudge} from '@primer/agent-eval'
+import {defineConfig} from '@primer/agent-eval/scenario'
+
+export default defineConfig({
+  prompt: 'Add search to the project list with clear feedback and keyboard support.',
+  judges: [
+    {
+      ...visualFidelityJudge,
+      name: 'Project search visual fidelity',
+      files: ['references/project-search.png'],
+      model: {name: 'gpt-5.4', reasoningEffort: 'low'},
+      instructions: `${visualFidelityJudge.instructions}
+Compare the project search page at a 1280x800 viewport with references/project-search.png.
+Use the implementation screenshot at evidence/project-search.png, produced by a check.`,
+    },
+    interactionClarityJudge,
+    accessibilityJudge,
+  ],
+})
+```
+
+The UI example requires a reference image inside the scenario and a check that captures `evidence/project-search.png` from the implemented page before judging. Do not list that generated screenshot in `files`: those entries are private, scenario-provided references, not implementation output. Judges run after checks but before the automatic walkthrough, so they cannot rely on walkthrough screenshots. Source code alone does not establish rendered fidelity.
+
+Customize presets by spreading them and overriding `name`, `instructions`, `files`, `model`, or `scores`; avoid mutating the shared exported objects. Append task-specific scope or requirements to `instructions` as above. Give each judge a unique name, especially when using the same preset more than once. No model is pinned by default; set one explicitly for comparisons across runs.
+
+Run only the judges relevant to your experiment: each adds model usage and nondeterminism. Pair them with deterministic checks for behavior, test execution, and automated accessibility assertions. The accessibility rubric is not a conformance certification, and the test-quality rubric reviews test design rather than proving that tests pass.
+
 ### Image
 
 Use `image` to customize the environment where a scenario runs. This is useful when a task needs a different Node.js version, additional system packages, or dependencies installed ahead of time.

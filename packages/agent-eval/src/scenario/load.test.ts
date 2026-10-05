@@ -3,7 +3,7 @@ import {DefaultHost, VirtualHost} from '../host'
 import {logger} from '../logger'
 import {VirtualSandbox} from '../sandbox'
 import {loadScenario} from './load'
-import {defaultScenarioSetup, ScenarioSchema} from './scenario'
+import {defaultScenarioSetup, getScenarioId, ScenarioSchema} from './scenario'
 
 afterEach(() => {
   vi.restoreAllMocks()
@@ -21,7 +21,7 @@ test('loadScenario selects the default image and setup without requiring a packa
   const scenario = await loadScenario({host, directory: '/scenarios/example'})
 
   expect(scenario).toMatchObject({
-    id: 'example',
+    id: getScenarioId('example'),
     directory: '/scenarios/example',
     prompt: 'Create a page',
     image: {type: 'Default'},
@@ -37,7 +37,7 @@ test('loadScenario uses DefaultHost when host is omitted', async () => {
 
   const scenario = await loadScenario({directory: '/scenarios/example'})
 
-  expect(scenario).toMatchObject({id: 'example', prompt: 'Create a page'})
+  expect(scenario).toMatchObject({id: getScenarioId('example'), prompt: 'Create a page'})
 })
 
 test('loadScenario preserves metadata when an explicit name overrides the directory basename', async () => {
@@ -48,7 +48,7 @@ test('loadScenario preserves metadata when an explicit name overrides the direct
   const scenario = await loadScenario({host, directory: '/scenarios/example', name: 'custom'})
 
   expect(scenario).toMatchObject({
-    id: 'custom',
+    id: getScenarioId('custom'),
     directory: '/scenarios/example',
     prompt: 'Create a page',
     description: 'Example',

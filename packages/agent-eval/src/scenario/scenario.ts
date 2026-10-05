@@ -9,6 +9,7 @@ import {logger} from '../logger'
 import {TreatmentSetupSchema, type TreatmentSetup} from '../treatment'
 import {DEFAULT_DOCKER_IMAGE, NODE_USER} from '../sandbox/constants'
 import {buildImage, getImageReference, type ImageBuild} from '../docker'
+import {hash} from '../hash'
 
 type Scenario = {
   id: string
@@ -51,6 +52,10 @@ const ScenarioSchema = z.object({
   image: DockerImageSchema,
   setup: z.optional(TreatmentSetupSchema),
 }) satisfies z.ZodMiniType<Scenario>
+
+function getScenarioId(name: string): string {
+  return hash(`Scenario:${name}`)
+}
 
 function getScenarioIgnoreFiles(scenario: Scenario): Array<{filepath: string; relativePath: string}> {
   const ignored = new Map<string, string>()
@@ -202,5 +207,5 @@ const defaultScenarioSetup: TreatmentSetup = async ({sandbox}) => {
   })
 }
 
-export {ScenarioSchema, getScenarioIgnoreFiles, buildScenarioImage, defaultScenarioSetup}
+export {ScenarioSchema, getScenarioId, getScenarioIgnoreFiles, buildScenarioImage, defaultScenarioSetup}
 export type {Scenario}

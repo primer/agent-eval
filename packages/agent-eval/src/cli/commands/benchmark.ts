@@ -1,6 +1,6 @@
 import path from 'node:path'
 import {defineCommand} from 'citty'
-import {getBenchmark} from '../../benchmark/get'
+import {getBenchmarkByName} from '../../benchmark/get'
 import {createBenchmarkReport} from '../../benchmark/report'
 import {
   benchmarksOption,
@@ -115,7 +115,7 @@ const benchmarkCommand = defineCommand({
               outputPath,
             })
 
-            const benchmark = await getBenchmark({
+            const benchmark = await getBenchmarkByName({
               benchmarksDirectory,
               scenariosDirectory,
               name: args.name,
@@ -265,7 +265,7 @@ const benchmarkCommand = defineCommand({
           scenariosDirectory,
         })
 
-        const benchmark = await getBenchmark({
+        const benchmark = await getBenchmarkByName({
           benchmarksDirectory,
           scenariosDirectory,
           name: args.name,

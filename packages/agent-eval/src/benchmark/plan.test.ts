@@ -2,7 +2,8 @@ import {afterEach, expect, test, vi} from 'vitest'
 import {VirtualHost} from '../host'
 import {VirtualSandbox} from '../sandbox'
 import {ControlTreatment} from '../treatment'
-import {getBenchmark} from './get'
+import {getBenchmarkId} from './benchmark'
+import {getBenchmarkByName} from './get'
 import {createBenchmarkPlan, createBenchmarkPlanManifest, parseBenchmarkPlanManifest} from './plan'
 
 afterEach(() => {
@@ -30,7 +31,7 @@ test.each([undefined, 'copilot-cli', 'copilot-sdk'] as const)(
   'preserves benchmark runners in saved plans: %s',
   async runner => {
     const options = {host: createHost(), benchmarksDirectory: '/benchmarks', scenariosDirectory: '/scenarios'}
-    const benchmark = await getBenchmark({...options, name: 'design-system'})
+    const benchmark = await getBenchmarkByName({...options, name: 'design-system'})
     const plan = createBenchmarkPlan({benchmark, runner})
     const manifest = createBenchmarkPlanManifest({benchmark, plan})
     const parsed = await parseBenchmarkPlanManifest({...options, contents: JSON.stringify(manifest)})
@@ -45,7 +46,7 @@ test.each([undefined, 'copilot-cli', 'copilot-sdk'] as const)(
 
 test('defaults legacy benchmark plans to the CLI', async () => {
   const options = {host: createHost(), benchmarksDirectory: '/benchmarks', scenariosDirectory: '/scenarios'}
-  const benchmark = await getBenchmark({...options, name: 'design-system'})
+  const benchmark = await getBenchmarkByName({...options, name: 'design-system'})
   const plan = createBenchmarkPlan({benchmark})
   const manifest = createBenchmarkPlanManifest({benchmark, plan})
   const contents = JSON.stringify({
@@ -64,16 +65,17 @@ test.each(['Design System', 'Renamed Design System'])(
   async name => {
     const host = createHost()
     const options = {host, benchmarksDirectory: '/benchmarks', scenariosDirectory: '/scenarios'}
-    const benchmark = await getBenchmark({...options, name: 'design-system'})
+    const benchmark = await getBenchmarkByName({...options, name: 'design-system'})
+    const id = getBenchmarkId('design-system')
     const plan = createBenchmarkPlan({benchmark})
     const manifest = createBenchmarkPlanManifest({benchmark, plan})
-    expect(manifest).toMatchObject({id: 'design-system', name: 'Design System'})
+    expect(manifest).toMatchObject({id, name: 'Design System'})
     expect(manifest.trials).toHaveLength(2)
 
     await host.fs.writeFile('/benchmarks/design-system.ts', benchmarkConfig(name))
     const parsed = await parseBenchmarkPlanManifest({...options, contents: JSON.stringify(manifest)})
 
-    expect(parsed.benchmark).toMatchObject({id: 'design-system', name})
+    expect(parsed.benchmark).toMatchObject({id, name})
     expect(parsed.trials).toEqual(plan.trials)
   },
 )
@@ -87,13 +89,13 @@ test('does not fall back to the display name when the benchmark plan ID is missi
       scenariosDirectory: '/scenarios',
       contents: JSON.stringify({id: 'missing', name: 'design-system', trials: []}),
     }),
-  ).rejects.toThrow('Benchmark "missing" was not found in: /benchmarks')
+  ).rejects.toThrow('Benchmark with ID "missing" was not found in: /benchmarks')
 })
 
 test('rejects duplicate trial IDs in benchmark plans', async () => {
   const host = createHost()
   const options = {host, benchmarksDirectory: '/benchmarks', scenariosDirectory: '/scenarios'}
-  const benchmark = await getBenchmark({...options, name: 'design-system'})
+  const benchmark = await getBenchmarkByName({...options, name: 'design-system'})
   const plan = createBenchmarkPlan({benchmark})
   const manifest = createBenchmarkPlanManifest({benchmark, plan})
   manifest.trials[1].id = manifest.trials[0].id
@@ -120,7 +122,7 @@ test('preserves capability setup for control and benchmark trials in created and
   }
   const loadModule = vi.spyOn(host, 'loadModule').mockResolvedValueOnce({default: config})
   const options = {host, benchmarksDirectory: '/benchmarks', scenariosDirectory: '/scenarios'}
-  const benchmark = await getBenchmark({...options, name: 'design-system'})
+  const benchmark = await getBenchmarkByName({...options, name: 'design-system'})
   const plan = createBenchmarkPlan({benchmark})
   const manifest = createBenchmarkPlanManifest({benchmark, plan})
   loadModule.mockResolvedValueOnce({default: config})
@@ -161,7 +163,7 @@ test.each([false, true])('validates capability-specific scenario membership (sha
     })}`,
   )
   const options = {host, benchmarksDirectory: '/benchmarks', scenariosDirectory: '/scenarios'}
-  const benchmark = await getBenchmark({...options, name: 'design-system'})
+  const benchmark = await getBenchmarkByName({...options, name: 'design-system'})
   const plan = createBenchmarkPlan({benchmark})
   const manifest = createBenchmarkPlanManifest({benchmark, plan})
   expect(manifest.trials).toHaveLength(4)
@@ -188,7 +190,7 @@ test.each([
 ] as const)('validates benchmark model variant $model (configured: $valid)', async ({model, valid}) => {
   const host = createHost()
   const options = {host, benchmarksDirectory: '/benchmarks', scenariosDirectory: '/scenarios'}
-  const benchmark = await getBenchmark({...options, name: 'design-system'})
+  const benchmark = await getBenchmarkByName({...options, name: 'design-system'})
   const plan = createBenchmarkPlan({benchmark})
   const manifest = createBenchmarkPlanManifest({benchmark, plan})
   manifest.trials[0].model = model

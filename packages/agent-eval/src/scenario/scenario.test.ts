@@ -1,6 +1,7 @@
 import {afterEach, expect, test, vi} from 'vitest'
+import {hash} from '../hash'
 import {DefaultHost, VirtualHost} from '../host'
-import {getScenario} from './get'
+import {getScenario, getScenarioByName} from './get'
 import {listScenarios} from './list'
 import {defaultScenarioSetup} from './scenario'
 
@@ -18,8 +19,9 @@ function createHost() {
 
 test('getScenario and listScenarios accept an options object with an injected host', async () => {
   const host = createHost()
+  const id = hash('Scenario:example')
   const expected = {
-    id: 'example',
+    id,
     directory: '/scenarios/example',
     prompt: 'Create a page',
     description: 'Example',
@@ -32,25 +34,28 @@ test('getScenario and listScenarios accept an options object with an injected ho
     setup: defaultScenarioSetup,
   }
 
-  await expect(getScenario({host, directory: '/scenarios', name: 'example'})).resolves.toEqual(expected)
-  await expect(getScenario({host, directory: '/scenarios', id: 'example'})).resolves.toEqual(expected)
+  await expect(getScenarioByName({host, directory: '/scenarios', name: 'example'})).resolves.toEqual(expected)
+  await expect(getScenario({host, directory: '/scenarios', id})).resolves.toEqual(expected)
   await expect(listScenarios({host, directory: '/scenarios'})).resolves.toEqual([expected])
 })
 
 test('getScenario and listScenarios use DefaultHost when host is omitted', async () => {
   const host = createHost()
+  const id = hash('Scenario:example')
   vi.spyOn(DefaultHost, 'existsSync').mockImplementation(host.existsSync)
   vi.spyOn(DefaultHost.fs, 'stat').mockImplementation(host.fs.stat)
   vi.spyOn(DefaultHost.fs, 'readdir').mockImplementation(host.fs.readdir)
   const loadModule = vi.spyOn(DefaultHost, 'loadModule').mockImplementation(host.loadModule.bind(host))
 
-  await expect(getScenario({directory: '/scenarios', name: 'example'})).resolves.toMatchObject({id: 'example'})
-  await expect(listScenarios({directory: '/scenarios'})).resolves.toMatchObject([{id: 'example'}])
+  await expect(getScenarioByName({directory: '/scenarios', name: 'example'})).resolves.toMatchObject({
+    id,
+  })
+  await expect(listScenarios({directory: '/scenarios'})).resolves.toMatchObject([{id}])
   expect(loadModule).toHaveBeenCalledWith('/scenarios/example/scenario.config.ts')
 })
 
 test('getScenario reports a missing name with the supplied directory', async () => {
-  await expect(getScenario({host: createHost(), directory: '/scenarios', name: 'missing'})).rejects.toThrow(
+  await expect(getScenarioByName({host: createHost(), directory: '/scenarios', name: 'missing'})).rejects.toThrow(
     'Scenario "missing" was not found in: /scenarios',
   )
 })

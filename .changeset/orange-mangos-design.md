@@ -2,4 +2,5 @@
 '@primer/agent-eval': minor
 ---
 
-Add support for getting benchmarks, experiments, and scenarios by name or ID.
+Add explicit APIs for getting benchmarks, experiments, and scenarios by name or
+ID, and use opaque hashed IDs for these resources.

@@ -2,7 +2,7 @@ import {expect, test} from 'vitest'
 import {VirtualHost} from '../host'
 import type {CopilotRunner} from '../copilot-runner'
 import {ExperimentConfigSchema} from './config'
-import {getExperiment} from './get'
+import {getExperimentByName} from './get'
 import {createExperimentPlan, createExperimentPlanManifest, parseExperimentPlanManifest} from './plan'
 
 function createHost(runners?: Array<CopilotRunner>) {
@@ -30,7 +30,7 @@ test.each([
   async ({runners, expected}) => {
     const host = createHost(runners)
     const options = {host, experimentsDirectory: '/experiments', scenariosDirectory: '/scenarios'}
-    const experiment = await getExperiment({...options, name: 'example'})
+    const experiment = await getExperimentByName({...options, name: 'example'})
     const plan = createExperimentPlan({experiment})
     expect(plan.trials).toHaveLength(4 * expected.length)
     expect(
@@ -56,7 +56,7 @@ test.each([
 
 test('restores legacy plans without a runner as CLI trials', async () => {
   const options = {host: createHost(), experimentsDirectory: '/experiments', scenariosDirectory: '/scenarios'}
-  const experiment = await getExperiment({...options, name: 'example'})
+  const experiment = await getExperimentByName({...options, name: 'example'})
   const plan = createExperimentPlan({experiment})
   const manifest = createExperimentPlanManifest({experiment, plan})
   const legacy = {
@@ -72,7 +72,7 @@ test('restores legacy plans without a runner as CLI trials', async () => {
 
 test('preserves an explicit runner override when restoring a plan', async () => {
   const options = {host: createHost(), experimentsDirectory: '/experiments', scenariosDirectory: '/scenarios'}
-  const experiment = await getExperiment({...options, name: 'example'})
+  const experiment = await getExperimentByName({...options, name: 'example'})
   const plan = createExperimentPlan({experiment, runner: 'copilot-sdk'})
   const manifest = createExperimentPlanManifest({experiment, plan})
   const parsed = await parseExperimentPlanManifest({...options, contents: JSON.stringify(manifest)})

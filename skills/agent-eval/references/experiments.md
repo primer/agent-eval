@@ -6,15 +6,16 @@ plugins, or execution backends on the same tasks. Use a
 
 ## Contract
 
-| Item                | Rule                                                                       |
-| :------------------ | :------------------------------------------------------------------------- |
-| File and import     | `experiments/<id>.ts`; `defineConfig` from `@primer/agent-eval/experiment` |
-| Export              | Prefer named `experiment`; default also supported                          |
-| Required fields     | `name`, `description`, `models`, `scenarios`, `treatments`                 |
-| Optional fields     | `setup`, `runners`                                                         |
-| CLI identifier      | Filename without extension, not display `name`                             |
-| Scenario references | Folder IDs; alternatively `{path, name?}`                                  |
-| Runner default      | `copilot-cli`                                                              |
+| Item                | Rule                                                                         |
+| :------------------ | :--------------------------------------------------------------------------- |
+| File and import     | `experiments/<name>.ts`; `defineConfig` from `@primer/agent-eval/experiment` |
+| Export              | Prefer named `experiment`; default also supported                            |
+| Required fields     | `name`, `description`, `models`, `scenarios`, `treatments`                   |
+| Optional fields     | `setup`, `runners`                                                           |
+| CLI identifier      | Filename without extension, not display `name`                               |
+| Runtime ID          | Opaque hash derived from the filename                                        |
+| Scenario references | Folder names; alternatively `{path, name?}`                                  |
+| Runner default      | `copilot-cli`                                                                |
 
 Top-level `setup` runs for **all trials, including control**. Put only neutral
 prerequisites there. Treatment setup runs afterward and installs the intervention.

@@ -5,14 +5,15 @@ time. Use an [experiment](experiments.md) to compare multiple interventions.
 
 ## Contract
 
-| Item                 | Rule                                                                     |
-| :------------------- | :----------------------------------------------------------------------- |
-| File and import      | `benchmarks/<id>.ts`; `defineConfig` from `@primer/agent-eval/benchmark` |
-| Export               | Named `benchmark` or default                                             |
-| Required fields      | `name`, `description`, `models`, `capabilities`                          |
-| Optional field       | `setup`                                                                  |
-| CLI identifier       | Filename without extension, not display `name`                           |
-| Automatic treatments | `Control` and `Benchmark`                                                |
+| Item                 | Rule                                                                       |
+| :------------------- | :------------------------------------------------------------------------- |
+| File and import      | `benchmarks/<name>.ts`; `defineConfig` from `@primer/agent-eval/benchmark` |
+| Export               | Named `benchmark` or default                                               |
+| Required fields      | `name`, `description`, `models`, `capabilities`                            |
+| Optional field       | `setup`                                                                    |
+| CLI identifier       | Filename without extension, not display `name`                             |
+| Runtime ID           | Opaque hash derived from the filename                                      |
+| Automatic treatments | `Control` and `Benchmark`                                                  |
 
 Benchmark-level `setup` runs only for `Benchmark`. Capability-level setup
 runs for **both** treatments, before treatment setup. Put neutral prerequisites

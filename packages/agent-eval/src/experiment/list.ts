@@ -3,11 +3,11 @@ import {prettifyError} from 'zod/mini'
 import {DefaultHost, type Host} from '../host'
 import {logger} from '../logger'
 import {getModelVariants} from '../model'
-import {getScenario} from '../scenario/get'
+import {getScenarioByName} from '../scenario/get'
 import {loadScenario} from '../scenario/load'
 import {createTreatment} from '../treatment'
 import {ExperimentConfigSchema} from './config'
-import type {Experiment} from './experiment'
+import {getExperimentId, type Experiment} from './experiment'
 
 const EXPERIMENT_FILE_EXTENSIONS = new Set(['.cjs', '.js', '.mjs', '.ts'])
 
@@ -65,7 +65,7 @@ async function listExperiments({
     const scenarios = await Promise.all(
       config.scenarios.map(scenario => {
         if (typeof scenario === 'string') {
-          return getScenario({host, directory: scenariosDirectory, name: scenario})
+          return getScenarioByName({host, directory: scenariosDirectory, name: scenario})
         }
 
         const directory = path.resolve(scenario.path)
@@ -74,7 +74,7 @@ async function listExperiments({
     )
 
     experiments.push({
-      id: getExperimentId(filename),
+      id: getExperimentId(getExperimentName(filename)),
       filepath,
       name: config.name,
       description: config.description,
@@ -91,7 +91,7 @@ async function listExperiments({
   return experiments
 }
 
-function getExperimentId(filename: string): string {
+function getExperimentName(filename: string): string {
   return path.basename(filename, path.extname(filename))
 }
 

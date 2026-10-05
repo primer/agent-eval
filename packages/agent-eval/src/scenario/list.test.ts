@@ -2,6 +2,7 @@ import path from 'node:path'
 import {afterEach, describe, expect, test, vi} from 'vitest'
 import {VirtualHost} from '../host'
 import {listScenarios} from './list'
+import {getScenarioId} from './scenario'
 
 afterEach(() => {
   vi.restoreAllMocks()
@@ -27,8 +28,8 @@ describe('listScenarios', () => {
         return {id, directory, prompt}
       }),
     ).toEqual([
-      {id: 'a-first', directory: '/scenarios/a-first', prompt: 'First task'},
-      {id: 'z-last', directory: '/scenarios/z-last', prompt: 'Last task'},
+      {id: getScenarioId('a-first'), directory: '/scenarios/a-first', prompt: 'First task'},
+      {id: getScenarioId('z-last'), directory: '/scenarios/z-last', prompt: 'Last task'},
     ])
   })
 
@@ -51,7 +52,7 @@ describe('listScenarios', () => {
       scenarios.map(scenario => {
         return scenario.id
       }),
-    ).toEqual(['visible'])
+    ).toEqual([getScenarioId('visible')])
   })
 
   test('skips invalid or missing default configs without dropping valid neighbors', async () => {
@@ -72,7 +73,7 @@ describe('listScenarios', () => {
       scenarios.map(scenario => {
         return scenario.id
       }),
-    ).toEqual(['a-valid', 'z-valid'])
+    ).toEqual([getScenarioId('a-valid'), getScenarioId('z-valid')])
   })
 
   test('returns an empty list for an empty directory', async () => {
@@ -96,7 +97,7 @@ describe('listScenarios', () => {
       scenarios.map(({id, prompt}) => {
         return {id, prompt}
       }),
-    ).toEqual([{id: 'example', prompt: 'Relative task'}])
+    ).toEqual([{id: getScenarioId('example'), prompt: 'Relative task'}])
   })
 
   test('rejects a missing directory rather than returning an empty list', async () => {

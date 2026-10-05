@@ -33,6 +33,8 @@
 
 ## Code
 
+- Avoid nested conditionals. Prefer early returns, named intermediate values, or
+  separate functions with explicit responsibilities.
 - Parse, don't validate. Use the type system to gurantee correctness.
   - When possible, use zod/mini to parse as much information as possible from a given input
   - When parsing, use the most specific type possible. For example:

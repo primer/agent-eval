@@ -101,13 +101,16 @@ results/
 ```
 
 The CLI defaults to these configuration directories, but accepts directory
-overrides. Configuration filenames identify benchmarks and experiments;
-scenario directory names identify scenarios. Display names describe them.
+overrides. Configuration filenames are benchmark and experiment lookup names;
+scenario directory names are scenario lookup names. Runtime IDs are opaque
+hashes derived from those names. Display names describe the resources.
 
 Use `@primer/agent-eval/benchmark`, `/experiment`, and `/scenario` for their
 respective `defineConfig` helpers. Use `/sandbox` for public sandbox runtime and
 types. The package root exports discovery and result-reading/report helpers.
-Do not import unpublished `src/` internals.
+Use `getBenchmark`, `getExperiment`, and `getScenario` with opaque IDs; use
+their `*ByName` counterparts with configuration or directory names. Do not
+import unpublished `src/` internals.
 
 ## The upstream repository
 

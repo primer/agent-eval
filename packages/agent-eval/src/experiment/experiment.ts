@@ -2,6 +2,7 @@ import type {ExperimentConfig} from './config'
 import type {ModelVariant} from '../model'
 import type {Scenario} from '../scenario/scenario'
 import type {Treatment, TreatmentSetup} from '../treatment'
+import {hash} from '../hash'
 
 type Experiment = {
   id: string
@@ -15,4 +16,9 @@ type Experiment = {
   treatments: Array<Treatment>
 }
 
+function getExperimentId(name: string): string {
+  return hash(`Experiment:${name}`)
+}
+
+export {getExperimentId}
 export type {Experiment}

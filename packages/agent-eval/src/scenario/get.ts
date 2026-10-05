@@ -1,24 +1,39 @@
 import {DefaultHost, type Host} from '../host'
 import {listScenarios} from './list'
-import type {Scenario} from './scenario'
+import {getScenarioId, type Scenario} from './scenario'
 
-type GetScenarioOptions = {
+type ScenarioDirectory = {
   directory: string
   host?: Host
-} & ({id: string; name?: never} | {id?: never; name: string})
+}
 
-async function getScenario(options: GetScenarioOptions): Promise<Scenario> {
-  const {directory, host = DefaultHost} = options
+type GetScenarioOptions = ScenarioDirectory & {
+  id: string
+}
+
+type GetScenarioByNameOptions = ScenarioDirectory & {
+  name: string
+}
+
+async function getScenario({directory, host = DefaultHost, id}: GetScenarioOptions): Promise<Scenario> {
   const scenarios = await listScenarios({directory, host})
-  const identifier = options.id ?? options.name
-  const scenario = scenarios.find(candidate => {
-    return candidate.id === identifier
-  })
+  const scenario = scenarios.find(candidate => candidate.id === id)
   if (scenario) {
     return scenario
   }
 
-  throw new Error(`Scenario "${identifier}" was not found in: ${directory}`)
+  throw new Error(`Scenario with ID "${id}" was not found in: ${directory}`)
 }
 
-export {getScenario}
+async function getScenarioByName({directory, host = DefaultHost, name}: GetScenarioByNameOptions): Promise<Scenario> {
+  const scenarios = await listScenarios({directory, host})
+  const id = getScenarioId(name)
+  const scenario = scenarios.find(candidate => candidate.id === id)
+  if (scenario) {
+    return scenario
+  }
+
+  throw new Error(`Scenario "${name}" was not found in: ${directory}`)
+}
+
+export {getScenario, getScenarioByName}

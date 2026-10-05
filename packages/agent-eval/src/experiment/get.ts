@@ -1,31 +1,50 @@
 import {DefaultHost, type Host} from '../host'
-import type {Experiment} from './experiment'
+import {getExperimentId, type Experiment} from './experiment'
 import {listExperiments} from './list'
 
-type GetExperimentOptions = {
+type ExperimentDirectories = {
   experimentsDirectory: string
   host?: Host
   scenariosDirectory: string
-} & ({id: string; name?: never} | {id?: never; name: string})
+}
 
-async function getExperiment(options: GetExperimentOptions): Promise<Experiment> {
-  const {experimentsDirectory, host = DefaultHost, scenariosDirectory} = options
-  const experiments = await listExperiments({
-    host,
-    experimentsDirectory,
-    scenariosDirectory,
-  })
-  const identifier = options.id ?? options.name
-  const experiment =
-    options.id === undefined
-      ? (experiments.find(candidate => candidate.id === options.name) ??
-        experiments.find(candidate => candidate.name === options.name))
-      : experiments.find(candidate => candidate.id === options.id)
+type GetExperimentOptions = ExperimentDirectories & {
+  id: string
+}
+
+type GetExperimentByNameOptions = ExperimentDirectories & {
+  name: string
+}
+
+async function getExperiment({
+  experimentsDirectory,
+  host = DefaultHost,
+  id,
+  scenariosDirectory,
+}: GetExperimentOptions): Promise<Experiment> {
+  const experiments = await listExperiments({experimentsDirectory, host, scenariosDirectory})
+  const experiment = experiments.find(candidate => candidate.id === id)
   if (experiment) {
     return experiment
   }
 
-  throw new Error(`Experiment "${identifier}" was not found in: ${experimentsDirectory}`)
+  throw new Error(`Experiment with ID "${id}" was not found in: ${experimentsDirectory}`)
 }
 
-export {getExperiment}
+async function getExperimentByName({
+  experimentsDirectory,
+  host = DefaultHost,
+  name,
+  scenariosDirectory,
+}: GetExperimentByNameOptions): Promise<Experiment> {
+  const experiments = await listExperiments({experimentsDirectory, host, scenariosDirectory})
+  const id = getExperimentId(name)
+  const experiment = experiments.find(candidate => candidate.id === id)
+  if (experiment) {
+    return experiment
+  }
+
+  throw new Error(`Experiment "${name}" was not found in: ${experimentsDirectory}`)
+}
+
+export {getExperiment, getExperimentByName}

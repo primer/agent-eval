@@ -1,45 +1,50 @@
 import {DefaultHost, type Host} from '../host'
-import type {Benchmark} from './benchmark'
+import {getBenchmarkId, type Benchmark} from './benchmark'
 import {listBenchmarks} from './list'
 
-type GetBenchmarkOptions = {
-  /**
-   * The directory where benchmark are located
-   */
+type BenchmarkDirectories = {
   benchmarksDirectory: string
-
-  /**
-   * The host to use for file system operations and module loading
-   */
   host?: Host
-
-  /**
-   * The directory where scenario are located
-   */
   scenariosDirectory: string
-} & ({id: string; name?: never} | {id?: never; name: string})
+}
 
-/**
- * Get a benchmark by name or ID
- */
-async function getBenchmark(options: GetBenchmarkOptions): Promise<Benchmark> {
-  const {benchmarksDirectory, host = DefaultHost, scenariosDirectory} = options
-  const benchmarks = await listBenchmarks({
-    host,
-    benchmarksDirectory,
-    scenariosDirectory,
-  })
-  const identifier = options.id ?? options.name
-  const benchmark =
-    options.id === undefined
-      ? (benchmarks.find(candidate => candidate.id === options.name) ??
-        benchmarks.find(candidate => candidate.name === options.name))
-      : benchmarks.find(candidate => candidate.id === options.id)
+type GetBenchmarkOptions = BenchmarkDirectories & {
+  id: string
+}
+
+type GetBenchmarkByNameOptions = BenchmarkDirectories & {
+  name: string
+}
+
+async function getBenchmark({
+  benchmarksDirectory,
+  host = DefaultHost,
+  id,
+  scenariosDirectory,
+}: GetBenchmarkOptions): Promise<Benchmark> {
+  const benchmarks = await listBenchmarks({benchmarksDirectory, host, scenariosDirectory})
+  const benchmark = benchmarks.find(candidate => candidate.id === id)
   if (benchmark) {
     return benchmark
   }
 
-  throw new Error(`Benchmark "${identifier}" was not found in: ${benchmarksDirectory}`)
+  throw new Error(`Benchmark with ID "${id}" was not found in: ${benchmarksDirectory}`)
 }
 
-export {getBenchmark}
+async function getBenchmarkByName({
+  benchmarksDirectory,
+  host = DefaultHost,
+  name,
+  scenariosDirectory,
+}: GetBenchmarkByNameOptions): Promise<Benchmark> {
+  const benchmarks = await listBenchmarks({benchmarksDirectory, host, scenariosDirectory})
+  const id = getBenchmarkId(name)
+  const benchmark = benchmarks.find(candidate => candidate.id === id)
+  if (benchmark) {
+    return benchmark
+  }
+
+  throw new Error(`Benchmark "${name}" was not found in: ${benchmarksDirectory}`)
+}
+
+export {getBenchmark, getBenchmarkByName}

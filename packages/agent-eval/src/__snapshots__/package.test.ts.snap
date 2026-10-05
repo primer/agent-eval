@@ -3,15 +3,18 @@
 exports[`@primer/agent-eval exports 1`] = `
 [
   "getBenchmark",
+  "getBenchmarkByName",
   "listBenchmarks",
   "BenchmarkOutputFileSchema",
   "BenchmarkTrialOutputSchema",
   "parseBenchmarkTrialOutput",
   "getExperiment",
+  "getExperimentByName",
   "listExperiments",
   "ExperimentOutputFileSchema",
   "ExperimentTrialOutputSchema",
   "getScenario",
+  "getScenarioByName",
   "listScenarios",
   "addCheckResults",
   "formatCheckSummaries",

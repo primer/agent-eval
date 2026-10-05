@@ -12,7 +12,8 @@ evaluation. Benchmarks and experiments reuse the same scenario across treatments
 | Required field    | `prompt`, passed to the implementation agent                      |
 | Optional fields   | `description`, `tags`, `checks`, `judges`, `image`, `setup`       |
 | Defaults          | Empty tags, checks, and judges                                    |
-| Identity          | Directory name by default                                         |
+| Lookup name       | Directory name by default                                         |
+| Runtime ID        | Opaque hash derived from the lookup name                          |
 | Evaluation files  | Declare in check/judge `files`; restored during evaluation        |
 
 Add [checks](checks.md), [judges](judges.md), or both before treating a run as a

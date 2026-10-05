@@ -14,7 +14,7 @@ import {
   scenariosOption,
   runnerOption,
 } from '../options'
-import {getScenario} from '../../scenario/get'
+import {getScenarioByName} from '../../scenario/get'
 import {createScenarioPlan} from '../../scenario/plan'
 import {buildScenarioImage} from '../../scenario/scenario'
 import {runPlan} from '../../plan'
@@ -48,7 +48,7 @@ const scenarioCommand = defineCommand({
             logger.info('Building Docker image for scenario: %s', args.name)
 
             const scenariosDirectory = path.resolve(args.scenarios)
-            const scenario = await getScenario({
+            const scenario = await getScenarioByName({
               directory: scenariosDirectory,
               name: args.name,
             })
@@ -170,7 +170,7 @@ const scenarioCommand = defineCommand({
           scenariosDirectory,
         })
 
-        const scenario = await getScenario({
+        const scenario = await getScenarioByName({
           directory: scenariosDirectory,
           name: args.name,
         })

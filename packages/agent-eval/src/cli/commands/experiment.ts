@@ -1,6 +1,6 @@
 import path from 'node:path'
 import {defineCommand} from 'citty'
-import {getExperiment} from '../../experiment/get'
+import {getExperimentByName} from '../../experiment/get'
 import {createExperimentReport} from '../../experiment/report'
 import {
   createExperimentOutput,
@@ -109,7 +109,7 @@ const experimentCommand = defineCommand({
               outputPath,
             })
 
-            const experiment = await getExperiment({
+            const experiment = await getExperimentByName({
               experimentsDirectory,
               scenariosDirectory,
               name: args.name,
@@ -240,7 +240,7 @@ const experimentCommand = defineCommand({
           scenariosDirectory,
         })
 
-        const experiment = await getExperiment({
+        const experiment = await getExperimentByName({
           experimentsDirectory,
           scenariosDirectory,
           name: args.name,

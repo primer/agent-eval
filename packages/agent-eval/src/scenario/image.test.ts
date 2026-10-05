@@ -1,6 +1,5 @@
 import path from 'node:path'
 import tarFs from 'tar-fs'
-import tarStream from 'tar-stream'
 import {afterEach, expect, test, vi} from 'vitest'
 import {buildImage} from '../docker'
 import {VirtualHost} from '../host'
@@ -23,7 +22,7 @@ afterEach(() => {
 })
 
 test('the default scenario Dockerfile uses the shared sandbox image', async () => {
-  const context = tarStream.pack()
+  const context = tarFs.pack('.', {entries: [], finalize: false})
   const entry = vi.spyOn(context, 'entry')
   vi.spyOn(tarFs, 'pack').mockImplementation((_directory, options) => {
     options?.finish?.(context)
@@ -56,10 +55,9 @@ test.each(['Default', 'Reference', 'Build'] as const)(
       '/first/example/Dockerfile': 'FROM node:26-slim\nCOPY . .\n',
       '/second/example/Dockerfile': 'FROM node:26-slim\nCOPY . .\n',
     })
+    const createArchive = tarFs.pack
     const pack = vi.spyOn(tarFs, 'pack').mockImplementation(() => {
-      const context = tarStream.pack()
-      context.finalize()
-      return context
+      return createArchive('.', {entries: []})
     })
     const createScenario = (directory: string): Scenario => {
       return {

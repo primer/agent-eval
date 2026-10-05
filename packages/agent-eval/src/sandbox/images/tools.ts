@@ -1,3 +1,4 @@
+import {Readable} from 'node:stream'
 import tarStream from 'tar-stream'
 import {buildImage, getImageReference, type ImageBuild} from '../../docker'
 import {DEFAULT_DOCKER_IMAGE} from '../constants'
@@ -64,7 +65,7 @@ async function getToolsImageBuild(): Promise<ImageBuild> {
 
     context.finalize()
 
-    image = await buildImage(context, {
+    image = await buildImage(Readable.from(context, {objectMode: false}), {
       buildargs,
       dockerfile: 'Dockerfile',
       t: reference,

@@ -1,5 +1,6 @@
 import {randomUUID} from 'node:crypto'
 import path from 'node:path'
+import {Readable, Writable} from 'node:stream'
 import {pipeline} from 'node:stream/promises'
 import tarFs from 'tar-fs'
 import type {Headers} from 'tar-fs'
@@ -170,7 +171,7 @@ class SystemSandbox implements Sandbox {
     const directory = path.dirname(containerPath)
     const name = path.basename(containerPath)
     const pack = tarStream.pack()
-    const upload = this.#container.putArchive(pack, {
+    const upload = this.#container.putArchive(Readable.from(pack, {objectMode: false}), {
       path: directory,
     })
 
@@ -455,6 +456,23 @@ function isWrittenFile(file: CustomAgentFile | AgentSkillFile): file is CustomAg
 
 async function readFileFromArchive(archive: NodeJS.ReadableStream): Promise<Buffer> {
   const extract = tarStream.extract()
+  const destination = new Writable({
+    write(chunk, _encoding, callback) {
+      if (extract.write(chunk)) {
+        callback()
+      } else {
+        extract.once('drain', callback)
+      }
+    },
+    final(callback) {
+      extract.once('finish', callback)
+      extract.end(undefined)
+    },
+    destroy(error, callback) {
+      extract.destroy(error)
+      callback(error)
+    },
+  })
 
   return new Promise((resolve, reject) => {
     const chunks: Array<Buffer> = []
@@ -466,7 +484,11 @@ async function readFileFromArchive(archive: NodeJS.ReadableStream): Promise<Buff
         return
       }
 
-      stream.on('data', (chunk: Buffer) => {
+      stream.on('data', chunk => {
+        if (!Buffer.isBuffer(chunk)) {
+          extract.destroy(new TypeError('Expected a Buffer from the tar archive'))
+          return
+        }
         chunks.push(chunk)
       })
 
@@ -478,10 +500,11 @@ async function readFileFromArchive(archive: NodeJS.ReadableStream): Promise<Buff
       stream.on('error', reject)
     })
 
-    extract.on('error', reject)
-    archive.on('error', reject)
+    extract.on('error', error => {
+      destination.destroy(error)
+    })
 
-    archive.pipe(extract)
+    pipeline(archive, destination).catch(reject)
   })
 }
 

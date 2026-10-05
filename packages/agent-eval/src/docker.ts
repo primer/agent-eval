@@ -1,4 +1,4 @@
-import {PassThrough} from 'node:stream'
+import {PassThrough, Readable} from 'node:stream'
 import Docker from 'dockerode'
 import tarStream from 'tar-stream'
 import {logger} from './logger'
@@ -56,7 +56,7 @@ async function buildImageFromDockerfile(dockerfile: string, options: ImageBuildO
   )
   context.finalize()
 
-  return await buildImage(context, {
+  return await buildImage(Readable.from(context, {objectMode: false}), {
     ...options,
     dockerfile: 'Dockerfile',
   })

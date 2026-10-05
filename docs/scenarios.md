@@ -4,6 +4,10 @@ Scenarios are used to evaluate agent performance on a given task. By default, th
 
 Each scenario defines a prompt for the agent, a starting workspace, and checks or judges that evaluate the result. Scenarios are shared by [benchmarks](./benchmarks.md) and [experiments](./experiments.md), which select them by their folder names.
 
+Loaded scenarios expose the folder name as `name` and a deterministic hash of that name as `id`. Use `name` for display and name-based lookups; use `id` for references in plans and results. The hash identifies the name, not the contents of the scenario. Renaming a scenario changes its ID, but editing its prompt or moving it without changing its name does not.
+
+Regenerate saved plans that used folder names as scenario IDs. Standalone `scenario run` output includes both `id` and `name`.
+
 As an example, you may want to evaluate how well an agent adds a search feature to an existing application. The scenario provides the application and a prompt describing the task. Checks can verify that search works, while a judge can evaluate how well the result fits the rest of the application.
 
 ## Config

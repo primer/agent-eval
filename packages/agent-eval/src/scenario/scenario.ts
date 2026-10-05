@@ -9,9 +9,11 @@ import {logger} from '../logger'
 import {TreatmentSetupSchema, type TreatmentSetup} from '../treatment'
 import {DEFAULT_DOCKER_IMAGE, NODE_USER} from '../sandbox/constants'
 import {buildImage, getImageReference, type ImageBuild} from '../docker'
+import {hash} from '../hash'
 
 type Scenario = {
   id: string
+  name: string
   directory: string
   prompt: string
   description?: string
@@ -42,6 +44,7 @@ const DockerImageSchema = z.discriminatedUnion('type', [
 
 const ScenarioSchema = z.object({
   id: z.string(),
+  name: z.string(),
   directory: z.string(),
   prompt: z.string(),
   description: z.optional(z.string()),
@@ -51,6 +54,10 @@ const ScenarioSchema = z.object({
   image: DockerImageSchema,
   setup: z.optional(TreatmentSetupSchema),
 }) satisfies z.ZodMiniType<Scenario>
+
+function getScenarioId(name: string): string {
+  return hash(`Scenario:${name}`)
+}
 
 function getScenarioIgnoreFiles(scenario: Scenario): Array<{filepath: string; relativePath: string}> {
   const ignored = new Map<string, string>()
@@ -135,7 +142,7 @@ async function buildScenarioImage({host = DefaultHost, scenario}: BuildScenarioI
     const dockerfileContents = await getDockerfileContents(host, scenario)
     const contextDirectory = scenario.image.type === 'Build' ? scenario.image.context : scenario.directory
     const imageTag = getImageReference({
-      name: `agent-eval/scenarios/${scenario.id}`,
+      name: `agent-eval/scenarios/${scenario.name}`,
       dockerfile: dockerfileContents,
       context: path.resolve(contextDirectory),
     })
@@ -202,5 +209,5 @@ const defaultScenarioSetup: TreatmentSetup = async ({sandbox}) => {
   })
 }
 
-export {ScenarioSchema, getScenarioIgnoreFiles, buildScenarioImage, defaultScenarioSetup}
+export {ScenarioSchema, getScenarioId, getScenarioIgnoreFiles, buildScenarioImage, defaultScenarioSetup}
 export type {Scenario}

@@ -1,20 +1,16 @@
-import {getBenchmarkPageData} from '../../../benchmark-page-data'
-import {list} from '../../../benchmarks'
-import {Page} from './components/Page'
+import {list, get} from '../../../agent-eval/benchmarks'
 
-type BenchmarkPageProps = {
-  params: Promise<{
-    id: string
-  }>
+type Props = {
+  params: Promise<{id: string}>
 }
 
-export const dynamicParams = false
+export default async function BenchmarkPage(props: Props) {
+  const params = await props.params
+  const benchmark = await get({
+    id: params.id,
+  })
 
-export default async function BenchmarkPage(props: BenchmarkPageProps) {
-  const {id} = await props.params
-  const {benchmark, results, runs} = await getBenchmarkPageData(id)
-
-  return <Page benchmark={benchmark} results={results} runs={runs} />
+  return benchmark.name
 }
 
 export async function generateStaticParams() {

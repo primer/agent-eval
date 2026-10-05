@@ -21,7 +21,8 @@ test('loadScenario selects the default image and setup without requiring a packa
   const scenario = await loadScenario({host, directory: '/scenarios/example'})
 
   expect(scenario).toMatchObject({
-    id: 'example',
+    id: '2770381665',
+    name: 'example',
     directory: '/scenarios/example',
     prompt: 'Create a page',
     image: {type: 'Default'},
@@ -37,7 +38,7 @@ test('loadScenario uses DefaultHost when host is omitted', async () => {
 
   const scenario = await loadScenario({directory: '/scenarios/example'})
 
-  expect(scenario).toMatchObject({id: 'example', prompt: 'Create a page'})
+  expect(scenario).toMatchObject({id: '2770381665', name: 'example', prompt: 'Create a page'})
 })
 
 test('loadScenario preserves metadata when an explicit name overrides the directory basename', async () => {
@@ -48,12 +49,26 @@ test('loadScenario preserves metadata when an explicit name overrides the direct
   const scenario = await loadScenario({host, directory: '/scenarios/example', name: 'custom'})
 
   expect(scenario).toMatchObject({
-    id: 'custom',
+    id: '1693546796',
+    name: 'custom',
     directory: '/scenarios/example',
     prompt: 'Create a page',
     description: 'Example',
     tags: ['forms', 'accessibility'],
   })
+})
+
+test('loadScenario preserves identity across directories and prompt changes for the same name', async () => {
+  const host = createHost()
+  await host.fs.mkdir('/relocated/example', {recursive: true})
+  await host.fs.writeFile('/relocated/example/scenario.config.ts', 'export default {prompt: "A different task"}')
+
+  const original = await loadScenario({host, directory: '/scenarios/example'})
+  const relocated = await loadScenario({host, directory: '/relocated/example'})
+
+  expect(relocated.id).toBe(original.id)
+  expect(relocated.name).toBe('example')
+  expect(relocated.prompt).not.toBe(original.prompt)
 })
 
 test('loadScenario omits default setup when a custom image is configured', async () => {

@@ -11,7 +11,7 @@ type GetScenarioOptions = {
 async function getScenario({directory, host = DefaultHost, name}: GetScenarioOptions): Promise<Scenario> {
   const scenarios = await listScenarios({directory, host})
   const scenario = scenarios.find(candidate => {
-    return candidate.id === name
+    return candidate.name === name
   })
   if (scenario) {
     return scenario

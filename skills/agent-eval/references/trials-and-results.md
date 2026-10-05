@@ -5,13 +5,13 @@ treatments. Each trial has its own ID, sandbox, execution, and evidence.
 
 ## Contract
 
-| Item                        | Rule                                                                       |
-| :-------------------------- | :------------------------------------------------------------------------- |
-| Trial identity              | Scenario, treatment, model variant, runner; also capability for benchmarks |
-| Benchmark/experiment output | `output.json` manifest with `trials` mapping IDs to relative file paths    |
-| Trial result location       | `artifacts/<trial-id>/<trial-id>.json`                                     |
-| Scenario output             | `{id, results}`, with embedded results rather than a trial-file manifest   |
-| Quality evidence            | Check outcomes/measurements and judge results, not command exit alone      |
+| Item                        | Rule                                                                           |
+| :-------------------------- | :----------------------------------------------------------------------------- |
+| Trial identity              | Scenario, treatment, model variant, runner; also capability for benchmarks     |
+| Benchmark/experiment output | `output.json` manifest with `trials` mapping IDs to relative file paths        |
+| Trial result location       | `artifacts/<trial-id>/<trial-id>.json`                                         |
+| Scenario output             | `{id, name, results}`, with embedded results rather than a trial-file manifest |
+| Quality evidence            | Check outcomes/measurements and judge results, not command exit alone          |
 
 ## Lifecycle
 
@@ -49,7 +49,10 @@ sessions, walkthrough information, and artifact locations. Preserve the whole
 bundle when sharing or archiving. Embedded artifact paths can be absolute;
 do not assume every metadata path relocates automatically.
 
-Standalone `scenario run` writes a different output: `{id, results}`, with
+Scenario references use hashed IDs. Use scenario metadata's `name` for display
+and name-based CLI arguments, not its `id`.
+
+Standalone `scenario run` writes a different output: `{id, name, results}`, with
 entries containing `trial: {id}` and an embedded `result`. Do not parse it as a
 benchmark/experiment manifest.
 

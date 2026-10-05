@@ -1,7 +1,55 @@
-.brandLink {
-  color: var(--fgColor-default);
+.Header {
+  color: var(--text-color-default);
+  background-color: var(--background-color-inset);
+  box-shadow: inset 0 calc(var(--borderWidth-thin) * -1) var(--borderColor-default);
+  font-size: var(--text-body-medium);
+  line-height: var(--text-body-medium--line-height);
+  padding-inline: var(--base-size-16);
+  align-items: center;
 }
 
-.navigation {
-  box-shadow: none;
+.List {
+  display: flex;
+  align-items: center;
+  padding-block: var(--base-size-8);
+}
+
+.Item {
+  display: flex;
+  align-items: center;
+  padding-block: var(--base-size-8);
+
+  &[data-has-separator]::after {
+    border-right: 0.1em solid var(--fgColor-muted);
+    content: '';
+    height: 0.8em;
+    margin: 0 0.5em;
+    transform: rotate(15deg) translateY(0.0625em);
+  }
+}
+
+.Logo {
+  color: var(--fgColor-default);
+  margin-inline-end: var(--base-size-6);
+}
+
+.Link {
+  color: var(--fgColor-default);
+  border-radius: var(--borderRadius-medium);
+  display: flex;
+  padding-inline: var(--base-size-6);
+  padding-block: var(--base-size-4);
+
+  &[data-has-emphasis] {
+    font-weight: var(--font-weight-semibold);
+  }
+
+  &,
+  &:hover {
+    text-decoration: none;
+  }
+
+  &:hover {
+    background-color: var(--control-transparent-bgColor-hover);
+  }
 }

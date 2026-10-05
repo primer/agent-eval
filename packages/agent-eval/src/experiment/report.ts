@@ -1,6 +1,7 @@
 import type {ModelVariant} from '../model'
 import type {CopilotRunner} from '../copilot-runner'
 import type {RunPlanResult} from '../plan'
+import type {Scenario} from '../scenario/scenario'
 import {formatTable, type TableRow} from '../report/format'
 import {getCheckDimensions, type CheckDimension} from '../report/checks'
 import {
@@ -19,7 +20,7 @@ import type {ExperimentTrial} from './plan'
 type ExperimentSummary = TrialSummary & {
   treatmentId: string
   treatment: string
-  scenario?: string
+  scenario?: Scenario
   model?: ModelVariant
   runner: CopilotRunner
 }
@@ -33,7 +34,7 @@ function compareExperimentNames(a: ExperimentSummary, b: ExperimentSummary): num
   return (
     a.treatment.localeCompare(b.treatment) ||
     a.runner.localeCompare(b.runner) ||
-    (a.scenario ?? '').localeCompare(b.scenario ?? '') ||
+    (a.scenario?.name ?? '').localeCompare(b.scenario?.name ?? '') ||
     (a.model?.name ?? '').localeCompare(b.model?.name ?? '') ||
     (a.model?.reasoningEffort ?? '').localeCompare(b.model?.reasoningEffort ?? '')
   )
@@ -57,7 +58,7 @@ function formatExperimentSummary(
     Experiment: level === 'treatment' ? experiment.name : '',
     Treatment: level === 'treatment' ? summary.treatment : '',
     ...(showRunner ? {Runner: level === 'treatment' ? summary.runner : ''} : {}),
-    Scenario: level === 'treatment' ? 'All scenarios' : level === 'scenario' ? `  ${summary.scenario}` : '',
+    Scenario: level === 'treatment' ? 'All scenarios' : level === 'scenario' ? `  ${summary.scenario?.name}` : '',
     Model: level === 'model' ? `    ${summary.model?.name}` : 'All models',
     'Reasoning Effort': level === 'model' ? (summary.model?.reasoningEffort ?? '') : '',
     ...formatTrialSummary(summary, dimensions),
@@ -87,7 +88,7 @@ function createExperimentReport({experiment, runPlanResult}: CreateExperimentRep
     addTrialResultToSummary(treatmentSummary, result)
     treatmentSummaries.set(treatmentKey, treatmentSummary)
 
-    const scenarioValues = {...values, scenario: trial.scenario.id}
+    const scenarioValues = {...values, scenario: trial.scenario}
     const scenarioKey = JSON.stringify([trial.treatment.id, values.runner, trial.scenario.id])
     const scenarioSummary = scenarioSummaries.get(scenarioKey) ?? {...createTrialSummary(), ...scenarioValues}
     addTrialResultToSummary(scenarioSummary, result)
@@ -123,7 +124,7 @@ function createExperimentReport({experiment, runPlanResult}: CreateExperimentRep
         return (
           summary.treatmentId === treatment.treatmentId &&
           summary.runner === treatment.runner &&
-          summary.scenario === scenario.scenario
+          summary.scenario?.id === scenario.scenario?.id
         )
       })
       for (const model of sortExperimentSummaries(models)) {

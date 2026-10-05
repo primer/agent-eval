@@ -48,3 +48,4 @@ async function getBenchmark({
 }
 
 export {getBenchmark}
+export type {GetBenchmarkOptions}

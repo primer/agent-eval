@@ -1,5 +1,5 @@
 import path from 'node:path'
-import {getCapabilityId, type Benchmark} from './benchmark'
+import {getBenchmarkId, getCapabilityId, type Benchmark} from './benchmark'
 import {BenchmarkConfigSchema} from './config'
 import {DefaultHost, type Host} from '../host'
 import {logger} from '../logger'
@@ -96,10 +96,6 @@ async function listBenchmarks({
   }
 
   return benchmarks
-}
-
-function getBenchmarkId(filename: string): string {
-  return path.basename(filename, path.extname(filename))
 }
 
 function isBenchmarkFile(filename: string): boolean {

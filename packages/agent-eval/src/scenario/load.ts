@@ -2,7 +2,7 @@ import path from 'node:path'
 import {DefaultHost, type Host} from '../host'
 import {parseJudgeConfig} from '../judge'
 import {parseScenarioConfig, type ScenarioConfigModule} from './config'
-import {defaultScenarioSetup, type Scenario} from './scenario'
+import {defaultScenarioSetup, getScenarioId, type Scenario} from './scenario'
 import {parseCheckConfig} from '../check'
 
 type LoadScenarioOptions = {
@@ -33,7 +33,8 @@ async function loadScenario({
   const data: ScenarioConfigModule = await host.loadModule(configPath)
   const config = parseScenarioConfig(host, directory, data.default)
   const scenario: Scenario = {
-    id: name,
+    id: getScenarioId(name),
+    name,
     directory,
     prompt: config.prompt,
     tags: config.tags,

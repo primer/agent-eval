@@ -36,6 +36,8 @@ not a prerequisite for every operation.
 - Withhold grader files using `files`. Verify the starter fails for the intended
   reasons and a correct solution passes; restore the starter before execution.
 - Inspect the plan's combinations before running. Use a fresh output directory.
+- Select scenarios by name in configurations and CLI commands; use their hashed
+  IDs when resolving plan and result references.
 - Finish by reading trial results and reporting outcomes and errors separately.
   Command completion alone does not establish quality.
 - Interpret session AI credits using [Trials and results](references/trials-and-results.md);

@@ -1,6 +1,7 @@
 import type {ModelVariant} from '../model'
 import type {CopilotRunner} from '../copilot-runner'
 import type {RunPlanResult} from '../plan'
+import type {Scenario} from '../scenario/scenario'
 import {
   formatCredits,
   formatDuration,
@@ -25,7 +26,7 @@ import type {BenchmarkTrial} from './plan'
 type BenchmarkComparison = {
   capability: Capability
   runner: CopilotRunner
-  scenario?: string
+  scenario?: Scenario
   model?: ModelVariant
   control: TrialSummary
   benchmarkTreatment: TrialSummary
@@ -63,7 +64,7 @@ function formatBenchmarkComparison(
     Benchmark: comparison.scenario ? '' : benchmark.name,
     Capability: comparison.scenario ? '' : comparison.capability.name,
     ...(showRunner ? {Runner: comparison.scenario ? '' : comparison.runner} : {}),
-    Scenario: comparison.model ? '' : comparison.scenario ? `  ${comparison.scenario}` : 'All scenarios',
+    Scenario: comparison.model ? '' : comparison.scenario ? `  ${comparison.scenario.name}` : 'All scenarios',
     Model: comparison.model ? `    ${comparison.model.name}` : 'All models',
     'Reasoning Effort': comparison.model?.reasoningEffort ?? '',
     'Control Runs': comparison.control.runs,
@@ -93,10 +94,10 @@ function createBenchmarkReport({benchmark, runPlanResult}: CreateBenchmarkReport
       throw new Error(`Unexpected benchmark treatment for trial "${trial.id}": ${trial.treatment.name}`)
     }
 
-    const values: Array<{scenario?: string; model?: ModelVariant}> = [
+    const values: Array<{scenario?: Scenario; model?: ModelVariant}> = [
       {},
-      {scenario: trial.scenario.id},
-      {scenario: trial.scenario.id, model: trial.model},
+      {scenario: trial.scenario},
+      {scenario: trial.scenario, model: trial.model},
     ]
 
     for (const value of values) {
@@ -104,7 +105,7 @@ function createBenchmarkReport({benchmark, runPlanResult}: CreateBenchmarkReport
       const key = JSON.stringify([
         trial.capability.id,
         runner,
-        value.scenario,
+        value.scenario?.id,
         value.model?.name,
         value.model?.reasoningEffort,
       ])
@@ -146,7 +147,7 @@ function createBenchmarkReport({benchmark, runPlanResult}: CreateBenchmarkReport
   const modelGroups = new Map<string, Array<TrialSummary>>()
   for (const comparison of comparisons.values()) {
     if (comparison.model) {
-      const key = JSON.stringify([comparison.capability.id, comparison.runner, comparison.scenario])
+      const key = JSON.stringify([comparison.capability.id, comparison.runner, comparison.scenario?.id])
       const summaries = modelGroups.get(key) ?? []
       summaries.push(comparison.benchmarkTreatment)
       modelGroups.set(key, summaries)
@@ -158,16 +159,16 @@ function createBenchmarkReport({benchmark, runPlanResult}: CreateBenchmarkReport
     }),
   )
   const ordered = [...comparisons.values()].toSorted((a, b) => {
-    const compareModels = modelComparators.get(JSON.stringify([a.capability.id, a.runner, a.scenario]))
+    const compareModels = modelComparators.get(JSON.stringify([a.capability.id, a.runner, a.scenario?.id]))
     return (
       (capabilityOrder.get(a.capability.id) ?? Number.MAX_SAFE_INTEGER) -
         (capabilityOrder.get(b.capability.id) ?? Number.MAX_SAFE_INTEGER) ||
       a.capability.name.localeCompare(b.capability.name) ||
       a.runner.localeCompare(b.runner) ||
       Number(a.scenario !== undefined) - Number(b.scenario !== undefined) ||
-      (scenarioOrder.get(a.capability.id)?.get(a.scenario ?? '') ?? Number.MAX_SAFE_INTEGER) -
-        (scenarioOrder.get(b.capability.id)?.get(b.scenario ?? '') ?? Number.MAX_SAFE_INTEGER) ||
-      (a.scenario ?? '').localeCompare(b.scenario ?? '') ||
+      (scenarioOrder.get(a.capability.id)?.get(a.scenario?.id ?? '') ?? Number.MAX_SAFE_INTEGER) -
+        (scenarioOrder.get(b.capability.id)?.get(b.scenario?.id ?? '') ?? Number.MAX_SAFE_INTEGER) ||
+      (a.scenario?.name ?? '').localeCompare(b.scenario?.name ?? '') ||
       Number(a.model !== undefined) - Number(b.model !== undefined) ||
       (a.model && b.model && compareModels ? compareModels(a.benchmarkTreatment, b.benchmarkTreatment) : 0) ||
       (a.model?.name ?? '').localeCompare(b.model?.name ?? '') ||

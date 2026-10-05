@@ -19,7 +19,8 @@ function createHost() {
 test('getScenario and listScenarios accept an options object with an injected host', async () => {
   const host = createHost()
   const expected = {
-    id: 'example',
+    id: '2770381665',
+    name: 'example',
     directory: '/scenarios/example',
     prompt: 'Create a page',
     description: 'Example',
@@ -43,8 +44,11 @@ test('getScenario and listScenarios use DefaultHost when host is omitted', async
   vi.spyOn(DefaultHost.fs, 'readdir').mockImplementation(host.fs.readdir)
   const loadModule = vi.spyOn(DefaultHost, 'loadModule').mockImplementation(host.loadModule.bind(host))
 
-  await expect(getScenario({directory: '/scenarios', name: 'example'})).resolves.toMatchObject({id: 'example'})
-  await expect(listScenarios({directory: '/scenarios'})).resolves.toMatchObject([{id: 'example'}])
+  await expect(getScenario({directory: '/scenarios', name: 'example'})).resolves.toMatchObject({
+    id: '2770381665',
+    name: 'example',
+  })
+  await expect(listScenarios({directory: '/scenarios'})).resolves.toMatchObject([{id: '2770381665', name: 'example'}])
   expect(loadModule).toHaveBeenCalledWith('/scenarios/example/scenario.config.ts')
 })
 

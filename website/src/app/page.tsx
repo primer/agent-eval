@@ -1,17 +1,10 @@
-import {getBenchmarkPageData} from '../benchmark-page-data'
-import {BenchmarkOverview} from './components/BenchmarkOverview'
-import {getExperimentsOverview} from '../experiment-page-data'
-import {ExperimentsOverview} from './components/ExperimentResults'
+import {PageHeader} from './components/PageHeader'
 
-export default async function IndexPage() {
-  const [{benchmark, overview}, experiments] = await Promise.all([
-    getBenchmarkPageData('design-system'),
-    getExperimentsOverview(),
-  ])
+export default function IndexPage() {
   return (
     <>
-      <BenchmarkOverview benchmark={benchmark} overview={overview} />
-      <ExperimentsOverview experiments={experiments} />
+      <PageHeader />
+      <main>hello</main>
     </>
   )
 }

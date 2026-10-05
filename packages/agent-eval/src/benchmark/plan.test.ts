@@ -2,6 +2,7 @@ import {afterEach, expect, test, vi} from 'vitest'
 import {VirtualHost} from '../host'
 import {VirtualSandbox} from '../sandbox'
 import {ControlTreatment} from '../treatment'
+import {getScenarioId} from '../scenario/scenario'
 import {getBenchmark} from './get'
 import {createBenchmarkPlan, createBenchmarkPlanManifest, parseBenchmarkPlanManifest} from './plan'
 
@@ -174,7 +175,7 @@ test.each([false, true])('validates capability-specific scenario membership (sha
     }
   } else {
     const trial = manifest.trials[0]
-    trial.scenarioId = trial.scenarioId === 'example' ? 'other' : 'example'
+    trial.scenarioId = trial.scenarioId === getScenarioId('example') ? getScenarioId('other') : getScenarioId('example')
     await expect(parseBenchmarkPlanManifest({...options, contents: JSON.stringify(manifest)})).rejects.toThrow(
       `Scenario "${trial.scenarioId}" does not belong to capability "${trial.capabilityId}" for trial "${trial.id}"`,
     )

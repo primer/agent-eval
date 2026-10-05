@@ -4,6 +4,8 @@ allowBuilds:
   sharp: true
   ssh2: true
 
+dedupeInjectedDeps: false
+
 minimumReleaseAge: 10080
 
 packages:
@@ -12,3 +14,6 @@ packages:
   - 'packages/*'
   - 'scenarios/*'
   - 'website'
+
+syncInjectedDepsAfterScripts:
+  - build

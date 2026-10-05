@@ -23,8 +23,10 @@ resource contents. Execution reloads local configurations and resolves the
 saved identifiers. Preserve the source revision, dependency versions, resource
 contents, and directory layout with the plan.
 
-Configuration IDs come from filenames. Capability and treatment IDs depend on
-their names. Renaming or removing referenced entities can invalidate a plan.
+Configuration IDs come from filenames. Scenario IDs are hashes of scenario
+names; capability and treatment IDs also depend on their names. Renaming or
+removing referenced entities can invalidate a plan. Regenerate older plans
+whose `scenarioId` values contain folder names instead of hashes.
 
 ## Create and run
 

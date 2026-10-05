@@ -1,31 +1,11 @@
-import './globals.css'
-import {BaseStyles} from '@primer/react'
-import {PageHeader} from './components/PageHeader'
+import './global.css'
+import {BaseStyles} from './components/BaseStyles'
 
-export const metadata = {
-  title: {
-    default: 'primer / agent-eval',
-    template: '%s · primer / agent-eval',
-  },
-  description: 'View design system benchmark and experiment results for coding agents',
-}
-
-export default function Layout({children}: {children: React.ReactNode}) {
-  // Match the markers Primer's focus-visible polyfill adds before hydration.
+export default function RootLayout({children}: {children: React.ReactNode}) {
   return (
-    <html
-      lang="en"
-      className="js-focus-visible"
-      data-js-focus-visible=""
-      data-color-mode="auto"
-      data-light-theme="light"
-      data-dark-theme="dark"
-    >
+    <html lang="en" data-light-theme="light" data-dark-theme="dark" data-color-mode="auto" suppressHydrationWarning>
       <body>
-        <BaseStyles>
-          <PageHeader />
-          <main>{children}</main>
-        </BaseStyles>
+        <BaseStyles>{children}</BaseStyles>
       </body>
     </html>
   )

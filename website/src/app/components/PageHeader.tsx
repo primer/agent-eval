@@ -1,51 +1,96 @@
-'use client'
-
-import {MarkGithubIcon} from '@primer/octicons-react'
 import Link from 'next/link'
-import {UnderlineNav} from '@primer/react'
-import {usePathname} from 'next/navigation'
-import styles from './PageHeader.module.css'
+import {VisuallyHidden} from '@primer/react'
+import {MarkGithubIcon} from '@primer/octicons-react'
+import {exhaustiveCheck} from '../../exhaustive'
+import classes from './PageHeader.module.css'
+import type {PropsWithChildren} from 'react'
+import {MenuButton} from './MenuButton'
 
-export function PageHeader() {
-  const pathname = usePathname()
+type PageHeaderProps = PropsWithChildren<
+  | {
+      category: 'benchmarks'
+      benchmark?: {
+        label: string
+        href: string
+      }
+    }
+  | {
+      category: 'experiments'
+      experiment?: string
+    }
+  | {
+      category: 'scenarios'
+      scenario?: string
+    }
+  | {
+      category?: never
+      scenario?: never
+    }
+>
+
+export function PageHeader(props: PageHeaderProps) {
+  const links = []
+
+  if ('category' in props) {
+    if (props.category === 'benchmarks') {
+      links.push({
+        href: '/benchmarks',
+        label: 'Benchmarks',
+      } as const)
+
+      if (props.benchmark) {
+        links.push({
+          href: props.benchmark.href,
+          label: props.benchmark.label,
+        } as const)
+      }
+    } else if (props.category === 'experiments') {
+      links.push({
+        href: '/experiments',
+        label: 'Experiments',
+      } as const)
+    } else if (props.category === 'scenarios') {
+      links.push({
+        href: '/scenarios',
+        label: 'Scenarios',
+      } as const)
+    } else {
+      exhaustiveCheck(props)
+    }
+  } else {
+    links.push({
+      href: '/',
+      label: 'agent-eval',
+    } as const)
+  }
 
   return (
-    <>
-      <header className="pt-3 text-default bg-inset flex text-body-medium  flex-wrap">
-        <Link className={`${styles.brandLink} flex gap-x-3 items-center px-6`} href="/">
-          <MarkGithubIcon size={32} />
-          <span>
-            primer<span className="px-2 text-body-small">/</span>
-            <span className="font-semibold">agent-eval</span>
-          </span>
-        </Link>
-        <UnderlineNav aria-label="Agent eval" className={`${styles.navigation} grow shrink basis-full`}>
-          <UnderlineNav.Item as={Link} href="/" aria-current={pathname === '/' ? 'page' : undefined}>
-            Overview
-          </UnderlineNav.Item>
-          <UnderlineNav.Item
-            as={Link}
-            href="/benchmarks"
-            aria-current={pathname.startsWith('/benchmarks') ? 'page' : undefined}
-          >
-            Benchmarks
-          </UnderlineNav.Item>
-          <UnderlineNav.Item
-            as={Link}
-            href="/experiments"
-            aria-current={pathname.startsWith('/experiments') ? 'page' : undefined}
-          >
-            Experiments
-          </UnderlineNav.Item>
-          <UnderlineNav.Item
-            as={Link}
-            href="/scenarios"
-            aria-current={pathname.startsWith('/scenarios') ? 'page' : undefined}
-          >
-            Scenarios
-          </UnderlineNav.Item>
-        </UnderlineNav>
-      </header>
-    </>
+    <header className={classes.Header}>
+      <div className="flex gap-x-4 items-center">
+        <MenuButton />
+        <nav>
+          <ul className={classes.List}>
+            <li className={classes.Item}>
+              <Link className={classes.Logo} href="/">
+                <MarkGithubIcon size="medium" />
+                <VisuallyHidden>Home</VisuallyHidden>
+              </Link>
+            </li>
+            {links.map((link, index) => {
+              const hasEmphasis = index === links.length - 1
+              const hasSeparator = index < links.length - 1
+              return (
+                <li key={link.href} className={classes.Item} data-has-separator={hasSeparator ? '' : undefined}>
+                  <Link className={classes.Link} data-has-emphasis={hasEmphasis ? '' : undefined} href={link.href}>
+                    {link.label}
+                  </Link>
+                </li>
+              )
+            })}
+          </ul>
+        </nav>
+      </div>
+      {props.children}
+    </header>
   )
 }

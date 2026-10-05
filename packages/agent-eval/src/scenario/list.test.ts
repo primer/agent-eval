@@ -23,12 +23,12 @@ describe('listScenarios', () => {
     const scenarios = await listScenarios({host, directory: '/scenarios'})
 
     expect(
-      scenarios.map(({id, directory, prompt}) => {
-        return {id, directory, prompt}
+      scenarios.map(({name, directory, prompt}) => {
+        return {name, directory, prompt}
       }),
     ).toEqual([
-      {id: 'a-first', directory: '/scenarios/a-first', prompt: 'First task'},
-      {id: 'z-last', directory: '/scenarios/z-last', prompt: 'Last task'},
+      {name: 'a-first', directory: '/scenarios/a-first', prompt: 'First task'},
+      {name: 'z-last', directory: '/scenarios/z-last', prompt: 'Last task'},
     ])
   })
 
@@ -49,7 +49,7 @@ describe('listScenarios', () => {
 
     expect(
       scenarios.map(scenario => {
-        return scenario.id
+        return scenario.name
       }),
     ).toEqual(['visible'])
   })
@@ -70,7 +70,7 @@ describe('listScenarios', () => {
 
     expect(
       scenarios.map(scenario => {
-        return scenario.id
+        return scenario.name
       }),
     ).toEqual(['a-valid', 'z-valid'])
   })
@@ -93,10 +93,10 @@ describe('listScenarios', () => {
     const scenarios = await listScenarios({host, directory: 'scenarios'})
 
     expect(
-      scenarios.map(({id, prompt}) => {
-        return {id, prompt}
+      scenarios.map(({name, prompt}) => {
+        return {name, prompt}
       }),
-    ).toEqual([{id: 'example', prompt: 'Relative task'}])
+    ).toEqual([{name: 'example', prompt: 'Relative task'}])
   })
 
   test('rejects a missing directory rather than returning an empty list', async () => {

@@ -34,6 +34,7 @@ type ExperimentTrialOutput = z.infer<typeof ExperimentTrialOutputSchema>
 
 const ScenarioOutputSchema = z.pick(ScenarioSchema, {
   id: true,
+  name: true,
   directory: true,
   prompt: true,
   description: true,

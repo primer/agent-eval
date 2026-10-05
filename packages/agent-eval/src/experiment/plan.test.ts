@@ -49,8 +49,14 @@ test.each([
     }
 
     const manifest = createExperimentPlanManifest({experiment, plan})
+    expect(
+      manifest.trials.every(trial => {
+        return trial.scenarioId === '2770381665'
+      }),
+    ).toBe(true)
     const parsed = await parseExperimentPlanManifest({...options, contents: JSON.stringify(manifest)})
     expect(parsed.trials).toEqual(plan.trials)
+    expect(parsed.trials[0].scenario.name).toBe('example')
   },
 )
 

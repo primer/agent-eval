@@ -32,7 +32,8 @@ test.each([undefined, 'copilot-cli', 'copilot-sdk'] as const)(
       runner,
       treatment: ControlTreatment,
       scenario: {
-        id: 'example',
+        id: '2770381665',
+        name: 'example',
         directory: '/scenarios/example',
         prompt: 'Update the example',
         tags: [],

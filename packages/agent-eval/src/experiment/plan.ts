@@ -120,7 +120,7 @@ async function parseExperimentPlanManifest({
   const experiment = await getExperiment({
     experimentsDirectory,
     host,
-    name: result.id,
+    id: result.id,
     scenariosDirectory,
   })
   const scenarios = new Map(

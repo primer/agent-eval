@@ -48,7 +48,7 @@ export async function get(id: string): Promise<Benchmark> {
   const benchmark = await getBenchmark({
     benchmarksDirectory: BENCHMARKS_DIR,
     scenariosDirectory: SCENARIOS_DIR,
-    name: id,
+    id,
   })
 
   return normalizeBenchmark(benchmark)

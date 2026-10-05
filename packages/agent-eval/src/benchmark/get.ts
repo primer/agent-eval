@@ -17,34 +17,29 @@ type GetBenchmarkOptions = {
    * The directory where scenario are located
    */
   scenariosDirectory: string
-
-  /**
-   * The name of the benchmark, corresponds to the filename without the
-   * extension
-   */
-  name: string
-}
+} & ({id: string; name?: never} | {id?: never; name: string})
 
 /**
- * Get a benchmark by name
+ * Get a benchmark by name or ID
  */
-async function getBenchmark({
-  benchmarksDirectory,
-  host = DefaultHost,
-  name,
-  scenariosDirectory,
-}: GetBenchmarkOptions): Promise<Benchmark> {
+async function getBenchmark(options: GetBenchmarkOptions): Promise<Benchmark> {
+  const {benchmarksDirectory, host = DefaultHost, scenariosDirectory} = options
   const benchmarks = await listBenchmarks({
     host,
     benchmarksDirectory,
     scenariosDirectory,
   })
-  const benchmark = benchmarks.find(candidate => candidate.id === name)
+  const identifier = options.id ?? options.name
+  const benchmark =
+    options.id === undefined
+      ? (benchmarks.find(candidate => candidate.name === options.name) ??
+        benchmarks.find(candidate => candidate.id === options.name))
+      : benchmarks.find(candidate => candidate.id === options.id)
   if (benchmark) {
     return benchmark
   }
 
-  throw new Error(`Benchmark "${name}" was not found in: ${benchmarksDirectory}`)
+  throw new Error(`Benchmark "${identifier}" was not found in: ${benchmarksDirectory}`)
 }
 
 export {getBenchmark}

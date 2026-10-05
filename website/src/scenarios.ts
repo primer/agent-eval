@@ -38,7 +38,7 @@ export async function list(): Promise<Array<ScenarioSummary>> {
 export async function get(id: string): Promise<Scenario> {
   const scenario = await getScenario({
     directory: SCENARIOS_DIR,
-    name: id,
+    id,
   })
 
   return {

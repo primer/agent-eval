@@ -40,7 +40,7 @@ export async function get(id: string): Promise<Experiment> {
   const experiment = await getExperiment({
     experimentsDirectory: EXPERIMENTS_DIR,
     scenariosDirectory: SCENARIOS_DIR,
-    name: id,
+    id,
   })
 
   return {

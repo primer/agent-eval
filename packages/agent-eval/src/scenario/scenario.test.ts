@@ -33,6 +33,7 @@ test('getScenario and listScenarios accept an options object with an injected ho
   }
 
   await expect(getScenario({host, directory: '/scenarios', name: 'example'})).resolves.toEqual(expected)
+  await expect(getScenario({host, directory: '/scenarios', id: 'example'})).resolves.toEqual(expected)
   await expect(listScenarios({host, directory: '/scenarios'})).resolves.toEqual([expected])
 })
 

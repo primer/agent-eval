@@ -1,7 +1,7 @@
 import path from 'node:path'
 import type {Benchmark as AgentEvalBenchmark} from '@primer/agent-eval'
 
-const {getBenchmark, listBenchmarks} = await import(
+const {getBenchmark, getBenchmarkByName, listBenchmarks} = await import(
   /* turbopackIgnore: true */
   '@primer/agent-eval'
 )
@@ -49,6 +49,16 @@ export async function get(id: string): Promise<Benchmark> {
     benchmarksDirectory: BENCHMARKS_DIR,
     scenariosDirectory: SCENARIOS_DIR,
     id,
+  })
+
+  return normalizeBenchmark(benchmark)
+}
+
+export async function getByName(name: string): Promise<Benchmark> {
+  const benchmark = await getBenchmarkByName({
+    benchmarksDirectory: BENCHMARKS_DIR,
+    scenariosDirectory: SCENARIOS_DIR,
+    name,
   })
 
   return normalizeBenchmark(benchmark)

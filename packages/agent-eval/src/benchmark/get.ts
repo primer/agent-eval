@@ -32,8 +32,8 @@ async function getBenchmark(options: GetBenchmarkOptions): Promise<Benchmark> {
   const identifier = options.id ?? options.name
   const benchmark =
     options.id === undefined
-      ? (benchmarks.find(candidate => candidate.name === options.name) ??
-        benchmarks.find(candidate => candidate.id === options.name))
+      ? (benchmarks.find(candidate => candidate.id === options.name) ??
+        benchmarks.find(candidate => candidate.name === options.name))
       : benchmarks.find(candidate => candidate.id === options.id)
   if (benchmark) {
     return benchmark

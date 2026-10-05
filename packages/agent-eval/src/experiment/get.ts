@@ -18,8 +18,8 @@ async function getExperiment(options: GetExperimentOptions): Promise<Experiment>
   const identifier = options.id ?? options.name
   const experiment =
     options.id === undefined
-      ? (experiments.find(candidate => candidate.name === options.name) ??
-        experiments.find(candidate => candidate.id === options.name))
+      ? (experiments.find(candidate => candidate.id === options.name) ??
+        experiments.find(candidate => candidate.name === options.name))
       : experiments.find(candidate => candidate.id === options.id)
   if (experiment) {
     return experiment

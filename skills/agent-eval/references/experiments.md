@@ -6,15 +6,16 @@ plugins, or execution backends on the same tasks. Use a
 
 ## Contract
 
-| Item                | Rule                                                                       |
-| :------------------ | :------------------------------------------------------------------------- |
-| File and import     | `experiments/<id>.ts`; `defineConfig` from `@primer/agent-eval/experiment` |
-| Export              | Prefer named `experiment`; default also supported                          |
-| Required fields     | `name`, `description`, `models`, `scenarios`, `treatments`                 |
-| Optional fields     | `setup`, `runners`                                                         |
-| CLI identifier      | Filename without extension, not display `name`                             |
-| Scenario references | Folder IDs; alternatively `{path, name?}`                                  |
-| Runner default      | `copilot-cli`                                                              |
+| Item                | Rule                                                                          |
+| :------------------ | :---------------------------------------------------------------------------- |
+| File and import     | `experiments/<id>.ts`; `defineConfig` from `@primer/agent-eval/experiment`    |
+| Export              | Prefer named `experiment`; default also supported                             |
+| Required fields     | `name`, `description`, `models`, `treatments`, and `scenarios` or `benchmark` |
+| Optional fields     | `setup`, `runners`                                                            |
+| CLI identifier      | Filename without extension, not display `name`                                |
+| Scenario references | Folder IDs; alternatively `{path, name?}`                                     |
+| Benchmark reference | Filename ID without extension; use instead of `scenarios`                     |
+| Runner default      | `copilot-cli`                                                                 |
 
 Top-level `setup` runs for **all trials, including control**. Put only neutral
 prerequisites there. Treatment setup runs afterward and installs the intervention.
@@ -22,6 +23,12 @@ Do not put the tested resource in shared setup or the fixture.
 
 The harness adds `Control` automatically. Treatment names must be unique and
 cannot be `Control`. `treatments: []` runs control only.
+
+Use `benchmark: 'design-system'` instead of `scenarios` to compare treatments
+across each distinct scenario in a benchmark's capabilities. Experiment models
+and setup apply; benchmark models and setup do not. Benchmarks default to
+`./benchmarks`; pass `--benchmarks <directory>` to `experiment run`,
+`experiment plan create`, and `experiment plan run` for another directory.
 
 ## Minimal example
 

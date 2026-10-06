@@ -2,9 +2,9 @@
 
 Experiments are used to determine how different setups (or treatments) affect the performance of an agent on a given task. By default, they live in an `experiments` folder in your project.
 
-Each experiment defines a set of scenarios that are used to evaluate the
-performance of each treatment. An experiment also defines a set of models to
-use.
+Each experiment defines a set of scenarios, or references a benchmark whose
+scenarios are used to evaluate each treatment. An experiment also defines a set
+of models to use.
 
 As an example, you may want to design an experiment comparing the performance of
 your MCP server to a skills based approach. With this in mind, you create two
@@ -49,6 +49,14 @@ export default defineConfig({
   ],
 })
 ```
+
+To compare treatments across a benchmark instead, replace `scenarios` with
+`benchmark: 'design-system'`, using the benchmark file's name without its
+extension. The experiment runs each distinct scenario from all benchmark
+capabilities once per model and treatment. It uses the experiment's models and
+setup, not the benchmark's models or setup. Benchmarks are read from
+`./benchmarks` by default; use `--benchmarks <directory>` with `experiment run`,
+`experiment plan create`, and `experiment plan run` when stored elsewhere.
 
 ## CLI
 

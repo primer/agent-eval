@@ -99,3 +99,92 @@ test.each([{runners: []}, {runners: ['sdk']}, {runners: ['unknown']}])(
     ).toBe(false)
   },
 )
+
+test('plans and restores an experiment over the unique scenarios of a benchmark', async () => {
+  const host = VirtualHost.create({
+    '/experiments/example.ts': `export default ${JSON.stringify({
+      name: 'Example',
+      description: 'Compare treatments on a benchmark',
+      models: ['gpt-5.5'],
+      benchmark: 'design-system',
+      treatments: [{name: 'Skill'}],
+    })}`,
+    '/benchmarks/design-system.ts': `export default ${JSON.stringify({
+      name: 'Design System',
+      description: 'Example benchmark',
+      models: ['gpt-5.5'],
+      capabilities: [
+        {name: 'Components', scenarios: ['first', 'shared']},
+        {name: 'Layouts', scenarios: ['shared', 'second']},
+      ],
+    })}`,
+    ...Object.fromEntries(
+      ['first', 'shared', 'second'].flatMap(name => [
+        [`/scenarios/${name}/package.json`, '{}'],
+        [`/scenarios/${name}/scenario.config.ts`, 'export default {prompt: "Create a page"}'],
+      ]),
+    ),
+  })
+  const options = {
+    host,
+    benchmarksDirectory: '/benchmarks',
+    experimentsDirectory: '/experiments',
+    scenariosDirectory: '/scenarios',
+  }
+
+  const experiment = await getExperiment({...options, name: 'example'})
+  const plan = createExperimentPlan({experiment})
+  const manifest = createExperimentPlanManifest({experiment, plan})
+  const restored = await parseExperimentPlanManifest({...options, contents: JSON.stringify(manifest)})
+
+  expect(experiment.scenarios.map(scenario => scenario.id)).toEqual(['first', 'shared', 'second'])
+  expect(plan.trials.map(trial => trial.scenario.id).sort()).toEqual([
+    'first',
+    'first',
+    'second',
+    'second',
+    'shared',
+    'shared',
+  ])
+  expect(restored.trials).toEqual(plan.trials)
+})
+
+test('rejects a missing benchmark referenced by an experiment', async () => {
+  const host = VirtualHost.create({
+    '/experiments/example.ts': `export default ${JSON.stringify({
+      name: 'Example',
+      description: 'Example experiment',
+      models: ['gpt-5.5'],
+      benchmark: 'missing',
+      treatments: [],
+    })}`,
+    '/benchmarks/other.ts': 'export default {}',
+  })
+
+  await expect(
+    getExperiment({
+      host,
+      benchmarksDirectory: '/benchmarks',
+      experimentsDirectory: '/experiments',
+      scenariosDirectory: '/scenarios',
+      name: 'example',
+    }),
+  ).rejects.toThrow('Benchmark "missing" was not found in: /benchmarks')
+})
+
+test.each([
+  {scenarios: undefined, benchmark: undefined},
+  {scenarios: ['example'], benchmark: 'design-system'},
+  {scenarios: undefined, benchmark: ''},
+])('requires either scenarios or a benchmark, but not both: %j', ({scenarios, benchmark}) => {
+  expect(
+    ExperimentConfigSchema.safeParse({
+      name: 'Example',
+      description: 'Example experiment',
+      models: ['gpt-5.5'],
+      scenarios,
+      benchmark,
+      treatments: [],
+    }).success,
+  ).toBe(false)
+})

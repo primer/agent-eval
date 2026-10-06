@@ -1,6 +1,7 @@
 import path from 'node:path'
 import {prettifyError} from 'zod/mini'
 import {DefaultHost, type Host} from '../host'
+import {getBenchmark} from '../benchmark/get'
 import {logger} from '../logger'
 import {getModelVariants} from '../model'
 import {getScenario} from '../scenario/get'
@@ -17,12 +18,14 @@ type ExperimentModule = {
 }
 
 type ListExperimentsOptions = {
+  benchmarksDirectory?: string
   experimentsDirectory: string
   host?: Host
   scenariosDirectory: string
 }
 
 async function listExperiments({
+  benchmarksDirectory = path.resolve('benchmarks'),
   experimentsDirectory,
   host = DefaultHost,
   scenariosDirectory,
@@ -62,16 +65,32 @@ async function listExperiments({
     }
 
     const {data: config} = parseResult
-    const scenarios = await Promise.all(
-      config.scenarios.map(scenario => {
-        if (typeof scenario === 'string') {
-          return getScenario({host, directory: scenariosDirectory, name: scenario})
-        }
+    const scenarios =
+      config.benchmark !== undefined
+        ? [
+            ...new Map(
+              (
+                await getBenchmark({
+                  benchmarksDirectory,
+                  host,
+                  name: config.benchmark,
+                  scenariosDirectory,
+                })
+              ).capabilities
+                .flatMap(capability => capability.scenarios)
+                .map(scenario => [scenario.id, scenario] as const),
+            ).values(),
+          ]
+        : await Promise.all(
+            (config.scenarios ?? []).map(scenario => {
+              if (typeof scenario === 'string') {
+                return getScenario({host, directory: scenariosDirectory, name: scenario})
+              }
 
-        const directory = path.resolve(scenario.path)
-        return loadScenario({host, directory, name: scenario.name})
-      }),
-    )
+              const directory = path.resolve(scenario.path)
+              return loadScenario({host, directory, name: scenario.name})
+            }),
+          )
 
     experiments.push({
       id: getExperimentId(filename),

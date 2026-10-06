@@ -104,6 +104,7 @@ type ExperimentPlanManifest = {
 }
 
 type ParseExperimentPlanManifestOptions = {
+  benchmarksDirectory?: string
   experimentsDirectory: string
   contents: string
   host?: Host
@@ -111,6 +112,7 @@ type ParseExperimentPlanManifestOptions = {
 }
 
 async function parseExperimentPlanManifest({
+  benchmarksDirectory,
   experimentsDirectory,
   contents,
   host,
@@ -118,6 +120,7 @@ async function parseExperimentPlanManifest({
 }: ParseExperimentPlanManifestOptions): Promise<ExperimentPlanManifest> {
   const result = ExperimentPlanManifestFileSchema.parse(JSON.parse(contents))
   const experiment = await getExperiment({
+    benchmarksDirectory,
     experimentsDirectory,
     host,
     name: result.id,

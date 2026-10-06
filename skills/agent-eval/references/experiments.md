@@ -44,6 +44,11 @@ Pass `benchmarksDirectory` explicitly when loading benchmark-backed experiments
 through the library. It has no library default and can be omitted or undefined
 for scenario-only experiments. The CLI still supplies its selected directory.
 
+Plans preserve capability membership and reject benchmark grouping changes on
+replay. Create a new plan after changing the benchmark. Result bundles snapshot
+the benchmark hierarchy, so historical results do not depend on the current
+benchmark configuration. Terminal reports group comparisons by capability.
+
 ## Minimal example
 
 Prerequisite: create `001-labels` from [getting started](getting-started.md).

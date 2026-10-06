@@ -1,18 +1,34 @@
 import * as z from 'zod/mini'
 import type {Benchmark} from '../benchmark/benchmark'
 
-const ExperimentBenchmarkSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  capabilities: z.record(
-    z.string(),
-    z.object({
-      id: z.string(),
-      name: z.string(),
-      scenarioIds: z.array(z.string()),
-    }),
-  ),
-})
+const ExperimentBenchmarkSchema = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    capabilities: z.record(
+      z.string(),
+      z.object({
+        id: z.string(),
+        name: z.string(),
+        scenarioIds: z.array(z.string()),
+      }),
+    ),
+  })
+  .check(
+    z.refine(
+      benchmark => {
+        const names = new Set<string>()
+        for (const [id, capability] of Object.entries(benchmark.capabilities)) {
+          if (id !== capability.id || names.has(capability.name)) {
+            return false
+          }
+          names.add(capability.name)
+        }
+        return true
+      },
+      {message: 'Invalid or duplicate capability metadata'},
+    ),
+  )
 
 type ExperimentBenchmark = z.infer<typeof ExperimentBenchmarkSchema>
 

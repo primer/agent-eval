@@ -14,8 +14,11 @@ import {
   TrialJudgesSchema,
   TrialWalkthroughSchema,
 } from '../trial/run'
-import type {Experiment} from './experiment'
+import {getExperimentScenarios} from './experiment'
 import type {Trial} from '../trial/trial'
+import type {ExperimentRunResult} from './run'
+import {getExperimentTreatments} from './plan'
+import {ExperimentBenchmarkSchema, createExperimentBenchmark, type ExperimentBenchmark} from './benchmark'
 
 const ExperimentTrialOutputSchema = z.object({
   agent: TrialAgentSchema,
@@ -27,6 +30,7 @@ const ExperimentTrialOutputSchema = z.object({
   runner: z.optional(CopilotRunnerSchema),
   scenarioId: z.string(),
   treatmentId: z.string(),
+  capabilityId: z.optional(z.string()),
   walkthrough: TrialWalkthroughSchema,
 })
 
@@ -52,6 +56,7 @@ type TreatmentOutput = z.infer<typeof TreatmentOutputSchema>
 
 const ExperimentOutputFileSchema = z.object({
   id: z.string(),
+  benchmark: z.optional(ExperimentBenchmarkSchema),
   scenarios: z.record(z.string(), ScenarioOutputSchema),
   treatments: z.record(z.string(), TreatmentOutputSchema),
   trials: z.record(z.string(), z.string()),
@@ -61,25 +66,82 @@ type ExperimentOutputFile = z.infer<typeof ExperimentOutputFileSchema>
 
 type ExperimentOutput = {
   id: string
+  benchmark?: ExperimentBenchmark
   scenarios: Map<string, ScenarioOutput>
   treatments: Map<string, TreatmentOutput>
   trials: Map<string, ExperimentTrialOutput>
 }
 
-type CreateExperimentOutputOptions = {
-  experiment: Experiment
-  runPlanResult: RunPlanResult<Trial>
+function parseExperimentTrialOutput(json: unknown, benchmark?: ExperimentBenchmark): ExperimentTrialOutput {
+  const trial = ExperimentTrialOutputSchema.parse(json)
+  if (benchmark) {
+    const capability = trial.capabilityId === undefined ? undefined : benchmark.capabilities[trial.capabilityId]
+    if (!capability || capability.id !== trial.capabilityId || !capability.scenarioIds.includes(trial.scenarioId)) {
+      throw new Error(
+        `Invalid capability "${trial.capabilityId}" for scenario "${trial.scenarioId}" in trial "${trial.id}"`,
+      )
+    }
+  } else if (trial.capabilityId !== undefined) {
+    throw new Error(`Unexpected capability in scenario experiment trial: ${trial.id}`)
+  }
+  return trial
 }
 
-function createExperimentOutput({experiment, runPlanResult}: CreateExperimentOutputOptions): ExperimentOutput {
+function createTrialOutput({trial, result}: RunPlanResult<Trial>['results'][number]): ExperimentTrialOutput {
+  return {
+    agent: result.agent,
+    artifacts: result.artifacts,
+    checks: result.checks,
+    id: trial.id,
+    judges: result.judges,
+    model: trial.model,
+    runner: trial.runner ?? 'copilot-cli',
+    scenarioId: trial.scenario.id,
+    treatmentId: trial.treatment.id,
+    walkthrough: result.walkthrough,
+  }
+}
+
+function createExperimentOutput(run: ExperimentRunResult): ExperimentOutput {
+  const {experiment} = run
   const result: ExperimentOutput = {
     id: experiment.id,
     scenarios: new Map(),
     treatments: new Map(),
     trials: new Map(),
   }
+  if (run.type === 'benchmark') {
+    result.benchmark = createExperimentBenchmark(run.experiment.benchmark)
+    for (const scenario of getExperimentScenarios(experiment)) {
+      result.scenarios.set(scenario.id, ScenarioOutputSchema.parse(scenario))
+    }
+    for (const treatment of getExperimentTreatments(experiment).values()) {
+      result.treatments.set(treatment.id, {
+        id: treatment.id,
+        name: treatment.name,
+      })
+    }
+  }
 
-  for (const {trial, result: trialResult} of runPlanResult.results) {
+  const entries =
+    run.type === 'benchmark'
+      ? run.runPlanResult.results.map(entry => {
+          return {
+            trial: entry.trial,
+            output: {
+              ...createTrialOutput(entry),
+              capabilityId: entry.trial.capability.id,
+            },
+          }
+        })
+      : run.runPlanResult.results.map(entry => {
+          return {
+            trial: entry.trial,
+            output: createTrialOutput(entry),
+          }
+        })
+
+  for (const {trial, output} of entries) {
     if (!result.scenarios.has(trial.scenario.id)) {
       result.scenarios.set(trial.scenario.id, ScenarioOutputSchema.parse(trial.scenario))
     }
@@ -91,18 +153,7 @@ function createExperimentOutput({experiment, runPlanResult}: CreateExperimentOut
       })
     }
 
-    result.trials.set(trial.id, {
-      agent: trialResult.agent,
-      artifacts: trialResult.artifacts,
-      checks: trialResult.checks,
-      id: trial.id,
-      judges: trialResult.judges,
-      model: trial.model,
-      runner: trial.runner ?? 'copilot-cli',
-      scenarioId: trial.scenario.id,
-      treatmentId: trial.treatment.id,
-      walkthrough: trialResult.walkthrough,
-    })
+    result.trials.set(trial.id, parseExperimentTrialOutput(output, result.benchmark))
   }
 
   return result
@@ -127,10 +178,14 @@ async function mergeExperimentOutputFiles({
   const treatments = new Map<string, TreatmentOutput>()
   const trials = new Map<string, ExperimentTrialOutput>()
   const id = outputs[0].id
+  const benchmark = outputs[0].benchmark
 
   for (const output of outputs) {
     if (id !== output.id) {
       throw new Error(`Cannot merge experiment output files: mismatched experiment IDs (${id} !== ${output.id})`)
+    }
+    if (JSON.stringify(benchmark) !== JSON.stringify(output.benchmark)) {
+      throw new Error('Cannot merge experiment output files: conflicting benchmark metadata')
     }
 
     mergeMetadata(scenarios, output.scenarios, 'scenario')
@@ -144,7 +199,7 @@ async function mergeExperimentOutputFiles({
       const filepath = await resolveTrialArtifactsPath(host, outputDirectory, value)
 
       const contents = await host.fs.readFile(filepath, 'utf-8')
-      const trialOutput = ExperimentTrialOutputSchema.parse(JSON.parse(contents))
+      const trialOutput = parseExperimentTrialOutput(JSON.parse(contents), output.benchmark)
       if (trialOutput.id !== key) {
         throw new Error(`Cannot merge experiment output files: mismatched trial ID for: ${key}`)
       }
@@ -153,7 +208,7 @@ async function mergeExperimentOutputFiles({
     }
   }
 
-  return {id, scenarios, treatments, trials}
+  return {id, scenarios, treatments, trials, ...(benchmark ? {benchmark} : {})}
 }
 
 function mergeMetadata<T>(target: Map<string, T>, source: Record<string, T>, type: string): void {
@@ -186,6 +241,7 @@ async function writeExperimentOutput({host = DefaultHost, output, outputPath}: W
 
   const experimentFile: ExperimentOutputFile = {
     id: output.id,
+    ...(output.benchmark ? {benchmark: output.benchmark} : {}),
     scenarios: Object.fromEntries(output.scenarios),
     treatments: Object.fromEntries(output.treatments),
     trials: Object.fromEntries(trials),
@@ -231,5 +287,6 @@ export {
   listExperimentOutputFiles,
   mergeExperimentOutputFiles,
   writeExperimentOutput,
+  parseExperimentTrialOutput,
 }
 export type {ExperimentOutput, ExperimentTrialOutput}

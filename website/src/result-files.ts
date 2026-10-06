@@ -8,6 +8,7 @@ const {
   parseBenchmarkTrialOutput,
   ExperimentOutputFileSchema,
   ExperimentTrialOutputSchema,
+  parseExperimentTrialOutput,
 } = await import(
   /* turbopackIgnore: true */
   '@primer/agent-eval'
@@ -96,8 +97,12 @@ async function readExperimentOutput(filepath: string): Promise<ExperimentOutput 
   if (trials === null) {
     return null
   }
+  for (const [id, trial] of trials) {
+    trials.set(id, parseExperimentTrialOutput(trial, file.benchmark))
+  }
   return {
     id: file.id,
+    ...(file.benchmark ? {benchmark: file.benchmark} : {}),
     scenarios: new Map(Object.entries(file.scenarios)),
     treatments: new Map(Object.entries(file.treatments)),
     trials,

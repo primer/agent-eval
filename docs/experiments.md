@@ -72,6 +72,12 @@ Reference benchmarks by filename without the extension, such as
 `benchmark: 'design-system'` for `benchmarks/design-system.ts`. The `--benchmarks`
 option selects another benchmark directory for experiment run and plan commands.
 
+Results retain capability membership and a snapshot of the benchmark's name and
+scenario grouping. A scenario used by multiple capabilities has separate trials
+for each membership. Terminal reports show capabilities before their treatment
+and scenario breakdowns. Saved plans reject changed benchmark grouping when
+replayed; create a new plan after editing the benchmark.
+
 You can interact with experiments using the `experiments` subcommand of the `agent-eval` CLI. This sub-command gives you access to run experiments, create run plans to use for sharding, or merge the results of a plan.
 
 Use `agent-eval experiments --help` to see the available commands and options.

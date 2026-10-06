@@ -37,6 +37,7 @@ async function writeBundle(
     filepath,
     JSON.stringify({
       id: output.id,
+      ...(output.benchmark ? {benchmark: output.benchmark} : {}),
       scenarios: Object.fromEntries(output.scenarios),
       treatments: Object.fromEntries(output.treatments),
       trials: Object.fromEntries(trialPaths),
@@ -66,6 +67,22 @@ test.each(['benchmark', 'experiment'] as const)(
     expect(details.results[0].counts.checks).toEqual([...output.trials.values()][0].checks.length)
   },
 )
+
+test('reads benchmark-backed experiments from their saved snapshot and rejects invalid membership', async () => {
+  const directory = await createDirectory()
+  const output = createExperimentOutput([createTrial({capabilityId: 'a'})])
+  output.benchmark = {
+    id: 'suite',
+    name: 'Saved suite',
+    capabilities: {a: {id: 'a', name: 'Saved capability', scenarioIds: ['empty-state']}},
+  }
+  const filepath = await writeBundle(directory, output)
+
+  expect(await readExperimentOutput(filepath)).toEqual(output)
+  const invalid = createTrial({capabilityId: 'unknown'})
+  await fs.writeFile(path.join(directory, 'artifacts/trial-1/trial-1.json'), JSON.stringify(invalid))
+  await expect(readExperimentOutput(filepath)).rejects.toThrow('Invalid capability')
+})
 
 test.each([
   {key: 'benchmarkId', read: readBenchmarkOutput},

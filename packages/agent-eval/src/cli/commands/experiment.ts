@@ -9,9 +9,9 @@ import {
   writeExperimentOutput,
 } from '../../experiment/output'
 import {createExperimentPlan, createExperimentPlanManifest, parseExperimentPlanManifest} from '../../experiment/plan'
+import {runExperimentPlan} from '../../experiment/run'
 import {DefaultHost as host} from '../../host'
 import {logger} from '../../logger'
-import {createPlanFromManifest, runPlan} from '../../plan'
 import {parseShard} from '../../shard'
 import {
   copilotConcurrencyOption,
@@ -189,17 +189,18 @@ const experimentCommand = defineCommand({
               shard ? `(${shard.order}/${shard.total})` : '',
             )
 
-            const plan = createPlanFromManifest({shard, trials: manifest.plan.trials, runner: args.runner})
-            const runPlanResult = await runPlan({
+            const result = await runExperimentPlan({
               artifactsDirectory,
               copilotConcurrency,
               containerConcurrency,
               copilotToken,
-              plan,
+              plan: manifest,
+              shard,
+              runner: args.runner,
             })
-            const output = createExperimentOutput({experiment: manifest.experiment, runPlanResult})
+            const output = createExperimentOutput(result)
             await writeExperimentOutput({output, outputPath})
-            process.stdout.write(`${createExperimentReport({experiment: manifest.experiment, runPlanResult})}\n`)
+            process.stdout.write(`${createExperimentReport(result)}\n`)
           },
         }),
       },
@@ -253,19 +254,19 @@ const experimentCommand = defineCommand({
           benchmarksDirectory: path.resolve(args.benchmarks),
         })
         const plan = createExperimentPlan({experiment, runner: args.runner})
-        const runPlanResult = await runPlan({
+        const result = await runExperimentPlan({
           artifactsDirectory,
           copilotConcurrency,
           containerConcurrency,
           copilotToken,
-          plan: plan.plan,
+          plan,
         })
-        const output = createExperimentOutput({experiment, runPlanResult})
+        const output = createExperimentOutput(result)
         await writeExperimentOutput({
           output,
           outputPath,
         })
-        process.stdout.write(`${createExperimentReport({experiment, runPlanResult})}\n`)
+        process.stdout.write(`${createExperimentReport(result)}\n`)
       },
     }),
   },

@@ -159,4 +159,4 @@ async function retry<T>(fn: () => Promise<T>, retries: number = 3): Promise<T> {
 }
 
 export {createPlan, createPlanFromManifest, runPlan}
-export type {Plan, RunPlanResult}
+export type {Plan, RunPlanResult, RunPlanOptions}

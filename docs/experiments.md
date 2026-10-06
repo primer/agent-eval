@@ -52,6 +52,26 @@ export default defineConfig({
 
 ## CLI
 
+### Running against a benchmark
+
+Use `benchmark: '<filename-id>'` instead of `scenarios` to evaluate every
+capability and scenario in an existing benchmark. Specify exactly one of these
+fields. Models and runners come from the experiment, not the benchmark.
+
+Benchmark-backed experiments automatically run `Control` and `Benchmark`
+alongside your configured treatments. `Benchmark` uses the benchmark's
+top-level setup; other treatments do not inherit it. Both names are reserved in
+benchmark-backed experiments. An empty `treatments` array compares the two
+references.
+
+Scenario setup runs first, followed by capability setup, experiment setup,
+and the selected treatment's setup. Capability and experiment setup apply to
+every treatment, including Control, so keep them neutral.
+
+Reference benchmarks by filename without the extension, such as
+`benchmark: 'design-system'` for `benchmarks/design-system.ts`. The `--benchmarks`
+option selects another benchmark directory for experiment run and plan commands.
+
 You can interact with experiments using the `experiments` subcommand of the `agent-eval` CLI. This sub-command gives you access to run experiments, create run plans to use for sharding, or merge the results of a plan.
 
 Use `agent-eval experiments --help` to see the available commands and options.

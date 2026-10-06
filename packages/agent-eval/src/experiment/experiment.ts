@@ -2,6 +2,7 @@ import type {ExperimentConfig} from './config'
 import type {ModelVariant} from '../model'
 import type {Scenario} from '../scenario/scenario'
 import type {Treatment, TreatmentSetup} from '../treatment'
+import type {Benchmark} from '../benchmark/benchmark'
 
 type Experiment = {
   id: string
@@ -13,6 +14,7 @@ type Experiment = {
   scenarios: Array<Scenario>
   setup?: TreatmentSetup
   treatments: Array<Treatment>
+  benchmark?: Benchmark
 }
 
 export type {Experiment}

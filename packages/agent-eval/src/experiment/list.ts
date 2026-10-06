@@ -8,6 +8,7 @@ import {loadScenario} from '../scenario/load'
 import {createTreatment} from '../treatment'
 import {ExperimentConfigSchema} from './config'
 import type {Experiment} from './experiment'
+import {getBenchmark} from '../benchmark/get'
 
 const EXPERIMENT_FILE_EXTENSIONS = new Set(['.cjs', '.js', '.mjs', '.ts'])
 
@@ -20,12 +21,14 @@ type ListExperimentsOptions = {
   experimentsDirectory: string
   host?: Host
   scenariosDirectory: string
+  benchmarksDirectory?: string
 }
 
 async function listExperiments({
   experimentsDirectory,
   host = DefaultHost,
   scenariosDirectory,
+  benchmarksDirectory = path.resolve('./benchmarks'),
 }: ListExperimentsOptions): Promise<Array<Experiment>> {
   if (!host.existsSync(experimentsDirectory)) {
     throw new Error(`Experiments directory does not exist: ${experimentsDirectory}`)
@@ -62,16 +65,30 @@ async function listExperiments({
     }
 
     const {data: config} = parseResult
-    const scenarios = await Promise.all(
-      config.scenarios.map(scenario => {
-        if (typeof scenario === 'string') {
-          return getScenario({host, directory: scenariosDirectory, name: scenario})
-        }
+    const benchmark =
+      config.benchmark !== undefined
+        ? await getBenchmark({host, benchmarksDirectory, scenariosDirectory, name: config.benchmark})
+        : undefined
+    const scenarios = benchmark
+      ? [
+          ...new Map(
+            benchmark.capabilities.flatMap(capability => {
+              return capability.scenarios.map(scenario => {
+                return [scenario.id, scenario] as const
+              })
+            }),
+          ).values(),
+        ]
+      : await Promise.all(
+          (config.scenarios ?? []).map(scenario => {
+            if (typeof scenario === 'string') {
+              return getScenario({host, directory: scenariosDirectory, name: scenario})
+            }
 
-        const directory = path.resolve(scenario.path)
-        return loadScenario({host, directory, name: scenario.name})
-      }),
-    )
+            const directory = path.resolve(scenario.path)
+            return loadScenario({host, directory, name: scenario.name})
+          }),
+        )
 
     experiments.push({
       id: getExperimentId(filename),
@@ -85,6 +102,7 @@ async function listExperiments({
       treatments: config.treatments.map(treatment => {
         return createTreatment(treatment)
       }),
+      benchmark,
     })
   }
 

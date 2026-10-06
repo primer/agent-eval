@@ -14,27 +14,28 @@ type InlineScenarioConfig = {
   path: string
 }
 
-type ExperimentConfig = {
+type ExperimentOptions = {
   name: string
   description: string
   models: Array<ModelVariantConfig>
   runners?: Array<CopilotRunner>
-  scenarios: Array<string | InlineScenarioConfig>
   setup?: TreatmentSetup
   treatments: Array<TreatmentConfig>
 }
+
+type ExperimentConfig = ExperimentOptions &
+  ({scenarios: Array<string | InlineScenarioConfig>; benchmark?: never} | {benchmark: string; scenarios?: never})
 
 const InlineScenarioConfigSchema = z.object({
   name: z.optional(z.string()),
   path: z.string(),
 }) satisfies z.ZodMiniType<InlineScenarioConfig>
 
-const ExperimentConfigSchema = z.object({
+const ExperimentOptionsSchema = z.object({
   name: z.string(),
   description: z.string(),
   models: z.array(ModelVariantConfigSchema),
   runners: z.optional(z.array(CopilotRunnerSchema).check(z.minLength(1))),
-  scenarios: z.array(z.union([z.string(), InlineScenarioConfigSchema])),
   setup: z.optional(TreatmentSetupSchema),
   treatments: z.array(TreatmentConfigSchema).check(
     z.refine(
@@ -53,7 +54,33 @@ const ExperimentConfigSchema = z.object({
       },
     ),
   ),
-}) satisfies z.ZodMiniType<ExperimentConfig>
+})
+
+const ExperimentConfigSchema = z.union([
+  z.extend(ExperimentOptionsSchema, {
+    scenarios: z.array(z.union([z.string(), InlineScenarioConfigSchema])),
+    benchmark: z.optional(z.never()),
+  }),
+  z.extend(ExperimentOptionsSchema, {
+    benchmark: z.string().check(z.minLength(1)),
+    scenarios: z.optional(z.never()),
+    treatments: z.array(TreatmentConfigSchema).check(
+      z.refine(
+        treatments => {
+          const names = new Set([ControlTreatment.name, 'Benchmark'])
+          for (const treatment of treatments) {
+            if (names.has(treatment.name)) {
+              return false
+            }
+            names.add(treatment.name)
+          }
+          return true
+        },
+        {message: 'Treatment names must be unique and cannot use the reserved names "Control" or "Benchmark"'},
+      ),
+    ),
+  }),
+]) satisfies z.ZodMiniType<ExperimentConfig>
 
 function defineConfig(config: ExperimentConfig): ExperimentConfig {
   return config

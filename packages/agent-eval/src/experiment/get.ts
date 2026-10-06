@@ -6,6 +6,7 @@ type GetExperimentOptions = {
   experimentsDirectory: string
   host?: Host
   scenariosDirectory: string
+  benchmarksDirectory?: string
   name: string
 }
 
@@ -14,11 +15,13 @@ async function getExperiment({
   host = DefaultHost,
   name,
   scenariosDirectory,
+  benchmarksDirectory,
 }: GetExperimentOptions): Promise<Experiment> {
   const experiments = await listExperiments({
     host,
     experimentsDirectory,
     scenariosDirectory,
+    benchmarksDirectory,
   })
   const experiment = experiments.find(candidate => {
     return candidate.id === name

@@ -45,5 +45,30 @@ function getTreatmentId(name: string): string {
   return hash(`Treatment:${name}`)
 }
 
-export {ControlTreatment, TreatmentConfigSchema, TreatmentSchema, TreatmentSetupSchema, createTreatment, getTreatmentId}
+function composeTreatmentSetup(...setups: Array<TreatmentSetup | undefined>): TreatmentSetup | undefined {
+  const callbacks = setups.filter((setup): setup is TreatmentSetup => {
+    return setup !== undefined
+  })
+  if (callbacks.length === 0) {
+    return undefined
+  }
+  if (callbacks.length === 1) {
+    return callbacks[0]
+  }
+  return async options => {
+    for (const setup of callbacks) {
+      await setup(options)
+    }
+  }
+}
+
+export {
+  ControlTreatment,
+  TreatmentConfigSchema,
+  TreatmentSchema,
+  TreatmentSetupSchema,
+  createTreatment,
+  getTreatmentId,
+  composeTreatmentSetup,
+}
 export type {TreatmentConfig, Treatment, TreatmentSetup}

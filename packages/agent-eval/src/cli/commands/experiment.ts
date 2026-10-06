@@ -15,6 +15,7 @@ import {createPlanFromManifest, runPlan} from '../../plan'
 import {parseShard} from '../../shard'
 import {
   copilotConcurrencyOption,
+  benchmarksOption,
   containerConcurrencyOption,
   experimentsOption,
   getConcurrencyValue,
@@ -83,6 +84,7 @@ const experimentCommand = defineCommand({
           },
           args: {
             experiments: experimentsOption,
+            benchmarks: benchmarksOption,
             name: {
               type: 'positional',
               description: 'The name of the experiment to plan',
@@ -111,6 +113,7 @@ const experimentCommand = defineCommand({
 
             const experiment = await getExperiment({
               experimentsDirectory,
+              benchmarksDirectory: path.resolve(args.benchmarks),
               scenariosDirectory,
               name: args.name,
             })
@@ -130,6 +133,7 @@ const experimentCommand = defineCommand({
           },
           args: {
             experiments: experimentsOption,
+            benchmarks: benchmarksOption,
             'copilot-concurrency': copilotConcurrencyOption,
             'container-concurrency': containerConcurrencyOption,
             'output-dir': outputDirectoryOption,
@@ -176,6 +180,7 @@ const experimentCommand = defineCommand({
               experimentsDirectory,
               contents,
               scenariosDirectory,
+              benchmarksDirectory: path.resolve(args.benchmarks),
             })
 
             logger.info(
@@ -206,6 +211,7 @@ const experimentCommand = defineCommand({
       },
       args: {
         experiments: experimentsOption,
+        benchmarks: benchmarksOption,
         'copilot-concurrency': copilotConcurrencyOption,
         'container-concurrency': containerConcurrencyOption,
         name: {
@@ -244,6 +250,7 @@ const experimentCommand = defineCommand({
           experimentsDirectory,
           scenariosDirectory,
           name: args.name,
+          benchmarksDirectory: path.resolve(args.benchmarks),
         })
         const plan = createExperimentPlan({experiment, runner: args.runner})
         const runPlanResult = await runPlan({

@@ -3,6 +3,11 @@
 **Use when:** establishing a stable capability baseline across models or over
 time. Use an [experiment](experiments.md) to compare multiple interventions.
 
+An experiment can use `benchmark: '<filename-id>'` instead of a scenario list.
+It reuses the capability suite and runs Control and Benchmark alongside its
+custom treatments. Standalone benchmark commands and their two-treatment
+behavior remain unchanged.
+
 ## Contract
 
 | Item                 | Rule                                                                     |

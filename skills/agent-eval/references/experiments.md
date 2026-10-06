@@ -88,6 +88,42 @@ your project.
 
 ## Run
 
+### Compare against an existing benchmark
+
+With `benchmarks/project.ts` from the [benchmark example](benchmarks.md), save
+this as `experiments/benchmark-comparison.ts`:
+
+```ts
+import {defineConfig} from '@primer/agent-eval/experiment'
+
+export const experiment = defineConfig({
+  name: 'Benchmark comparison',
+  description: 'Compare a task review instruction against the verification baseline',
+  models: [{name: 'gpt-5.4', reasoningEfforts: ['low']}],
+  benchmark: 'project',
+  treatments: [
+    {
+      name: 'Task review',
+      async setup({sandbox}) {
+        await sandbox.addAgentInstruction('Review the task requirements against the implementation before finishing.')
+      },
+    },
+  ],
+})
+```
+
+```sh
+npx agent-eval experiment plan create benchmark-comparison --output-path ./benchmark-comparison-plan.json
+npx agent-eval experiment plan run --plan-path ./benchmark-comparison-plan.json --output-dir ./results/benchmark-comparison-01
+```
+
+This one-model, one-scenario-membership example plans three trials: Control,
+Benchmark, and Task review. Their prompt, fixture, graders, model, effort,
+runner, and capability are held fixed. The Benchmark trial uses the benchmark's
+verification instruction; Task review uses only its own instruction.
+
+### Compare a scenario list
+
 ```sh
 npx agent-eval experiment plan create verification --output-path ./verification-plan.json
 npx agent-eval experiment plan run --plan-path ./verification-plan.json --output-dir ./results/verification-01
@@ -110,8 +146,12 @@ Start with one model, effort, scenario, runner, and treatment beyond control.
 The matrix expands as follows:
 
 ```text
-trials = model variants * scenarios * unique runners * (configured treatments + 1)
+scenario experiment trials = model variants * scenarios * unique runners * (configured treatments + 1)
+benchmark experiment trials = model variants * scenario memberships * unique runners * (configured treatments + 2)
 ```
+
+Scenario memberships are the sum of the scenario counts in all capabilities,
+including a separate membership when a scenario belongs to multiple capabilities.
 
 `runners: ['copilot-cli', 'copilot-sdk']` adds a backend comparison. Changing both
 runner and resource confounds their effects; see [models and runners](models-and-runners.md).

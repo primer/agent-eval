@@ -5,25 +5,30 @@ agent without changing its task or grader.
 
 ## Contract
 
-| Item           | Rule                                                           |
-| :------------- | :------------------------------------------------------------- |
-| Required field | Unique `name`; `Control` is reserved                           |
-| Optional field | `async setup({sandbox})`                                       |
-| Identity       | Name-derived ID; keep names stable when reusing plans          |
-| Setup API      | Use the supplied [sandbox](sandbox.md), not the host workspace |
+| Item           | Rule                                                                                               |
+| :------------- | :------------------------------------------------------------------------------------------------- |
+| Required field | Unique `name`; `Control` is reserved, and `Benchmark` is reserved for benchmark-backed experiments |
+| Optional field | `async setup({sandbox})`                                                                           |
+| Identity       | Name-derived ID; keep names stable when reusing plans                                              |
+| Setup API      | Use the supplied [sandbox](sandbox.md), not the host workspace                                     |
 
 The automatic `Control` has no treatment setup. It still receives the common
 fixture, dependency installation, shared setup, and runtime tools.
 
-| Setup location               | Applies to                                        |
-| :--------------------------- | :------------------------------------------------ |
-| Experiment top-level `setup` | All experiment trials, including control          |
-| Experiment treatment `setup` | That treatment only                               |
-| Benchmark top-level `setup`  | `Benchmark` treatment only                        |
-| Benchmark capability `setup` | Both `Control` and `Benchmark` in that capability |
+| Setup location               | Applies to                                                         |
+| :--------------------------- | :----------------------------------------------------------------- |
+| Experiment top-level `setup` | All experiment trials, including control                           |
+| Experiment treatment `setup` | That treatment only                                                |
+| Benchmark top-level `setup`  | `Benchmark` treatment only                                         |
+| Benchmark capability `setup` | All treatments in that capability, including experiment treatments |
 
 Shared setup runs before treatment setup. Do not accidentally give the tested
 resource to control by installing it in shared setup or the fixture.
+
+In a benchmark-backed experiment, setup runs in this order: scenario,
+capability, experiment, selected treatment. Benchmark-level setup remains
+exclusive to the automatic Benchmark treatment. Experiment models and runners
+apply to Control, Benchmark, and every configured treatment.
 
 ## Setup fragments
 

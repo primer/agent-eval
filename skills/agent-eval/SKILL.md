@@ -33,6 +33,9 @@ not a prerequisite for every operation.
   beyond the automatic control.
 - Keep prompts and fixtures treatment-blind. Put the knowledge being tested in
   treatment setup, not shared setup.
+- For a benchmark-backed experiment, keep capability setup neutral. The automatic
+  Benchmark treatment supplies the existing standard without changing Control
+  or custom treatments.
 - Withhold grader files using `files`. Verify the starter fails for the intended
   reasons and a correct solution passes; restore the starter before execution.
 - Inspect the plan's combinations before running. Use a fresh output directory.

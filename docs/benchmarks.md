@@ -4,6 +4,11 @@ Benchmarks are used to establish a baseline for agent performance on a given tas
 
 Each benchmark is made up of a capabilities. These capabilities are used to determine if the agent is able to complete the task. Each capability has a name and a set of scenarios that are used to evaluate the agent's performance.
 
+To compare additional treatments against an existing benchmark, reference it
+from an [experiment](experiments.md#running-against-a-benchmark) with
+`benchmark: '<filename-id>'`. The experiment reuses its capabilities and adds
+Control and Benchmark reference treatments alongside your treatments.
+
 As an example, you may be creating a design system benchmark. In it, one of the
 capabilities is around the LLM's usage of icons from your system. You could have
 different scenarios within this icon usage capability that test the different

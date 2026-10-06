@@ -50,9 +50,7 @@ export default defineConfig({
 })
 ```
 
-## CLI
-
-### Running against a benchmark
+## Running against a benchmark
 
 Use `benchmark: '<filename-id>'` instead of `scenarios` to evaluate every
 capability and scenario in an existing benchmark. Specify exactly one of these
@@ -85,9 +83,46 @@ select a capability to see its scenario comparisons. Scenario links open the
 corresponding capability's trial details. The same matrix is available for
 historical runs and uses their saved benchmark metadata.
 
-You can interact with experiments using the `experiments` subcommand of the `agent-eval` CLI. This sub-command gives you access to run experiments, create run plans to use for sharding, or merge the results of a plan.
+For example, compare verification instructions to the standard configured in
+`benchmarks/example.ts`:
 
-Use `agent-eval experiments --help` to see the available commands and options.
+```ts
+// experiments/benchmark-comparison.ts
+import {defineConfig} from '@primer/agent-eval/experiment'
+
+export const experiment = defineConfig({
+  name: 'Benchmark comparison',
+  description: 'Compare verification instructions against the existing benchmark standard',
+  models: ['gpt-6-sol'],
+  benchmark: 'example',
+  treatments: [
+    {
+      name: 'Verification instructions',
+      async setup({sandbox}) {
+        await sandbox.addAgentInstruction('Before finishing, verify the implementation against the task requirements.')
+      },
+    },
+  ],
+})
+```
+
+Create a plan and inspect it before running:
+
+```sh
+npx agent-eval experiment plan create benchmark-comparison --output-path ./comparison-plan.json
+npx agent-eval experiment plan run --plan-path ./comparison-plan.json --output-dir ./results/comparison-01
+```
+
+The plan includes Control, Benchmark, and Verification instructions for each
+capability/scenario membership and model variant. An experiment's optional
+`runners` array adds a runner dimension, or `--runner` selects one backend when
+creating a new plan. To shard and merge, use the same experiment commands as for
+scenario-based experiments.
+
+No new overall benchmark score is calculated. Check metrics keep their existing
+units, directions, and treatment-specific coverage; resource usage is averaged
+per trial. A larger capability contributes more trials, not an implicitly
+equal-weighted capability score.
 
 ## Loaded experiments
 
@@ -108,3 +143,9 @@ New experiment plan manifests include the same `type` discriminator.
 Benchmark-backed plans require benchmark metadata and a `capabilityId` on every
 trial. Scenario-backed plans contain neither. Replay accepts existing untagged
 manifests and rejects changes to the experiment's source kind.
+
+## CLI
+
+You can interact with experiments using the `experiment` subcommand of the `agent-eval` CLI. This subcommand gives you access to run experiments, create run plans to use for sharding, or merge the results of a plan.
+
+Use `agent-eval experiment --help` to see the available commands and options.

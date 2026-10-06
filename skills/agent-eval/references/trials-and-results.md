@@ -5,13 +5,13 @@ treatments. Each trial has its own ID, sandbox, execution, and evidence.
 
 ## Contract
 
-| Item                        | Rule                                                                       |
-| :-------------------------- | :------------------------------------------------------------------------- |
-| Trial identity              | Scenario, treatment, model variant, runner; also capability for benchmarks |
-| Benchmark/experiment output | `output.json` manifest with `trials` mapping IDs to relative file paths    |
-| Trial result location       | `artifacts/<trial-id>/<trial-id>.json`                                     |
-| Scenario output             | `{id, results}`, with embedded results rather than a trial-file manifest   |
-| Quality evidence            | Check outcomes/measurements and judge results, not command exit alone      |
+| Item                        | Rule                                                                                                        |
+| :-------------------------- | :---------------------------------------------------------------------------------------------------------- |
+| Trial identity              | Scenario, treatment, model variant, runner; also capability for benchmarks and benchmark-backed experiments |
+| Benchmark/experiment output | `output.json` manifest with `trials` mapping IDs to relative file paths                                     |
+| Trial result location       | `artifacts/<trial-id>/<trial-id>.json`                                                                      |
+| Scenario output             | `{id, results}`, with embedded results rather than a trial-file manifest                                    |
+| Quality evidence            | Check outcomes/measurements and judge results, not command exit alone                                       |
 
 ## Lifecycle
 
@@ -42,6 +42,19 @@ artifacts/
 `output.json` is a manifest. Its `trials` object maps IDs to relative trial JSON
 paths, not embedded trial results. It includes scenario and treatment metadata;
 benchmark output also includes capability metadata.
+
+Benchmark-backed experiment output has a `benchmark` snapshot containing its
+ID, name, and capabilities, while each trial records a `capabilityId`. Keep the
+membership even when a scenario belongs to multiple capabilities; scenario ID
+alone cannot distinguish those trials. Use `parseExperimentTrialOutput(json,
+output.benchmark)` to parse and check membership against the saved snapshot.
+
+The website compares treatments side by side within capabilities, with separate
+model, effort, and runner selections. Select a metric and Control or Benchmark
+reference, then select a capability to inspect its scenarios. Latest and
+historical run pages use the saved hierarchy. Check metrics retain their units,
+directions, errors, skips, and coverage; resource metrics use per-trial averages.
+There is no new composite benchmark score.
 
 Resolve each trial file path relative to the output directory. Trial files
 include model, runner, treatment/scenario identifiers, checks, judges, agent

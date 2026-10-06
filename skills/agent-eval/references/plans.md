@@ -6,14 +6,14 @@ evaluations.
 
 ## Contract
 
-| Item             | Rule                                                                           |
-| :--------------- | :----------------------------------------------------------------------------- |
-| Input            | An existing benchmark/experiment and resolvable scenarios                      |
-| Manifest         | Configuration ID/name and uniquely identified trial combinations               |
-| Trial dimensions | Scenario, treatment, model/effort, runner; also capability for benchmarks      |
-| Plan creation    | Loads configs and validates references; no containers, setup hooks, or Copilot |
-| Plan execution   | Reloads local configs and resolves saved identifiers                           |
-| Shards           | One-based `order/total`; assignment by trial position                          |
+| Item             | Rule                                                                                                       |
+| :--------------- | :--------------------------------------------------------------------------------------------------------- |
+| Input            | An existing benchmark/experiment and resolvable scenarios                                                  |
+| Manifest         | Configuration ID/name and uniquely identified trial combinations                                           |
+| Trial dimensions | Scenario, treatment, model/effort, runner; also capability for benchmarks and benchmark-backed experiments |
+| Plan creation    | Loads configs and validates references; no containers, setup hooks, or Copilot                             |
+| Plan execution   | Reloads local configs and resolves saved identifiers                                                       |
+| Shards           | One-based `order/total`; assignment by trial position                                                      |
 
 Load only trusted configurations: creation executes their top-level module code
 even though it does not execute trials.
@@ -31,6 +31,12 @@ field. Benchmark-backed experiment plans include benchmark metadata and require
 a `capabilityId` on every trial; scenario-backed plans contain neither. Replay
 accepts older manifests without `type`, but rejects a change between scenario
 and benchmark sources.
+
+Benchmark-backed experiment plans also record the benchmark ID, name, and
+capability/scenario grouping. Replay rejects a changed hierarchy; create a new
+plan after editing it. This grouping snapshot does not freeze setup code or
+scenario contents. Pass `--benchmarks <dir>` to both plan create and plan run
+when the benchmark directory is not `./benchmarks`.
 
 ## Create and run
 

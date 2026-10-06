@@ -5,6 +5,9 @@ allowBuilds:
   ssh2: true
 
 minimumReleaseAge: 10080
+minimumReleaseAgeExclude:
+  - next
+  - '@next/*'
 
 packages:
   - 'benchmarks'

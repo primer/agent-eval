@@ -4,8 +4,8 @@ import {buildImage, getImageReference, type ImageBuild} from '../../docker'
 import {DEFAULT_DOCKER_IMAGE} from '../constants'
 import {getCopilotSdkRunnerScript} from '../../copilot-sdk'
 
-const COPILOT_CLI_VERSION = '1.0.89'
-const COPILOT_SDK_VERSION = '1.0.15'
+const COPILOT_CLI_VERSION = '1.0.92'
+const COPILOT_SDK_VERSION = '1.0.16'
 
 const DOCKERFILE = `ARG BASE_IMAGE
 

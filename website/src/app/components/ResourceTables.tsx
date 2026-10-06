@@ -88,6 +88,18 @@ export function ExperimentsTable({
               renderCell: row => <Link href={`/experiments/${row.id}`}>{row.name}</Link>,
             },
             {id: 'description', header: 'Description', field: 'description', maxWidth: '60ch'},
+            {
+              id: 'benchmark',
+              header: 'Benchmark',
+              field: 'benchmark',
+              renderCell: row => {
+                return row.benchmark ? (
+                  <Link href={`/benchmarks/${row.benchmark.id}`}>{row.benchmark.name}</Link>
+                ) : (
+                  'Scenarios'
+                )
+              },
+            },
             {id: 'models', header: 'Models', field: 'models', align: 'end'},
             {id: 'scenarios', header: 'Scenarios', field: 'scenarios', align: 'end'},
           ]}
@@ -95,6 +107,7 @@ export function ExperimentsTable({
             id: experiment.id,
             name: experiment.name,
             description: experiment.description,
+            benchmark: experiment.benchmark,
             models: experiment.models.length,
             scenarios: experiment.scenarios.length,
           }))}

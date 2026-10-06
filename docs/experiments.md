@@ -78,6 +78,13 @@ for each membership. Terminal reports show capabilities before their treatment
 and scenario breakdowns. Saved plans reject changed benchmark grouping when
 replayed; create a new plan after editing the benchmark.
 
+In the results website, benchmark-backed experiments show a capability
+comparison matrix with Control, Benchmark, and custom treatments side by side.
+Select a model, reasoning effort, runner, metric, and comparison reference, then
+select a capability to see its scenario comparisons. Scenario links open the
+corresponding capability's trial details. The same matrix is available for
+historical runs and uses their saved benchmark metadata.
+
 You can interact with experiments using the `experiments` subcommand of the `agent-eval` CLI. This sub-command gives you access to run experiments, create run plans to use for sharding, or merge the results of a plan.
 
 Use `agent-eval experiments --help` to see the available commands and options.

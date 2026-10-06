@@ -25,7 +25,7 @@ function renderEntry(entry: WorkspaceEntry, previewBase: string): WorkspaceEntry
 
 type Props = Omit<RunDetailsViewProps, 'run'> & {run: RunDetails}
 
-export function RunDetailsPage({resource, run}: Props) {
+export function RunDetailsPage({resource, run, comparison}: Props) {
   const results = run.results.map(result => {
     const workspace = result.workspace
     const segments = [resource.id, run.date, result.id].map(segment => {
@@ -46,5 +46,5 @@ export function RunDetailsPage({resource, run}: Props) {
     }
   })
 
-  return <RunDetailsView resource={resource} run={{...run, results}} />
+  return <RunDetailsView resource={resource} run={{...run, results}} comparison={comparison} />
 }

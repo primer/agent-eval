@@ -74,3 +74,16 @@ test('propagates result loading errors instead of displaying an empty success st
   await expect(getExperimentsOverview()).rejects.toThrow('Invalid result bundle')
   await expect(getExperimentPageData('example')).rejects.toThrow('Invalid result bundle')
 })
+
+test('identifies benchmark experiments using the saved benchmark name when results exist', async () => {
+  vi.mocked(list).mockResolvedValue([{...experiment, benchmark: {id: 'suite', name: 'Current name'}}])
+  const run = createRun([createResult({capabilityId: 'a'})])
+  run.output.benchmark = {
+    id: 'suite',
+    name: 'Saved name',
+    capabilities: {a: {id: 'a', name: 'Capability', scenarioIds: ['scenario-a']}},
+  }
+  vi.mocked(getLatestForExperiment).mockResolvedValue(run)
+
+  expect(await getExperimentsOverview()).toMatchObject([{benchmark: {id: 'suite', name: 'Saved name'}}])
+})

@@ -6,6 +6,7 @@ import {useId} from 'react'
 import type {ExperimentResults, TreatmentResult} from '../../experiment-results'
 import {Link} from '../../components/Link'
 import {getScenarioAnchor} from '../../scenario-anchor'
+import {BenchmarkExperimentMatrix} from './BenchmarkExperimentResults'
 
 type ExperimentSummary = {
   id: string
@@ -13,6 +14,7 @@ type ExperimentSummary = {
   description: string
   date: string | null
   treatments: Array<TreatmentResult>
+  benchmark?: {id: string; name: string}
 }
 
 function formatNumber(value: number): string {
@@ -37,6 +39,7 @@ function TreatmentResultsTable({results, label}: {results: Array<TreatmentResult
           {id: 'treatment', header: 'Treatment', field: 'treatment', rowHeader: true},
           {id: 'model', header: 'Model', field: 'model'},
           {id: 'effort', header: 'Effort', field: 'reasoningEffort'},
+          {id: 'runner', header: 'Runner', field: 'runner'},
           {id: 'trials', header: 'Trials', field: 'trials', align: 'end'},
           {id: 'scenarios', header: 'Scenarios', field: 'scenarios', align: 'end'},
           {
@@ -102,7 +105,7 @@ function MetricsDescription() {
     <p className="text-muted">
       Checks show per-trial pass percentages or measurement means, averaged across trials. Skips, errors, and missing
       values are reported separately. Resource usage is the average per trial. Treatments are grouped by model and
-      reasoning effort; compare scenario and trial counts before comparing performance.
+      reasoning effort and runner; compare scenario and trial counts before comparing performance.
     </p>
   )
 }
@@ -124,13 +127,24 @@ export function ExperimentsOverview({experiments}: {experiments: Array<Experimen
               <Link href={`/experiments/${experiment.id}`}>{experiment.name}</Link>
             </h3>
             <p>{experiment.description}</p>
+            {experiment.benchmark ? (
+              <p>
+                Benchmark:{' '}
+                <Link href={`/benchmarks/${experiment.benchmark.id}` as Route}>{experiment.benchmark.name}</Link>
+              </p>
+            ) : null}
             {experiment.date ? (
               <p>
                 Latest run:{' '}
                 <Link href={`/experiments/${experiment.id}/runs/${experiment.date}` as Route}>
                   <time dateTime={experiment.date}>{experiment.date}</time>
                 </Link>
-                . <Link href={`/experiments/${experiment.id}`}>View scenario results and run history</Link>
+                .{' '}
+                <Link href={`/experiments/${experiment.id}`}>
+                  {experiment.benchmark
+                    ? 'View capability results and run history'
+                    : 'View scenario results and run history'}
+                </Link>
               </p>
             ) : null}
             {experiment.treatments.length > 0 ? (
@@ -155,6 +169,11 @@ export function ExperimentsOverview({experiments}: {experiments: Array<Experimen
 export function LatestExperimentResults({id, results}: {id: string; results: ExperimentResults | null}) {
   if (!results) {
     return null
+  }
+  if (results.benchmark) {
+    return (
+      <BenchmarkExperimentMatrix key={results.date} experimentId={id} date={results.date} results={results.benchmark} />
+    )
   }
 
   return (

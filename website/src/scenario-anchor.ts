@@ -6,3 +6,9 @@ export function getScenarioAnchor(scenarioId: string): {id: string; fragment: st
     fragment: `#${id}`,
   }
 }
+
+export function getCapabilityScenarioAnchor(capabilityId: string, scenarioId: string): {id: string; fragment: string} {
+  const anchor = getScenarioAnchor(JSON.stringify([capabilityId, scenarioId]))
+  const id = `capability-${anchor.id}`
+  return {id, fragment: `#${id}`}
+}

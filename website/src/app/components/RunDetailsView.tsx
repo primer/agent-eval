@@ -7,7 +7,9 @@ import {loadTrialDetails, loadTrialTranscript} from '../../run-data-client'
 import type {Route} from 'next'
 import Link from 'next/link'
 import {lazy, Suspense, useEffect, useId, useState, type ReactNode} from 'react'
-import {getScenarioAnchor} from '../../scenario-anchor'
+import {getCapabilityScenarioAnchor, getScenarioAnchor} from '../../scenario-anchor'
+import type {BenchmarkExperimentResults} from '../../benchmark-experiment-results'
+import {BenchmarkExperimentMatrix} from './BenchmarkExperimentResults'
 import {JudgeResults} from './JudgeResults'
 import {CheckResults} from './CheckResults'
 import {RunDetailsLoading, type ResultTab} from './RunDetailsLoading'
@@ -444,7 +446,11 @@ function ScenarioResults({group, index}: {group: ScenarioResultGroup; index: num
     <article
       aria-labelledby={resultHeadingId}
       className="flex flex-col gap-4"
-      id={group.capability ? `capability-scenario-${index}` : getScenarioAnchor(group.scenarioId).id}
+      id={
+        group.capability
+          ? getCapabilityScenarioAnchor(group.capability.id, group.scenarioId).id
+          : getScenarioAnchor(group.scenarioId).id
+      }
     >
       <header className="border-b border-default pb-3 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <h2 className="text-title-medium m-0" id={resultHeadingId}>
@@ -593,9 +599,10 @@ type RunDetailsViewProps = {
     href: Route
   }
   run: Omit<RunDetails, 'results'> & {results: Array<RunResult>}
+  comparison?: BenchmarkExperimentResults
 }
 
-export function RunDetailsView({resource, run}: RunDetailsViewProps) {
+export function RunDetailsView({resource, run, comparison}: RunDetailsViewProps) {
   const [selectedCapabilityId, setSelectedCapabilityId] = useState('')
   const capabilities = new Map(
     run.results.flatMap(result => {
@@ -621,6 +628,9 @@ export function RunDetailsView({resource, run}: RunDetailsViewProps) {
           <Breadcrumbs.Item selected>{run.date}</Breadcrumbs.Item>
         </Breadcrumbs>
         <h1 className="sr-only">Run results for {resource.name}</h1>
+        {comparison ? (
+          <BenchmarkExperimentMatrix key={run.date} experimentId={resource.id} date={run.date} results={comparison} />
+        ) : null}
         {capabilities.size > 0 ? (
           <FormControl>
             <FormControl.Label>Capability</FormControl.Label>

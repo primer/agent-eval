@@ -13,6 +13,34 @@ const BENCHMARKS_DIR = path.resolve(process.cwd(), '..', 'benchmarks')
 export type Experiment = Pick<AgentEvalExperiment, 'id' | 'name' | 'description' | 'models'> & {
   scenarios: Array<{id: string}>
   treatments: Array<{name: string}>
+  benchmark?: {id: string; name: string}
+}
+
+function toExperiment(experiment: AgentEvalExperiment): Experiment {
+  return {
+    id: experiment.id,
+    name: experiment.name,
+    description: experiment.description,
+    models: experiment.models,
+    ...(experiment.type === 'benchmark'
+      ? {
+          benchmark: {
+            id: experiment.benchmark.id,
+            name: experiment.benchmark.name,
+          },
+        }
+      : {}),
+    scenarios: getExperimentScenarios(experiment).map(scenario => {
+      return {
+        id: scenario.id,
+      }
+    }),
+    treatments: experiment.treatments.map(treatment => {
+      return {
+        name: treatment.name,
+      }
+    }),
+  }
 }
 
 export async function list(): Promise<Array<Experiment>> {
@@ -22,20 +50,7 @@ export async function list(): Promise<Array<Experiment>> {
     benchmarksDirectory: BENCHMARKS_DIR,
   })
 
-  return experiments.map(experiment => {
-    return {
-      id: experiment.id,
-      name: experiment.name,
-      description: experiment.description,
-      models: experiment.models,
-      scenarios: getExperimentScenarios(experiment).map(scenario => {
-        return {id: scenario.id}
-      }),
-      treatments: experiment.treatments.map(treatment => {
-        return {name: treatment.name}
-      }),
-    }
-  })
+  return experiments.map(toExperiment)
 }
 
 export async function get(id: string): Promise<Experiment> {
@@ -46,18 +61,7 @@ export async function get(id: string): Promise<Experiment> {
     name: id,
   })
 
-  return {
-    id: experiment.id,
-    name: experiment.name,
-    description: experiment.description,
-    models: experiment.models,
-    scenarios: getExperimentScenarios(experiment).map(scenario => {
-      return {id: scenario.id}
-    }),
-    treatments: experiment.treatments.map(treatment => {
-      return {name: treatment.name}
-    }),
-  }
+  return toExperiment(experiment)
 }
 
 export async function listForScenario(id: string): Promise<Array<Experiment>> {

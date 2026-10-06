@@ -62,12 +62,16 @@ export function Page({experiment, runs, results}: Props) {
                   field: 'resultCount',
                   align: 'end',
                 },
-                {
-                  id: 'checks',
-                  header: 'Checks',
-                  field: 'checks',
-                  align: 'end',
-                },
+                ...(!results?.benchmark && !experiment.benchmark
+                  ? [
+                      {
+                        id: 'checks',
+                        header: 'Checks',
+                        field: 'checks' as const,
+                        align: 'end' as const,
+                      },
+                    ]
+                  : []),
               ]}
               data={runs}
             />

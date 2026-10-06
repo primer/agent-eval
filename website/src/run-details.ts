@@ -386,9 +386,15 @@ async function createExperimentRunDetails(
         tools.set(name, (tools.get(name) ?? 0) + count)
       }
     }
+    const capability =
+      result.capabilityId === undefined ? undefined : output.benchmark?.capabilities[result.capabilityId]
+    if (output.benchmark && (!capability || !capability.scenarioIds.includes(result.scenarioId))) {
+      throw new Error(`Unknown capability for experiment trial "${result.id}"`)
+    }
     results.push({
       id: result.id,
       scenarioId: result.scenarioId,
+      ...(capability ? {capability: {id: capability.id, name: capability.name}} : {}),
       treatment,
       model: result.model.name,
       reasoningEffort: result.model.reasoningEffort,

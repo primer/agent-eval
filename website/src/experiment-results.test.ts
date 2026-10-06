@@ -56,10 +56,12 @@ test('averages checks and implementation usage per trial, not per scenario or ou
 
   expect(summary?.treatments).toEqual([
     {
-      id: JSON.stringify(['control', 'gpt-5.6-sol', 'medium']),
+      id: JSON.stringify(['control', 'gpt-5.6-sol', 'medium', 'copilot-cli']),
       treatment: 'Control',
+      treatmentId: 'control',
       model: 'gpt-5.6-sol',
       reasoningEffort: 'medium',
+      runner: 'copilot-cli',
       trials: 3,
       scenarios: 2,
       checks: '66.7%',
@@ -120,4 +122,19 @@ test('preserves recorded scenario and treatment IDs even when metadata is absent
     id: 'historical-scenario',
     treatments: [{treatment: 'historical-treatment'}],
   })
+})
+
+test('keeps runner-specific treatment summaries separate', () => {
+  const summary = getExperimentResults(
+    createRun([createResult(), createResult({id: 'sdk', runner: 'copilot-sdk', checks: []})]),
+  )
+
+  expect(
+    summary?.treatments.map(treatment => {
+      return {runner: treatment.runner, checks: treatment.checks, trials: treatment.trials}
+    }),
+  ).toEqual([
+    {runner: 'copilot-cli', checks: '75.0%', trials: 1},
+    {runner: 'copilot-sdk', checks: 'N/A', trials: 1},
+  ])
 })

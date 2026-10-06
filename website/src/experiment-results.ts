@@ -1,12 +1,15 @@
-import type {ExperimentTrialOutput} from '@primer/agent-eval'
+import type {CopilotRunner, ExperimentTrialOutput} from '@primer/agent-eval'
 import {formatChecks, summarizeTrials} from './check-results'
 import type {Run} from './runs'
+import {getBenchmarkExperimentResults, type BenchmarkExperimentResults} from './benchmark-experiment-results'
 
 export type TreatmentResult = {
   id: string
   treatment: string
+  treatmentId: string
   model: string
   reasoningEffort: string
+  runner: CopilotRunner
   trials: number
   scenarios: number
   checks: string
@@ -24,13 +27,19 @@ export type ExperimentResults = {
     id: string
     treatments: Array<TreatmentResult>
   }>
+  benchmark?: BenchmarkExperimentResults
 }
 
 function summarizeTreatments(run: Run, results: Array<ExperimentTrialOutput>): Array<TreatmentResult> {
   const groups = new Map<string, Array<ExperimentTrialOutput>>()
 
   for (const result of results) {
-    const key = JSON.stringify([result.treatmentId, result.model.name, result.model.reasoningEffort])
+    const key = JSON.stringify([
+      result.treatmentId,
+      result.model.name,
+      result.model.reasoningEffort,
+      result.runner ?? 'copilot-cli',
+    ])
     const group = groups.get(key)
     if (group) {
       group.push(result)
@@ -46,8 +55,10 @@ function summarizeTreatments(run: Run, results: Array<ExperimentTrialOutput>): A
     return {
       id,
       treatment: run.output.treatments.get(first.treatmentId)?.name ?? first.treatmentId,
+      treatmentId: first.treatmentId,
       model: first.model.name,
       reasoningEffort: first.model.reasoningEffort,
+      runner: first.runner ?? 'copilot-cli',
       trials: trials.length,
       scenarios: new Set(
         trials.map(trial => {
@@ -65,6 +76,7 @@ function summarizeTreatments(run: Run, results: Array<ExperimentTrialOutput>): A
     return (
       first.model.localeCompare(second.model) ||
       first.reasoningEffort.localeCompare(second.reasoningEffort) ||
+      first.runner.localeCompare(second.runner) ||
       first.treatment.localeCompare(second.treatment) ||
       first.id.localeCompare(second.id)
     )
@@ -91,6 +103,7 @@ export function getExperimentResults(run: Run | undefined): ExperimentResults | 
 
   return {
     date: run.name,
+    ...(run.output.benchmark ? {benchmark: getBenchmarkExperimentResults(run)} : {}),
     treatments: summarizeTreatments(run, [...run.output.trials.values()]),
     scenarios: Array.from(scenarios, ([id, results]) => {
       return {id, treatments: summarizeTreatments(run, results)}

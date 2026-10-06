@@ -26,12 +26,14 @@ export async function getExperimentsOverview() {
     experiments.map(async experiment => {
       const run = await getLatestForExperiment(experiment.id)
       const results = getExperimentResults(run ?? undefined)
+      const benchmark = results?.benchmark ?? experiment.benchmark
       return {
         id: experiment.id,
         name: experiment.name,
         description: experiment.description,
         date: results?.date ?? null,
         treatments: results?.treatments ?? [],
+        ...(benchmark ? {benchmark: {id: benchmark.id, name: benchmark.name}} : {}),
       }
     }),
   )

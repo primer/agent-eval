@@ -49,6 +49,13 @@ replay. Create a new plan after changing the benchmark. Result bundles snapshot
 the benchmark hierarchy, so historical results do not depend on the current
 benchmark configuration. Terminal reports group comparisons by capability.
 
+The results website shows benchmark-backed experiments as a capability matrix.
+Select a model, effort, runner, metric, and Control or Benchmark reference, then
+select a capability for its scenario matrix and trial links. Historical run
+pages show the same comparison using saved metadata. No composite benchmark
+score is introduced; check dimensions and average-per-trial usage retain their
+existing semantics.
+
 ## Minimal example
 
 Prerequisite: create `001-labels` from [getting started](getting-started.md).

@@ -10,7 +10,7 @@
     "lint": "eslint '**/*.{js,ts,tsx}' --max-warnings=0 --cache",
     "release": "pnpm --filter @primer/agent-eval run build && changeset publish",
     "test": "vitest",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc"
   },
   "devDependencies": {
     "@changesets/cli": "^3.0.3",

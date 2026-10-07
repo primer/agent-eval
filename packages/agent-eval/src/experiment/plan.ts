@@ -4,7 +4,7 @@ import {CopilotRunnerSchema, type CopilotRunner} from '../copilot-runner'
 import type {Host} from '../host'
 import {ModelVariantSchema} from '../model'
 import {createPlan, type Plan} from '../plan'
-import {ControlTreatment} from '../treatment'
+import {composeTreatmentSetup, ControlTreatment, createTreatment} from '../treatment'
 import type {Trial} from '../trial/trial'
 import type {Experiment} from './experiment'
 import {getExperiment} from './get'
@@ -35,22 +35,73 @@ function createExperimentPlan({
   experiment,
   runner: selectedRunner,
 }: CreateExperimentPlanOptions): Plan<ExperimentTrial> {
-  const treatments = [...getExperimentTreatments(experiment).values()]
   const runners = selectedRunner ? [selectedRunner] : (experiment.runners ?? ['copilot-cli'])
+
+  if (experiment.type === 'scenario') {
+    const treatments = [...getExperimentTreatments(experiment).values()]
+
+    return createPlan({
+      trials: experiment.models.flatMap(model => {
+        return experiment.scenarios.flatMap(scenario => {
+          return [...new Set<CopilotRunner>(runners)].flatMap(runner => {
+            return treatments.map(treatment => {
+              return {
+                id: randomUUID(),
+                scenario,
+                treatment,
+                model,
+                runner,
+                setup: experiment.setup,
+              }
+            })
+          })
+        })
+      }),
+    })
+  }
 
   return createPlan({
     trials: experiment.models.flatMap(model => {
-      return experiment.scenarios.flatMap(scenario => {
-        return [...new Set<CopilotRunner>(runners)].flatMap(runner => {
-          return treatments.map(treatment => {
-            return {
-              id: randomUUID(),
-              scenario,
-              treatment,
-              model,
-              runner,
-              setup: experiment.setup,
-            }
+      return [...new Set<CopilotRunner>(runners)].flatMap(runner => {
+        return experiment.benchmark.capabilities.flatMap(capability => {
+          return capability.scenarios.flatMap(scenario => {
+            return [
+              // Control
+              {
+                id: randomUUID(),
+                scenario,
+                treatment: ControlTreatment,
+                model,
+                runner,
+                capability,
+              },
+
+              // Benchmark
+              {
+                id: randomUUID(),
+                scenario,
+                treatment: createTreatment({
+                  name: 'Benchmark',
+                  setup: composeTreatmentSetup(experiment.benchmark.setup, capability.setup),
+                }),
+                model,
+                runner,
+                capability,
+              },
+
+              // Treatments
+              ...experiment.treatments.map(treatment => {
+                return {
+                  id: randomUUID(),
+                  scenario,
+                  treatment,
+                  model,
+                  runner,
+                  capability,
+                  setup: experiment.setup,
+                }
+              }),
+            ]
           })
         })
       })

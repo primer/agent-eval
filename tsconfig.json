@@ -1,4 +1,8 @@
 {
   "extends": "./tsconfig.base.json",
-  "include": ["vitest.config.ts"]
+  "compilerOptions": {
+    "emitDeclarationOnly": true,
+    "outDir": "node_modules/.cache/type-check"
+  },
+  "include": ["vitest.config.ts", "scenarios/**/scenario.config.ts", "benchmarks/**/*.ts", "experiments/**/*.ts"]
 }

@@ -45,5 +45,23 @@ function getTreatmentId(name: string): string {
   return hash(`Treatment:${name}`)
 }
 
-export {ControlTreatment, TreatmentConfigSchema, TreatmentSchema, TreatmentSetupSchema, createTreatment, getTreatmentId}
+function composeTreatmentSetup(...setups: Array<TreatmentSetup | undefined>): TreatmentSetup {
+  return async function composedSetup(options: TreatmentSetupOptions): Promise<void> {
+    for (const setup of setups) {
+      if (setup) {
+        await setup(options)
+      }
+    }
+  }
+}
+
+export {
+  ControlTreatment,
+  TreatmentConfigSchema,
+  TreatmentSchema,
+  TreatmentSetupSchema,
+  createTreatment,
+  getTreatmentId,
+  composeTreatmentSetup,
+}
 export type {TreatmentConfig, Treatment, TreatmentSetup}

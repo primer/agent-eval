@@ -14,6 +14,7 @@ import {logger} from '../../logger'
 import {createPlanFromManifest, runPlan} from '../../plan'
 import {parseShard} from '../../shard'
 import {
+  benchmarksOption,
   copilotConcurrencyOption,
   containerConcurrencyOption,
   experimentsOption,
@@ -82,6 +83,7 @@ const experimentCommand = defineCommand({
             description: 'Create an experiment plan',
           },
           args: {
+            benchmarks: benchmarksOption,
             experiments: experimentsOption,
             name: {
               type: 'positional',
@@ -99,17 +101,20 @@ const experimentCommand = defineCommand({
           async run({args}) {
             logger.info('Planning experiment: %s', args.name)
 
+            const benchmarksDirectory = path.resolve(args.benchmarks)
             const experimentsDirectory = path.resolve(args.experiments)
             const scenariosDirectory = path.resolve(args.scenarios)
             const outputPath = path.resolve(args['output-path'])
 
             logger.debug({
+              benchmarksDirectory,
               experimentsDirectory,
               scenariosDirectory,
               outputPath,
             })
 
             const experiment = await getExperiment({
+              benchmarksDirectory,
               experimentsDirectory,
               scenariosDirectory,
               name: args.name,
@@ -205,6 +210,7 @@ const experimentCommand = defineCommand({
         description: 'Run an experiment',
       },
       args: {
+        benchmarks: benchmarksOption,
         experiments: experimentsOption,
         'copilot-concurrency': copilotConcurrencyOption,
         'container-concurrency': containerConcurrencyOption,
@@ -221,6 +227,7 @@ const experimentCommand = defineCommand({
       async run({args}) {
         logger.info('Running experiment: %s', args.name)
 
+        const benchmarksDirectory = path.resolve(args.benchmarks)
         const experimentsDirectory = path.resolve(args.experiments)
         const copilotConcurrency = getConcurrencyValue(args['copilot-concurrency'], 'copilot-concurrency')
         const containerConcurrency = getConcurrencyValue(args['container-concurrency'], 'container-concurrency')
@@ -232,6 +239,7 @@ const experimentCommand = defineCommand({
 
         logger.debug({
           artifactsDirectory,
+          benchmarksDirectory,
           experimentsDirectory,
           copilotConcurrency,
           containerConcurrency,
@@ -241,6 +249,7 @@ const experimentCommand = defineCommand({
         })
 
         const experiment = await getExperiment({
+          benchmarksDirectory,
           experimentsDirectory,
           scenariosDirectory,
           name: args.name,

@@ -84,6 +84,10 @@ Use `agent-eval experiments --help` to see the available commands and options.
 Configuration still uses exactly one of `scenarios` or `benchmark`; no `type`
 field is needed in your config.
 
+When loading benchmark-backed experiments, explicitly pass `benchmarksDirectory`
+to `getExperiment` or `listExperiments`. The library does not default this path.
+It can be omitted or undefined when loading only scenario-backed experiments.
+
 Use `getExperimentScenarios` from `@primer/agent-eval` when you need the unique
 scenarios for either kind of experiment without handling the variants yourself.
 

@@ -134,6 +134,18 @@ function createBenchmarkHost() {
   })
 }
 
+test('requires an explicit benchmarks directory for benchmark-backed experiments', async () => {
+  await expect(
+    getExperiment({
+      host: createBenchmarkHost(),
+      experimentsDirectory: '/experiments',
+      scenariosDirectory: '/scenarios',
+      benchmarksDirectory: undefined,
+      name: 'example',
+    }),
+  ).rejects.toThrow('benchmarksDirectory is required for benchmark-backed experiment: example')
+})
+
 test('runs both references and custom treatments for every capability membership and runner', async () => {
   const host = createBenchmarkHost()
   const options = {

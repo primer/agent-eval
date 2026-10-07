@@ -28,7 +28,7 @@ async function listExperiments({
   experimentsDirectory,
   host = DefaultHost,
   scenariosDirectory,
-  benchmarksDirectory = path.resolve('./benchmarks'),
+  benchmarksDirectory,
 }: ListExperimentsOptions): Promise<Array<Experiment>> {
   if (!host.existsSync(experimentsDirectory)) {
     throw new Error(`Experiments directory does not exist: ${experimentsDirectory}`)
@@ -79,6 +79,9 @@ async function listExperiments({
     }
 
     if (config.benchmark !== undefined) {
+      if (benchmarksDirectory === undefined) {
+        throw new Error(`benchmarksDirectory is required for benchmark-backed experiment: ${common.id}`)
+      }
       const benchmark = await getBenchmark({host, benchmarksDirectory, scenariosDirectory, name: config.benchmark})
       experiments.push({
         ...common,

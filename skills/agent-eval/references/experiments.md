@@ -40,6 +40,10 @@ its capabilities. Configs do not need a `type` field. Use
 `getExperimentScenarios` from `@primer/agent-eval` for a unique scenario list
 across either variant.
 
+Pass `benchmarksDirectory` explicitly when loading benchmark-backed experiments
+through the library. It has no library default and can be omitted or undefined
+for scenario-only experiments. The CLI still supplies its selected directory.
+
 ## Minimal example
 
 Prerequisite: create `001-labels` from [getting started](getting-started.md).

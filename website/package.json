@@ -22,11 +22,6 @@
     "server-only": "^0.0.1",
     "shiki": "^4.4.3"
   },
-  "dependenciesMeta": {
-    "@primer/agent-eval": {
-      "injected": true
-    }
-  },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "~26.4.0",

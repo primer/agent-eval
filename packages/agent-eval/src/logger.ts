@@ -16,7 +16,10 @@ if (!CI) {
 
 export const levels = ['trace', 'debug', 'info', 'warn', 'error', 'fatal'] as const
 
-export const logger = pino(
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- Preserve a public name for portable declarations.
+export interface Logger extends pino.Logger {}
+
+export const logger: Logger = pino(
   {
     base: undefined,
     level: 'info',

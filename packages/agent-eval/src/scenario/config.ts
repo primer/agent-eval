@@ -1,19 +1,9 @@
 import path from 'node:path'
 import * as z from 'zod/mini'
-import {CheckConfigSchema, type CheckConfig} from '../check'
-import {JudgeConfigSchema, type JudgeConfig} from '../judge'
+import {CheckConfigSchema} from '../check'
+import {JudgeConfigSchema} from '../judge'
 import type {Host} from '../host'
-import {TreatmentSetupSchema, type TreatmentSetup} from '../treatment'
-
-type ScenarioConfig = {
-  description?: string
-  prompt: string
-  tags: Array<string>
-  checks: Array<CheckConfig>
-  judges: Array<JudgeConfig>
-  image?: DockerImageConfig
-  setup?: TreatmentSetup
-}
+import {TreatmentSetupSchema} from '../treatment'
 
 type DockerImageConfig =
   | {
@@ -80,7 +70,9 @@ const ScenarioConfigSchema = z.object({
   judges: z._default(z.array(JudgeConfigSchema), []),
   image: DockerImageConfigInputSchema,
   setup: z.optional(TreatmentSetupSchema),
-}) satisfies z.ZodMiniType<ScenarioConfig>
+})
+
+type ScenarioConfig = z.infer<typeof ScenarioConfigSchema>
 
 function parseScenarioConfig(host: Host, scenarioDirectory: string, input: unknown): ScenarioConfig {
   const schema = z.extend(ScenarioConfigSchema, {

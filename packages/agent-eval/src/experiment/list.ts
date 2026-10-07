@@ -65,45 +65,43 @@ async function listExperiments({
     }
 
     const {data: config} = parseResult
-    const benchmark =
-      config.benchmark !== undefined
-        ? await getBenchmark({host, benchmarksDirectory, scenariosDirectory, name: config.benchmark})
-        : undefined
-    const scenarios = benchmark
-      ? [
-          ...new Map(
-            benchmark.capabilities.flatMap(capability => {
-              return capability.scenarios.map(scenario => {
-                return [scenario.id, scenario] as const
-              })
-            }),
-          ).values(),
-        ]
-      : await Promise.all(
-          (config.scenarios ?? []).map(scenario => {
-            if (typeof scenario === 'string') {
-              return getScenario({host, directory: scenariosDirectory, name: scenario})
-            }
-
-            const directory = path.resolve(scenario.path)
-            return loadScenario({host, directory, name: scenario.name})
-          }),
-        )
-
-    experiments.push({
+    const common = {
       id: getExperimentId(filename),
       filepath,
       name: config.name,
       description: config.description,
       models: getModelVariants(config.models),
       runners: config.runners,
-      scenarios,
       setup: config.setup,
       treatments: config.treatments.map(treatment => {
         return createTreatment(treatment)
       }),
-      benchmark,
-    })
+    }
+
+    if (config.benchmark !== undefined) {
+      const benchmark = await getBenchmark({host, benchmarksDirectory, scenariosDirectory, name: config.benchmark})
+      experiments.push({
+        ...common,
+        type: 'benchmark',
+        benchmark,
+      })
+    } else {
+      const scenarios = await Promise.all(
+        config.scenarios.map(scenario => {
+          if (typeof scenario === 'string') {
+            return getScenario({host, directory: scenariosDirectory, name: scenario})
+          }
+
+          const directory = path.resolve(scenario.path)
+          return loadScenario({host, directory, name: scenario.name})
+        }),
+      )
+      experiments.push({
+        ...common,
+        type: 'scenarios',
+        scenarios,
+      })
+    }
   }
 
   return experiments

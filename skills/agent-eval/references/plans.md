@@ -26,6 +26,12 @@ contents, and directory layout with the plan.
 Configuration IDs come from filenames. Capability and treatment IDs depend on
 their names. Renaming or removing referenced entities can invalidate a plan.
 
+Experiment manifests distinguish `'scenarios'` and `'benchmark'` with a `type`
+field. Benchmark-backed experiment plans include benchmark metadata and require
+a `capabilityId` on every trial; scenario-backed plans contain neither. Replay
+accepts older manifests without `type`, but rejects a change between scenario
+and benchmark sources.
+
 ## Create and run
 
 The following command templates require an existing experiment named

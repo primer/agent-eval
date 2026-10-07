@@ -34,6 +34,12 @@ setup. Capability setup applies to all treatments. A scenario in multiple
 capabilities runs once for each membership. Use `--benchmarks <dir>` on experiment
 run/plan commands to select a directory other than `./benchmarks`.
 
+Loaded experiments from `getExperiment` and `listExperiments` use a `type`
+discriminator: `'scenarios'` has `scenarios`; `'benchmark'` has `benchmark` and
+its capabilities. Configs do not need a `type` field. Use
+`getExperimentScenarios` from `@primer/agent-eval` for a unique scenario list
+across either variant.
+
 ## Minimal example
 
 Prerequisite: create `001-labels` from [getting started](getting-started.md).

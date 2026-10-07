@@ -118,7 +118,7 @@ const experimentCommand = defineCommand({
               name: args.name,
             })
             const plan = createExperimentPlan({experiment, runner: args.runner})
-            const manifest = createExperimentPlanManifest({experiment, plan})
+            const manifest = createExperimentPlanManifest({plan})
 
             await host.fs.mkdir(path.dirname(outputPath), {recursive: true})
             await host.fs.writeFile(outputPath, JSON.stringify(manifest, null, 2), 'utf-8')
@@ -189,7 +189,7 @@ const experimentCommand = defineCommand({
               shard ? `(${shard.order}/${shard.total})` : '',
             )
 
-            const plan = createPlanFromManifest({shard, trials: manifest.trials, runner: args.runner})
+            const plan = createPlanFromManifest({shard, trials: manifest.plan.trials, runner: args.runner})
             const runPlanResult = await runPlan({
               artifactsDirectory,
               copilotConcurrency,
@@ -258,7 +258,7 @@ const experimentCommand = defineCommand({
           copilotConcurrency,
           containerConcurrency,
           copilotToken,
-          plan,
+          plan: plan.plan,
         })
         const output = createExperimentOutput({experiment, runPlanResult})
         await writeExperimentOutput({

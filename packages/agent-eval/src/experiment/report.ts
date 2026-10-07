@@ -14,7 +14,7 @@ import {
   type TrialSummary,
 } from '../trial/report'
 import type {Experiment} from './experiment'
-import type {ExperimentTrial} from './plan'
+import type {Trial} from '../trial/trial'
 
 type ExperimentSummary = TrialSummary & {
   treatmentId: string
@@ -26,7 +26,7 @@ type ExperimentSummary = TrialSummary & {
 
 type CreateExperimentReportOptions = {
   experiment: Experiment
-  runPlanResult: RunPlanResult<ExperimentTrial>
+  runPlanResult: RunPlanResult<Trial>
 }
 
 function compareExperimentNames(a: ExperimentSummary, b: ExperimentSummary): number {

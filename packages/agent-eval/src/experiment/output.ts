@@ -15,7 +15,7 @@ import {
   TrialWalkthroughSchema,
 } from '../trial/run'
 import type {Experiment} from './experiment'
-import type {ExperimentTrial} from './plan'
+import type {Trial} from '../trial/trial'
 
 const ExperimentTrialOutputSchema = z.object({
   agent: TrialAgentSchema,
@@ -68,7 +68,7 @@ type ExperimentOutput = {
 
 type CreateExperimentOutputOptions = {
   experiment: Experiment
-  runPlanResult: RunPlanResult<ExperimentTrial>
+  runPlanResult: RunPlanResult<Trial>
 }
 
 function createExperimentOutput({experiment, runPlanResult}: CreateExperimentOutputOptions): ExperimentOutput {

@@ -4,17 +4,44 @@ import type {Scenario} from '../scenario/scenario'
 import type {Treatment, TreatmentSetup} from '../treatment'
 import type {Benchmark} from '../benchmark/benchmark'
 
-type Experiment = {
+type ExperimentBase = {
   id: string
   filepath: string
   name: ExperimentConfig['name']
   description: ExperimentConfig['description']
   models: Array<ModelVariant>
   runners?: ExperimentConfig['runners']
-  scenarios: Array<Scenario>
   setup?: TreatmentSetup
   treatments: Array<Treatment>
-  benchmark?: Benchmark
 }
 
-export type {Experiment}
+type ScenarioExperiment = ExperimentBase & {
+  type: 'scenarios'
+  scenarios: Array<Scenario>
+}
+
+type BenchmarkExperiment = ExperimentBase & {
+  type: 'benchmark'
+  benchmark: Benchmark
+}
+
+type Experiment = ScenarioExperiment | BenchmarkExperiment
+
+function getExperimentScenarios(experiment: Experiment): Array<Scenario> {
+  if (experiment.type === 'scenarios') {
+    return experiment.scenarios
+  }
+
+  return [
+    ...new Map(
+      experiment.benchmark.capabilities.flatMap(capability => {
+        return capability.scenarios.map(scenario => {
+          return [scenario.id, scenario] as const
+        })
+      }),
+    ).values(),
+  ]
+}
+
+export {getExperimentScenarios}
+export type {Experiment, ScenarioExperiment, BenchmarkExperiment}

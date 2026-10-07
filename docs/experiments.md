@@ -75,3 +75,19 @@ option selects another benchmark directory for experiment run and plan commands.
 You can interact with experiments using the `experiments` subcommand of the `agent-eval` CLI. This sub-command gives you access to run experiments, create run plans to use for sharding, or merge the results of a plan.
 
 Use `agent-eval experiments --help` to see the available commands and options.
+
+## Loaded experiments
+
+`getExperiment` and `listExperiments` return a discriminated union. Narrow on
+`experiment.type`: `'scenarios'` provides `experiment.scenarios`, while
+`'benchmark'` provides a required `experiment.benchmark` with its capabilities.
+Configuration still uses exactly one of `scenarios` or `benchmark`; no `type`
+field is needed in your config.
+
+Use `getExperimentScenarios` from `@primer/agent-eval` when you need the unique
+scenarios for either kind of experiment without handling the variants yourself.
+
+New experiment plan manifests include the same `type` discriminator.
+Benchmark-backed plans require benchmark metadata and a `capabilityId` on every
+trial. Scenario-backed plans contain neither. Replay accepts existing untagged
+manifests and rejects changes to the experiment's source kind.

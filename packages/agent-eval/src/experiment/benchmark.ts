@@ -1,5 +1,5 @@
 import * as z from 'zod/mini'
-import type {Experiment} from './experiment'
+import type {Benchmark} from '../benchmark/benchmark'
 
 const ExperimentBenchmarkSchema = z.object({
   id: z.string(),
@@ -16,15 +16,12 @@ const ExperimentBenchmarkSchema = z.object({
 
 type ExperimentBenchmark = z.infer<typeof ExperimentBenchmarkSchema>
 
-function getExperimentBenchmark(experiment: Experiment): ExperimentBenchmark | undefined {
-  if (!experiment.benchmark) {
-    return undefined
-  }
+function createExperimentBenchmark(benchmark: Benchmark): ExperimentBenchmark {
   return {
-    id: experiment.benchmark.id,
-    name: experiment.benchmark.name,
+    id: benchmark.id,
+    name: benchmark.name,
     capabilities: Object.fromEntries(
-      experiment.benchmark.capabilities.map(capability => {
+      benchmark.capabilities.map(capability => {
         return [
           capability.id,
           {
@@ -40,5 +37,5 @@ function getExperimentBenchmark(experiment: Experiment): ExperimentBenchmark | u
   }
 }
 
-export {ExperimentBenchmarkSchema, getExperimentBenchmark}
+export {ExperimentBenchmarkSchema, createExperimentBenchmark}
 export type {ExperimentBenchmark}

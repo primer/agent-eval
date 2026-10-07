@@ -9,6 +9,7 @@ exports[`@primer/agent-eval exports 1`] = `
   "parseBenchmarkTrialOutput",
   "getExperiment",
   "listExperiments",
+  "getExperimentScenarios",
   "ExperimentOutputFileSchema",
   "ExperimentTrialOutputSchema",
   "getScenario",

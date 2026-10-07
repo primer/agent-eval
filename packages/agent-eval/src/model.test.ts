@@ -21,6 +21,7 @@ test('ModelVariantConfigSchema rejects arrays and invalid model configs', () => 
 test.each([
   'claude-fable-5',
   'claude-fable-5.1',
+  'claude-haiku-5.5',
   'claude-opus-5.5',
   'claude-sonnet-5.5',
   'gpt-6-astra',

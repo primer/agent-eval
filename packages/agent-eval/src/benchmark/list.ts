@@ -6,6 +6,7 @@ import {logger} from '../logger'
 import {getModelVariants} from '../model'
 import {getScenario} from '../scenario/get'
 import {prettifyError} from 'zod/mini'
+import {loadScenario} from '../scenario/load'
 
 const BENCHMARK_FILE_EXTENSIONS = new Set(['.cjs', '.js', '.mjs', '.ts'])
 
@@ -71,7 +72,12 @@ async function listBenchmarks({
       config.capabilities.map(async capability => {
         const scenarios = await Promise.all(
           capability.scenarios.map(scenario => {
-            return getScenario({host, directory: scenariosDirectory, name: scenario})
+            if (typeof scenario === 'string') {
+              return getScenario({host, directory: scenariosDirectory, name: scenario})
+            }
+
+            const directory = path.resolve(scenario.path)
+            return loadScenario({host, directory, name: scenario.name})
           }),
         )
 

@@ -5,6 +5,11 @@ import {JudgeConfigSchema} from '../judge'
 import type {Host} from '../host'
 import {TreatmentSetupSchema} from '../treatment'
 
+const InlineScenarioConfigSchema = z.strictObject({
+  name: z.optional(z.string()),
+  path: z.string(),
+})
+
 type DockerImageConfig =
   | {
       type: 'Reference'
@@ -140,5 +145,12 @@ function defineConfig(config: z.input<typeof ScenarioConfigSchema>): ScenarioCon
   return ScenarioConfigSchema.parse(config)
 }
 
-export {ScenarioConfigSchema, defineConfig, DefaultDockerImageConfig, DockerImageConfigSchema, parseScenarioConfig}
+export {
+  DefaultDockerImageConfig,
+  DockerImageConfigSchema,
+  InlineScenarioConfigSchema,
+  ScenarioConfigSchema,
+  defineConfig,
+  parseScenarioConfig,
+}
 export type {ScenarioConfig, ScenarioConfigModule, DockerImageConfig}

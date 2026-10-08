@@ -94,7 +94,6 @@ const experimentCommand = defineCommand({
               default: 'plan.json',
             },
             scenarios: scenariosOption,
-            runner: runnerOption,
           },
           async run({args}) {
             logger.info('Planning experiment: %s', args.name)
@@ -114,7 +113,7 @@ const experimentCommand = defineCommand({
               scenariosDirectory,
               name: args.name,
             })
-            const plan = createExperimentPlan({experiment, runner: args.runner})
+            const plan = createExperimentPlan({experiment})
             const manifest = createExperimentPlanManifest({experiment, plan})
 
             await host.fs.mkdir(path.dirname(outputPath), {recursive: true})
@@ -215,7 +214,6 @@ const experimentCommand = defineCommand({
         },
         'output-dir': outputDirectoryOption,
         scenarios: scenariosOption,
-        runner: runnerOption,
         token: githubCopilotTokenOption,
       },
       async run({args}) {
@@ -245,7 +243,7 @@ const experimentCommand = defineCommand({
           scenariosDirectory,
           name: args.name,
         })
-        const plan = createExperimentPlan({experiment, runner: args.runner})
+        const plan = createExperimentPlan({experiment})
         const runPlanResult = await runPlan({
           artifactsDirectory,
           copilotConcurrency,

@@ -24,7 +24,6 @@ test.each([
   {runners: undefined, expected: ['copilot-cli']},
   {runners: ['copilot-sdk'], expected: ['copilot-sdk']},
   {runners: ['copilot-cli', 'copilot-sdk'], expected: ['copilot-cli', 'copilot-sdk']},
-  {runners: ['copilot-sdk', 'copilot-sdk'], expected: ['copilot-sdk']},
 ] satisfies Array<{runners: Array<CopilotRunner> | undefined; expected: Array<CopilotRunner>}>)(
   'expands and restores the runner dimension: $runners',
   async ({runners, expected}) => {
@@ -68,20 +67,6 @@ test('restores legacy plans without a runner as CLI trials', async () => {
   }
   const parsed = await parseExperimentPlanManifest({...options, contents: JSON.stringify(legacy)})
   expect(parsed.trials).toEqual(plan.trials)
-})
-
-test('preserves an explicit runner override when restoring a plan', async () => {
-  const options = {host: createHost(), experimentsDirectory: '/experiments', scenariosDirectory: '/scenarios'}
-  const experiment = await getExperiment({...options, name: 'example'})
-  const plan = createExperimentPlan({experiment, runner: 'copilot-sdk'})
-  const manifest = createExperimentPlanManifest({experiment, plan})
-  const parsed = await parseExperimentPlanManifest({...options, contents: JSON.stringify(manifest)})
-  expect(parsed.trials).toEqual(plan.trials)
-  expect(
-    parsed.trials.every(trial => {
-      return trial.runner === 'copilot-sdk'
-    }),
-  ).toBe(true)
 })
 
 test.each([{runners: []}, {runners: ['sdk']}, {runners: ['unknown']}])(

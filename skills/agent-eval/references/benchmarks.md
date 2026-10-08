@@ -10,7 +10,7 @@ time. Use an [experiment](experiments.md) to compare multiple interventions.
 | File and import      | `benchmarks/<id>.ts`; `defineConfig` from `@primer/agent-eval/benchmark` |
 | Export               | Named `benchmark` or default                                             |
 | Required fields      | `name`, `description`, `models`, `capabilities`                          |
-| Optional field       | `setup`                                                                  |
+| Optional fields      | `setup`, `runners`                                                       |
 | CLI identifier       | Filename without extension, not display `name`                           |
 | Automatic treatments | `Control` and `Benchmark`                                                |
 
@@ -66,9 +66,11 @@ Without benchmark setup, both treatment environments are effectively the same.
 That can check wiring but does not measure an intervention.
 
 Trial count is model variants multiplied by scenario memberships across all
-capabilities, multiplied by two. A scenario in two capabilities runs in each.
-There is no benchmark `treatments` or `runners` array; use an experiment for
-multiple interventions and `--runner` to select a benchmark backend.
+capabilities, multiplied by unique runners, multiplied by two. A scenario in two
+capabilities runs in each. Configure `runners` to select `copilot-cli`,
+`copilot-sdk`, or both; omitting it defaults to `['copilot-cli']`.
+There is no benchmark `treatments` array; use an experiment for multiple
+interventions.
 
 Keep capability names stable when reusing [plans](plans.md). See
 [capabilities](capabilities.md) for grouping and shared-setup rules.

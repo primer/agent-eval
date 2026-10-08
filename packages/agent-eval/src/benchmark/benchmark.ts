@@ -17,6 +17,7 @@ type Benchmark = {
   name: BenchmarkConfig['name']
   description: BenchmarkConfig['description']
   models: Array<ModelVariant>
+  runners: BenchmarkConfig['runners']
   setup?: TreatmentSetup
   capabilities: Array<Capability>
 }

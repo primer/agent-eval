@@ -72,8 +72,8 @@ const BenchmarkConfigSchema = z.object({
 
 type BenchmarkConfig = z.infer<typeof BenchmarkConfigSchema>
 
-function defineConfig(config: BenchmarkConfig): BenchmarkConfig {
-  return config
+function defineConfig(config: z.input<typeof BenchmarkConfigSchema>): BenchmarkConfig {
+  return BenchmarkConfigSchema.parse(config)
 }
 
 export {BenchmarkConfigSchema, CapabilityConfigSchema, defineConfig}

@@ -3,7 +3,7 @@ import * as z from 'zod/mini'
 import {TreatmentSetupSchema} from '../treatment'
 import {ModelVariantConfigSchema} from '../model'
 import {CopilotRunnerConfigSchema} from '../copilot-runner'
-import {InlineScenarioConfigSchema} from '../experiment/config'
+import {InlineScenarioConfigSchema} from '../scenario/config'
 
 const CapabilityConfigSchema = z.object({
   name: z.string(),
@@ -25,7 +25,7 @@ const CapabilityConfigSchema = z.object({
             }
             names.add(scenario.name)
           } else {
-            const name = path.basename(scenario.path, path.extname(scenario.path))
+            const name = path.basename(scenario.path)
             if (names.has(name)) {
               return false
             }

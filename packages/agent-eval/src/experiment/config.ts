@@ -2,11 +2,7 @@ import * as z from 'zod/mini'
 import {CopilotRunnerConfigSchema} from '../copilot-runner'
 import {ModelVariantConfigSchema} from '../model'
 import {ControlTreatment, TreatmentConfigSchema, TreatmentSetupSchema} from '../treatment'
-
-const InlineScenarioConfigSchema = z.strictObject({
-  name: z.optional(z.string()),
-  path: z.string(),
-})
+import {InlineScenarioConfigSchema} from '../scenario/config'
 
 const ExperimentConfigSchema = z.strictObject({
   name: z.string(),
@@ -40,5 +36,5 @@ function defineConfig(config: z.input<typeof ExperimentConfigSchema>): Experimen
   return ExperimentConfigSchema.parse(config)
 }
 
-export {ExperimentConfigSchema, InlineScenarioConfigSchema, defineConfig}
+export {ExperimentConfigSchema, defineConfig}
 export type {ExperimentConfig}

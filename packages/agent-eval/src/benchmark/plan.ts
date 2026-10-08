@@ -1,6 +1,6 @@
 import {randomUUID} from 'node:crypto'
 import * as z from 'zod/mini'
-import {CopilotRunnerSchema, type CopilotRunner} from '../copilot-runner'
+import {CopilotRunnerSchema} from '../copilot-runner'
 import {createPlan} from '../plan'
 import type {Plan} from '../plan'
 import {ControlTreatment, createTreatment} from '../treatment'
@@ -12,7 +12,6 @@ import {getBenchmark} from './get'
 
 type CreateBenchmarkPlanOptions = {
   benchmark: Benchmark
-  runner?: CopilotRunner
 }
 
 type BenchmarkTrial = Trial & {
@@ -21,10 +20,10 @@ type BenchmarkTrial = Trial & {
 
 /**
  * Create a new Plan for a given Benchmark. This will set up trials based on a
- * combination of model, capability, scenario, and treatment (benchmark or
+ * combination of model, capability, scenario, runner, and treatment (benchmark or
  * control).
  */
-function createBenchmarkPlan({benchmark, runner = 'copilot-cli'}: CreateBenchmarkPlanOptions): Plan<BenchmarkTrial> {
+function createBenchmarkPlan({benchmark}: CreateBenchmarkPlanOptions): Plan<BenchmarkTrial> {
   const treatments = [
     ControlTreatment,
     createTreatment({
@@ -37,16 +36,18 @@ function createBenchmarkPlan({benchmark, runner = 'copilot-cli'}: CreateBenchmar
     trials: benchmark.models.flatMap(model => {
       return benchmark.capabilities.flatMap(capability => {
         return capability.scenarios.flatMap(scenario => {
-          return treatments.map(treatment => {
-            return {
-              id: randomUUID(),
-              scenario,
-              treatment,
-              model,
-              runner,
-              capability,
-              setup: capability.setup,
-            }
+          return [...new Set(benchmark.runners)].flatMap(runner => {
+            return treatments.map(treatment => {
+              return {
+                id: randomUUID(),
+                scenario,
+                treatment,
+                model,
+                runner,
+                capability,
+                setup: capability.setup,
+              }
+            })
           })
         })
       })

@@ -96,6 +96,7 @@ async function listBenchmarks({
       name: config.name,
       description: config.description,
       models: getModelVariants(config.models),
+      runners: config.runners,
       setup: config.setup,
       capabilities,
     })

@@ -53,7 +53,7 @@ function createPlanFromManifest<T extends Trial>({runner, shard, trials}: Create
     })
   ) {
     throw new Error(
-      `No trials found for runner "${runner}" in the saved plan. Create a new plan with --runner ${runner}.`,
+      `No trials found for runner "${runner}" in the saved plan. Add "${runner}" to the configuration's runners and create a new plan.`,
     )
   }
 

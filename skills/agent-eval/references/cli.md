@@ -51,7 +51,7 @@ npx agent-eval scenario image clean --help
 | `--output-path <file>`            | Plan create only; `plan.json`                     |
 | `--plan-path <file>`              | Plan run only; `./plan.json`                      |
 | `--shard <order>/<total>`         | Plan run only; omitted means all trials           |
-| `--runner <runner>`               | Run, plan create, plan run; see below             |
+| `--runner <runner>`               | Scenario run and plan run; see below              |
 | `--check <name>`                  | Scenario run only; selects one configured check   |
 | `--copilot-concurrency <n>`, `-c` | Run and plan run; `1`                             |
 | `--container-concurrency <n>`     | Run and plan run; `5`                             |
@@ -63,8 +63,9 @@ Concurrency values must be positive integers. Copilot concurrency limits active
 sessions; container concurrency limits active trial containers. Both apply per
 process, so sharding multiplies the aggregate limits. Start small.
 
-`--runner` accepts `copilot-cli` or `copilot-sdk`. It overrides the runner
-dimension on new runs/plans but only filters trials in an existing plan.
+`--runner` accepts `copilot-cli` or `copilot-sdk`. It selects the backend for a
+standalone scenario run and filters trials in an existing plan. Configure
+`runners` in benchmark and experiment configurations for new runs and plans.
 There is no `--model` or `--repeat` option; configure model variants and repeat
 commands with unique output directories.
 

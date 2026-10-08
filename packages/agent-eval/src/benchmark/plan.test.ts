@@ -1,4 +1,5 @@
 import {afterEach, expect, test, vi} from 'vitest'
+import type {CopilotRunner} from '../copilot-runner'
 import {VirtualHost} from '../host'
 import {VirtualSandbox} from '../sandbox'
 import {ControlTreatment} from '../treatment'
@@ -9,37 +10,72 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-function benchmarkConfig(name: string): string {
+function benchmarkConfig(name: string, runners?: Array<CopilotRunner>): string {
   return `export default ${JSON.stringify({
     name,
     description: 'Example benchmark',
     models: ['gpt-5.5'],
+    runners,
     capabilities: [{name: 'Components', scenarios: ['example']}],
   })}`
 }
 
-function createHost() {
+function createHost(runners?: Array<CopilotRunner>) {
   return VirtualHost.create({
-    '/benchmarks/design-system.ts': benchmarkConfig('Design System'),
+    '/benchmarks/design-system.ts': benchmarkConfig('Design System', runners),
     '/scenarios/example/package.json': '{}',
     '/scenarios/example/scenario.config.ts': 'export default {prompt: "Create a page"}',
   })
 }
 
-test.each([undefined, 'copilot-cli', 'copilot-sdk'] as const)(
-  'preserves benchmark runners in saved plans: %s',
-  async runner => {
-    const options = {host: createHost(), benchmarksDirectory: '/benchmarks', scenariosDirectory: '/scenarios'}
+test.each([
+  {runners: undefined, expected: ['copilot-cli']},
+  {runners: ['copilot-sdk'], expected: ['copilot-sdk']},
+  {runners: ['copilot-cli', 'copilot-sdk'], expected: ['copilot-cli', 'copilot-sdk']},
+  {runners: ['copilot-sdk', 'copilot-sdk'], expected: ['copilot-sdk']},
+] satisfies Array<{runners: Array<CopilotRunner> | undefined; expected: Array<CopilotRunner>}>)(
+  'expands and restores configured benchmark runners: $runners',
+  async ({runners, expected}) => {
+    const options = {
+      host: createHost(runners),
+      benchmarksDirectory: '/benchmarks',
+      scenariosDirectory: '/scenarios',
+    }
     const benchmark = await getBenchmark({...options, name: 'design-system'})
-    const plan = createBenchmarkPlan({benchmark, runner})
+    const plan = createBenchmarkPlan({benchmark})
+
+    expect(plan.trials).toHaveLength(2 * expected.length)
+    expect(
+      new Set(
+        plan.trials.map(trial => {
+          return trial.id
+        }),
+      ).size,
+    ).toBe(plan.trials.length)
+    expect(
+      new Set(
+        plan.trials.map(trial => {
+          return trial.runner
+        }),
+      ),
+    ).toEqual(new Set(expected))
+    for (const runner of expected) {
+      const trials = plan.trials.filter(trial => {
+        return trial.runner === runner
+      })
+      expect(
+        trials
+          .map(trial => {
+            return trial.treatment.name
+          })
+          .sort(),
+      ).toEqual(['Benchmark', 'Control'])
+    }
+
     const manifest = createBenchmarkPlanManifest({benchmark, plan})
     const parsed = await parseBenchmarkPlanManifest({...options, contents: JSON.stringify(manifest)})
+
     expect(parsed.trials).toEqual(plan.trials)
-    expect(
-      parsed.trials.every(trial => {
-        return trial.runner === (runner ?? 'copilot-cli')
-      }),
-    ).toBe(true)
   },
 )
 

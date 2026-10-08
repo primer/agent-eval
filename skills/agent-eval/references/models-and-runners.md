@@ -11,7 +11,7 @@ A model variant is one model/effort pair; a runner is a separate dimension.
 | Omitted or empty `reasoningEfforts` | One variant with `medium` effort                     |
 | Model string                        | One variant with `medium` effort                     |
 | Judge `model`                       | `{name, reasoningEffort}` (singular)                 |
-| Experiment `runners`                | `copilot-cli`, `copilot-sdk`, or both                |
+| Benchmark/experiment `runners`      | `copilot-cli`, `copilot-sdk`, or both                |
 | Default implementation runner       | `copilot-cli`                                        |
 | Standalone `scenario run` model     | Currently `gpt-5.6-luna`, `low`                      |
 
@@ -47,17 +47,24 @@ model string.
 
 ## Run
 
-For a new run or plan, `--runner` selects one runner and overrides an
-experiment's runner dimension. For `plan run`, it **filters existing trials**;
-it does not rewrite their runner or create missing combinations. Shard
-assignment happens before this filter.
+For a new benchmark or experiment run or plan, set `runners` in the
+configuration:
 
-For an existing benchmark `baseline` or experiment `comparison`, select a
-runner through the CLI. These are command templates; substitute your config ID:
+```ts
+runners: ['copilot-sdk']
+```
+
+For `plan run`, `--runner` **filters existing trials**; it does not rewrite
+their runner or create missing combinations. Shard assignment happens before
+this filter. Standalone `scenario run` also accepts `--runner`.
+
+These are command templates; substitute your configuration or scenario ID:
 
 ```sh
-npx agent-eval benchmark run baseline --runner copilot-sdk
-npx agent-eval experiment plan create comparison --runner copilot-sdk --output-path sdk-plan.json
+npx agent-eval benchmark run baseline
+npx agent-eval experiment plan create comparison --output-path sdk-plan.json
+npx agent-eval experiment plan run --plan-path sdk-plan.json --runner copilot-sdk
+npx agent-eval scenario run example --runner copilot-sdk
 ```
 
 ## Verify
@@ -69,7 +76,8 @@ it created new combinations.
 
 ## Pitfalls
 
-`runners: ['copilot-cli', 'copilot-sdk']` multiplies an experiment's trial count.
+`runners: ['copilot-cli', 'copilot-sdk']` multiplies a benchmark's or experiment's
+trial count.
 Keep runner groups separate when interpreting results. Older plans without a
 runner default to the CLI; create a new plan to add a runner missing from an
 existing plan.

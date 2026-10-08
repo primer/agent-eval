@@ -1,5 +1,15 @@
 # @primer/agent-eval
 
+## 0.12.0
+
+### Minor Changes
+
+- 0f60142: Add support for runners option to benchmarks
+- 5098fab: Add support for `claude-haiku-5.5` in benchmarks, experiments, and judges with `low`, `medium`, `high`, `xhigh`, and `max` reasoning efforts.
+- 0f60142: Add support for inline scenarios to benchmark capabilities
+- bc7c406: Add the Sandbox type as an export to @primer/agent-eval
+- bc7c406: Add Logger type as an export in @primer/agent-eval
+
 ## 0.11.0
 
 ### Minor Changes

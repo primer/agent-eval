@@ -2,7 +2,7 @@ import path from 'node:path'
 import * as z from 'zod/mini'
 import {SandboxSchema} from './sandbox'
 import type {Host} from './host'
-import type {logger} from './logger'
+import type {Logger} from './logger'
 import {isPathInside} from './path'
 
 // const AnnotationSchema = z.object({
@@ -51,7 +51,7 @@ const CheckRunReturnSchema = z.array(CheckRunResultSchema)
 
 const CheckRunInputSchema = z.tuple([
   z.object({
-    logger: z.custom<typeof logger>(),
+    logger: z.custom<Logger>(),
     sandbox: SandboxSchema,
   }),
 ])

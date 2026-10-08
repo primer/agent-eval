@@ -32,12 +32,11 @@ function getExperimentTreatments(experiment: Experiment) {
 
 function createExperimentPlan({experiment}: CreateExperimentPlanOptions): Plan<ExperimentTrial> {
   const treatments = [...getExperimentTreatments(experiment).values()]
-  const runners = experiment.runners ?? ['copilot-cli']
 
   return createPlan({
     trials: experiment.models.flatMap(model => {
       return experiment.scenarios.flatMap(scenario => {
-        return [...new Set(runners)].flatMap(runner => {
+        return experiment.runners.flatMap(runner => {
           return treatments.map(treatment => {
             return {
               id: randomUUID(),

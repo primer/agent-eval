@@ -36,7 +36,7 @@ function createBenchmarkPlan({benchmark}: CreateBenchmarkPlanOptions): Plan<Benc
     trials: benchmark.models.flatMap(model => {
       return benchmark.capabilities.flatMap(capability => {
         return capability.scenarios.flatMap(scenario => {
-          return [...new Set(benchmark.runners)].flatMap(runner => {
+          return benchmark.runners.flatMap(runner => {
             return treatments.map(treatment => {
               return {
                 id: randomUUID(),

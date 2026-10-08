@@ -24,7 +24,6 @@ test.each([
   {runners: undefined, expected: ['copilot-cli']},
   {runners: ['copilot-sdk'], expected: ['copilot-sdk']},
   {runners: ['copilot-cli', 'copilot-sdk'], expected: ['copilot-cli', 'copilot-sdk']},
-  {runners: ['copilot-sdk', 'copilot-sdk'], expected: ['copilot-sdk']},
 ] satisfies Array<{runners: Array<CopilotRunner> | undefined; expected: Array<CopilotRunner>}>)(
   'expands and restores the runner dimension: $runners',
   async ({runners, expected}) => {

@@ -6,7 +6,7 @@ import {ControlTreatment} from '../treatment'
 import {runTrial} from './run'
 import type {Trial} from './trial'
 
-test.each([undefined, 'copilot-cli', 'copilot-sdk'] as const)(
+test.each(['copilot-cli', 'copilot-sdk'] as const)(
   'withholds check files during the task and restores them for verification (runner: %s)',
   async runner => {
     const host = VirtualHost.create({

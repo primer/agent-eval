@@ -23,7 +23,7 @@ import {
   githubCopilotTokenOption,
   outputDirectoryOption,
   scenariosOption,
-  runnerOption,
+  runnerFilterOption,
   shardOption,
 } from '../options'
 
@@ -138,7 +138,7 @@ const experimentCommand = defineCommand({
               default: './plan.json',
             },
             scenarios: scenariosOption,
-            runner: runnerOption,
+            runner: runnerFilterOption,
             shard: shardOption,
             token: githubCopilotTokenOption,
           },
@@ -183,7 +183,11 @@ const experimentCommand = defineCommand({
               shard ? `(${shard.order}/${shard.total})` : '',
             )
 
-            const plan = createPlanFromManifest({shard, trials: manifest.trials, runner: args.runner})
+            const plan = createPlanFromManifest({
+              shard,
+              trials: manifest.trials,
+              runnerFilter: args.runner,
+            })
             const runPlanResult = await runPlan({
               artifactsDirectory,
               copilotConcurrency,

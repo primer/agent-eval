@@ -81,6 +81,26 @@ test.each([
   expect(await fs.readFile(filepath, 'utf8')).toBe(contents)
 })
 
+test.each(['benchmark', 'experiment'] as const)(
+  'defaults a legacy %s trial runner when reading the bundle',
+  async kind => {
+    const directory = await createDirectory()
+    const output = kind === 'benchmark' ? createBenchmarkOutput() : createExperimentOutput()
+    const filepath = await writeBundle(directory, output)
+    const trialPath = path.join(directory, 'artifacts/trial-1/trial-1.json')
+    const legacy: Record<string, unknown> = {...output.trials.get('trial-1')}
+    delete legacy.runner
+    const contents = JSON.stringify(legacy)
+    await fs.writeFile(trialPath, contents)
+    const read = kind === 'benchmark' ? readBenchmarkOutput : readExperimentOutput
+
+    const parsed = await read(filepath)
+
+    expect(parsed).toEqual(output)
+    expect(await fs.readFile(trialPath, 'utf8')).toBe(contents)
+  },
+)
+
 test('skips invalid current schemas and malformed JSON with distinct warnings', async () => {
   const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
   const directory = await createDirectory()

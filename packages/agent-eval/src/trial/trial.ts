@@ -13,7 +13,7 @@ const TrialSchema = z.object({
   scenario: ScenarioSchema,
   treatment: TreatmentSchema,
   model: ModelVariantSchema,
-  runner: z.optional(CopilotRunnerSchema),
+  runner: CopilotRunnerSchema,
   setup: z.optional(TreatmentSetupSchema),
 })
 

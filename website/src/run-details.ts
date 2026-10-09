@@ -392,7 +392,7 @@ async function createExperimentRunDetails(
       treatment,
       model: result.model.name,
       reasoningEffort: result.model.reasoningEffort,
-      runner: result.runner ?? 'copilot-cli',
+      runner: result.runner,
       checkSummary: formatChecks(summary),
       turns: result.agent.sessions.reduce((total, session) => {
         return total + session.turns

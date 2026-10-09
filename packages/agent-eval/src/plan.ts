@@ -34,7 +34,7 @@ function createPlan<T extends Trial>({trials}: CreatePlanOptions<T>): Plan<T> {
 type CreatePlanFromManifestOptions<T extends Trial> = {
   trials: Array<T>
   shard?: Shard
-  runner?: CopilotRunner
+  runnerFilter?: CopilotRunner
 }
 
 /**
@@ -45,23 +45,27 @@ type CreatePlanFromManifestOptions<T extends Trial> = {
  * When the `shard` option is provided, the plan will be filtered to only include trials
  * that match the shard's order and total.
  */
-function createPlanFromManifest<T extends Trial>({runner, shard, trials}: CreatePlanFromManifestOptions<T>): Plan<T> {
+function createPlanFromManifest<T extends Trial>({
+  runnerFilter,
+  shard,
+  trials,
+}: CreatePlanFromManifestOptions<T>): Plan<T> {
   if (
-    runner &&
+    runnerFilter &&
     !trials.some(trial => {
-      return (trial.runner ?? 'copilot-cli') === runner
+      return trial.runner === runnerFilter
     })
   ) {
     throw new Error(
-      `No trials found for runner "${runner}" in the saved plan. Add "${runner}" to the configuration's runners and create a new plan.`,
+      `No trials found for runner "${runnerFilter}" in the saved plan. Add "${runnerFilter}" to the configuration's runners and create a new plan.`,
     )
   }
 
   const selected = shard ? selectShard(trials, shard) : trials
   return {
-    trials: runner
+    trials: runnerFilter
       ? selected.filter(trial => {
-          return (trial.runner ?? 'copilot-cli') === runner
+          return trial.runner === runnerFilter
         })
       : selected,
   }

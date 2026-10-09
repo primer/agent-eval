@@ -85,7 +85,7 @@ function createExperimentPlanManifest({
       return {
         id: trial.id,
         model: trial.model,
-        runner: trial.runner ?? 'copilot-cli',
+        runner: trial.runner,
         scenarioId: trial.scenario.id,
         treatmentId: trial.treatment.id,
       }

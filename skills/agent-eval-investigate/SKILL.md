@@ -92,8 +92,9 @@ Rank a small number of actionable changes. For each, identify:
 Prefer one intervention at a time. Fix availability or execution problems before
 tuning messaging. Keep the scenario prompt, fixture, checks, and judge rubrics
 fixed; do not leak grading answers into instructions or optimize call counts at
-the expense of task correctness. Put the intervention in treatment setup rather
-than shared setup so control stays uncontaminated.
+the expense of task correctness. Put the intervention in experiment treatment
+setup or benchmark top-level `setup`, not shared scenario setup or benchmark
+capability setup, so control stays uncontaminated.
 
 Finish the investigation with the selected trial, observed behavior and outcome,
 evidence-backed hypotheses, uncertainties, and recommended next experiment.
@@ -108,9 +109,11 @@ or credit usage if known. Do not promise a cost from missing usage data.
 
 If approved:
 
-1. Preserve the baseline bundle and configuration/resource revisions. Apply only
-   the agreed intervention in a separate treatment, retaining the old treatment
-   when needed to compare old and new setups.
+1. Preserve the baseline bundle and configuration/resource revisions. For an
+   experiment, apply only the agreed intervention in a separate treatment,
+   retaining the old treatment for comparison. Benchmarks have only `Control`
+   and `Benchmark` treatments: compare unchanged and modified benchmark setups
+   in separate runs, or use an experiment to compare old/new treatments together.
 2. Verify installed `npx agent-eval --help` and the relevant subcommand help.
    Create and inspect an `experiment plan create` or `benchmark plan create` plan
    before its corresponding `plan run`. Keep the scenario, model, effort, runner,

@@ -424,26 +424,33 @@ export function getBenchmarkOverviewData(runs: Array<BenchmarkRun>): BenchmarkOv
   }
 }
 
+async function readBenchmarkRun(benchmarkId: string, candidate: OutputCandidate): Promise<BenchmarkRun | null> {
+  const output = await readBenchmarkOutput(candidate.filepath)
+  if (output === null) {
+    return null
+  }
+  if (output.id !== benchmarkId) {
+    throw new Error(`Benchmark ID "${output.id}" does not match "${benchmarkId}" in ${candidate.filepath}`)
+  }
+  return {
+    id: candidate.date,
+    name: candidate.date,
+    directory: path.dirname(candidate.filepath),
+    date: new Date(`${candidate.date}T00:00:00.000Z`),
+    output,
+  }
+}
+
 export async function listBenchmarkRuns(benchmarkId: string): Promise<Array<BenchmarkRun>> {
   const candidates = (await getDatedCandidates(benchmarkId)).toSorted((a, b) => {
     return b.date.localeCompare(a.date)
   })
   const runs: Array<BenchmarkRun> = []
   for (const candidate of candidates) {
-    const output = await readBenchmarkOutput(candidate.filepath)
-    if (output === null) {
-      continue
+    const run = await readBenchmarkRun(benchmarkId, candidate)
+    if (run) {
+      runs.push(run)
     }
-    if (output.id !== benchmarkId) {
-      throw new Error(`Benchmark ID "${output.id}" does not match "${benchmarkId}" in ${candidate.filepath}`)
-    }
-    runs.push({
-      id: candidate.date,
-      name: candidate.date,
-      directory: path.dirname(candidate.filepath),
-      date: new Date(`${candidate.date}T00:00:00.000Z`),
-      output,
-    })
   }
   return runs
 }
@@ -452,12 +459,10 @@ export async function getBenchmarkRun(benchmarkId: string, date: string): Promis
   if (!isRunDate(date)) {
     return null
   }
-  const runs = await listBenchmarkRuns(benchmarkId)
-  return (
-    runs.find(run => {
-      return run.name === date
-    }) ?? null
-  )
+  const candidate = (await getDatedCandidates(benchmarkId)).find(candidate => {
+    return candidate.date === date
+  })
+  return candidate ? readBenchmarkRun(benchmarkId, candidate) : null
 }
 
 function createScenarioResults(

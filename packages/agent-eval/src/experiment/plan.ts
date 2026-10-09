@@ -4,56 +4,82 @@ import {CopilotRunnerSchema} from '../copilot-runner'
 import type {Host} from '../host'
 import {ModelVariantSchema} from '../model'
 import {createPlan, type Plan} from '../plan'
-import {ControlTreatment} from '../treatment'
+import {composeTreatmentSetup, ControlTreatment, createTreatment} from '../treatment'
 import type {Trial} from '../trial/trial'
 import type {Experiment} from './experiment'
 import {getExperiment} from './get'
+import {exhaustiveCheck} from '../exhaustive'
+import type {Capability} from '../benchmark/benchmark'
 
-type ExperimentTrial = Trial
+type BenchmarkTrial = Trial & {
+  capability: Capability
+}
+
+type ScenarioTrial = Trial
+
+type ExperimentTrial = Trial | BenchmarkTrial
 
 type CreateExperimentPlanOptions = {
   experiment: Experiment
 }
 
-function getExperimentTreatments(experiment: Experiment) {
-  const treatments = new Map([[ControlTreatment.id, ControlTreatment]])
-  const names = new Set([ControlTreatment.name])
-
-  for (const treatment of experiment.treatments) {
-    if (treatments.has(treatment.id) || names.has(treatment.name)) {
-      throw new Error(`Experiment "${experiment.id}" contains duplicate treatment: ${treatment.name}`)
-    }
-    treatments.set(treatment.id, treatment)
-    names.add(treatment.name)
-  }
-
-  return treatments
-}
-
-function createExperimentPlan({experiment}: CreateExperimentPlanOptions): Plan<ExperimentTrial> {
-  const treatments = [...getExperimentTreatments(experiment).values()]
-
-  return createPlan({
-    trials: experiment.models.flatMap(model => {
-      return experiment.scenarios.flatMap(scenario => {
-        return experiment.runners.flatMap(runner => {
-          return treatments.map(treatment => {
-            return {
-              id: randomUUID(),
-              scenario,
-              treatment,
-              model,
-              runner,
-              setup: experiment.setup,
-            }
+function createExperimentPlan({experiment}: CreateExperimentPlanOptions): Plan<ScenarioTrial> | Plan<BenchmarkTrial> {
+  if (experiment.type === 'scenario') {
+    const treatments = [ControlTreatment, ...experiment.treatments]
+    return createPlan({
+      trials: experiment.models.flatMap(model => {
+        return experiment.scenarios.flatMap(scenario => {
+          return experiment.runners.flatMap(runner => {
+            return treatments.map(treatment => {
+              return {
+                id: randomUUID(),
+                scenario,
+                treatment,
+                model,
+                runner,
+                setup: experiment.setup,
+              }
+            })
           })
         })
-      })
-    }),
-  })
+      }),
+    })
+  } else if (experiment.type === 'benchmark') {
+    return createPlan({
+      trials: experiment.models.flatMap(model => {
+        return experiment.runners.flatMap(runner => {
+          return experiment.benchmark.capabilities.flatMap(capability => {
+            const treatments = [
+              ControlTreatment,
+              createTreatment({
+                name: 'Benchmark',
+                setup: composeTreatmentSetup(experiment.benchmark.setup, capability.setup),
+              }),
+              ...experiment.treatments,
+            ]
+            return capability.scenarios.flatMap(scenario => {
+              return treatments.map(treatment => {
+                return {
+                  id: randomUUID(),
+                  scenario,
+                  treatment,
+                  model,
+                  runner,
+                  capability,
+                  setup: experiment.setup,
+                }
+              })
+            })
+          })
+        })
+      }),
+    })
+  } else {
+    exhaustiveCheck(experiment)
+  }
 }
 
-const ExperimentPlanManifestFileSchema = z.object({
+const ExperimentPlanManifestFileSchema = z.strictObject({
   id: z.string(),
   name: z.string(),
   trials: z
@@ -64,6 +90,7 @@ const ExperimentPlanManifestFileSchema = z.object({
         runner: z._default(CopilotRunnerSchema, 'copilot-cli'),
         scenarioId: z.string(),
         treatmentId: z.string(),
+        capabilityId: z.optional(z.string()),
       }),
     )
     .check(ctx => {
@@ -97,12 +124,25 @@ function createExperimentPlanManifest({
     id: experiment.id,
     name: experiment.name,
     trials: plan.trials.map(trial => {
-      return {
-        id: trial.id,
-        model: trial.model,
-        runner: trial.runner,
-        scenarioId: trial.scenario.id,
-        treatmentId: trial.treatment.id,
+      if ('capability' in trial) {
+        return {
+          id: trial.id,
+          model: trial.model,
+          runner: trial.runner,
+          scenarioId: trial.scenario.id,
+          capabilityId: trial.capability.id,
+          treatmentId: trial.treatment.id,
+        }
+      } else if ('scenario' in trial) {
+        return {
+          id: trial.id,
+          model: trial.model,
+          runner: trial.runner,
+          scenarioId: trial.scenario.id,
+          treatmentId: trial.treatment.id,
+        }
+      } else {
+        exhaustiveCheck(trial)
       }
     }),
   }
@@ -114,6 +154,7 @@ type ExperimentPlanManifest = {
 }
 
 type ParseExperimentPlanManifestOptions = {
+  benchmarksDirectory: string
   experimentsDirectory: string
   contents: string
   host?: Host
@@ -121,6 +162,7 @@ type ParseExperimentPlanManifestOptions = {
 }
 
 async function parseExperimentPlanManifest({
+  benchmarksDirectory,
   experimentsDirectory,
   contents,
   host,
@@ -128,47 +170,113 @@ async function parseExperimentPlanManifest({
 }: ParseExperimentPlanManifestOptions): Promise<ExperimentPlanManifest> {
   const result = ExperimentPlanManifestFileSchema.parse(JSON.parse(contents))
   const experiment = await getExperiment({
+    benchmarksDirectory,
     experimentsDirectory,
     host,
     name: result.id,
     scenariosDirectory,
   })
-  const scenarios = new Map(
-    experiment.scenarios.map(scenario => {
-      return [scenario.id, scenario]
-    }),
-  )
-  const treatments = getExperimentTreatments(experiment)
 
-  return {
-    experiment,
-    trials: result.trials.map(trial => {
-      const scenario = scenarios.get(trial.scenarioId)
-      if (!scenario) {
-        throw new Error(`Scenario not found for trial: ${trial.id}`)
-      }
+  if (experiment.type === 'scenario') {
+    const scenarios = new Map(
+      experiment.scenarios.map(scenario => {
+        return [scenario.id, scenario]
+      }),
+    )
+    const treatments = [ControlTreatment, ...experiment.treatments]
+    return {
+      experiment,
+      trials: result.trials.map(trial => {
+        const scenario = scenarios.get(trial.scenarioId)
+        if (!scenario) {
+          throw new Error(`Scenario not found for trial: ${trial.id}`)
+        }
 
-      const treatment = treatments.get(trial.treatmentId)
-      if (!treatment) {
-        throw new Error(`Treatment not found for trial: ${trial.id}`)
-      }
+        const treatment = treatments.find(candidate => {
+          return candidate.id === trial.treatmentId
+        })
+        if (!treatment) {
+          throw new Error(`Treatment not found for trial: ${trial.id}`)
+        }
 
-      const model = experiment.models.find(candidate => {
-        return candidate.name === trial.model.name && candidate.reasoningEffort === trial.model.reasoningEffort
-      })
-      if (!model) {
-        throw new Error(`Model variant not found for trial: ${trial.id}`)
-      }
+        const model = experiment.models.find(candidate => {
+          return candidate.name === trial.model.name && candidate.reasoningEffort === trial.model.reasoningEffort
+        })
+        if (!model) {
+          throw new Error(`Model variant not found for trial: ${trial.id}`)
+        }
 
-      return {
-        id: trial.id,
-        model,
-        runner: trial.runner,
-        scenario,
-        treatment,
-        setup: experiment.setup,
-      }
-    }),
+        return {
+          id: trial.id,
+          model,
+          runner: trial.runner,
+          scenario,
+          treatment,
+          setup: experiment.setup,
+        }
+      }),
+    }
+  } else if (experiment.type === 'benchmark') {
+    const capabilities = new Map(
+      experiment.benchmark.capabilities.map(capability => {
+        return [capability.id, capability]
+      }),
+    )
+
+    return {
+      experiment,
+      trials: result.trials.map(trial => {
+        if (trial.capabilityId === undefined) {
+          throw new Error(`Capability not found for trial: ${trial.id}`)
+        }
+
+        const capability = capabilities.get(trial.capabilityId)
+        if (!capability) {
+          throw new Error(`Capability not found for trial: ${trial.id}`)
+        }
+
+        const scenario = capability.scenarios.find(candidate => {
+          return candidate.id === trial.scenarioId
+        })
+        if (!scenario) {
+          throw new Error(`Scenario not found for trial: ${trial.id}`)
+        }
+
+        const model = experiment.models.find(candidate => {
+          return candidate.name === trial.model.name && candidate.reasoningEffort === trial.model.reasoningEffort
+        })
+        if (!model) {
+          throw new Error(`Model variant not found for trial: ${trial.id}`)
+        }
+
+        const treatments = [
+          ControlTreatment,
+          createTreatment({
+            name: 'Benchmark',
+            setup: composeTreatmentSetup(experiment.benchmark.setup, capability.setup),
+          }),
+          ...experiment.treatments,
+        ]
+        const treatment = treatments.find(candidate => {
+          return candidate.id === trial.treatmentId
+        })
+        if (!treatment) {
+          throw new Error(`Treatment not found for trial: ${trial.id}`)
+        }
+
+        return {
+          id: trial.id,
+          model,
+          runner: trial.runner,
+          scenario,
+          capability,
+          treatment,
+          setup: experiment.setup,
+        }
+      }),
+    }
+  } else {
+    exhaustiveCheck(experiment)
   }
 }
 

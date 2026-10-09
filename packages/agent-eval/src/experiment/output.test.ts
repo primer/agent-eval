@@ -1,10 +1,17 @@
 import {expect, expectTypeOf, test} from 'vitest'
 import type {CopilotRunner} from '../copilot-runner'
 import {VirtualHost} from '../host'
+import {RunTrialResultSchema} from '../trial/run'
+import {getExperiment} from './get'
+import {createExperimentPlan} from './plan'
 import {
   ExperimentOutputFileSchema,
   ExperimentTrialOutputSchema,
+  createExperimentOutput,
+  listExperimentOutputFiles,
   mergeExperimentOutputFiles,
+  parseExperimentTrialOutput,
+  writeExperimentOutput,
   type ExperimentTrialOutput,
 } from './output'
 
@@ -61,6 +68,7 @@ test.each([null, 'unknown'])('rejects an invalid experiment output runner: %s', 
 function createOutputFile(trials: Record<string, string> = {}) {
   return {
     id: 'example',
+    capabilities: {},
     scenarios: {
       example: {
         id: 'example',
@@ -260,4 +268,104 @@ test('merges compatible experiment shards with repeated metadata and distinct tr
   expect([...output.trials.keys()]).toEqual(['trial', 'second'])
   expect(output.scenarios.size).toBe(1)
   expect(output.treatments.size).toBe(1)
+})
+
+test('preserves benchmark capabilities and trial membership through writing and merging shards', async () => {
+  const host = VirtualHost.create({
+    '/experiments/example.ts':
+      'export default {name: "Example", description: "Compare a benchmark", models: ["gpt-5.5"], benchmark: "example", treatments: []}',
+    '/benchmarks/example.ts':
+      'export default {name: "Example", description: "Shared scenarios", models: ["gpt-5.5"], capabilities: [{name: "Components", scenarios: ["example"]}, {name: "Layout", scenarios: ["example"]}]}',
+    '/scenarios/example/package.json': '{}',
+    '/scenarios/example/scenario.config.ts': 'export default {prompt: "Build a page"}',
+  })
+  const experiment = await getExperiment({
+    host,
+    name: 'example',
+    experimentsDirectory: '/experiments',
+    benchmarksDirectory: '/benchmarks',
+    scenariosDirectory: '/scenarios',
+  })
+  const plan = createExperimentPlan({experiment})
+  const results = plan.trials.map(entry => {
+    return {
+      trial: entry,
+      result: RunTrialResultSchema.parse({
+        ...trial,
+        trial: entry,
+        artifacts: {
+          ...trial.artifacts,
+          directory: `/results/artifacts/${entry.id}`,
+        },
+      }),
+    }
+  })
+  const expected = createExperimentOutput({experiment, runPlanResult: {results}})
+
+  for (const [index, shard] of [results.slice(0, 2), results.slice(2)].entries()) {
+    await writeExperimentOutput({
+      host,
+      output: createExperimentOutput({experiment, runPlanResult: {results: shard}}),
+      outputPath: `/results/output-${index + 1}.json`,
+    })
+  }
+  const files = await listExperimentOutputFiles({host, outputDirectory: '/results'})
+  const merged = await mergeExperimentOutputFiles({
+    host,
+    outputDirectory: '/results',
+    outputs: files.map(([output]) => {
+      return output
+    }),
+  })
+
+  expect(merged).toEqual(expected)
+  expect(
+    [...merged.capabilities.values()]
+      .map(capability => {
+        return capability.name
+      })
+      .sort(),
+  ).toEqual(['Components', 'Layout'])
+  expect(
+    [...merged.trials.values()].every(entry => {
+      return entry.capabilityId !== undefined && merged.capabilities.has(entry.capabilityId)
+    }),
+  ).toBe(true)
+})
+
+test('defaults legacy scenario manifests to no capabilities', () => {
+  const legacy: Record<string, unknown> = createOutputFile()
+  delete legacy.capabilities
+
+  expect(ExperimentOutputFileSchema.parse(legacy).capabilities).toEqual({})
+})
+
+test.each([
+  {capabilityId: undefined, scenarioId: 'example'},
+  {capabilityId: 'unknown', scenarioId: 'example'},
+  {capabilityId: 'components', scenarioId: 'wrong-scenario'},
+])('rejects invalid benchmark experiment capability membership: %j', fields => {
+  expect(() => {
+    parseExperimentTrialOutput(
+      {...trial, ...fields},
+      new Map([['components', {id: 'components', name: 'Components', scenarioIds: ['example']}]]),
+    )
+  }).toThrow('Invalid capability')
+})
+
+test('rejects conflicting capability metadata before reading experiment shard artifacts', async () => {
+  const capability = {id: 'components', name: 'Components', scenarioIds: ['example']}
+
+  await expect(
+    mergeExperimentOutputFiles({
+      host: VirtualHost.create(),
+      outputDirectory: '/results',
+      outputs: [
+        {...createOutputFile({trial: 'missing.json'}), capabilities: {components: capability}},
+        {...createOutputFile(), capabilities: {components: {...capability, name: 'Renamed'}}},
+      ],
+    }),
+  ).rejects.toMatchObject({
+    issues: [{path: [1, 'capabilities', 'components']}],
+  })
 })

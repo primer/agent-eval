@@ -2,8 +2,23 @@ import type {ExperimentConfig} from './config'
 import type {ModelVariant} from '../model'
 import type {Scenario} from '../scenario/scenario'
 import type {Treatment, TreatmentSetup} from '../treatment'
+import type {Benchmark} from '../benchmark/benchmark'
 
-type Experiment = {
+type BenchmarkExperiment = {
+  type: 'benchmark'
+  id: string
+  filepath: string
+  name: ExperimentConfig['name']
+  description: ExperimentConfig['description']
+  models: Array<ModelVariant>
+  runners: ExperimentConfig['runners']
+  benchmark: Benchmark
+  setup?: TreatmentSetup
+  treatments: Array<Treatment>
+}
+
+type ScenarioExperiment = {
+  type: 'scenario'
   id: string
   filepath: string
   name: ExperimentConfig['name']
@@ -15,4 +30,6 @@ type Experiment = {
   treatments: Array<Treatment>
 }
 
-export type {Experiment}
+type Experiment = ScenarioExperiment | BenchmarkExperiment
+
+export type {Experiment, ScenarioExperiment, BenchmarkExperiment}

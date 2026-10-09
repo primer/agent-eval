@@ -25,6 +25,9 @@ function formatCredits(value: number): string {
 
 function TreatmentResultsTable({results, label}: {results: Array<TreatmentResult>; label: string}) {
   const labelId = useId()
+  const showRunner = results.some(result => {
+    return result.runner === 'copilot-sdk'
+  })
   return (
     <Table.Container>
       <span className="sr-only" id={labelId}>
@@ -35,6 +38,15 @@ function TreatmentResultsTable({results, label}: {results: Array<TreatmentResult
         cellPadding="condensed"
         columns={[
           {id: 'treatment', header: 'Treatment', field: 'treatment', rowHeader: true},
+          ...(showRunner
+            ? [
+                {
+                  id: 'runner',
+                  header: 'Runner',
+                  field: 'runner' as const,
+                },
+              ]
+            : []),
           {id: 'model', header: 'Model', field: 'model'},
           {id: 'effort', header: 'Effort', field: 'reasoningEffort'},
           {id: 'trials', header: 'Trials', field: 'trials', align: 'end'},
@@ -101,8 +113,8 @@ function MetricsDescription() {
   return (
     <p className="text-muted">
       Checks show per-trial pass percentages or measurement means, averaged across trials. Skips, errors, and missing
-      values are reported separately. Resource usage is the average per trial. Treatments are grouped by model and
-      reasoning effort; compare scenario and trial counts before comparing performance.
+      values are reported separately. Resource usage is the average per trial. Treatments are grouped by runner, model,
+      and reasoning effort; compare scenario and trial counts before comparing performance.
     </p>
   )
 }
@@ -130,7 +142,7 @@ export function ExperimentsOverview({experiments}: {experiments: Array<Experimen
                 <Link href={`/experiments/${experiment.id}/runs/${experiment.date}` as Route}>
                   <time dateTime={experiment.date}>{experiment.date}</time>
                 </Link>
-                . <Link href={`/experiments/${experiment.id}`}>View scenario results and run history</Link>
+                . <Link href={`/experiments/${experiment.id}`}>View detailed results and run history</Link>
               </p>
             ) : null}
             {experiment.treatments.length > 0 ? (
@@ -179,28 +191,66 @@ export function LatestExperimentResults({id, results}: {id: string; results: Exp
           <Blankslate.Description>No trial results were recorded in the latest run.</Blankslate.Description>
         </Blankslate>
       )}
-      <h3 className="text-title-small">Scenario results</h3>
-      {results.scenarios.map(scenario => {
+      {results.capabilities.length > 0 ? <h3 className="text-title-small">Capability results</h3> : null}
+      {results.capabilities.map(capability => {
         return (
-          <section className="flex flex-col gap-3" key={scenario.id}>
-            <h4 className="text-title-small">{scenario.id}</h4>
-            {scenario.treatments.length > 0 ? (
-              <>
-                <TreatmentResultsTable label={`Treatment results for ${scenario.id}`} results={scenario.treatments} />
-                <p>
-                  <Link
-                    href={`/experiments/${id}/runs/${results.date}${getScenarioAnchor(scenario.id).fragment}` as Route}
-                  >
-                    View output for {scenario.id}
-                  </Link>
-                </p>
-              </>
+          <section className="flex flex-col gap-4" key={capability.id}>
+            <h4 className="text-title-small">{capability.name}</h4>
+            {capability.treatments.length > 0 ? (
+              <TreatmentResultsTable
+                label={`Treatment results for ${capability.name}`}
+                results={capability.treatments}
+              />
             ) : (
-              <p>No trial results were recorded for this scenario.</p>
+              <p>No trial results were recorded for this capability.</p>
             )}
+            <ScenarioResults id={id} date={results.date} scenarios={capability.scenarios} capability={capability} />
           </section>
         )
       })}
+      {results.capabilities.length === 0 ? <h3 className="text-title-small">Scenario results</h3> : null}
+      <ScenarioResults id={id} date={results.date} scenarios={results.scenarios} />
     </section>
   )
+}
+
+function ScenarioResults({
+  id,
+  date,
+  scenarios,
+  capability,
+}: {
+  id: string
+  date: string
+  scenarios: ExperimentResults['scenarios']
+  capability?: {id: string; name: string}
+}) {
+  return scenarios.map(scenario => {
+    const label = capability ? `${capability.name} / ${scenario.id}` : scenario.id
+    return (
+      <section className="flex flex-col gap-3" key={scenario.id}>
+        {capability ? (
+          <h5 className="text-title-small">{scenario.id}</h5>
+        ) : (
+          <h4 className="text-title-small">{scenario.id}</h4>
+        )}
+        {scenario.treatments.length > 0 ? (
+          <>
+            <TreatmentResultsTable label={`Treatment results for ${label}`} results={scenario.treatments} />
+            <p>
+              <Link
+                href={
+                  `/experiments/${id}/runs/${date}${getScenarioAnchor(scenario.id, capability?.id).fragment}` as Route
+                }
+              >
+                View output for {label}
+              </Link>
+            </p>
+          </>
+        ) : (
+          <p>No trial results were recorded for this scenario.</p>
+        )}
+      </section>
+    )
+  })
 }

@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises'
+import os from 'node:os'
 import path from 'node:path'
 import type {BenchmarkOutput, ExperimentOutput} from '@primer/agent-eval'
 import {afterEach, expect, onTestFinished, test, vi} from 'vitest'
@@ -8,12 +9,11 @@ import {createExperimentRunDetails, getWalkthroughAssets} from './run-details'
 
 afterEach(() => {
   vi.restoreAllMocks()
+  vi.unstubAllEnvs()
 })
 
 async function createDirectory(): Promise<string> {
-  const root = path.resolve('.agents/tmp')
-  await fs.mkdir(root, {recursive: true})
-  const directory = await fs.mkdtemp(path.join(root, 'website-results-'))
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'website-results-'))
   onTestFinished(async () => {
     await fs.rm(directory, {recursive: true, force: true})
   })
@@ -45,6 +45,101 @@ async function writeBundle(
   )
   return filepath
 }
+
+test('getBenchmarkRun reads only the requested date, not broken historical bundles', async () => {
+  const directory = await createDirectory()
+  const output = createBenchmarkOutput()
+  const results = path.join(directory, 'results/benchmarks', output.id)
+  await writeBundle(path.join(results, '2026-09-15'), output)
+  const broken = await writeBundle(path.join(results, '2026-09-14'), output)
+  await fs.rm(path.join(path.dirname(broken), 'artifacts'), {recursive: true})
+  vi.spyOn(process, 'cwd').mockReturnValue(path.join(directory, 'website'))
+  vi.resetModules()
+  const {getBenchmarkRun} = await import('./benchmark-results')
+
+  expect(await getBenchmarkRun(output.id, '2026-09-15')).toMatchObject({name: '2026-09-15', output})
+  expect(await getBenchmarkRun(output.id, '2026-09-16')).toBeNull()
+  expect(await getBenchmarkRun(output.id, '2026-02-30')).toBeNull()
+  await expect(getBenchmarkRun(output.id, '2026-09-14')).rejects.toThrow('ENOENT')
+})
+
+test.each(['benchmark', 'experiment'] as const)(
+  'reuses concurrent and repeated production %s bundle reads',
+  async kind => {
+    const directory = await createDirectory()
+    const output = kind === 'benchmark' ? createBenchmarkOutput() : createExperimentOutput()
+    const filepath = await writeBundle(directory, output)
+    vi.stubEnv('NODE_ENV', 'production')
+    vi.resetModules()
+    const readers = await import('./result-files')
+    const read = kind === 'benchmark' ? readers.readBenchmarkOutput : readers.readExperimentOutput
+    const readFile = vi.spyOn(fs, 'readFile')
+
+    expect(await Promise.all([read(filepath), read(filepath), read(filepath)])).toEqual([output, output, output])
+    expect(await read(filepath)).toEqual(output)
+    expect(readFile).toHaveBeenCalledTimes(2)
+  },
+)
+
+test.each(['benchmark', 'experiment'] as const)(
+  'bounds the production %s bundle cache and keeps recently used runs',
+  async kind => {
+    const directory = await createDirectory()
+    const output = kind === 'benchmark' ? createBenchmarkOutput() : createExperimentOutput()
+    const first = await writeBundle(path.join(directory, 'first'), output)
+    const second = await writeBundle(path.join(directory, 'second'), output)
+    const third = await writeBundle(path.join(directory, 'third'), output)
+    vi.stubEnv('NODE_ENV', 'production')
+    vi.resetModules()
+    const readers = await import('./result-files')
+    const read = kind === 'benchmark' ? readers.readBenchmarkOutput : readers.readExperimentOutput
+    await read(first)
+    await read(second)
+    await read(first)
+    await read(third)
+    const readFile = vi.spyOn(fs, 'readFile')
+
+    expect(await read(first)).toEqual(output)
+    expect(readFile).not.toHaveBeenCalled()
+    expect(await read(second)).toEqual(output)
+    expect(readFile).toHaveBeenCalledTimes(2)
+  },
+)
+
+test.each(['benchmark', 'experiment'] as const)(
+  'retries failed and incompatible production %s bundle reads',
+  async kind => {
+    const directory = await createDirectory()
+    const output = kind === 'benchmark' ? createBenchmarkOutput() : createExperimentOutput()
+    const filepath = path.join(directory, 'output.json')
+    vi.stubEnv('NODE_ENV', 'production')
+    vi.resetModules()
+    const readers = await import('./result-files')
+    const read = kind === 'benchmark' ? readers.readBenchmarkOutput : readers.readExperimentOutput
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    await expect(read(filepath)).rejects.toThrow('ENOENT')
+    await fs.writeFile(filepath, '{}')
+    expect(await read(filepath)).toBeNull()
+    await writeBundle(directory, output)
+    expect(await read(filepath)).toEqual(output)
+  },
+)
+
+test.each(['benchmark', 'experiment'] as const)('rereads changed %s bundles outside production', async kind => {
+  const directory = await createDirectory()
+  const output = kind === 'benchmark' ? createBenchmarkOutput() : createExperimentOutput()
+  const filepath = await writeBundle(directory, output)
+  vi.stubEnv('NODE_ENV', 'development')
+  vi.resetModules()
+  const readers = await import('./result-files')
+  const read = kind === 'benchmark' ? readers.readBenchmarkOutput : readers.readExperimentOutput
+  expect(await read(filepath)).toEqual(output)
+  output.trials.clear()
+  await writeBundle(directory, output)
+
+  expect(await read(filepath)).toEqual(output)
+})
 
 test.each(['benchmark', 'experiment'] as const)(
   'reads a portable %s bundle repeatedly without deleting artifacts',

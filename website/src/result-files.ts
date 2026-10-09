@@ -17,6 +17,45 @@ type ResultSchema<T> = {
   safeParse: (json: unknown) => {success: true; data: T} | {success: false; error: {message: string}}
 }
 
+function cacheResultReader<T>(read: (filepath: string) => Promise<T | null>) {
+  // Static exports reuse immutable bundles across thousands of asset routes.
+  const bundles = new Map<string, Promise<T | null>>()
+  const maxCachedBundles = 2
+
+  return async (filepath: string): Promise<T | null> => {
+    if (process.env.NODE_ENV !== 'production') {
+      return read(filepath)
+    }
+    const key = path.resolve(filepath)
+    const cached = bundles.get(key)
+    if (cached) {
+      bundles.delete(key)
+      bundles.set(key, cached)
+      return cached
+    }
+    const bundle = read(key)
+    bundles.set(key, bundle)
+    if (bundles.size > maxCachedBundles) {
+      const oldestKey = bundles.keys().next().value
+      if (oldestKey !== undefined) {
+        bundles.delete(oldestKey)
+      }
+    }
+    try {
+      const output = await bundle
+      if (output === null && bundles.get(key) === bundle) {
+        bundles.delete(key)
+      }
+      return output
+    } catch (error) {
+      if (bundles.get(key) === bundle) {
+        bundles.delete(key)
+      }
+      throw error
+    }
+  }
+}
+
 async function readResultFile<T>(filepath: string, schema: ResultSchema<T>): Promise<T | null> {
   const contents = await fs.readFile(filepath, 'utf8')
   let json: unknown
@@ -65,7 +104,7 @@ async function readTrials<T extends {id: string}>(
   return results
 }
 
-async function readBenchmarkOutput(filepath: string): Promise<BenchmarkOutput | null> {
+async function loadBenchmarkOutput(filepath: string): Promise<BenchmarkOutput | null> {
   const file = await readResultFile(filepath, BenchmarkOutputFileSchema)
   if (file === null) {
     return null
@@ -87,7 +126,7 @@ async function readBenchmarkOutput(filepath: string): Promise<BenchmarkOutput | 
   }
 }
 
-async function readExperimentOutput(filepath: string): Promise<ExperimentOutput | null> {
+async function loadExperimentOutput(filepath: string): Promise<ExperimentOutput | null> {
   const file = await readResultFile(filepath, ExperimentOutputFileSchema)
   if (file === null) {
     return null
@@ -103,5 +142,8 @@ async function readExperimentOutput(filepath: string): Promise<ExperimentOutput 
     trials,
   }
 }
+
+const readBenchmarkOutput = cacheResultReader(loadBenchmarkOutput)
+const readExperimentOutput = cacheResultReader(loadExperimentOutput)
 
 export {readBenchmarkOutput, readExperimentOutput}

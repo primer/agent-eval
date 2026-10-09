@@ -444,7 +444,7 @@ function ScenarioResults({group, index}: {group: ScenarioResultGroup; index: num
     <article
       aria-labelledby={resultHeadingId}
       className="flex flex-col gap-4"
-      id={group.capability ? `capability-scenario-${index}` : getScenarioAnchor(group.scenarioId).id}
+      id={getScenarioAnchor(group.scenarioId, group.capability?.id).id}
     >
       <header className="border-b border-default pb-3 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <h2 className="text-title-medium m-0" id={resultHeadingId}>

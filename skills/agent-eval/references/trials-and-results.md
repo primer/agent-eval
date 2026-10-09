@@ -41,13 +41,19 @@ artifacts/
 
 `output.json` is a manifest. Its `trials` object maps IDs to relative trial JSON
 paths, not embedded trial results. It includes scenario and treatment metadata;
-benchmark output also includes capability metadata.
+benchmark and benchmark-backed experiment output also include capability metadata.
 
 Resolve each trial file path relative to the output directory. Trial files
 include model, runner, treatment/scenario identifiers, checks, judges, agent
 sessions, walkthrough information, and artifact locations. Preserve the whole
 bundle when sharing or archiving. Embedded artifact paths can be absolute;
 do not assume every metadata path relocates automatically.
+
+Benchmark-backed experiment trials include `capabilityId`. The package root
+exposes `parseExperimentTrialOutput(json, capabilities)` to check membership
+against the bundle's capability map. Scenario-only and legacy experiment
+bundles default to an empty capability map; missing historical membership is
+not inferred.
 
 Standalone `scenario run` writes a different output: `{id, results}`, with
 entries containing `trial: {id}` and an embedded `result`. Do not parse it as a

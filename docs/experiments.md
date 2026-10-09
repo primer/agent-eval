@@ -78,3 +78,14 @@ show a `Runner` column when SDK trials are present.
 Each level includes run counts, check summaries, and implementation-agent usage
 totals. Partial or sharded runs show only the groups with completed results.
 Scenario-backed experiments retain their existing report format.
+
+On the website, experiment pages show overall treatment summaries, then
+capability summaries with their scenario results. Runner, model, and reasoning
+effort groups remain separate. Website resource usage is averaged per trial.
+Scenario output links open the matching capability and scenario on the run
+detail page, which also supports filtering by capability.
+
+Benchmark-backed result bundles preserve capability metadata in `output.json`
+and a `capabilityId` on each trial. Older experiment bundles without this
+metadata remain readable, but their results stay grouped by scenario because
+capability membership cannot be inferred reliably.

@@ -399,10 +399,11 @@ async function listBenchmarkOutputFiles({
 export {
   BenchmarkOutputFileSchema,
   BenchmarkTrialOutputSchema,
+  CapabilityOutputSchema,
   parseBenchmarkTrialOutput,
   createBenchmarkOutput,
   listBenchmarkOutputFiles,
   mergeBenchmarkOutputFiles,
   writeBenchmarkOutput,
 }
-export type {BenchmarkOutput, BenchmarkTrialOutput}
+export type {BenchmarkOutput, BenchmarkTrialOutput, CapabilityOutput}

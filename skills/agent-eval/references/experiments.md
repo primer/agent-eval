@@ -37,6 +37,15 @@ column when SDK trials are present.
 Each level shows run counts, check summaries, and implementation-agent usage.
 Partial runs show only completed groups, not empty configured capabilities.
 
+Website experiment pages show treatment summaries, capability summaries, and
+scenario results within each capability. Usage is averaged per trial, with
+runner/model/effort groups kept separate. Output links target the matching
+capability and scenario on the run detail page.
+
+New benchmark-backed experiment bundles include capability metadata and trial
+membership. Older bundles lacking that metadata remain readable as flat
+scenario results; do not infer membership from current configuration.
+
 ## Minimal example
 
 Prerequisite: create `001-labels` from [getting started](getting-started.md).

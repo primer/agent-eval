@@ -24,9 +24,8 @@ import {
   mergeBenchmarkOutputFiles,
   writeBenchmarkOutput,
 } from '../../benchmark/output'
-import {createPlanFromManifest, runPlan} from '../../plan'
+import {createPlanFromManifest, selectPlanTrials, runPlan} from '../../plan'
 import {DefaultHost as host} from '../../host'
-import {selectPlanTrials} from '../plan'
 
 const benchmarkCommand = defineCommand({
   meta: {

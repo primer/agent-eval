@@ -1,10 +1,12 @@
 import Queue from 'p-queue'
+import type {CopilotRunner} from './copilot-runner'
 import {DefaultHost, type Host} from './host'
 import {logger} from './logger'
 import type {Trial} from './trial/trial'
 import type {RunTrialResult} from './trial/run'
 import {runTrial} from './trial/run'
 import {buildScenarioImage} from './scenario/scenario'
+import {selectShard, type Shard} from './shard'
 
 /**
  * A Plan represents an ordered collection of trials to run. Plans are created
@@ -42,6 +44,36 @@ function createPlanFromManifest<T extends Trial>({trials}: CreatePlanFromManifes
   return {
     trials,
   }
+}
+
+type SelectPlanTrialsOptions<T> = {
+  trials: Array<T>
+  runner?: CopilotRunner
+  shard?: Shard
+}
+
+function selectPlanTrials<T extends Pick<Trial, 'runner'>>({
+  trials,
+  runner,
+  shard,
+}: SelectPlanTrialsOptions<T>): Array<T> {
+  if (
+    runner &&
+    !trials.some(trial => {
+      return trial.runner === runner
+    })
+  ) {
+    throw new Error(
+      `No trials found for runner "${runner}" in the saved plan. Add "${runner}" to the configuration's runners and create a new plan.`,
+    )
+  }
+
+  const selected = shard ? selectShard(trials, shard) : trials
+  return runner
+    ? selected.filter(trial => {
+        return trial.runner === runner
+      })
+    : selected
 }
 
 type RunPlanOptions<T extends Trial> = {
@@ -135,5 +167,5 @@ async function retry<T>(fn: () => Promise<T>, retries: number = 3): Promise<T> {
   }
 }
 
-export {createPlan, createPlanFromManifest, runPlan}
+export {createPlan, createPlanFromManifest, selectPlanTrials, runPlan}
 export type {Plan, RunPlanResult}

@@ -11,7 +11,7 @@ import {
 import {createExperimentPlan, createExperimentPlanManifest, parseExperimentPlanManifest} from '../../experiment/plan'
 import {DefaultHost as host} from '../../host'
 import {logger} from '../../logger'
-import {createPlanFromManifest, runPlan} from '../../plan'
+import {createPlanFromManifest, selectPlanTrials, runPlan} from '../../plan'
 import {parseShard} from '../../shard'
 import {
   copilotConcurrencyOption,
@@ -26,7 +26,6 @@ import {
   runnerFilterOption,
   shardOption,
 } from '../options'
-import {selectPlanTrials} from '../plan'
 
 const experimentCommand = defineCommand({
   meta: {

@@ -1,5 +1,5 @@
 import {expect, test} from 'vitest'
-import type {CopilotRunner} from '../copilot-runner'
+import type {CopilotRunner} from './copilot-runner'
 import {selectPlanTrials} from './plan'
 
 function createTrials() {

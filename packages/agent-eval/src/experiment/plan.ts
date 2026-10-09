@@ -23,35 +23,9 @@ type CreateExperimentPlanOptions = {
   experiment: Experiment
 }
 
-function getExperimentTreatments(experiment: Experiment, capability?: Capability) {
-  const treatments = new Map([[ControlTreatment.id, ControlTreatment]])
-  if (experiment.type === 'benchmark' && capability) {
-    const treatment = createTreatment({
-      name: 'Benchmark',
-      setup: composeTreatmentSetup(experiment.benchmark.setup, capability.setup),
-    })
-    treatments.set(treatment.id, treatment)
-  }
-  const names = new Set(
-    [...treatments.values()].map(treatment => {
-      return treatment.name
-    }),
-  )
-
-  for (const treatment of experiment.treatments) {
-    if (treatments.has(treatment.id) || names.has(treatment.name)) {
-      throw new Error(`Experiment "${experiment.id}" contains duplicate treatment: ${treatment.name}`)
-    }
-    treatments.set(treatment.id, treatment)
-    names.add(treatment.name)
-  }
-
-  return treatments
-}
-
 function createExperimentPlan({experiment}: CreateExperimentPlanOptions): Plan<ScenarioTrial> | Plan<BenchmarkTrial> {
   if (experiment.type === 'scenario') {
-    const treatments = [...getExperimentTreatments(experiment).values()]
+    const treatments = [ControlTreatment, ...experiment.treatments]
     return createPlan({
       trials: experiment.models.flatMap(model => {
         return experiment.scenarios.flatMap(scenario => {
@@ -75,8 +49,16 @@ function createExperimentPlan({experiment}: CreateExperimentPlanOptions): Plan<S
       trials: experiment.models.flatMap(model => {
         return experiment.runners.flatMap(runner => {
           return experiment.benchmark.capabilities.flatMap(capability => {
+            const treatments = [
+              ControlTreatment,
+              createTreatment({
+                name: 'Benchmark',
+                setup: composeTreatmentSetup(experiment.benchmark.setup, capability.setup),
+              }),
+              ...experiment.treatments,
+            ]
             return capability.scenarios.flatMap(scenario => {
-              return [...getExperimentTreatments(experiment, capability).values()].map(treatment => {
+              return treatments.map(treatment => {
                 return {
                   id: randomUUID(),
                   scenario,
@@ -194,13 +176,14 @@ async function parseExperimentPlanManifest({
     name: result.id,
     scenariosDirectory,
   })
+
   if (experiment.type === 'scenario') {
     const scenarios = new Map(
       experiment.scenarios.map(scenario => {
         return [scenario.id, scenario]
       }),
     )
-    const treatments = getExperimentTreatments(experiment)
+    const treatments = [ControlTreatment, ...experiment.treatments]
     return {
       experiment,
       trials: result.trials.map(trial => {
@@ -209,7 +192,9 @@ async function parseExperimentPlanManifest({
           throw new Error(`Scenario not found for trial: ${trial.id}`)
         }
 
-        const treatment = treatments.get(trial.treatmentId)
+        const treatment = treatments.find(candidate => {
+          return candidate.id === trial.treatmentId
+        })
         if (!treatment) {
           throw new Error(`Treatment not found for trial: ${trial.id}`)
         }
@@ -237,12 +222,14 @@ async function parseExperimentPlanManifest({
         return [capability.id, capability]
       }),
     )
+
     return {
       experiment,
       trials: result.trials.map(trial => {
         if (trial.capabilityId === undefined) {
           throw new Error(`Capability not found for trial: ${trial.id}`)
         }
+
         const capability = capabilities.get(trial.capabilityId)
         if (!capability) {
           throw new Error(`Capability not found for trial: ${trial.id}`)
@@ -262,7 +249,17 @@ async function parseExperimentPlanManifest({
           throw new Error(`Model variant not found for trial: ${trial.id}`)
         }
 
-        const treatment = getExperimentTreatments(experiment, capability).get(trial.treatmentId)
+        const treatments = [
+          ControlTreatment,
+          createTreatment({
+            name: 'Benchmark',
+            setup: composeTreatmentSetup(experiment.benchmark.setup, capability.setup),
+          }),
+          ...experiment.treatments,
+        ]
+        const treatment = treatments.find(candidate => {
+          return candidate.id === trial.treatmentId
+        })
         if (!treatment) {
           throw new Error(`Treatment not found for trial: ${trial.id}`)
         }

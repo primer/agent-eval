@@ -26,6 +26,7 @@ import {
 } from '../../benchmark/output'
 import {createPlanFromManifest, runPlan} from '../../plan'
 import {DefaultHost as host} from '../../host'
+import {selectPlanTrials} from '../plan'
 
 const benchmarkCommand = defineCommand({
   meta: {
@@ -198,9 +199,11 @@ const benchmarkCommand = defineCommand({
             )
 
             const plan = createPlanFromManifest({
-              shard,
-              trials: manifest.trials,
-              runnerFilter: args.runner,
+              trials: selectPlanTrials({
+                trials: manifest.trials,
+                runner: args.runner,
+                shard,
+              }),
             })
             const runPlanResult = await runPlan({
               artifactsDirectory,

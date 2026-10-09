@@ -1,7 +1,6 @@
 import {expect, expectTypeOf, test} from 'vitest'
 import {VirtualHost} from '../host'
 import type {CopilotRunner} from '../copilot-runner'
-import {createPlanFromManifest} from '../plan'
 import {ExperimentConfigSchema} from './config'
 import {getExperiment} from './get'
 import {createExperimentPlan, createExperimentPlanManifest, parseExperimentPlanManifest} from './plan'
@@ -69,56 +68,6 @@ test('restores legacy plans without a runner as CLI trials', async () => {
   }
   const parsed = await parseExperimentPlanManifest({...options, contents: JSON.stringify(legacy)})
   expect(parsed.trials).toEqual(plan.trials)
-})
-
-test('runs every configured runner in a saved plan unless a filter is provided', async () => {
-  const options = {
-    host: createHost(['copilot-cli', 'copilot-sdk']),
-    experimentsDirectory: '/experiments',
-    scenariosDirectory: '/scenarios',
-  }
-  const experiment = await getExperiment({...options, name: 'example'})
-  const plan = createExperimentPlan({experiment})
-  const manifest = createExperimentPlanManifest({experiment, plan})
-  const {trials} = await parseExperimentPlanManifest({...options, contents: JSON.stringify(manifest)})
-
-  expect(createPlanFromManifest({trials}).trials).toEqual(trials)
-  expect(createPlanFromManifest({trials, runnerFilter: 'copilot-sdk'}).trials).toEqual(
-    trials.filter(trial => {
-      return trial.runner === 'copilot-sdk'
-    }),
-  )
-  expect(
-    createPlanFromManifest({
-      trials,
-      shard: {
-        order: 1,
-        total: 2,
-      },
-      runnerFilter: 'copilot-sdk',
-    }).trials,
-  ).toEqual(
-    trials.filter((trial, index) => {
-      return index % 2 === 0 && trial.runner === 'copilot-sdk'
-    }),
-  )
-})
-
-test('rejects a saved-plan runner filter absent from the configured trials', async () => {
-  const options = {
-    host: createHost(),
-    experimentsDirectory: '/experiments',
-    scenariosDirectory: '/scenarios',
-  }
-  const experiment = await getExperiment({...options, name: 'example'})
-  const {trials} = createExperimentPlan({experiment})
-
-  expect(() => {
-    createPlanFromManifest({
-      trials,
-      runnerFilter: 'copilot-sdk',
-    })
-  }).toThrow('No trials found for runner "copilot-sdk" in the saved plan')
 })
 
 test.each([{runners: []}, {runners: ['sdk']}, {runners: ['unknown']}])(

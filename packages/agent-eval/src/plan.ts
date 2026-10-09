@@ -1,11 +1,9 @@
 import Queue from 'p-queue'
-import type {CopilotRunner} from './copilot-runner'
 import {DefaultHost, type Host} from './host'
 import {logger} from './logger'
 import type {Trial} from './trial/trial'
 import type {RunTrialResult} from './trial/run'
 import {runTrial} from './trial/run'
-import {selectShard, type Shard} from './shard'
 import {buildScenarioImage} from './scenario/scenario'
 
 /**
@@ -33,41 +31,16 @@ function createPlan<T extends Trial>({trials}: CreatePlanOptions<T>): Plan<T> {
 
 type CreatePlanFromManifestOptions<T extends Trial> = {
   trials: Array<T>
-  shard?: Shard
-  runnerFilter?: CopilotRunner
 }
 
 /**
  * Creates a plan from a collection of trials that have come from a manifest.
  * It is assumed that these have already been randomized when saved to the
  * manifest.
- *
- * When the `shard` option is provided, the plan will be filtered to only include trials
- * that match the shard's order and total.
  */
-function createPlanFromManifest<T extends Trial>({
-  runnerFilter,
-  shard,
-  trials,
-}: CreatePlanFromManifestOptions<T>): Plan<T> {
-  if (
-    runnerFilter &&
-    !trials.some(trial => {
-      return trial.runner === runnerFilter
-    })
-  ) {
-    throw new Error(
-      `No trials found for runner "${runnerFilter}" in the saved plan. Add "${runnerFilter}" to the configuration's runners and create a new plan.`,
-    )
-  }
-
-  const selected = shard ? selectShard(trials, shard) : trials
+function createPlanFromManifest<T extends Trial>({trials}: CreatePlanFromManifestOptions<T>): Plan<T> {
   return {
-    trials: runnerFilter
-      ? selected.filter(trial => {
-          return trial.runner === runnerFilter
-        })
-      : selected,
+    trials,
   }
 }
 

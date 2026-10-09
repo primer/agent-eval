@@ -26,6 +26,7 @@ import {
   runnerFilterOption,
   shardOption,
 } from '../options'
+import {selectPlanTrials} from '../plan'
 
 const experimentCommand = defineCommand({
   meta: {
@@ -184,9 +185,11 @@ const experimentCommand = defineCommand({
             )
 
             const plan = createPlanFromManifest({
-              shard,
-              trials: manifest.trials,
-              runnerFilter: args.runner,
+              trials: selectPlanTrials({
+                trials: manifest.trials,
+                runner: args.runner,
+                shard,
+              }),
             })
             const runPlanResult = await runPlan({
               artifactsDirectory,

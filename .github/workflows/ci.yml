@@ -26,7 +26,7 @@ jobs:
         with:
           persist-credentials: false
       - name: set up gh-aw
-        uses: github/gh-aw-actions/setup-cli@045beb2d14bda8d0c1f2e83b41527f63770d2855 # v0.89.15
+        uses: github/gh-aw-actions/setup-cli@7c1d4b7ab319216ef4a931cc3dcb0d7245144ff1 # v0.90.1
         with:
           version: v0.89.15
       - name: check agentic workflows

@@ -2,9 +2,9 @@
 
 Experiments are used to determine how different setups (or treatments) affect the performance of an agent on a given task. By default, they live in an `experiments` folder in your project.
 
-Each experiment defines a set of scenarios that are used to evaluate the
-performance of each treatment. An experiment also defines a set of models to
-use.
+Each experiment defines either a set of scenarios or a benchmark whose
+capabilities and scenarios are used to evaluate each treatment. An experiment
+also defines a set of models to use.
 
 As an example, you may want to design an experiment comparing the performance of
 your MCP server to a skills based approach. With this in mind, you create two
@@ -55,3 +55,26 @@ export default defineConfig({
 You can interact with experiments using the `experiments` subcommand of the `agent-eval` CLI. This sub-command gives you access to run experiments, create run plans to use for sharding, or merge the results of a plan.
 
 Use `agent-eval experiments --help` to see the available commands and options.
+
+## Reports
+
+Experiment runs print a summary grouped by treatment, scenario, and model
+variant. When the experiment selects a `benchmark` instead of `scenarios`, the
+report adds a `Capability` column and capability totals between each treatment
+and its scenarios:
+
+```text
+treatment
+  capability
+    scenario
+      model / reasoning effort
+```
+
+Treatment totals include all completed capabilities. Scenarios and model
+variants are grouped separately within each capability, even when a scenario
+appears in more than one capability. Reports keep runner results separate and
+show a `Runner` column when SDK trials are present.
+
+Each level includes run counts, check summaries, and implementation-agent usage
+totals. Partial or sharded runs show only the groups with completed results.
+Scenario-backed experiments retain their existing report format.

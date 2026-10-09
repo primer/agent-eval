@@ -89,6 +89,9 @@ verified pricing basis.
 - Support causal explanations with saved workspace and session evidence.
 
 Compare like-for-like scenario/model/effort/runner groups across treatments.
+For benchmark-backed experiments, CLI reports include capability totals under
+each treatment. Compare scenario/model groups within the same capability;
+shared scenarios are reported separately for each capability.
 Look at granular regressions before an aggregate score. Explain failures using
 saved source and sessions rather than speculating from a summary.
 

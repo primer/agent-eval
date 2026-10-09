@@ -6,22 +6,36 @@ plugins, or execution backends on the same tasks. Use a
 
 ## Contract
 
-| Item                | Rule                                                                       |
-| :------------------ | :------------------------------------------------------------------------- |
-| File and import     | `experiments/<id>.ts`; `defineConfig` from `@primer/agent-eval/experiment` |
-| Export              | Prefer named `experiment`; default also supported                          |
-| Required fields     | `name`, `description`, `models`, `scenarios`, `treatments`                 |
-| Optional fields     | `setup`, `runners`                                                         |
-| CLI identifier      | Filename without extension, not display `name`                             |
-| Scenario references | Folder IDs; alternatively `{path, name?}`                                  |
-| Runner default      | `copilot-cli`                                                              |
+| Item                | Rule                                                                                 |
+| :------------------ | :----------------------------------------------------------------------------------- |
+| File and import     | `experiments/<id>.ts`; `defineConfig` from `@primer/agent-eval/experiment`           |
+| Export              | Prefer named `experiment`; default also supported                                    |
+| Required fields     | `name`, `description`, `models`, `treatments`, and either `scenarios` or `benchmark` |
+| Optional fields     | `setup`, `runners`                                                                   |
+| CLI identifier      | Filename without extension, not display `name`                                       |
+| Scenario references | Folder IDs; alternatively `{path, name?}`                                            |
+| Benchmark reference | Benchmark filename ID; selects its capabilities and scenarios                        |
+| Runner default      | `copilot-cli`                                                                        |
 
 Top-level `setup` runs for **all trials, including control**. Put only neutral
 prerequisites there. Treatment setup runs afterward and installs the intervention.
 Do not put the tested resource in shared setup or the fixture.
 
 The harness adds `Control` automatically. Treatment names must be unique and
-cannot be `Control`. `treatments: []` runs control only.
+cannot be `Control`. For scenario-backed experiments, `treatments: []` runs
+control only. Benchmark-backed experiments also add a `Benchmark` treatment
+using the benchmark and capability setup; `Benchmark` is also a reserved name.
+
+## Reports
+
+CLI reports group scenario experiments by treatment, scenario, and model/effort.
+Benchmark-backed experiments add capability totals under each treatment:
+treatment, capability, scenario, then model/effort. Shared scenarios stay
+separate across capabilities. Runner groups remain separate, with a `Runner`
+column when SDK trials are present.
+
+Each level shows run counts, check summaries, and implementation-agent usage.
+Partial runs show only completed groups, not empty configured capabilities.
 
 ## Minimal example
 
@@ -79,6 +93,10 @@ The matrix expands as follows:
 ```text
 trials = model variants * scenarios * unique runners * (configured treatments + 1)
 ```
+
+For benchmark-backed experiments, sum scenario counts across capabilities and
+use `(configured treatments + 2)` for the automatic `Control` and `Benchmark`
+treatments. A scenario shared by two capabilities runs once per capability.
 
 `runners: ['copilot-cli', 'copilot-sdk']` adds a backend comparison. Changing both
 runner and resource confounds their effects; see [models and runners](models-and-runners.md).

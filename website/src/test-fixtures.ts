@@ -81,6 +81,7 @@ const checks: Array<CheckOutput> = [
 function createTrial(overrides: Partial<ExperimentTrialOutput> = {}): ExperimentTrialOutput {
   return {
     id: 'trial-1',
+    runner: 'copilot-cli',
     model: {name: 'gpt-5.6-sol', reasoningEffort: 'medium'},
     scenarioId: 'empty-state',
     treatmentId: 'control',

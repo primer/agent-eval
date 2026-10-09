@@ -1,4 +1,4 @@
-import {expect, test} from 'vitest'
+import {expect, expectTypeOf, test} from 'vitest'
 import {VirtualHost} from '../host'
 import type {CopilotRunner} from '../copilot-runner'
 import {ExperimentConfigSchema} from './config'
@@ -31,6 +31,7 @@ test.each([
     const options = {host, experimentsDirectory: '/experiments', scenariosDirectory: '/scenarios'}
     const experiment = await getExperiment({...options, name: 'example'})
     const plan = createExperimentPlan({experiment})
+    expectTypeOf(plan.trials[0].runner).toEqualTypeOf<CopilotRunner>()
     expect(plan.trials).toHaveLength(4 * expected.length)
     expect(
       new Set(

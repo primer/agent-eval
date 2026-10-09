@@ -11,7 +11,7 @@ import {
 import {createExperimentPlan, createExperimentPlanManifest, parseExperimentPlanManifest} from '../../experiment/plan'
 import {DefaultHost as host} from '../../host'
 import {logger} from '../../logger'
-import {createPlanFromManifest, runPlan} from '../../plan'
+import {createPlanFromManifest, selectPlanTrials, runPlan} from '../../plan'
 import {parseShard} from '../../shard'
 import {
   copilotConcurrencyOption,
@@ -23,7 +23,7 @@ import {
   githubCopilotTokenOption,
   outputDirectoryOption,
   scenariosOption,
-  runnerOption,
+  runnerFilterOption,
   shardOption,
 } from '../options'
 
@@ -138,7 +138,7 @@ const experimentCommand = defineCommand({
               default: './plan.json',
             },
             scenarios: scenariosOption,
-            runner: runnerOption,
+            runner: runnerFilterOption,
             shard: shardOption,
             token: githubCopilotTokenOption,
           },
@@ -183,7 +183,13 @@ const experimentCommand = defineCommand({
               shard ? `(${shard.order}/${shard.total})` : '',
             )
 
-            const plan = createPlanFromManifest({shard, trials: manifest.trials, runner: args.runner})
+            const plan = createPlanFromManifest({
+              trials: selectPlanTrials({
+                trials: manifest.trials,
+                runner: args.runner,
+                shard,
+              }),
+            })
             const runPlanResult = await runPlan({
               artifactsDirectory,
               copilotConcurrency,

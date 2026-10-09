@@ -64,7 +64,8 @@ sessions; container concurrency limits active trial containers. Both apply per
 process, so sharding multiplies the aggregate limits. Start small.
 
 `--runner` accepts `copilot-cli` or `copilot-sdk`. It selects the backend for a
-standalone scenario run and filters trials in an existing plan. Configure
+standalone scenario run (default: `copilot-cli`) and filters trials in an existing
+plan (omitted: all configured runners). Configure
 `runners` in benchmark and experiment configurations for new runs and plans.
 There is no `--model` or `--repeat` option; configure model variants and repeat
 commands with unique output directories.

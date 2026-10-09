@@ -237,7 +237,6 @@ test('renders an empty state for a current run without trials', () => {
 })
 
 test.each([
-  {runner: undefined, label: 'Copilot CLI'},
   {runner: 'copilot-cli', label: 'Copilot CLI'},
   {runner: 'copilot-sdk', label: 'Copilot SDK'},
 ] as const)('labels the selected trial runner as $label ($runner)', async ({runner, label}) => {

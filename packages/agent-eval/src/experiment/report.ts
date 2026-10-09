@@ -80,7 +80,7 @@ function createExperimentReport({experiment, runPlanResult}: CreateExperimentRep
     const values = {
       treatmentId: trial.treatment.id,
       treatment: trial.treatment.name,
-      runner: trial.runner ?? 'copilot-cli',
+      runner: trial.runner,
     }
     const treatmentKey = JSON.stringify([trial.treatment.id, values.runner])
     const treatmentSummary = treatmentSummaries.get(treatmentKey) ?? {...createTrialSummary(), ...values}

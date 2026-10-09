@@ -100,7 +100,7 @@ function createBenchmarkReport({benchmark, runPlanResult}: CreateBenchmarkReport
     ]
 
     for (const value of values) {
-      const runner = trial.runner ?? 'copilot-cli'
+      const runner = trial.runner
       const key = JSON.stringify([
         trial.capability.id,
         runner,

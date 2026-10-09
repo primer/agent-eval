@@ -74,6 +74,9 @@ test.each(['copilot-cli', 'copilot-sdk'] as const)(
             reasoningEffort: trial.model.reasoningEffort,
             prompt: trial.scenario.prompt,
           })
+        } else {
+          const usagePath = args[args.indexOf('--usage-output-file') + 1]
+          await sandbox.writeFile(usagePath, JSON.stringify({modelMetrics: {'gpt-5.5': {usage: {outputTokens: 42}}}}))
         }
         await expect(sandbox.exists('vitest.config.scenario.ts')).resolves.toBe(false)
         await expect(sandbox.exists('checks/reference.json')).resolves.toBe(false)
@@ -111,6 +114,7 @@ test.each(['copilot-cli', 'copilot-sdk'] as const)(
     })
 
     expect(taskCalls).toBe(1)
+    expect(result.agent.sessions[0].outputTokens).toBe(runner === 'copilot-cli' ? 42 : 0)
     expect(sandbox.runCommand).toHaveBeenCalledWith(
       'npm',
       ['install', '-g', '--prefix', '/home/node/.npm-global', '--allow-scripts=agent-browser', 'agent-browser'],

@@ -27,6 +27,121 @@ function usageEvent(totalNanoAiu: number, type = 'session.usage_checkpoint', age
 }
 
 describe(getAgentSession, () => {
+  test('uses final CLI usage instead of counting duplicate message telemetry', () => {
+    const messages = [
+      {
+        type: 'model.message',
+        id: 'model',
+        timestamp: result.timestamp,
+        parentId: '',
+        ephemeral: true,
+        data: {message: {role: 'assistant', outputTokens: 42}},
+      },
+      {...result, usage: {...result.usage, outputTokens: 100}},
+    ].map(parseMessage)
+
+    expect(getAgentSession(messages).outputTokens).toBe(100)
+  })
+
+  test('sums SDK usage across calls and subagents without double-counting message tokens', () => {
+    const messages = [
+      {
+        type: 'assistant.usage',
+        id: 'usage-main',
+        timestamp: result.timestamp,
+        parentId: '',
+        ephemeral: true,
+        data: {model: 'gpt-5.5', outputTokens: 42},
+      },
+      {
+        type: 'assistant.usage',
+        id: 'usage-subagent',
+        timestamp: result.timestamp,
+        parentId: '',
+        ephemeral: true,
+        agentId: 'subagent',
+        data: {model: 'gpt-5.5', outputTokens: 58},
+      },
+      {
+        type: 'model.message',
+        id: 'model',
+        timestamp: result.timestamp,
+        parentId: '',
+        ephemeral: true,
+        data: {message: {role: 'assistant', outputTokens: 42}},
+      },
+      result,
+    ].map(parseMessage)
+
+    expect(getAgentSession(messages).outputTokens).toBe(100)
+  })
+
+  test('preserves explicit zero usage rather than falling back to message tokens', () => {
+    const messages = [
+      {
+        type: 'assistant.usage',
+        id: 'usage',
+        timestamp: result.timestamp,
+        parentId: '',
+        ephemeral: true,
+        data: {model: 'gpt-5.5', outputTokens: 0},
+      },
+      {
+        type: 'model.message',
+        id: 'model',
+        timestamp: result.timestamp,
+        parentId: '',
+        ephemeral: true,
+        data: {message: {role: 'assistant', outputTokens: 42}},
+      },
+      result,
+    ].map(parseMessage)
+
+    expect(getAgentSession(messages).outputTokens).toBe(0)
+    expect(
+      getAgentSession([...messages.slice(0, -1), parseMessage({...result, usage: {...result.usage, outputTokens: 0}})])
+        .outputTokens,
+    ).toBe(0)
+  })
+
+  test('falls back to legacy assistant tokens when newer events have no token counts', () => {
+    const messages = [
+      {
+        type: 'assistant.usage',
+        id: 'usage',
+        timestamp: result.timestamp,
+        parentId: '',
+        ephemeral: true,
+        data: {model: 'gpt-5.5', duration: 123},
+      },
+      {
+        type: 'model.message',
+        id: 'model',
+        timestamp: result.timestamp,
+        parentId: '',
+        ephemeral: true,
+        data: {message: {role: 'assistant'}},
+      },
+      {
+        type: 'assistant.message',
+        id: 'assistant',
+        timestamp: result.timestamp,
+        parentId: '',
+        data: {
+          messageId: 'message',
+          content: 'Done',
+          toolRequests: [],
+          interactionId: '',
+          turnId: '',
+          outputTokens: 42,
+        },
+      },
+      result,
+    ].map(parseMessage)
+
+    expect(getAgentSession(messages).outputTokens).toBe(42)
+  })
+
   test.each([0, 1, 2_839_800_000])('converts %s nano-AIU to AI credits', totalNanoAiu => {
     const session = getAgentSession([usageEvent(totalNanoAiu), result].map(parseMessage))
 

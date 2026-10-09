@@ -1,5 +1,8 @@
-import {describe, expect, test} from 'vitest'
-import {KNOWN_MESSAGE_TYPES, KnownMessageSchema, parseMessage} from './copilot-cli'
+import {describe, expect, test, vi} from 'vitest'
+import {getAgentSession} from './agent'
+import {KNOWN_MESSAGE_TYPES, KnownMessageSchema, parseMessage, runCopilotCli} from './copilot-cli'
+import {VirtualHost} from './host'
+import {COPILOT_DIR, NODE_USER, VirtualSandbox, type Sandbox} from './sandbox'
 
 describe(parseMessage, () => {
   test.each([
@@ -324,5 +327,101 @@ describe(parseMessage, () => {
       KnownMessageSchema.def.options.map(schema => schema.def.shape.type.def.values[0] as string),
     )
     expect(schemaTypes).toEqual(KNOWN_MESSAGE_TYPES)
+  })
+})
+
+describe(runCopilotCli, () => {
+  test.each([
+    {
+      name: 'multiple models',
+      modelMetrics: {main: {usage: {outputTokens: 42}}, subagent: {usage: {outputTokens: 58}}},
+      expected: 100,
+    },
+    {name: 'zero tokens', modelMetrics: {main: {usage: {outputTokens: 0}}}, expected: 0},
+    {name: 'no model calls', modelMetrics: {}, expected: 0},
+  ])('collects final usage for $name and removes the temporary file', async ({modelMetrics, expected}) => {
+    const host = VirtualHost.create()
+    await using sandbox: Sandbox = await VirtualSandbox.create({host})
+    let usagePath = ''
+    vi.spyOn(sandbox, 'runCommand').mockImplementation(async (command, args = [], options) => {
+      if (command === '/opt/agent-eval/copilot/bin/copilot') {
+        expect(args).toEqual([
+          '--prompt',
+          'Build a page',
+          '--model',
+          'gpt-5.5',
+          '--reasoning-effort',
+          'high',
+          '--mode',
+          'autopilot',
+          '--allow-all',
+          '--output-format',
+          'json',
+          '--usage-output-file',
+          expect.stringMatching(new RegExp(`^${COPILOT_DIR}/usage-.*\\.json$`)),
+        ])
+        expect(options).toEqual({user: NODE_USER, env: {COPILOT_GITHUB_TOKEN: 'test-token'}})
+        usagePath = args[args.indexOf('--usage-output-file') + 1]
+        await sandbox.writeFile(usagePath, JSON.stringify({modelMetrics, lastCallOutputTokens: 999}))
+        return {
+          exitCode: 0,
+          stderr: '',
+          stdout: `\n${JSON.stringify({
+            type: 'result',
+            timestamp: '2026-10-05T00:00:00.000Z',
+            sessionId: 'session',
+            exitCode: 0,
+            usage: {
+              premiumRequests: 1,
+              totalApiDurationMs: 123,
+              sessionDurationMs: 456,
+              codeChanges: {linesAdded: 0, linesRemoved: 0, filesModified: []},
+            },
+          })}\n`,
+        }
+      }
+      if (command === 'rm') {
+        expect(args).toEqual(['-f', '--', usagePath])
+        await host.fs.rm(usagePath, {force: true})
+      }
+      return {exitCode: 0, stderr: '', stdout: ''}
+    })
+
+    const messages = await runCopilotCli({
+      sandbox,
+      copilotToken: 'test-token',
+      prompt: 'Build a page',
+      model: {name: 'gpt-5.5', reasoningEffort: 'high'},
+    })
+
+    expect(getAgentSession(messages)).toMatchObject({
+      outputTokens: expected,
+      premiumRequests: 1,
+      totalApiDurationMs: 123,
+      sessionDurationMs: 456,
+    })
+    expect(await sandbox.exists(usagePath)).toBe(false)
+  })
+
+  test('rejects malformed usage and still removes the temporary file', async () => {
+    await using sandbox: Sandbox = await VirtualSandbox.create()
+    let usagePath = ''
+    const runCommand = vi.spyOn(sandbox, 'runCommand').mockImplementation(async (command, args = []) => {
+      if (command === '/opt/agent-eval/copilot/bin/copilot') {
+        usagePath = args[args.indexOf('--usage-output-file') + 1]
+        await sandbox.writeFile(usagePath, JSON.stringify({modelMetrics: {main: {usage: {outputTokens: '42'}}}}))
+      }
+      return {exitCode: 0, stderr: '', stdout: ''}
+    })
+
+    await expect(
+      runCopilotCli({
+        sandbox,
+        copilotToken: 'test-token',
+        prompt: 'Build a page',
+        model: {name: 'gpt-5.5', reasoningEffort: 'high'},
+      }),
+    ).rejects.toThrow()
+    expect(runCommand).toHaveBeenLastCalledWith('rm', ['-f', '--', usagePath], {user: NODE_USER})
   })
 })

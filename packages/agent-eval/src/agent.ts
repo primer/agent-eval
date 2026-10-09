@@ -20,6 +20,7 @@ function getAgentSession(messages: Array<Message>): AgentSession {
   let assistantOutputTokens = 0
   let modelOutputTokens = 0
   let hasModelOutput = false
+  let usageOutputTokens: number | undefined
   let totalNanoAiu: number | undefined
 
   for (const message of messages) {
@@ -40,9 +41,17 @@ function getAgentSession(messages: Array<Message>): AgentSession {
       assistantOutputTokens += message.data.outputTokens ?? 0
     }
 
-    if (isMessageType(message, 'model.message') && message.data.message.role === 'assistant') {
+    if (
+      isMessageType(message, 'model.message') &&
+      message.data.message.role === 'assistant' &&
+      message.data.message.outputTokens !== undefined
+    ) {
       hasModelOutput = true
-      modelOutputTokens += message.data.message.outputTokens ?? 0
+      modelOutputTokens += message.data.message.outputTokens
+    }
+
+    if (isMessageType(message, 'assistant.usage') && message.data.outputTokens !== undefined) {
+      usageOutputTokens = (usageOutputTokens ?? 0) + message.data.outputTokens
     }
 
     if (isMessageType(message, 'tool.execution_start')) {
@@ -58,7 +67,8 @@ function getAgentSession(messages: Array<Message>): AgentSession {
 
   return {
     messages,
-    outputTokens: hasModelOutput ? modelOutputTokens : assistantOutputTokens,
+    outputTokens:
+      result.usage.outputTokens ?? usageOutputTokens ?? (hasModelOutput ? modelOutputTokens : assistantOutputTokens),
     premiumRequests: result.usage.premiumRequests,
     ...(totalNanoAiu === undefined ? {} : {aiCredits: totalNanoAiu / 1_000_000_000}),
     sessionDurationMs: result.usage.sessionDurationMs,

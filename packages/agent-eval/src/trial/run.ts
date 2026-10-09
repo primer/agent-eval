@@ -5,7 +5,7 @@ import {DefaultHost, type Host} from '../host'
 import {logger} from '../logger'
 import {AGENTS_DIR, CONTAINER_WORKDIR, COPILOT_DIR, NODE_USER, SKILLS_DIR, type Sandbox} from '../sandbox'
 import {TrialSchema, type Trial} from './trial'
-import {parseMessage, type Message} from '../copilot-cli'
+import {runCopilotCli} from '../copilot-cli'
 import {runCopilotSdk} from '../copilot-sdk'
 import {
   getJudgeModel,
@@ -178,37 +178,11 @@ const taskStage = {
         })
       }
 
-      const copilotOutput = await sandbox.runCommand(
-        // 'copilot',
-        '/opt/agent-eval/copilot/bin/copilot',
-        [
-          '--prompt',
-          trial.scenario.prompt,
-          '--model',
-          trial.model.name,
-          '--reasoning-effort',
-          trial.model.reasoningEffort,
-          '--mode',
-          'autopilot',
-          '--allow-all',
-          '--output-format',
-          'json',
-        ],
-        {
-          user: NODE_USER,
-          // user: runtime.user,
-          env: {
-            // home: runtime.home,
-            COPILOT_GITHUB_TOKEN: copilotToken,
-          },
-        },
-      )
-      return copilotOutput.stdout.split('\n').flatMap(line => {
-        const trimmed = line.trim()
-        if (trimmed.length === 0) {
-          return []
-        }
-        return parseMessage(JSON.parse(trimmed))
+      return runCopilotCli({
+        sandbox,
+        prompt: trial.scenario.prompt,
+        model: trial.model,
+        copilotToken,
       })
     })
 
@@ -333,37 +307,8 @@ const judgeStage = {
 
       const model = getJudgeModel(judge, trial)
       const prompt = getJudgePrompt(judge)
-      const copilotOutput = await copilotQueue.add(async () => {
-        return await sandbox.runCommand(
-          // 'copilot',
-          '/opt/agent-eval/copilot/bin/copilot',
-          [
-            '--prompt',
-            prompt,
-            '--model',
-            model.name,
-            '--reasoning-effort',
-            model.reasoningEffort,
-            '--mode',
-            'autopilot',
-            '--allow-all',
-            '--output-format',
-            'json',
-          ],
-          {
-            user: NODE_USER,
-            env: {
-              COPILOT_GITHUB_TOKEN: copilotToken,
-            },
-          },
-        )
-      })
-      const messages: Array<Message> = copilotOutput.stdout.split('\n').flatMap(line => {
-        const trimmed = line.trim()
-        if (trimmed.length === 0) {
-          return []
-        }
-        return parseMessage(JSON.parse(trimmed))
+      const messages = await copilotQueue.add(async () => {
+        return runCopilotCli({sandbox, prompt, model, copilotToken})
       })
       const session = getAgentSession(messages)
       const judgeReportPath = getJudgeReportFilename(judge)

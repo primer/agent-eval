@@ -1,4 +1,8 @@
+import {randomUUID} from 'node:crypto'
 import * as z from 'zod/mini'
+import type {ModelVariant} from './model'
+import {COPILOT_DIR, NODE_USER} from './sandbox/constants'
+import type {Sandbox} from './sandbox/types'
 
 const ToolArgumentsSchema = z.union([z.string(), z.record(z.string(), z.unknown())])
 
@@ -168,6 +172,15 @@ const AssistantMessageSchema = z.object({
   }),
 })
 
+const AssistantUsageMessageSchema = z.object({
+  type: z.literal('assistant.usage'),
+  ...EphemeralEventFieldsSchema,
+  data: z.looseObject({
+    model: z.string(),
+    outputTokens: z.optional(z.number()),
+  }),
+})
+
 const AssistantReasoningMessageSchema = z.object({
   type: z.literal('assistant.reasoning'),
   ...EphemeralEventFieldsSchema,
@@ -312,6 +325,7 @@ const ResultMessageSchema = z.object({
   sessionId: z.string(),
   exitCode: z.number(),
   usage: z.object({
+    outputTokens: z.optional(z.number()),
     premiumRequests: z.number(),
     totalApiDurationMs: z.number(),
     sessionDurationMs: z.number(),
@@ -337,6 +351,7 @@ const KnownMessageSchema = z.discriminatedUnion('type', [
   AssistantMessageStartMessageSchema,
   AssistantMessageDeltaMessageSchema,
   AssistantMessageSchema,
+  AssistantUsageMessageSchema,
   AssistantReasoningMessageSchema,
   AssistantReasoningDeltaMessageSchema,
   AssistantToolCallDeltaMessageSchema,
@@ -365,6 +380,7 @@ const KNOWN_MESSAGE_TYPES = new Set([
   'assistant.message_start',
   'assistant.message_delta',
   'assistant.message',
+  'assistant.usage',
   'assistant.reasoning',
   'assistant.reasoning_delta',
   'assistant.tool_call_delta',
@@ -408,6 +424,70 @@ function parseMessage(message: unknown) {
   return MessageSchema.parse(message, {reportInput: true})
 }
 
+const UsageOutputSchema = z.object({
+  modelMetrics: z.record(
+    z.string(),
+    z.object({
+      usage: z.object({
+        outputTokens: z.number().check(z.int(), z.gte(0)),
+      }),
+    }),
+  ),
+})
+
+async function runCopilotCli({
+  sandbox,
+  prompt,
+  model,
+  copilotToken,
+}: {
+  sandbox: Sandbox
+  prompt: string
+  model: ModelVariant
+  copilotToken: string
+}): Promise<Array<Message>> {
+  const usagePath = `${COPILOT_DIR}/usage-${randomUUID()}.json`
+  try {
+    const output = await sandbox.runCommand(
+      '/opt/agent-eval/copilot/bin/copilot',
+      [
+        '--prompt',
+        prompt,
+        '--model',
+        model.name,
+        '--reasoning-effort',
+        model.reasoningEffort,
+        '--mode',
+        'autopilot',
+        '--allow-all',
+        '--output-format',
+        'json',
+        '--usage-output-file',
+        usagePath,
+      ],
+      {
+        user: NODE_USER,
+        env: {COPILOT_GITHUB_TOKEN: copilotToken},
+      },
+    )
+    const usage = UsageOutputSchema.parse(JSON.parse(await sandbox.readFile(usagePath)))
+    const outputTokens = Object.values(usage.modelMetrics).reduce((total, metric) => {
+      return total + metric.usage.outputTokens
+    }, 0)
+
+    return output.stdout.split('\n').flatMap(line => {
+      const trimmed = line.trim()
+      if (trimmed.length === 0) {
+        return []
+      }
+      const message = parseMessage(JSON.parse(trimmed))
+      return isMessageType(message, 'result') ? {...message, usage: {...message.usage, outputTokens}} : message
+    })
+  } finally {
+    await sandbox.runCommand('rm', ['-f', '--', usagePath], {user: NODE_USER})
+  }
+}
+
 export {
   MessageSchema,
   KnownMessageSchema,
@@ -420,5 +500,6 @@ export {
   UnknownMessageSchema,
   isMessageType,
   parseMessage,
+  runCopilotCli,
 }
 export type {KnownMessage, Message, ResultMessage, UnknownMessage, UnknownMessageType}

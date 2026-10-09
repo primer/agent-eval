@@ -64,7 +64,14 @@ test.each([false, true])('executes the SDK script and surfaces failures (failed:
     return {
       sessionId: 'session',
       on(callback: (event: object) => void) {
-        callback({type: 'assistant.usage', data: {duration: 123}})
+        callback({
+          type: 'assistant.usage',
+          id: 'usage',
+          timestamp: '2026-01-01T00:00:00.000Z',
+          parentId: null,
+          ephemeral: true,
+          data: {model: config.model, duration: 123, outputTokens: 42},
+        })
         callback({
           type: 'session.usage_checkpoint',
           id: 'checkpoint',
@@ -77,7 +84,7 @@ test.each([false, true])('executes the SDK script and surfaces failures (failed:
           id: 'message',
           timestamp: '2026-01-01T00:00:00.000Z',
           parentId: null,
-          data: {messageId: 'assistant-message', content: 'Done', outputTokens: 42},
+          data: {messageId: 'assistant-message', content: 'Done'},
         })
       },
       sendAndWait,

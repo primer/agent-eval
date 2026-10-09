@@ -3,6 +3,7 @@ import type {Experiment} from './experiment'
 import {listExperiments} from './list'
 
 type GetExperimentOptions = {
+  benchmarksDirectory: string
   experimentsDirectory: string
   host?: Host
   scenariosDirectory: string
@@ -10,14 +11,16 @@ type GetExperimentOptions = {
 }
 
 async function getExperiment({
+  benchmarksDirectory,
   experimentsDirectory,
   host = DefaultHost,
   name,
   scenariosDirectory,
 }: GetExperimentOptions): Promise<Experiment> {
   const experiments = await listExperiments({
-    host,
+    benchmarksDirectory,
     experimentsDirectory,
+    host,
     scenariosDirectory,
   })
   const experiment = experiments.find(candidate => {

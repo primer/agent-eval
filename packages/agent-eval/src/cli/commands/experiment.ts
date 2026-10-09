@@ -14,6 +14,7 @@ import {logger} from '../../logger'
 import {createPlanFromManifest, runPlan} from '../../plan'
 import {parseShard} from '../../shard'
 import {
+  benchmarksOption,
   copilotConcurrencyOption,
   containerConcurrencyOption,
   experimentsOption,
@@ -82,6 +83,7 @@ const experimentCommand = defineCommand({
             description: 'Create an experiment plan',
           },
           args: {
+            benchmarks: benchmarksOption,
             experiments: experimentsOption,
             name: {
               type: 'positional',
@@ -98,25 +100,35 @@ const experimentCommand = defineCommand({
           async run({args}) {
             logger.info('Planning experiment: %s', args.name)
 
+            const benchmarksDirectory = path.resolve(args.benchmarks)
             const experimentsDirectory = path.resolve(args.experiments)
             const scenariosDirectory = path.resolve(args.scenarios)
             const outputPath = path.resolve(args['output-path'])
 
             logger.debug({
+              benchmarksDirectory,
               experimentsDirectory,
               scenariosDirectory,
               outputPath,
             })
 
             const experiment = await getExperiment({
+              benchmarksDirectory,
               experimentsDirectory,
               scenariosDirectory,
               name: args.name,
             })
-            const plan = createExperimentPlan({experiment})
-            const manifest = createExperimentPlanManifest({experiment, plan})
+            const plan = createExperimentPlan({
+              experiment,
+            })
+            const manifest = createExperimentPlanManifest({
+              experiment,
+              plan,
+            })
 
-            await host.fs.mkdir(path.dirname(outputPath), {recursive: true})
+            await host.fs.mkdir(path.dirname(outputPath), {
+              recursive: true,
+            })
             await host.fs.writeFile(outputPath, JSON.stringify(manifest, null, 2), 'utf-8')
 
             logger.info('Wrote experiment plan to: %s', path.relative(process.cwd(), outputPath))

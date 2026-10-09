@@ -8,6 +8,8 @@ import {loadScenario} from '../scenario/load'
 import {createTreatment} from '../treatment'
 import {ExperimentConfigSchema} from './config'
 import type {Experiment} from './experiment'
+import {exhaustiveCheck} from '../exhaustive'
+import {getBenchmark} from '../benchmark/get'
 
 const EXPERIMENT_FILE_EXTENSIONS = new Set(['.cjs', '.js', '.mjs', '.ts'])
 
@@ -17,12 +19,14 @@ type ExperimentModule = {
 }
 
 type ListExperimentsOptions = {
+  benchmarksDirectory: string
   experimentsDirectory: string
   host?: Host
   scenariosDirectory: string
 }
 
 async function listExperiments({
+  benchmarksDirectory,
   experimentsDirectory,
   host = DefaultHost,
   scenariosDirectory,
@@ -62,30 +66,58 @@ async function listExperiments({
     }
 
     const {data: config} = parseResult
-    const scenarios = await Promise.all(
-      config.scenarios.map(scenario => {
-        if (typeof scenario === 'string') {
-          return getScenario({host, directory: scenariosDirectory, name: scenario})
-        }
 
-        const directory = path.resolve(scenario.path)
-        return loadScenario({host, directory, name: scenario.name})
-      }),
-    )
+    if ('scenarios' in config) {
+      const scenarios = await Promise.all(
+        config.scenarios.map(scenario => {
+          if (typeof scenario === 'string') {
+            return getScenario({host, directory: scenariosDirectory, name: scenario})
+          }
 
-    experiments.push({
-      id: getExperimentId(filename),
-      filepath,
-      name: config.name,
-      description: config.description,
-      models: getModelVariants(config.models),
-      runners: config.runners,
-      scenarios,
-      setup: config.setup,
-      treatments: config.treatments.map(treatment => {
-        return createTreatment(treatment)
-      }),
-    })
+          const directory = path.resolve(scenario.path)
+          return loadScenario({host, directory, name: scenario.name})
+        }),
+      )
+
+      experiments.push({
+        type: 'scenario',
+        id: getExperimentId(filename),
+        filepath,
+        name: config.name,
+        description: config.description,
+        models: getModelVariants(config.models),
+        runners: config.runners,
+        scenarios,
+        setup: config.setup,
+        treatments: config.treatments.map(treatment => {
+          return createTreatment(treatment)
+        }),
+      })
+    } else if ('benchmark' in config) {
+      const benchmark = await getBenchmark({
+        benchmarksDirectory,
+        host,
+        scenariosDirectory,
+        name: config.benchmark,
+      })
+
+      experiments.push({
+        type: 'benchmark',
+        id: getExperimentId(filename),
+        filepath,
+        name: config.name,
+        description: config.description,
+        models: getModelVariants(config.models),
+        runners: config.runners,
+        benchmark,
+        setup: config.setup,
+        treatments: config.treatments.map(treatment => {
+          return createTreatment(treatment)
+        }),
+      })
+    } else {
+      exhaustiveCheck(config)
+    }
   }
 
   return experiments

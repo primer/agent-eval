@@ -1,5 +1,25 @@
 # @primer/agent-eval
 
+## 0.13.0
+
+### Minor Changes
+
+- 72742af: Require `runner` on parsed experiment and benchmark trial outputs. Legacy output
+  files without a runner default to `copilot-cli` when parsed. Consumers constructing
+  trial output objects directly must include `runner: 'copilot-cli'` or
+  `runner: 'copilot-sdk'`.
+
+### Patch Changes
+
+- 922afff: Fix output-token totals for Copilot CLI and SDK trials by collecting usage
+  statistics instead of relying on message events that no longer include token
+  counts. Preserve compatibility with older session output.
+- 7fd247f: Validate manifest consistency through schemas before loading configurations or
+  trial artifacts. Reject metadata IDs that differ from their manifest keys,
+  duplicate benchmark capability scenario IDs, and conflicting metadata across
+  benchmark result shards. Duplicate trial IDs and other merge conflicts now report
+  schema errors with field paths.
+
 ## 0.12.0
 
 ### Minor Changes

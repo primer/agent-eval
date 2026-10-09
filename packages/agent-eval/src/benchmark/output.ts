@@ -14,6 +14,7 @@ import {ScenarioSchema} from '../scenario/scenario'
 import {TreatmentSchema} from '../treatment'
 import type {Benchmark} from './benchmark'
 import {ModelVariantSchema} from '../model'
+import {checkMetadataIds, createOutputFilesSchema} from '../manifest'
 import {DefaultHost, type Host} from '../host'
 import {resolveTrialArtifactsPath} from '../result-path'
 
@@ -36,7 +37,16 @@ type BenchmarkTrialOutput = z.infer<typeof BenchmarkTrialOutputSchema>
 const CapabilityOutputSchema = z.object({
   id: z.string(),
   name: z.string(),
-  scenarioIds: z.array(z.string()),
+  scenarioIds: z.array(z.string()).check(
+    z.refine(
+      ids => {
+        return new Set(ids).size === ids.length
+      },
+      {
+        message: 'Scenario IDs must be unique within a capability',
+      },
+    ),
+  ),
 })
 
 type CapabilityOutput = z.infer<typeof CapabilityOutputSchema>
@@ -61,13 +71,15 @@ type TreatmentOutput = z.infer<typeof TreatmentOutputSchema>
 
 const BenchmarkOutputFileSchema = z.object({
   id: z.string(),
-  capabilities: z.record(z.string(), CapabilityOutputSchema),
-  scenarios: z.record(z.string(), ScenarioOutputSchema),
-  treatments: z.record(z.string(), TreatmentOutputSchema),
+  capabilities: z.record(z.string(), CapabilityOutputSchema).check(checkMetadataIds('capability')),
+  scenarios: z.record(z.string(), ScenarioOutputSchema).check(checkMetadataIds('scenario')),
+  treatments: z.record(z.string(), TreatmentOutputSchema).check(checkMetadataIds('treatment')),
   trials: z.record(z.string(), z.string()),
 })
 
 type BenchmarkOutputFile = z.infer<typeof BenchmarkOutputFileSchema>
+
+const BenchmarkOutputFilesSchema = createOutputFilesSchema(BenchmarkOutputFileSchema, 'benchmark')
 
 type BenchmarkOutput = {
   id: string
@@ -159,44 +171,27 @@ async function mergeBenchmarkOutputFiles({
   outputs,
   outputDirectory,
 }: MergeBenchmarkOutputFilesOptions): Promise<BenchmarkOutput> {
-  if (outputs.length === 0) {
-    throw new Error('Cannot merge benchmark output files: no outputs provided')
-  }
-
+  const files = BenchmarkOutputFilesSchema.parse(outputs)
   const capabilities = new Map<string, CapabilityOutput>()
   const scenarios = new Map<string, ScenarioOutput>()
   const treatments = new Map<string, TreatmentOutput>()
   const trials = new Map<string, BenchmarkTrialOutput>()
-  const id = outputs[0].id
+  const id = files[0].id
 
-  for (const output of outputs) {
-    if (id !== output.id) {
-      throw new Error(`Cannot merge benchmark output files: mismatched benchmark IDs (${id} !== ${output.id})`)
-    }
-
+  for (const output of files) {
     for (const [key, value] of Object.entries(output.capabilities)) {
-      if (!capabilities.has(key)) {
-        capabilities.set(key, value)
-      }
+      capabilities.set(key, value)
     }
 
     for (const [key, value] of Object.entries(output.scenarios)) {
-      if (!scenarios.has(key)) {
-        scenarios.set(key, value)
-      }
+      scenarios.set(key, value)
     }
 
     for (const [key, value] of Object.entries(output.treatments)) {
-      if (!treatments.has(key)) {
-        treatments.set(key, value)
-      }
+      treatments.set(key, value)
     }
 
     for (const [key, value] of Object.entries(output.trials)) {
-      if (trials.has(key)) {
-        throw new Error(`Cannot merge benchmark output files: duplicate trial ID found: ${key}`)
-      }
-
       const filepath = await resolveTrialArtifactsPath(host, outputDirectory, value)
 
       const contents = await host.fs.readFile(filepath, 'utf-8')

@@ -138,6 +138,39 @@ test('rejects duplicate trial IDs in benchmark plans', async () => {
   )
 })
 
+test('rejects duplicate benchmark trial IDs before loading configuration', async () => {
+  const trial = {
+    id: 'duplicate',
+    capabilityId: 'components',
+    model: {
+      name: 'gpt-5.5',
+      reasoningEffort: 'medium',
+    },
+    scenarioId: 'example',
+    treatmentId: 'control',
+  }
+
+  await expect(
+    parseBenchmarkPlanManifest({
+      host: VirtualHost.create(),
+      benchmarksDirectory: '/benchmarks',
+      scenariosDirectory: '/scenarios',
+      contents: JSON.stringify({
+        id: 'missing',
+        name: 'Example',
+        trials: [trial, trial],
+      }),
+    }),
+  ).rejects.toMatchObject({
+    issues: [
+      {
+        path: ['trials', 1, 'id'],
+        message: 'Duplicate trial ID in benchmark plan: duplicate',
+      },
+    ],
+  })
+})
+
 test('preserves capability setup for control and benchmark trials in created and restored plans', async () => {
   const host = createHost()
   const capabilitySetup = vi.fn(async () => {

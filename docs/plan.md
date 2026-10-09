@@ -96,6 +96,13 @@ agent-eval experiment merge --output-dir ./results/example
 
 The merge command reads the `output-<order>.json` files and their referenced trial files, then writes a combined `output.json`. After a successful merge, it deletes the shard output JSON files and keeps the trial artifacts. An existing `output.json` is overwritten, so use a dedicated output directory for each evaluation.
 
+Before reading trial artifacts, merging validates that the manifests belong to the
+same evaluation, have distinct trial IDs, and agree on shared metadata. Benchmark
+merges reject conflicting capability metadata as well as conflicting scenario or
+treatment metadata. Metadata IDs must match their manifest record keys, and each
+benchmark capability must list distinct scenario IDs. Schema errors identify the
+offending fields.
+
 Keep `output.json` and `artifacts/` together when storing or sharing the results. The combined output is a manifest that points to individual trial result files.
 
 ## CLI

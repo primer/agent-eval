@@ -70,6 +70,63 @@ test('restores legacy plans without a runner as CLI trials', async () => {
   expect(parsed.trials).toEqual(plan.trials)
 })
 
+test('rejects duplicate experiment trial IDs before loading configuration', async () => {
+  const trial = {
+    id: 'duplicate',
+    model: {
+      name: 'gpt-5.5',
+      reasoningEffort: 'medium',
+    },
+    scenarioId: 'example',
+    treatmentId: 'control',
+  }
+
+  await expect(
+    parseExperimentPlanManifest({
+      host: VirtualHost.create(),
+      experimentsDirectory: '/experiments',
+      scenariosDirectory: '/scenarios',
+      contents: JSON.stringify({
+        id: 'missing',
+        name: 'Example',
+        trials: [trial, trial],
+      }),
+    }),
+  ).rejects.toMatchObject({
+    issues: [
+      {
+        path: ['trials', 1, 'id'],
+        message: 'Duplicate trial ID in experiment plan: duplicate',
+      },
+    ],
+  })
+})
+
+test('preserves repeated experiment trial combinations with distinct IDs', async () => {
+  const options = {
+    host: createHost(),
+    experimentsDirectory: '/experiments',
+    scenariosDirectory: '/scenarios',
+  }
+  const experiment = await getExperiment({...options, name: 'example'})
+  const plan = createExperimentPlan({experiment})
+  const manifest = createExperimentPlanManifest({experiment, plan})
+  manifest.trials.push({
+    ...manifest.trials[0],
+    id: 'repeat',
+  })
+
+  const parsed = await parseExperimentPlanManifest({...options, contents: JSON.stringify(manifest)})
+
+  expect(parsed.trials).toEqual([
+    ...plan.trials,
+    {
+      ...plan.trials[0],
+      id: 'repeat',
+    },
+  ])
+})
+
 test.each([{runners: []}, {runners: ['sdk']}, {runners: ['unknown']}])(
   'rejects invalid runner configuration: %j',
   ({runners}) => {

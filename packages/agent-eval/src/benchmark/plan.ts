@@ -7,6 +7,7 @@ import {ControlTreatment, createTreatment} from '../treatment'
 import type {Trial} from '../trial/trial'
 import type {Benchmark, Capability} from './benchmark'
 import {ModelVariantSchema} from '../model'
+import {checkUniqueTrialIds} from '../manifest'
 import type {Host} from '../host'
 import {getBenchmark} from './get'
 
@@ -58,16 +59,18 @@ function createBenchmarkPlan({benchmark}: CreateBenchmarkPlanOptions): Plan<Benc
 const BenchmarkPlanManifestFileSchema = z.object({
   id: z.string(),
   name: z.string(),
-  trials: z.array(
-    z.object({
-      capabilityId: z.string(),
-      id: z.string(),
-      model: ModelVariantSchema,
-      runner: z._default(CopilotRunnerSchema, 'copilot-cli'),
-      scenarioId: z.string(),
-      treatmentId: z.string(),
-    }),
-  ),
+  trials: z
+    .array(
+      z.object({
+        capabilityId: z.string(),
+        id: z.string(),
+        model: ModelVariantSchema,
+        runner: z._default(CopilotRunnerSchema, 'copilot-cli'),
+        scenarioId: z.string(),
+        treatmentId: z.string(),
+      }),
+    )
+    .check(checkUniqueTrialIds('benchmark')),
 })
 
 type BenchmarkPlanManifestFile = z.infer<typeof BenchmarkPlanManifestFileSchema>
@@ -131,16 +134,10 @@ async function parseBenchmarkPlanManifest({
       return [treatment.id, treatment]
     }),
   )
-  const trialIds = new Set<string>()
 
   return {
     benchmark,
     trials: result.trials.map(trial => {
-      if (trialIds.has(trial.id)) {
-        throw new Error(`Duplicate trial ID in benchmark plan: ${trial.id}`)
-      }
-      trialIds.add(trial.id)
-
       const capability = capabilities.get(trial.capabilityId)
       if (!capability) {
         throw new Error(`Capability not found for trial: ${trial.id}`)

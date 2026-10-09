@@ -3,6 +3,7 @@ import * as z from 'zod/mini'
 import {CopilotRunnerSchema} from '../copilot-runner'
 import {DefaultHost, type Host} from '../host'
 import {ModelVariantSchema} from '../model'
+import {checkMetadataIds, createOutputFilesSchema} from '../manifest'
 import type {RunPlanResult} from '../plan'
 import {resolveTrialArtifactsPath} from '../result-path'
 import {ScenarioSchema} from '../scenario/scenario'
@@ -52,12 +53,14 @@ type TreatmentOutput = z.infer<typeof TreatmentOutputSchema>
 
 const ExperimentOutputFileSchema = z.object({
   id: z.string(),
-  scenarios: z.record(z.string(), ScenarioOutputSchema),
-  treatments: z.record(z.string(), TreatmentOutputSchema),
+  scenarios: z.record(z.string(), ScenarioOutputSchema).check(checkMetadataIds('scenario')),
+  treatments: z.record(z.string(), TreatmentOutputSchema).check(checkMetadataIds('treatment')),
   trials: z.record(z.string(), z.string()),
 })
 
 type ExperimentOutputFile = z.infer<typeof ExperimentOutputFileSchema>
+
+const ExperimentOutputFilesSchema = createOutputFilesSchema(ExperimentOutputFileSchema, 'experiment')
 
 type ExperimentOutput = {
   id: string
@@ -119,28 +122,21 @@ async function mergeExperimentOutputFiles({
   outputs,
   outputDirectory,
 }: MergeExperimentOutputFilesOptions): Promise<ExperimentOutput> {
-  if (outputs.length === 0) {
-    throw new Error('Cannot merge experiment output files: no outputs provided')
-  }
-
+  const files = ExperimentOutputFilesSchema.parse(outputs)
   const scenarios = new Map<string, ScenarioOutput>()
   const treatments = new Map<string, TreatmentOutput>()
   const trials = new Map<string, ExperimentTrialOutput>()
-  const id = outputs[0].id
+  const id = files[0].id
 
-  for (const output of outputs) {
-    if (id !== output.id) {
-      throw new Error(`Cannot merge experiment output files: mismatched experiment IDs (${id} !== ${output.id})`)
+  for (const output of files) {
+    for (const [key, value] of Object.entries(output.scenarios)) {
+      scenarios.set(key, value)
+    }
+    for (const [key, value] of Object.entries(output.treatments)) {
+      treatments.set(key, value)
     }
 
-    mergeMetadata(scenarios, output.scenarios, 'scenario')
-    mergeMetadata(treatments, output.treatments, 'treatment')
-
     for (const [key, value] of Object.entries(output.trials)) {
-      if (trials.has(key)) {
-        throw new Error(`Cannot merge experiment output files: duplicate trial ID found: ${key}`)
-      }
-
       const filepath = await resolveTrialArtifactsPath(host, outputDirectory, value)
 
       const contents = await host.fs.readFile(filepath, 'utf-8')
@@ -154,15 +150,6 @@ async function mergeExperimentOutputFiles({
   }
 
   return {id, scenarios, treatments, trials}
-}
-
-function mergeMetadata<T>(target: Map<string, T>, source: Record<string, T>, type: string): void {
-  for (const [id, value] of Object.entries(source)) {
-    if (target.has(id) && JSON.stringify(target.get(id)) !== JSON.stringify(value)) {
-      throw new Error(`Cannot merge conflicting ${type} metadata for id: ${id}`)
-    }
-    target.set(id, value)
-  }
 }
 
 type WriteExperimentOutputOptions = {

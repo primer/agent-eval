@@ -1,4 +1,5 @@
 import path from 'node:path'
+import {isDeepStrictEqual} from 'node:util'
 import * as z from 'zod/mini'
 import {CopilotRunnerSchema} from '../copilot-runner'
 import {DefaultHost, type Host} from '../host'
@@ -52,12 +53,90 @@ type TreatmentOutput = z.infer<typeof TreatmentOutputSchema>
 
 const ExperimentOutputFileSchema = z.object({
   id: z.string(),
-  scenarios: z.record(z.string(), ScenarioOutputSchema),
-  treatments: z.record(z.string(), TreatmentOutputSchema),
+  scenarios: z.record(z.string(), ScenarioOutputSchema).check(ctx => {
+    for (const [key, scenario] of Object.entries(ctx.value)) {
+      if (scenario.id !== key) {
+        ctx.issues.push({
+          code: 'custom',
+          message: `Manifest scenario ID "${scenario.id}" does not match key "${key}"`,
+          path: [key, 'id'],
+          input: scenario.id,
+        })
+      }
+    }
+  }),
+  treatments: z.record(z.string(), TreatmentOutputSchema).check(ctx => {
+    for (const [key, treatment] of Object.entries(ctx.value)) {
+      if (treatment.id !== key) {
+        ctx.issues.push({
+          code: 'custom',
+          message: `Manifest treatment ID "${treatment.id}" does not match key "${key}"`,
+          path: [key, 'id'],
+          input: treatment.id,
+        })
+      }
+    }
+  }),
   trials: z.record(z.string(), z.string()),
 })
 
 type ExperimentOutputFile = z.infer<typeof ExperimentOutputFileSchema>
+
+const ExperimentOutputFilesSchema = z
+  .array(ExperimentOutputFileSchema)
+  .check(z.minLength(1, 'Cannot merge experiment output files: no outputs provided'), ctx => {
+    const id = ctx.value[0]?.id
+    const trialIds = new Set<string>()
+    const scenarios = new Map<string, ScenarioOutput>()
+    const treatments = new Map<string, TreatmentOutput>()
+
+    for (const [index, output] of ctx.value.entries()) {
+      if (output.id !== id) {
+        ctx.issues.push({
+          code: 'custom',
+          message: `Cannot merge experiment output files: mismatched experiment IDs (${id} !== ${output.id})`,
+          path: [index, 'id'],
+          input: output.id,
+        })
+      }
+
+      for (const [key, scenario] of Object.entries(output.scenarios)) {
+        if (scenarios.has(key) && !isDeepStrictEqual(scenarios.get(key), scenario)) {
+          ctx.issues.push({
+            code: 'custom',
+            message: `Cannot merge conflicting scenario metadata for id: ${key}`,
+            path: [index, 'scenarios', key],
+            input: scenario,
+          })
+        }
+        scenarios.set(key, scenario)
+      }
+
+      for (const [key, treatment] of Object.entries(output.treatments)) {
+        if (treatments.has(key) && !isDeepStrictEqual(treatments.get(key), treatment)) {
+          ctx.issues.push({
+            code: 'custom',
+            message: `Cannot merge conflicting treatment metadata for id: ${key}`,
+            path: [index, 'treatments', key],
+            input: treatment,
+          })
+        }
+        treatments.set(key, treatment)
+      }
+
+      for (const key of Object.keys(output.trials)) {
+        if (trialIds.has(key)) {
+          ctx.issues.push({
+            code: 'custom',
+            message: `Cannot merge experiment output files: duplicate trial ID found: ${key}`,
+            path: [index, 'trials', key],
+            input: key,
+          })
+        }
+        trialIds.add(key)
+      }
+    }
+  })
 
 type ExperimentOutput = {
   id: string
@@ -119,28 +198,21 @@ async function mergeExperimentOutputFiles({
   outputs,
   outputDirectory,
 }: MergeExperimentOutputFilesOptions): Promise<ExperimentOutput> {
-  if (outputs.length === 0) {
-    throw new Error('Cannot merge experiment output files: no outputs provided')
-  }
-
+  const files = ExperimentOutputFilesSchema.parse(outputs)
   const scenarios = new Map<string, ScenarioOutput>()
   const treatments = new Map<string, TreatmentOutput>()
   const trials = new Map<string, ExperimentTrialOutput>()
-  const id = outputs[0].id
+  const id = files[0].id
 
-  for (const output of outputs) {
-    if (id !== output.id) {
-      throw new Error(`Cannot merge experiment output files: mismatched experiment IDs (${id} !== ${output.id})`)
+  for (const output of files) {
+    for (const [key, value] of Object.entries(output.scenarios)) {
+      scenarios.set(key, value)
+    }
+    for (const [key, value] of Object.entries(output.treatments)) {
+      treatments.set(key, value)
     }
 
-    mergeMetadata(scenarios, output.scenarios, 'scenario')
-    mergeMetadata(treatments, output.treatments, 'treatment')
-
     for (const [key, value] of Object.entries(output.trials)) {
-      if (trials.has(key)) {
-        throw new Error(`Cannot merge experiment output files: duplicate trial ID found: ${key}`)
-      }
-
       const filepath = await resolveTrialArtifactsPath(host, outputDirectory, value)
 
       const contents = await host.fs.readFile(filepath, 'utf-8')
@@ -154,15 +226,6 @@ async function mergeExperimentOutputFiles({
   }
 
   return {id, scenarios, treatments, trials}
-}
-
-function mergeMetadata<T>(target: Map<string, T>, source: Record<string, T>, type: string): void {
-  for (const [id, value] of Object.entries(source)) {
-    if (target.has(id) && JSON.stringify(target.get(id)) !== JSON.stringify(value)) {
-      throw new Error(`Cannot merge conflicting ${type} metadata for id: ${id}`)
-    }
-    target.set(id, value)
-  }
 }
 
 type WriteExperimentOutputOptions = {

@@ -56,15 +56,30 @@ function createExperimentPlan({experiment}: CreateExperimentPlanOptions): Plan<E
 const ExperimentPlanManifestFileSchema = z.object({
   id: z.string(),
   name: z.string(),
-  trials: z.array(
-    z.object({
-      id: z.string(),
-      model: ModelVariantSchema,
-      runner: z._default(CopilotRunnerSchema, 'copilot-cli'),
-      scenarioId: z.string(),
-      treatmentId: z.string(),
+  trials: z
+    .array(
+      z.object({
+        id: z.string(),
+        model: ModelVariantSchema,
+        runner: z._default(CopilotRunnerSchema, 'copilot-cli'),
+        scenarioId: z.string(),
+        treatmentId: z.string(),
+      }),
+    )
+    .check(ctx => {
+      const ids = new Set<string>()
+      for (const [index, trial] of ctx.value.entries()) {
+        if (ids.has(trial.id)) {
+          ctx.issues.push({
+            code: 'custom',
+            message: `Duplicate trial ID in experiment plan: ${trial.id}`,
+            path: [index, 'id'],
+            input: trial.id,
+          })
+        }
+        ids.add(trial.id)
+      }
     }),
-  ),
 })
 
 type ExperimentPlanManifestFile = z.infer<typeof ExperimentPlanManifestFileSchema>
@@ -124,16 +139,10 @@ async function parseExperimentPlanManifest({
     }),
   )
   const treatments = getExperimentTreatments(experiment)
-  const trialIds = new Set<string>()
 
   return {
     experiment,
     trials: result.trials.map(trial => {
-      if (trialIds.has(trial.id)) {
-        throw new Error(`Duplicate trial ID in experiment plan: ${trial.id}`)
-      }
-      trialIds.add(trial.id)
-
       const scenario = scenarios.get(trial.scenarioId)
       if (!scenario) {
         throw new Error(`Scenario not found for trial: ${trial.id}`)

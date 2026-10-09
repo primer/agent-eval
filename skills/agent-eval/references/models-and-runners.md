@@ -56,7 +56,8 @@ runners: ['copilot-sdk']
 
 For `plan run`, `--runner` **filters existing trials**; it does not rewrite
 their runner or create missing combinations. Shard assignment happens before
-this filter. Standalone `scenario run` also accepts `--runner`.
+this filter. Omitting the filter runs all runners in the plan. Standalone
+`scenario run` defaults `--runner` to `copilot-cli`.
 
 These are command templates; substitute your configuration or scenario ID:
 
@@ -79,5 +80,7 @@ it created new combinations.
 `runners: ['copilot-cli', 'copilot-sdk']` multiplies a benchmark's or experiment's
 trial count.
 Keep runner groups separate when interpreting results. Older plans without a
-runner default to the CLI; create a new plan to add a runner missing from an
-existing plan.
+runner default to the CLI when parsed, as do older trial output files. Parsed
+trials and outputs always have a runner; consumers constructing trial outputs
+directly must include `runner`. Create a new plan to add a runner missing from
+an existing plan.

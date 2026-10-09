@@ -11,7 +11,7 @@ import {
 import {createExperimentPlan, createExperimentPlanManifest, parseExperimentPlanManifest} from '../../experiment/plan'
 import {DefaultHost as host} from '../../host'
 import {logger} from '../../logger'
-import {createPlanFromManifest, runPlan} from '../../plan'
+import {createPlanFromManifest, selectPlanTrials, runPlan} from '../../plan'
 import {parseShard} from '../../shard'
 import {
   benchmarksOption,
@@ -24,7 +24,7 @@ import {
   githubCopilotTokenOption,
   outputDirectoryOption,
   scenariosOption,
-  runnerOption,
+  runnerFilterOption,
   shardOption,
 } from '../options'
 
@@ -140,6 +140,7 @@ const experimentCommand = defineCommand({
             description: 'Run an experiment plan from a manifest',
           },
           args: {
+            benchmarks: benchmarksOption,
             experiments: experimentsOption,
             'copilot-concurrency': copilotConcurrencyOption,
             'container-concurrency': containerConcurrencyOption,
@@ -150,11 +151,12 @@ const experimentCommand = defineCommand({
               default: './plan.json',
             },
             scenarios: scenariosOption,
-            runner: runnerOption,
+            runner: runnerFilterOption,
             shard: shardOption,
             token: githubCopilotTokenOption,
           },
           async run({args}) {
+            const benchmarksDirectory = path.resolve(args.benchmarks)
             const experimentsDirectory = path.resolve(args.experiments)
             const copilotConcurrency = getConcurrencyValue(args['copilot-concurrency'], 'copilot-concurrency')
             const containerConcurrency = getConcurrencyValue(args['container-concurrency'], 'container-concurrency')
@@ -168,6 +170,7 @@ const experimentCommand = defineCommand({
 
             logger.debug({
               artifactsDirectory,
+              benchmarksDirectory,
               experimentsDirectory,
               copilotConcurrency,
               containerConcurrency,
@@ -184,6 +187,7 @@ const experimentCommand = defineCommand({
 
             const contents = await host.fs.readFile(planPath, 'utf-8')
             const manifest = await parseExperimentPlanManifest({
+              benchmarksDirectory,
               experimentsDirectory,
               contents,
               scenariosDirectory,
@@ -195,7 +199,13 @@ const experimentCommand = defineCommand({
               shard ? `(${shard.order}/${shard.total})` : '',
             )
 
-            const plan = createPlanFromManifest({shard, trials: manifest.trials, runner: args.runner})
+            const plan = createPlanFromManifest({
+              trials: selectPlanTrials({
+                trials: manifest.trials,
+                runner: args.runner,
+                shard,
+              }),
+            })
             const runPlanResult = await runPlan({
               artifactsDirectory,
               copilotConcurrency,
@@ -216,6 +226,7 @@ const experimentCommand = defineCommand({
         description: 'Run an experiment',
       },
       args: {
+        benchmarks: benchmarksOption,
         experiments: experimentsOption,
         'copilot-concurrency': copilotConcurrencyOption,
         'container-concurrency': containerConcurrencyOption,
@@ -231,6 +242,7 @@ const experimentCommand = defineCommand({
       async run({args}) {
         logger.info('Running experiment: %s', args.name)
 
+        const benchmarksDirectory = path.resolve(args.benchmarks)
         const experimentsDirectory = path.resolve(args.experiments)
         const copilotConcurrency = getConcurrencyValue(args['copilot-concurrency'], 'copilot-concurrency')
         const containerConcurrency = getConcurrencyValue(args['container-concurrency'], 'container-concurrency')
@@ -242,6 +254,7 @@ const experimentCommand = defineCommand({
 
         logger.debug({
           artifactsDirectory,
+          benchmarksDirectory,
           experimentsDirectory,
           copilotConcurrency,
           containerConcurrency,
@@ -251,6 +264,7 @@ const experimentCommand = defineCommand({
         })
 
         const experiment = await getExperiment({
+          benchmarksDirectory,
           experimentsDirectory,
           scenariosDirectory,
           name: args.name,

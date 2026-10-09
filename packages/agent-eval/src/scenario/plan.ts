@@ -6,10 +6,10 @@ import type {Scenario} from './scenario'
 
 type CreateScenarioPlanOptions = {
   scenario: Scenario
-  runner?: CopilotRunner
+  runner: CopilotRunner
 }
 
-function createScenarioPlan({scenario, runner = 'copilot-cli'}: CreateScenarioPlanOptions): Plan {
+function createScenarioPlan({scenario, runner}: CreateScenarioPlanOptions): Plan {
   return createPlan({
     trials: [
       {

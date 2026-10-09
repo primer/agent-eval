@@ -94,7 +94,14 @@ const scenariosOption = {
 const runnerOption = {
   type: 'enum',
   options: CopilotRunnerSchema.options,
-  description: 'The implementation runner to use (for saved plans, select trials with this runner)',
+  description: 'The implementation runner to use',
+  default: 'copilot-cli',
+} as const
+
+const runnerFilterOption = {
+  type: 'enum',
+  options: CopilotRunnerSchema.options,
+  description: 'Select saved-plan trials with this runner (defaults to all configured runners)',
 } as const
 
 const shardOption = {
@@ -116,5 +123,6 @@ export {
   planOption,
   scenariosOption,
   runnerOption,
+  runnerFilterOption,
   shardOption,
 }

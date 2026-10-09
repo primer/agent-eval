@@ -74,6 +74,12 @@ Only merge after every expected shard and its complete artifacts are collected.
 Use consistent absolute checkout/output paths across workers and the merge
 machine; artifact metadata contains absolute paths used by the writer.
 
+Merge validates manifest IDs, trial ID uniqueness, and shared metadata consistency
+before reading artifacts. Metadata IDs must match their record keys; benchmark
+capabilities must have distinct scenario IDs. Conflicting capability, scenario, or
+treatment metadata is rejected with schema errors identifying the affected fields.
+Identical metadata across shards is allowed.
+
 **Merge overwrites `output.json` and deletes shard manifests after success.**
 It keeps trial artifacts. Use a dedicated output directory:
 

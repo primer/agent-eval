@@ -5,8 +5,8 @@ import {logger} from './logger'
 import type {Trial} from './trial/trial'
 import type {RunTrialResult} from './trial/run'
 import {runTrial} from './trial/run'
-import {selectShard, type Shard} from './shard'
 import {buildScenarioImage} from './scenario/scenario'
+import {selectShard, type Shard} from './shard'
 
 /**
  * A Plan represents an ordered collection of trials to run. Plans are created
@@ -33,23 +33,34 @@ function createPlan<T extends Trial>({trials}: CreatePlanOptions<T>): Plan<T> {
 
 type CreatePlanFromManifestOptions<T extends Trial> = {
   trials: Array<T>
-  shard?: Shard
-  runner?: CopilotRunner
 }
 
 /**
  * Creates a plan from a collection of trials that have come from a manifest.
  * It is assumed that these have already been randomized when saved to the
  * manifest.
- *
- * When the `shard` option is provided, the plan will be filtered to only include trials
- * that match the shard's order and total.
  */
-function createPlanFromManifest<T extends Trial>({runner, shard, trials}: CreatePlanFromManifestOptions<T>): Plan<T> {
+function createPlanFromManifest<T extends Trial>({trials}: CreatePlanFromManifestOptions<T>): Plan<T> {
+  return {
+    trials,
+  }
+}
+
+type SelectPlanTrialsOptions<T> = {
+  trials: Array<T>
+  runner?: CopilotRunner
+  shard?: Shard
+}
+
+function selectPlanTrials<T extends Pick<Trial, 'runner'>>({
+  trials,
+  runner,
+  shard,
+}: SelectPlanTrialsOptions<T>): Array<T> {
   if (
     runner &&
     !trials.some(trial => {
-      return (trial.runner ?? 'copilot-cli') === runner
+      return trial.runner === runner
     })
   ) {
     throw new Error(
@@ -58,13 +69,11 @@ function createPlanFromManifest<T extends Trial>({runner, shard, trials}: Create
   }
 
   const selected = shard ? selectShard(trials, shard) : trials
-  return {
-    trials: runner
-      ? selected.filter(trial => {
-          return (trial.runner ?? 'copilot-cli') === runner
-        })
-      : selected,
-  }
+  return runner
+    ? selected.filter(trial => {
+        return trial.runner === runner
+      })
+    : selected
 }
 
 type RunPlanOptions<T extends Trial> = {
@@ -158,5 +167,5 @@ async function retry<T>(fn: () => Promise<T>, retries: number = 3): Promise<T> {
   }
 }
 
-export {createPlan, createPlanFromManifest, runPlan}
+export {createPlan, createPlanFromManifest, selectPlanTrials, runPlan}
 export type {Plan, RunPlanResult}

@@ -268,22 +268,19 @@ test.each(['copilot-cli', 'copilot-sdk'] as const)(
   },
 )
 
-test.each([undefined, 'copilot-cli', 'copilot-sdk'] as const)(
-  'preserves runner metadata with a legacy CLI default: %s',
-  async runner => {
-    const output = createExperimentOutput([createTrial({runner})])
-    const details = await createExperimentRunDetails('2026-09-15', output)
-    expect(details.results[0].runner).toBe(runner ?? 'copilot-cli')
-    const benchmark = await createBenchmarkRunDetails({
-      id: '2026-09-15',
-      name: '2026-09-15',
-      date: new Date('2026-09-15'),
-      directory: '/results/benchmark',
-      output: createBenchmarkOutput([createTrial({runner})]),
-    })
-    expect(benchmark.results[0].runner).toBe(runner ?? 'copilot-cli')
-  },
-)
+test.each(['copilot-cli', 'copilot-sdk'] as const)('preserves parsed runner metadata: %s', async runner => {
+  const output = createExperimentOutput([createTrial({runner})])
+  const details = await createExperimentRunDetails('2026-09-15', output)
+  expect(details.results[0].runner).toBe(runner)
+  const benchmark = await createBenchmarkRunDetails({
+    id: '2026-09-15',
+    name: '2026-09-15',
+    date: new Date('2026-09-15'),
+    directory: '/results/benchmark',
+    output: createBenchmarkOutput([createTrial({runner})]),
+  })
+  expect(benchmark.results[0].runner).toBe(runner)
+})
 
 test('includes the deployment base path and encodes identifiers in asset URLs', () => {
   vi.stubEnv('PAGES_BASE_PATH', '/agent-eval')

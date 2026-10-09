@@ -1,4 +1,5 @@
 import path from 'node:path'
+import {isDeepStrictEqual} from 'node:util'
 import * as z from 'zod/mini'
 import {CopilotRunnerSchema} from '../copilot-runner'
 import type {BenchmarkTrial} from './plan'
@@ -14,7 +15,6 @@ import {ScenarioSchema} from '../scenario/scenario'
 import {TreatmentSchema} from '../treatment'
 import type {Benchmark} from './benchmark'
 import {ModelVariantSchema} from '../model'
-import {checkMetadataIds, createOutputFilesSchema} from '../manifest'
 import {DefaultHost, type Host} from '../host'
 import {resolveTrialArtifactsPath} from '../result-path'
 
@@ -71,15 +71,115 @@ type TreatmentOutput = z.infer<typeof TreatmentOutputSchema>
 
 const BenchmarkOutputFileSchema = z.object({
   id: z.string(),
-  capabilities: z.record(z.string(), CapabilityOutputSchema).check(checkMetadataIds('capability')),
-  scenarios: z.record(z.string(), ScenarioOutputSchema).check(checkMetadataIds('scenario')),
-  treatments: z.record(z.string(), TreatmentOutputSchema).check(checkMetadataIds('treatment')),
+  capabilities: z.record(z.string(), CapabilityOutputSchema).check(ctx => {
+    for (const [key, capability] of Object.entries(ctx.value)) {
+      if (capability.id !== key) {
+        ctx.issues.push({
+          code: 'custom',
+          message: `Manifest capability ID "${capability.id}" does not match key "${key}"`,
+          path: [key, 'id'],
+          input: capability.id,
+        })
+      }
+    }
+  }),
+  scenarios: z.record(z.string(), ScenarioOutputSchema).check(ctx => {
+    for (const [key, scenario] of Object.entries(ctx.value)) {
+      if (scenario.id !== key) {
+        ctx.issues.push({
+          code: 'custom',
+          message: `Manifest scenario ID "${scenario.id}" does not match key "${key}"`,
+          path: [key, 'id'],
+          input: scenario.id,
+        })
+      }
+    }
+  }),
+  treatments: z.record(z.string(), TreatmentOutputSchema).check(ctx => {
+    for (const [key, treatment] of Object.entries(ctx.value)) {
+      if (treatment.id !== key) {
+        ctx.issues.push({
+          code: 'custom',
+          message: `Manifest treatment ID "${treatment.id}" does not match key "${key}"`,
+          path: [key, 'id'],
+          input: treatment.id,
+        })
+      }
+    }
+  }),
   trials: z.record(z.string(), z.string()),
 })
 
 type BenchmarkOutputFile = z.infer<typeof BenchmarkOutputFileSchema>
 
-const BenchmarkOutputFilesSchema = createOutputFilesSchema(BenchmarkOutputFileSchema, 'benchmark')
+const BenchmarkOutputFilesSchema = z
+  .array(BenchmarkOutputFileSchema)
+  .check(z.minLength(1, 'Cannot merge benchmark output files: no outputs provided'), ctx => {
+    const id = ctx.value[0]?.id
+    const trialIds = new Set<string>()
+    const capabilities = new Map<string, CapabilityOutput>()
+    const scenarios = new Map<string, ScenarioOutput>()
+    const treatments = new Map<string, TreatmentOutput>()
+
+    for (const [index, output] of ctx.value.entries()) {
+      if (output.id !== id) {
+        ctx.issues.push({
+          code: 'custom',
+          message: `Cannot merge benchmark output files: mismatched benchmark IDs (${id} !== ${output.id})`,
+          path: [index, 'id'],
+          input: output.id,
+        })
+      }
+
+      for (const [key, capability] of Object.entries(output.capabilities)) {
+        if (capabilities.has(key) && !isDeepStrictEqual(capabilities.get(key), capability)) {
+          ctx.issues.push({
+            code: 'custom',
+            message: `Cannot merge conflicting capability metadata for id: ${key}`,
+            path: [index, 'capabilities', key],
+            input: capability,
+          })
+        }
+        capabilities.set(key, capability)
+      }
+
+      for (const [key, scenario] of Object.entries(output.scenarios)) {
+        if (scenarios.has(key) && !isDeepStrictEqual(scenarios.get(key), scenario)) {
+          ctx.issues.push({
+            code: 'custom',
+            message: `Cannot merge conflicting scenario metadata for id: ${key}`,
+            path: [index, 'scenarios', key],
+            input: scenario,
+          })
+        }
+        scenarios.set(key, scenario)
+      }
+
+      for (const [key, treatment] of Object.entries(output.treatments)) {
+        if (treatments.has(key) && !isDeepStrictEqual(treatments.get(key), treatment)) {
+          ctx.issues.push({
+            code: 'custom',
+            message: `Cannot merge conflicting treatment metadata for id: ${key}`,
+            path: [index, 'treatments', key],
+            input: treatment,
+          })
+        }
+        treatments.set(key, treatment)
+      }
+
+      for (const key of Object.keys(output.trials)) {
+        if (trialIds.has(key)) {
+          ctx.issues.push({
+            code: 'custom',
+            message: `Cannot merge benchmark output files: duplicate trial ID found: ${key}`,
+            path: [index, 'trials', key],
+            input: key,
+          })
+        }
+        trialIds.add(key)
+      }
+    }
+  })
 
 type BenchmarkOutput = {
   id: string

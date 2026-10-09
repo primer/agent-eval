@@ -7,7 +7,6 @@ import {ControlTreatment, createTreatment} from '../treatment'
 import type {Trial} from '../trial/trial'
 import type {Benchmark, Capability} from './benchmark'
 import {ModelVariantSchema} from '../model'
-import {checkUniqueTrialIds} from '../manifest'
 import type {Host} from '../host'
 import {getBenchmark} from './get'
 
@@ -70,7 +69,20 @@ const BenchmarkPlanManifestFileSchema = z.object({
         treatmentId: z.string(),
       }),
     )
-    .check(checkUniqueTrialIds('benchmark')),
+    .check(ctx => {
+      const ids = new Set<string>()
+      for (const [index, trial] of ctx.value.entries()) {
+        if (ids.has(trial.id)) {
+          ctx.issues.push({
+            code: 'custom',
+            message: `Duplicate trial ID in benchmark plan: ${trial.id}`,
+            path: [index, 'id'],
+            input: trial.id,
+          })
+        }
+        ids.add(trial.id)
+      }
+    }),
 })
 
 type BenchmarkPlanManifestFile = z.infer<typeof BenchmarkPlanManifestFileSchema>

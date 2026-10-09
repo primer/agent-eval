@@ -2,7 +2,6 @@ import {randomUUID} from 'node:crypto'
 import * as z from 'zod/mini'
 import {CopilotRunnerSchema} from '../copilot-runner'
 import type {Host} from '../host'
-import {checkUniqueTrialIds} from '../manifest'
 import {ModelVariantSchema} from '../model'
 import {createPlan, type Plan} from '../plan'
 import {ControlTreatment} from '../treatment'
@@ -67,7 +66,20 @@ const ExperimentPlanManifestFileSchema = z.object({
         treatmentId: z.string(),
       }),
     )
-    .check(checkUniqueTrialIds('experiment')),
+    .check(ctx => {
+      const ids = new Set<string>()
+      for (const [index, trial] of ctx.value.entries()) {
+        if (ids.has(trial.id)) {
+          ctx.issues.push({
+            code: 'custom',
+            message: `Duplicate trial ID in experiment plan: ${trial.id}`,
+            path: [index, 'id'],
+            input: trial.id,
+          })
+        }
+        ids.add(trial.id)
+      }
+    }),
 })
 
 type ExperimentPlanManifestFile = z.infer<typeof ExperimentPlanManifestFileSchema>

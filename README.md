@@ -9,7 +9,7 @@ To do so, we create a variety of [scenarios](./docs/scenarios.md) that describe 
 
 To learn more about how to use this library, visit [`@primer/agent-eval`](./packages/agent-eval) or install the [agent-eval skill](./skills/agent-eval/SKILL.md) to get started.
 
-## Agent skill
+## Agent skills
 
 Install the agent-eval skill to help your agent set up and run evaluations:
 
@@ -20,6 +20,18 @@ npx skills add primer/agent-eval --skill agent-eval
 The [skill](./skills/agent-eval/SKILL.md) includes a getting-started guide and
 references for evaluation methodology, domain models, and the CLI. The skill
 and runtime package are installed separately.
+
+Install the [agent-eval-investigate skill](./skills/agent-eval-investigate/SKILL.md)
+to investigate experiment or benchmark results, explain observed model behavior
+(such as why a tool was or was not called), and suggest setup improvements:
+
+```sh
+npx skills add primer/agent-eval --skill agent-eval-investigate
+```
+
+Use `/agent-eval-investigate` with a result bundle, the relevant scenario or trial,
+and the behavior you want to understand. The skill can also offer to apply a
+proposed change and rerun a focused comparison with your approval.
 
 ## Contributing
 

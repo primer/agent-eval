@@ -27,6 +27,11 @@ not a prerequisite for every operation.
 | Read results or diagnose agent behavior                 | [Trials and results](references/trials-and-results.md)                             |
 | Find a command, flag, or runtime failure                | [CLI](references/cli.md)                                                           |
 
+For an evidence-driven investigation of why a model behaved a certain way, use
+the `agent-eval-investigate` skill (installed separately with
+`npx skills add primer/agent-eval --skill agent-eval-investigate`). It proposes
+setup improvements and offers focused reruns only with the user's approval.
+
 ## Execution rules
 
 - For a first comparison, use one scenario, one model/effort, and one treatment

@@ -8,14 +8,15 @@ type TreatmentSetupOptions = {
 
 type TreatmentSetup = (options: TreatmentSetupOptions) => Promise<void>
 
-const TreatmentSetupSchema = z.function({
-  input: [
-    z.object({
-      sandbox: SandboxSchema,
-    }),
-  ],
-  output: z.promise(z.void()),
-}) satisfies z.ZodMiniType<TreatmentSetup>
+const TreatmentSetupSchema: z.ZodMiniType<TreatmentSetup, (options: TreatmentSetupOptions) => void | Promise<void>> =
+  z.function({
+    input: [
+      z.object({
+        sandbox: SandboxSchema,
+      }),
+    ],
+    output: z.promise(z.void()),
+  })
 
 const TreatmentConfigSchema = z.object({
   name: z.string(),

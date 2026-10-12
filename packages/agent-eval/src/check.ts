@@ -56,12 +56,17 @@ const CheckRunInputSchema = z.tuple([
   }),
 ])
 
-const CheckRunSchema = z.function({
+type CheckRun = (...args: z.infer<typeof CheckRunInputSchema>) => Promise<z.infer<typeof CheckRunReturnSchema>>
+
+const CheckRunSchema: z.ZodMiniType<
+  CheckRun,
+  (
+    ...args: z.input<typeof CheckRunInputSchema>
+  ) => z.input<typeof CheckRunReturnSchema> | Promise<z.input<typeof CheckRunReturnSchema>>
+> = z.function({
   input: CheckRunInputSchema,
   output: z.promise(CheckRunReturnSchema),
 })
-
-type CheckRun = z.infer<typeof CheckRunSchema>
 
 const CheckConfigRunResultSchema = z.union([
   z.object({
@@ -78,21 +83,28 @@ const CheckConfigRunResultSchema = z.union([
   }),
 ])
 
-const CheckConfigRunSchema = z.function({
-  input: CheckRunInputSchema,
-  output: z.promise(
-    z.union([
-      CheckConfigRunResultSchema,
-      z.array(
-        z.intersection(
-          CheckConfigRunResultSchema,
-          z.object({
-            id: z.string(),
-          }),
-        ),
+const CheckConfigRunReturnSchema = z.promise(
+  z.union([
+    CheckConfigRunResultSchema,
+    z.array(
+      z.intersection(
+        CheckConfigRunResultSchema,
+        z.object({
+          id: z.string(),
+        }),
       ),
-    ]),
-  ),
+    ),
+  ]),
+)
+
+type CheckConfigRun = (...args: z.infer<typeof CheckRunInputSchema>) => z.infer<typeof CheckConfigRunReturnSchema>
+
+const CheckConfigRunSchema: z.ZodMiniType<
+  CheckConfigRun,
+  (...args: z.input<typeof CheckRunInputSchema>) => z.input<typeof CheckConfigRunReturnSchema>
+> = z.function({
+  input: CheckRunInputSchema,
+  output: CheckConfigRunReturnSchema,
 })
 
 function parseCheckRunResult(result: z.infer<typeof CheckConfigRunResultSchema>): z.infer<typeof CheckRunResultSchema> {
@@ -229,4 +241,4 @@ const CheckOutputSchema = z.object({
 type CheckOutput = z.infer<typeof CheckOutputSchema>
 
 export {CheckConfigSchema, CheckSchema, CheckRunSchema, CheckOutputSchema, parseCheckConfig, parseCheckRunResult}
-export type {Check, CheckConfig, CheckRun, CheckRunResult, CheckOutput}
+export type {Check, CheckConfig, CheckRun, CheckConfigRun, CheckRunResult, CheckOutput}

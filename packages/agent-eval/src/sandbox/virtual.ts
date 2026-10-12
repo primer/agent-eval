@@ -1,7 +1,15 @@
 import path from 'node:path'
+import {glob, type GlobOptions} from 'glob'
 import {VirtualHost, type Host} from '../host'
 import {resolveContainerPath} from './path'
-import type {CommandResult, CopyOptions, DownloadOptions, Sandbox, SandboxCreateOptions} from './types'
+import type {
+  CommandResult,
+  CopyOptions,
+  DownloadOptions,
+  Sandbox,
+  SandboxCreateOptions,
+  SandboxGlobOptions,
+} from './types'
 
 const defaultCreateOptions: SandboxCreateOptions = {}
 
@@ -66,6 +74,10 @@ export class VirtualSandbox implements Sandbox {
     if (!options.ignore?.(name)) {
       await copyPath(this.#host, source, path.join(destination, name))
     }
+  }
+
+  glob(pattern: string | Array<string>, options?: SandboxGlobOptions): Promise<Array<string>> {
+    return glob(pattern, options)
   }
 
   readdir(filepath: string): Promise<Array<string>> {

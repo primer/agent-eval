@@ -2,6 +2,7 @@ import {randomUUID} from 'node:crypto'
 import path from 'node:path'
 import {Readable, Writable} from 'node:stream'
 import {pipeline} from 'node:stream/promises'
+import {glob} from 'glob'
 import tarFs from 'tar-fs'
 import type {Headers} from 'tar-fs'
 import tarStream from 'tar-stream'
@@ -36,6 +37,7 @@ import type {
   RunOptions,
   Sandbox,
   SandboxCreateOptions,
+  SandboxGlobOptions,
 } from './types'
 import {DefaultHost, type Host} from '../host'
 import {VirtualSandbox} from './virtual'
@@ -143,6 +145,10 @@ class SystemSandbox implements Sandbox {
         ignore: options.ignore,
       }),
     )
+  }
+
+  glob(pattern: string | Array<string>, options?: SandboxGlobOptions): Promise<Array<string>> {
+    return glob(pattern, options)
   }
 
   async readdir(filepath: string): Promise<Array<string>> {

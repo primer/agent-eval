@@ -79,26 +79,27 @@ type CustomAgentOptions = {
   tools?: Array<string>
 }
 
-type SandboxGlobOptions = {
-  absolute: GlobOptions['absolute']
-  cwd: GlobOptions['cwd']
-  dot: GlobOptions['dot']
-  dotRelative: GlobOptions['dotRelative']
-  follow: GlobOptions['follow']
-  ignore: GlobOptions['ignore']
-  mark: GlobOptions['mark']
-  matchBase: GlobOptions['matchBase']
-  maxDepth: GlobOptions['maxDepth']
-  nobrace: GlobOptions['nobrace']
-  nocase: GlobOptions['nocase']
-  nodir: GlobOptions['nodir']
-  noext: GlobOptions['noext']
-  noglobstar: GlobOptions['noglobstar']
-  posix: GlobOptions['posix']
-  realpath: GlobOptions['realpath']
-  root: GlobOptions['root']
-  signal: GlobOptions['signal']
-  stat: GlobOptions['stat']
+type SandboxGlobOptions = Pick<
+  GlobOptions,
+  | 'absolute'
+  | 'cwd'
+  | 'dot'
+  | 'dotRelative'
+  | 'follow'
+  | 'mark'
+  | 'matchBase'
+  | 'maxDepth'
+  | 'nobrace'
+  | 'nocase'
+  | 'nodir'
+  | 'noext'
+  | 'noglobstar'
+  | 'posix'
+  | 'realpath'
+  | 'root'
+  | 'stat'
+> & {
+  ignore?: string | Array<string>
 }
 
 interface Sandbox {
@@ -117,6 +118,9 @@ interface Sandbox {
    */
   download(containerFilePath: string, hostDestinationPath: string, options?: DownloadOptions): Promise<void>
 
+  /**
+   * Matches paths in the sandbox, relative to its workspace unless cwd is supplied.
+   */
   glob(pattern: string | Array<string>, options?: SandboxGlobOptions): Promise<Array<string>>
 
   /**

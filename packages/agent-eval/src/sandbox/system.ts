@@ -2,7 +2,6 @@ import {randomUUID} from 'node:crypto'
 import path from 'node:path'
 import {Readable, Writable} from 'node:stream'
 import {pipeline} from 'node:stream/promises'
-import {glob} from 'glob'
 import tarFs from 'tar-fs'
 import type {Headers} from 'tar-fs'
 import tarStream from 'tar-stream'
@@ -45,6 +44,7 @@ import {resolveContainerPath} from './path'
 import {logger} from '../logger'
 import {createContainer, removeContainer, exec, type RunningContainer} from '../docker'
 import {getSandboxImageBuild} from './images/sandbox'
+import {globInContainer} from './glob'
 
 const DEFAULT_MCP_CONFIG: McpConfigFile = {
   mcpServers: {},
@@ -148,7 +148,7 @@ class SystemSandbox implements Sandbox {
   }
 
   glob(pattern: string | Array<string>, options?: SandboxGlobOptions): Promise<Array<string>> {
-    return glob(pattern, options)
+    return globInContainer(this, pattern, options)
   }
 
   async readdir(filepath: string): Promise<Array<string>> {

@@ -31,6 +31,7 @@ Use the sandbox supplied to hooks; its runtime implementations are internal.
 | :-------------------- | :--------------------------------------------------------------------------- |
 | `copy`                | Copy a host file or directory into the container, optionally excluding paths |
 | `download`            | Copy a container file or directory to the host                               |
+| `glob`                | Match file and directory paths in the container                              |
 | `readdir`             | List entries in a container directory                                        |
 | `readFile`            | Read UTF-8 text in the container                                             |
 | `writeFile`           | Write UTF-8 text in the container                                            |
@@ -44,6 +45,13 @@ Use the sandbox supplied to hooks; its runtime implementations are internal.
 
 See [treatments](treatments.md) for resource installation examples. Consult the
 installed TypeScript interface for signatures and supported options.
+
+`sandbox.glob(pattern, options)` accepts a string or array of patterns.
+Patterns and `cwd` default to the sandbox workspace; absolute paths refer
+to the container. Use options such as `ignore`, `nodir`, `dot`, and
+`absolute` to control matches. Matching is case-sensitive by default,
+and results are not sorted. Options must be serializable: `ignore` accepts a
+string or array of patterns, not callbacks. `AbortSignal` is not supported.
 
 ## Command fragment
 

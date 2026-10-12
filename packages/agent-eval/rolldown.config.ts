@@ -7,22 +7,32 @@ const external = dependencies.map(name => {
   return new RegExp(`^${name}(/.*)?`)
 })
 
-const config = defineConfig({
-  input: {
-    benchmark: 'src/benchmark.ts',
-    cli: 'src/cli.ts',
-    experiment: 'src/experiment.ts',
-    index: 'src/index.ts',
-    scenario: 'src/scenario.ts',
+const config = defineConfig([
+  {
+    input: {
+      benchmark: 'src/benchmark.ts',
+      cli: 'src/cli.ts',
+      experiment: 'src/experiment.ts',
+      index: 'src/index.ts',
+      scenario: 'src/scenario.ts',
+    },
+    platform: 'node',
+    external,
+    plugins: [dts({eager: true, sourcemap: true})],
+    output: {
+      dir: 'dist',
+      preserveModules: true,
+      preserveModulesRoot: 'src',
+    },
   },
-  platform: 'node',
-  external,
-  plugins: [dts({eager: true, sourcemap: true})],
-  output: {
-    dir: 'dist',
-    preserveModules: true,
-    preserveModulesRoot: 'src',
+  {
+    input: 'src/sandbox/glob-script.ts',
+    platform: 'node',
+    output: {
+      file: 'dist/sandbox/glob-script.mjs',
+      format: 'esm',
+    },
   },
-})
+])
 
 export default config

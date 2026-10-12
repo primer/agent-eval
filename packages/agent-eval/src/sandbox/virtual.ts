@@ -1,5 +1,6 @@
 import path from 'node:path'
-import {glob, type GlobOptions} from 'glob'
+import {fileURLToPath} from 'node:url'
+import {glob} from 'glob'
 import {VirtualHost, type Host} from '../host'
 import {resolveContainerPath} from './path'
 import type {
@@ -77,7 +78,16 @@ export class VirtualSandbox implements Sandbox {
   }
 
   glob(pattern: string | Array<string>, options?: SandboxGlobOptions): Promise<Array<string>> {
-    return glob(pattern, options)
+    const cwd = options?.cwd ?? '.'
+    return glob(pattern, {
+      platform: 'linux',
+      nocase: false,
+      ...options,
+      cwd: resolveContainerPath(
+        cwd instanceof URL || cwd.startsWith('file:') ? fileURLToPath(cwd, {windows: false}) : cwd,
+      ),
+      fs: this.#host.fs,
+    })
   }
 
   readdir(filepath: string): Promise<Array<string>> {

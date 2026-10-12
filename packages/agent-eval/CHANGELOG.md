@@ -1,5 +1,15 @@
 # @primer/agent-eval
 
+## 0.14.0
+
+### Minor Changes
+
+- a47973c: Add support for `glob` on `Sandbox` to support matching files in a sandbox by glob patterns
+
+### Patch Changes
+
+- b646a18: Fix declaration emission for benchmark, experiment, and scenario configurations without requiring consumers to depend directly on Zod.
+
 ## 0.13.0
 
 ### Minor Changes

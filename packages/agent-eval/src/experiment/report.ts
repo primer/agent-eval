@@ -195,6 +195,7 @@ function createExperimentReport({experiment, runPlanResult}: CreateExperimentRep
       'Model',
       'Reasoning Effort',
       ...TRIAL_SUMMARY_COLUMNS.slice(0, 1),
+      ...(runPlanResult.results.some(({result}) => result.error) ? ['Errors'] : []),
       ...(dimensions.length > 0 ? ['Checks'] : []),
       ...TRIAL_SUMMARY_COLUMNS.slice(1),
     ]),

@@ -113,6 +113,22 @@ function readReportRows(report: string): Array<Record<string, string>> {
 }
 
 describe('createExperimentReport', () => {
+  test('reports execution errors separately from successful runs and their metrics', async () => {
+    const experiment = await createExperiment('scenario')
+    const plan = createExperimentPlan({experiment})
+    const trial = plan.trials[0]
+    const successful = createResult(trial, 10)
+    const failed = createResult({...trial, id: 'failed'}, 1000)
+    failed.result.error = {name: 'Error', message: 'Setup failed'}
+
+    const rows = readReportRows(createExperimentReport({experiment, runPlanResult: {results: [successful, failed]}}))
+
+    expect(rows[0].Runs).toBe('1')
+    expect(rows[0].Errors).toBe('1')
+    expect(rows[0]['Output Tokens']).toBe('10')
+    expect(rows[0].Checks).toBe('100.0%')
+  })
+
   test('preserves scenario experiment rows without capability or runner columns', async () => {
     const experiment = await createExperiment('scenario')
     const plan = createExperimentPlan({experiment})

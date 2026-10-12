@@ -11,6 +11,7 @@ import {
 
 type TrialSummary = {
   runs: number
+  errors: number
   checks: Map<string, CheckSummary>
   scenarioRuns: Map<string, number>
   outputTokens: number
@@ -32,6 +33,7 @@ const REPORT_CHECKS_NOTE =
 function createTrialSummary(): TrialSummary {
   return {
     runs: 0,
+    errors: 0,
     checks: new Map(),
     scenarioRuns: new Map(),
     outputTokens: 0,
@@ -43,6 +45,10 @@ function createTrialSummary(): TrialSummary {
 }
 
 function addTrialResultToSummary(summary: TrialSummary, result: RunTrialResult): void {
+  if (result.error) {
+    summary.errors += 1
+    return
+  }
   summary.runs += 1
   const scenarioId = result.trial.scenario.id
   summary.scenarioRuns.set(scenarioId, (summary.scenarioRuns.get(scenarioId) ?? 0) + 1)
@@ -78,6 +84,7 @@ function createTrialSummaryComparator(summaries: Array<TrialSummary>): (a: Trial
       const value = getCheckValue(check)
       if (
         !check ||
+        summary.errors > 0 ||
         value === null ||
         !check.direction ||
         check.errors > 0 ||
@@ -116,6 +123,7 @@ function createTrialSummaryComparator(summaries: Array<TrialSummary>): (a: Trial
 function formatTrialSummary(summary: TrialSummary, dimensions: Array<CheckDimension> = []): TableRow {
   return {
     Runs: summary.runs,
+    Errors: summary.errors,
     ...formatCheckSummaries(summary, dimensions),
     'Output Tokens': formatNumber(summary.outputTokens),
     'Premium Requests': formatNumber(summary.premiumRequests),

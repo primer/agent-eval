@@ -109,7 +109,14 @@ const shardOption = {
   description: 'The durable plan shard to run, formatted as order/total',
 } as const
 
+const resumeOption = {
+  type: 'boolean',
+  description: 'Reuse completed trials and retry failed or missing trials from the saved plan',
+  default: false,
+} as const
+
 export {
+  resumeOption,
   benchmarksOption,
   copilotConcurrencyOption,
   containerConcurrencyOption,

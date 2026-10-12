@@ -22,6 +22,18 @@ treatments. Each trial has its own ID, sandbox, execution, and evidence.
 5. Run judges against their rubrics.
 6. Attempt visual walkthrough capture, then save artifacts.
 
+Benchmark and experiment runs retry execution failures automatically. After
+retries are exhausted, the trial result includes `error: {name, message}` and
+other trials continue. Such results have empty agent/check/judge collections
+and an unavailable walkthrough; saved workspace evidence may be absent.
+Reports count execution errors separately and exclude them from successful-run
+metrics. Check failures and judge-reported errors are not execution failures.
+Configuration or result-storage failures still fail the command.
+
+Completed trials are checkpointed under `artifacts/.checkpoints/`. Preserve
+these files for [resume and retry](plans.md#resume-and-retry), including when a
+run was interrupted before its final manifest was written.
+
 The pre-task build does not verify the agent's finished implementation.
 Configure a check for that. The walkthrough is additional review evidence, not
 a replacement for checks or judges. Capture is attempted even for non-UI

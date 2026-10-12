@@ -9,6 +9,7 @@ import {
   TrialArtifactsSchema,
   TrialChecksSchema,
   TrialJudgesSchema,
+  TrialErrorSchema,
   TrialWalkthroughSchema,
 } from '../trial/run'
 import {ScenarioSchema} from '../scenario/scenario'
@@ -23,6 +24,7 @@ const BenchmarkTrialOutputSchema = z.object({
   artifacts: TrialArtifactsSchema,
   capabilityId: z.string(),
   checks: z._default(TrialChecksSchema, []),
+  error: z.optional(TrialErrorSchema),
   id: z.string(),
   judges: TrialJudgesSchema,
   model: ModelVariantSchema,
@@ -247,6 +249,7 @@ function createBenchmarkOutput({benchmark, runPlanResult}: CreateBenchmarkOutput
       artifacts: trialResult.artifacts,
       capabilityId: trial.capability.id,
       checks: trialResult.checks,
+      error: trialResult.error,
       id: trial.id,
       judges: trialResult.judges,
       model: trial.model,
@@ -333,6 +336,7 @@ async function writeBenchmarkOutput({host = DefaultHost, output, outputPath}: Wr
       artifacts: trial.artifacts,
       capabilityId: trial.capabilityId,
       checks: trial.checks,
+      error: trial.error,
       id: trial.id,
       judges: trial.judges,
       model: trial.model,
@@ -342,6 +346,7 @@ async function writeBenchmarkOutput({host = DefaultHost, output, outputPath}: Wr
       walkthrough: trial.walkthrough,
     }
 
+    await host.fs.promises.mkdir(path.dirname(trialFilePath), {recursive: true})
     await host.fs.promises.writeFile(trialFilePath, JSON.stringify(trialFile, null, 2), 'utf-8')
 
     trials.set(trial.id, path.relative(outputDirectory, trialFilePath))

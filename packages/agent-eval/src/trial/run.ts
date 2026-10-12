@@ -53,16 +53,39 @@ const TrialChecksSchema = z.array(CheckOutputSchema)
 
 const TrialJudgesSchema = z.array(JudgeOutputSchema)
 
+const TrialErrorSchema = z.object({
+  name: z.string(),
+  message: z.string(),
+})
+
 const RunTrialResultSchema = z.object({
   agent: TrialAgentSchema,
   artifacts: TrialArtifactsSchema,
   checks: TrialChecksSchema,
+  error: z.optional(TrialErrorSchema),
   judges: TrialJudgesSchema,
   trial: TrialSchema,
   walkthrough: TrialWalkthroughSchema,
 })
 
 type RunTrialResult = z.infer<typeof RunTrialResultSchema>
+
+function getTrialArtifacts(artifactsDirectory: string, trialId: string): RunTrialResult['artifacts'] {
+  z.string()
+    .check(
+      z.regex(/^[^/\\]+$/),
+      z.refine(value => value !== '.' && value !== '..' && value !== '.checkpoints'),
+    )
+    .parse(trialId)
+  const directory = path.join(artifactsDirectory, trialId)
+  return {
+    directory,
+    copilotConfigDirectory: path.join(directory, '.copilot'),
+    skillsConfigDirectory: path.join(directory, '.agents'),
+    walkthroughDirectory: path.join(directory, 'walkthrough'),
+    workspaceDirectory: path.join(directory, 'workspace'),
+  }
+}
 
 async function runTrial({
   artifactsDirectory,
@@ -491,11 +514,14 @@ const saveStage = {
   async run({artifactsDirectory, host, sandbox, trial, walkthrough}: SaveStageOptions) {
     logger.info('[%s] Saving trial results', trial.id)
 
-    const artifactDirectory = path.join(artifactsDirectory, trial.id)
-    const workspaceDirectory = path.join(artifactDirectory, 'workspace')
-    const walkthroughDirectory = path.join(artifactDirectory, 'walkthrough')
-    const copilotConfigDirectory = path.join(artifactDirectory, '.copilot')
-    const skillsConfigDirectory = path.join(artifactDirectory, '.agents')
+    const artifacts = getTrialArtifacts(artifactsDirectory, trial.id)
+    const {
+      directory: artifactDirectory,
+      workspaceDirectory,
+      walkthroughDirectory,
+      copilotConfigDirectory,
+      skillsConfigDirectory,
+    } = artifacts
 
     if (host.fs.existsSync(artifactDirectory)) {
       logger.debug('[%s] Cleaning up artifact directory: %s', trial.id, artifactDirectory)
@@ -561,13 +587,7 @@ const saveStage = {
     }
 
     return {
-      artifacts: {
-        directory: artifactDirectory,
-        copilotConfigDirectory,
-        skillsConfigDirectory,
-        walkthroughDirectory,
-        workspaceDirectory,
-      },
+      artifacts,
     }
   },
 }
@@ -577,8 +597,10 @@ export {
   TrialArtifactsSchema,
   TrialChecksSchema,
   TrialJudgesSchema,
+  TrialErrorSchema,
   TrialWalkthroughSchema,
   runTrial,
+  getTrialArtifacts,
   RunTrialResultSchema,
 }
 export type {RunTrialResult}

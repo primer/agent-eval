@@ -6,6 +6,7 @@ import {
   mergeBenchmarkOutputFiles,
   parseBenchmarkTrialOutput,
   type BenchmarkTrialOutput,
+  writeBenchmarkOutput,
 } from './output'
 
 const trial = {
@@ -44,6 +45,37 @@ const capabilities = new Map([
     },
   ],
 ])
+
+test('preserves trial errors when writing and merging benchmark outputs', async () => {
+  const host = VirtualHost.create()
+  const error = {name: 'Error', message: 'Setup failed'}
+  const parsed = parseBenchmarkTrialOutput(
+    {...trial, error, artifacts: {...trial.artifacts, directory: '/results/artifacts/trial'}},
+    capabilities,
+  )
+  const file = BenchmarkOutputFileSchema.parse(createOutputFile())
+  await writeBenchmarkOutput({
+    host,
+    outputPath: '/results/output.json',
+    output: {
+      id: file.id,
+      capabilities: new Map(Object.entries(file.capabilities)),
+      scenarios: new Map(Object.entries(file.scenarios)),
+      treatments: new Map(Object.entries(file.treatments)),
+      trials: new Map([[parsed.id, parsed]]),
+    },
+  })
+
+  const output = await mergeBenchmarkOutputFiles({
+    host,
+    outputs: [
+      BenchmarkOutputFileSchema.parse(JSON.parse(await host.fs.promises.readFile('/results/output.json', 'utf-8'))),
+    ],
+    outputDirectory: '/results',
+  })
+
+  expect(output.trials.get('trial')?.error).toEqual(error)
+})
 
 test('parses legacy benchmark output with a required CLI runner', () => {
   const parsed = parseBenchmarkTrialOutput(trial, capabilities)

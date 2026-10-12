@@ -23,7 +23,7 @@ not a prerequisite for every operation.
 | Add deterministic grading or a subjective rubric            | [Checks](references/checks.md) or [judges](references/judges.md)                                                |
 | Select models, effort, or execution backends                | [Models and runners](references/models-and-runners.md)                                                          |
 | Install resources, search files, or run commands in a trial | [Sandbox](references/sandbox.md)                                                                                |
-| Inspect a run matrix, shard, or merge                       | [Plans](references/plans.md)                                                                                    |
+| Inspect a run matrix, resume, shard, or merge               | [Plans](references/plans.md)                                                                                    |
 | Read results or diagnose agent behavior                     | [Trials and results](references/trials-and-results.md), [experiment reports](references/experiments.md#reports) |
 | Find a command, flag, or runtime failure                    | [CLI](references/cli.md)                                                                                        |
 
@@ -46,6 +46,8 @@ setup improvements and offers focused reruns only with the user's approval.
 - Withhold grader files using `files`. Verify the starter fails for the intended
   reasons and a correct solution passes; restore the starter before execution.
 - Inspect the plan's combinations before running. Use a fresh output directory.
+- To recover unchanged evaluations, reuse the saved plan and output directory
+  with `--resume`; see [Plans](references/plans.md).
 - Finish by reading trial results and reporting outcomes and errors separately.
   Command completion alone does not establish quality.
 - Interpret session AI credits using [Trials and results](references/trials-and-results.md);

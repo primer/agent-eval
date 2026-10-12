@@ -25,6 +25,7 @@ import {
   outputDirectoryOption,
   scenariosOption,
   runnerFilterOption,
+  resumeOption,
   shardOption,
 } from '../options'
 
@@ -152,6 +153,7 @@ const experimentCommand = defineCommand({
             },
             scenarios: scenariosOption,
             runner: runnerFilterOption,
+            resume: resumeOption,
             shard: shardOption,
             token: githubCopilotTokenOption,
           },
@@ -212,6 +214,7 @@ const experimentCommand = defineCommand({
               containerConcurrency,
               copilotToken,
               plan,
+              resume: args.resume,
             })
             const output = createExperimentOutput({experiment: manifest.experiment, runPlanResult})
             await writeExperimentOutput({output, outputPath})
@@ -236,6 +239,7 @@ const experimentCommand = defineCommand({
           required: true,
         },
         'output-dir': outputDirectoryOption,
+        resume: resumeOption,
         scenarios: scenariosOption,
         token: githubCopilotTokenOption,
       },
@@ -269,13 +273,34 @@ const experimentCommand = defineCommand({
           scenariosDirectory,
           name: args.name,
         })
-        const plan = createExperimentPlan({experiment})
+        const planPath = path.join(resultsDirectory, 'plan.json')
+        const manifest = args.resume
+          ? await parseExperimentPlanManifest({
+              benchmarksDirectory,
+              experimentsDirectory,
+              scenariosDirectory,
+              contents: await host.fs.promises.readFile(planPath, 'utf-8'),
+            })
+          : undefined
+        if (manifest && manifest.experiment.id !== experiment.id) {
+          throw new Error('Saved plan does not match the requested experiment')
+        }
+        const plan = manifest ? createPlanFromManifest({trials: manifest.trials}) : createExperimentPlan({experiment})
+        if (!manifest) {
+          await host.fs.promises.mkdir(resultsDirectory, {recursive: true})
+          await host.fs.promises.writeFile(
+            planPath,
+            JSON.stringify(createExperimentPlanManifest({experiment, plan}), null, 2),
+            'utf-8',
+          )
+        }
         const runPlanResult = await runPlan({
           artifactsDirectory,
           copilotConcurrency,
           containerConcurrency,
           copilotToken,
           plan,
+          resume: args.resume,
         })
         const output = createExperimentOutput({experiment, runPlanResult})
         await writeExperimentOutput({

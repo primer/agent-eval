@@ -56,6 +56,33 @@ You can interact with experiments using the `experiments` subcommand of the `age
 
 Use `agent-eval experiments --help` to see the available commands and options.
 
+### Resume and retry
+
+Experiment runs capture trial execution failures as `error: {name, message}`
+in individual trial results and continue other trials. Reports show execution
+errors separately from successful runs and their metrics. Check failures and
+judge-reported errors do not mark the trial itself as an execution failure.
+
+Direct runs save their plan to `<output-dir>/plan.json` and checkpoint completed
+trials under `artifacts/.checkpoints/`. To retry failed or missing trials without
+rerunning successful ones:
+
+```sh
+npx agent-eval experiment run example --output-dir ./results/example
+npx agent-eval experiment run example --output-dir ./results/example --resume
+```
+
+Saved plans also support `experiment plan run --resume`; keep the same plan,
+output directory, and any shard/runner selection. Interrupted runs can resume
+even before `output.json` is written. Retried trials start from the beginning,
+retain their IDs, and replace their failed result on completion.
+
+Preserve the plan, checkpoints, and successful artifacts, and keep the source,
+configuration, dependencies, and setup resources unchanged between attempts.
+Resume checks trial identities but does not detect source changes. Use a fresh
+output directory for a changed evaluation. Corrupt or mismatched checkpoints,
+configuration failures, and result-storage failures still fail the command.
+
 ## Reports
 
 Experiment runs print a summary grouped by treatment, scenario, and model

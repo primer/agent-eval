@@ -14,6 +14,7 @@ import {
   TrialArtifactsSchema,
   TrialChecksSchema,
   TrialJudgesSchema,
+  TrialErrorSchema,
   TrialWalkthroughSchema,
 } from '../trial/run'
 import type {Experiment} from './experiment'
@@ -24,6 +25,7 @@ const ExperimentTrialOutputSchema = z.object({
   artifacts: TrialArtifactsSchema,
   capabilityId: z.optional(z.string()),
   checks: z._default(TrialChecksSchema, []),
+  error: z.optional(TrialErrorSchema),
   id: z.string(),
   judges: TrialJudgesSchema,
   model: ModelVariantSchema,
@@ -237,6 +239,7 @@ function createExperimentOutput({experiment, runPlanResult}: CreateExperimentOut
       artifacts: trialResult.artifacts,
       ...(capability ? {capabilityId: capability.id} : {}),
       checks: trialResult.checks,
+      error: trialResult.error,
       id: trial.id,
       judges: trialResult.judges,
       model: trial.model,

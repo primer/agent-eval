@@ -42,6 +42,27 @@ Inspect the trial count, IDs, and dimensions before running:
 npx agent-eval experiment plan run --plan-path ./comparison-plan.json --output-dir ./results/comparison-01
 ```
 
+## Resume and retry
+
+Repeat a benchmark/experiment run or plan run with `--resume` and the same
+output directory. Plan runs also need the same plan path and shard/runner
+selection. Successful checkpoints are reused; failed or missing trials rerun
+from the beginning with their saved IDs:
+
+```sh
+npx agent-eval experiment plan run --plan-path ./comparison-plan.json --output-dir ./results/comparison-01 --resume
+```
+
+Direct runs save `<output-dir>/plan.json` before execution and load it on
+resume. Every completed trial is checkpointed under `artifacts/.checkpoints/`,
+so resume also works after interruption before a final manifest was written.
+Keep the plan, checkpoints, and successful artifacts together.
+
+Do not change fixtures, configuration, dependencies, or resources between
+attempts. Resume checks identities, not source contents. A changed evaluation
+needs a new plan and fresh output directory. Corrupt or mismatched checkpoints
+fail safely rather than silently overwrite successful work.
+
 ## Shard and merge
 
 As an alternative to the whole-plan run, execute on separate workers using the

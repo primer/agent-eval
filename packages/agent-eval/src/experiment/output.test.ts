@@ -40,6 +40,38 @@ const trial = {
   },
 }
 
+test('preserves trial errors when writing and merging experiment outputs', async () => {
+  const host = VirtualHost.create()
+  const error = {name: 'Error', message: 'Setup failed'}
+  const parsed = ExperimentTrialOutputSchema.parse({
+    ...trial,
+    error,
+    artifacts: {...trial.artifacts, directory: '/results/artifacts/trial'},
+  })
+  const file = ExperimentOutputFileSchema.parse(createOutputFile())
+  await writeExperimentOutput({
+    host,
+    outputPath: '/results/output.json',
+    output: {
+      id: file.id,
+      capabilities: new Map(),
+      scenarios: new Map(Object.entries(file.scenarios)),
+      treatments: new Map(Object.entries(file.treatments)),
+      trials: new Map([[parsed.id, parsed]]),
+    },
+  })
+
+  const output = await mergeExperimentOutputFiles({
+    host,
+    outputs: [
+      ExperimentOutputFileSchema.parse(JSON.parse(await host.fs.promises.readFile('/results/output.json', 'utf-8'))),
+    ],
+    outputDirectory: '/results',
+  })
+
+  expect(output.trials.get('trial')?.error).toEqual(error)
+})
+
 test('parses legacy experiment output with a required CLI runner', () => {
   const parsed = ExperimentTrialOutputSchema.parse(trial)
 

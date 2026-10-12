@@ -13,6 +13,7 @@ import {
   outputDirectoryOption,
   scenariosOption,
   runnerFilterOption,
+  resumeOption,
   shardOption,
 } from '../options'
 import {logger} from '../../logger'
@@ -153,6 +154,7 @@ const benchmarkCommand = defineCommand({
             },
             scenarios: scenariosOption,
             runner: runnerFilterOption,
+            resume: resumeOption,
             shard: shardOption,
             token: githubCopilotTokenOption,
           },
@@ -210,6 +212,7 @@ const benchmarkCommand = defineCommand({
               containerConcurrency,
               copilotToken,
               plan,
+              resume: args.resume,
             })
             const output = createBenchmarkOutput({
               benchmark: manifest.benchmark,
@@ -239,6 +242,7 @@ const benchmarkCommand = defineCommand({
           required: true,
         },
         'output-dir': outputDirectoryOption,
+        resume: resumeOption,
         scenarios: scenariosOption,
         token: githubCopilotTokenOption,
       },
@@ -269,15 +273,33 @@ const benchmarkCommand = defineCommand({
           scenariosDirectory,
           name: args.name,
         })
-        const plan = createBenchmarkPlan({
-          benchmark,
-        })
+        const planPath = path.join(resultsDirectory, 'plan.json')
+        const manifest = args.resume
+          ? await parseBenchmarkPlanManifest({
+              benchmarksDirectory,
+              scenariosDirectory,
+              contents: await host.fs.promises.readFile(planPath, 'utf-8'),
+            })
+          : undefined
+        if (manifest && manifest.benchmark.id !== benchmark.id) {
+          throw new Error('Saved plan does not match the requested benchmark')
+        }
+        const plan = manifest ? createPlanFromManifest({trials: manifest.trials}) : createBenchmarkPlan({benchmark})
+        if (!manifest) {
+          await host.fs.promises.mkdir(resultsDirectory, {recursive: true})
+          await host.fs.promises.writeFile(
+            planPath,
+            JSON.stringify(createBenchmarkPlanManifest({benchmark, plan}), null, 2),
+            'utf-8',
+          )
+        }
         const runPlanResult = await runPlan({
           artifactsDirectory,
           copilotConcurrency,
           containerConcurrency,
           copilotToken,
           plan,
+          resume: args.resume,
         })
         const output = createBenchmarkOutput({
           benchmark,

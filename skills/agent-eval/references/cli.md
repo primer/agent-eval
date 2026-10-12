@@ -42,22 +42,22 @@ npx agent-eval scenario image clean --help
 
 ## Options by scope
 
-| Option                            | Scope and default                                 |
-| :-------------------------------- | :------------------------------------------------ |
-| `--benchmarks <dir>`              | Benchmark run and plan commands; `./benchmarks`   |
-| `--experiments <dir>`             | Experiment run and plan commands; `./experiments` |
-| `--scenarios <dir>`               | Run, plan, and image build; `./scenarios`         |
-| `--output-dir <dir>`              | Run, plan run, and merge; `./results`             |
-| `--output-path <file>`            | Plan create only; `plan.json`                     |
-| `--plan-path <file>`              | Plan run only; `./plan.json`                      |
-| `--shard <order>/<total>`         | Plan run only; omitted means all trials           |
-| `--runner <runner>`               | Scenario run and plan run; see below              |
-| `--check <name>`                  | Scenario run only; selects one configured check   |
-| `--copilot-concurrency <n>`, `-c` | Run and plan run; `1`                             |
-| `--container-concurrency <n>`     | Run and plan run; `5`                             |
-| `--docker-image <image>`          | Run and plan run; package default Node image      |
-| `--token <token>`                 | Run and plan run; prefer `COPILOT_GITHUB_TOKEN`   |
-| `--log-level <level>`             | Root option; `info`                               |
+| Option                            | Scope and default                                          |
+| :-------------------------------- | :--------------------------------------------------------- |
+| `--benchmarks <dir>`              | Benchmark and experiment run/plan commands; `./benchmarks` |
+| `--experiments <dir>`             | Experiment run and plan commands; `./experiments`          |
+| `--scenarios <dir>`               | Run, plan, and image build; `./scenarios`                  |
+| `--output-dir <dir>`              | Run, plan run, and merge; `./results`                      |
+| `--output-path <file>`            | Plan create only; `plan.json`                              |
+| `--plan-path <file>`              | Plan run only; `./plan.json`                               |
+| `--shard <order>/<total>`         | Plan run only; omitted means all trials                    |
+| `--runner <runner>`               | Scenario run and plan run; see below                       |
+| `--check <name>`                  | Scenario run only; selects one configured check            |
+| `--copilot-concurrency <n>`, `-c` | Run and plan run; `1`                                      |
+| `--container-concurrency <n>`     | Run and plan run; `5`                                      |
+| `--docker-image <image>`          | Run and plan run; package default Node image               |
+| `--token <token>`                 | Run and plan run; prefer `COPILOT_GITHUB_TOKEN`            |
+| `--log-level <level>`             | Root option; `info`                                        |
 
 Concurrency values must be positive integers. Copilot concurrency limits active
 sessions; container concurrency limits active trial containers. Both apply per

@@ -379,6 +379,10 @@ async function createExperimentRunDetails(
     if (treatment === undefined) {
       throw new Error(`Unknown treatment "${result.treatmentId}" for trial "${result.id}"`)
     }
+    const capability = result.capabilityId === undefined ? undefined : output.capabilities.get(result.capabilityId)
+    if ((result.capabilityId !== undefined || output.capabilities.size > 0) && !capability) {
+      throw new Error(`Unknown capability for trial "${result.id}"`)
+    }
     const baseUrl = getTrialDataUrl(collection, output.id, date, result.id)
     const tools = new Map<string, number>()
     for (const session of result.agent.sessions) {
@@ -389,6 +393,7 @@ async function createExperimentRunDetails(
     results.push({
       id: result.id,
       scenarioId: result.scenarioId,
+      ...(capability ? {capability: {id: capability.id, name: capability.name}} : {}),
       treatment,
       model: result.model.name,
       reasoningEffort: result.model.reasoningEffort,
@@ -445,19 +450,7 @@ function createReferenceFiles(files: CheckOutput['check']['files']): CheckOutput
 }
 
 async function createBenchmarkRunDetails(run: BenchmarkRun): Promise<RunDetails> {
-  const output = run.output
-  const details = await createExperimentRunDetails(run.name, output, 'benchmarks', run.directory)
-  return {
-    ...details,
-    results: details.results.map(result => {
-      const trial = output.trials.get(result.id)
-      const capability = trial ? output.capabilities.get(trial.capabilityId) : undefined
-      if (!capability) {
-        throw new Error(`Unknown capability for benchmark trial "${result.id}"`)
-      }
-      return {...result, capability: {id: capability.id, name: capability.name}}
-    }),
-  }
+  return createExperimentRunDetails(run.name, run.output, 'benchmarks', run.directory)
 }
 
 export {

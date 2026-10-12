@@ -13,19 +13,19 @@ to their environment improves the result.
 Read only the references needed for the current task. The overview is context,
 not a prerequisite for every operation.
 
-| Task                                                    | Read                                                                               |
-| :------------------------------------------------------ | :--------------------------------------------------------------------------------- |
-| Install and complete a first evaluation                 | [Getting started](references/getting-started.md)                                   |
-| Understand project structure and evaluation methodology | [Overview](references/overview.md)                                                 |
-| Establish a capability baseline                         | [Benchmarks](references/benchmarks.md), [capabilities](references/capabilities.md) |
-| Compare instructions, skills, agents, MCP, or plugins   | [Experiments](references/experiments.md), [treatments](references/treatments.md)   |
-| Create a task, starting workspace, or custom image      | [Scenarios](references/scenarios.md)                                               |
-| Add deterministic grading or a subjective rubric        | [Checks](references/checks.md) or [judges](references/judges.md)                   |
-| Select models, effort, or execution backends            | [Models and runners](references/models-and-runners.md)                             |
-| Install resources or run commands in a trial            | [Sandbox](references/sandbox.md)                                                   |
-| Inspect a run matrix, shard, or merge                   | [Plans](references/plans.md)                                                       |
-| Read results or diagnose agent behavior                 | [Trials and results](references/trials-and-results.md)                             |
-| Find a command, flag, or runtime failure                | [CLI](references/cli.md)                                                           |
+| Task                                                    | Read                                                                                                            |
+| :------------------------------------------------------ | :-------------------------------------------------------------------------------------------------------------- |
+| Install and complete a first evaluation                 | [Getting started](references/getting-started.md)                                                                |
+| Understand project structure and evaluation methodology | [Overview](references/overview.md)                                                                              |
+| Establish a capability baseline                         | [Benchmarks](references/benchmarks.md), [capabilities](references/capabilities.md)                              |
+| Compare instructions, skills, agents, MCP, or plugins   | [Experiments](references/experiments.md), [treatments](references/treatments.md)                                |
+| Create a task, starting workspace, or custom image      | [Scenarios](references/scenarios.md)                                                                            |
+| Add deterministic grading or a subjective rubric        | [Checks](references/checks.md) or [judges](references/judges.md)                                                |
+| Select models, effort, or execution backends            | [Models and runners](references/models-and-runners.md)                                                          |
+| Install resources or run commands in a trial            | [Sandbox](references/sandbox.md)                                                                                |
+| Inspect a run matrix, shard, or merge                   | [Plans](references/plans.md)                                                                                    |
+| Read results or diagnose agent behavior                 | [Trials and results](references/trials-and-results.md), [experiment reports](references/experiments.md#reports) |
+| Find a command, flag, or runtime failure                | [CLI](references/cli.md)                                                                                        |
 
 For an evidence-driven investigation of why a model behaved a certain way, use
 the `agent-eval-investigate` skill (installed separately with
@@ -34,6 +34,11 @@ setup improvements and offers focused reruns only with the user's approval.
 
 ## Execution rules
 
+- When a decision or recommendation relies on a resource, include the specific
+  evidence and explain how it supports the conclusion. Cite file paths and line
+  numbers, or link to the relevant external section or comment and quote the
+  supporting passage. Read the resource first and distinguish evidence from
+  inference.
 - For a first comparison, use one scenario, one model/effort, and one treatment
   beyond the automatic control.
 - Keep prompts and fixtures treatment-blind. Put the knowledge being tested in

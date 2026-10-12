@@ -2,6 +2,7 @@ import path from 'node:path'
 import {isDeepStrictEqual} from 'node:util'
 import * as z from 'zod/mini'
 import {CopilotRunnerSchema} from '../copilot-runner'
+import {CapabilityOutputSchema, type CapabilityOutput} from '../benchmark/output'
 import {DefaultHost, type Host} from '../host'
 import {ModelVariantSchema} from '../model'
 import type {RunPlanResult} from '../plan'
@@ -21,6 +22,7 @@ import type {ExperimentTrial} from './plan'
 const ExperimentTrialOutputSchema = z.object({
   agent: TrialAgentSchema,
   artifacts: TrialArtifactsSchema,
+  capabilityId: z.optional(z.string()),
   checks: z._default(TrialChecksSchema, []),
   id: z.string(),
   judges: TrialJudgesSchema,
@@ -53,6 +55,21 @@ type TreatmentOutput = z.infer<typeof TreatmentOutputSchema>
 
 const ExperimentOutputFileSchema = z.object({
   id: z.string(),
+  capabilities: z._default(
+    z.record(z.string(), CapabilityOutputSchema).check(ctx => {
+      for (const [key, capability] of Object.entries(ctx.value)) {
+        if (capability.id !== key) {
+          ctx.issues.push({
+            code: 'custom',
+            message: `Manifest capability ID "${capability.id}" does not match key "${key}"`,
+            path: [key, 'id'],
+            input: capability.id,
+          })
+        }
+      }
+    }),
+    {},
+  ),
   scenarios: z.record(z.string(), ScenarioOutputSchema).check(ctx => {
     for (const [key, scenario] of Object.entries(ctx.value)) {
       if (scenario.id !== key) {
@@ -87,6 +104,7 @@ const ExperimentOutputFilesSchema = z
   .check(z.minLength(1, 'Cannot merge experiment output files: no outputs provided'), ctx => {
     const id = ctx.value[0]?.id
     const trialIds = new Set<string>()
+    const capabilities = new Map<string, CapabilityOutput>()
     const scenarios = new Map<string, ScenarioOutput>()
     const treatments = new Map<string, TreatmentOutput>()
 
@@ -98,6 +116,18 @@ const ExperimentOutputFilesSchema = z
           path: [index, 'id'],
           input: output.id,
         })
+      }
+
+      for (const [key, capability] of Object.entries(output.capabilities)) {
+        if (capabilities.has(key) && !isDeepStrictEqual(capabilities.get(key), capability)) {
+          ctx.issues.push({
+            code: 'custom',
+            message: `Cannot merge conflicting capability metadata for id: ${key}`,
+            path: [index, 'capabilities', key],
+            input: capability,
+          })
+        }
+        capabilities.set(key, capability)
       }
 
       for (const [key, scenario] of Object.entries(output.scenarios)) {
@@ -140,9 +170,27 @@ const ExperimentOutputFilesSchema = z
 
 type ExperimentOutput = {
   id: string
+  capabilities: Map<string, CapabilityOutput>
   scenarios: Map<string, ScenarioOutput>
   treatments: Map<string, TreatmentOutput>
   trials: Map<string, ExperimentTrialOutput>
+}
+
+function parseExperimentTrialOutput(
+  json: unknown,
+  capabilities: ExperimentOutput['capabilities'],
+): ExperimentTrialOutput {
+  const trial = ExperimentTrialOutputSchema.parse(json)
+  if (trial.capabilityId === undefined && capabilities.size === 0) {
+    return trial
+  }
+  const capability = trial.capabilityId === undefined ? undefined : capabilities.get(trial.capabilityId)
+  if (!capability || capability.id !== trial.capabilityId || !capability.scenarioIds.includes(trial.scenarioId)) {
+    throw new Error(
+      `Invalid capability "${trial.capabilityId}" for scenario "${trial.scenarioId}" in trial "${trial.id}"`,
+    )
+  }
+  return trial
 }
 
 type CreateExperimentOutputOptions = {
@@ -153,12 +201,26 @@ type CreateExperimentOutputOptions = {
 function createExperimentOutput({experiment, runPlanResult}: CreateExperimentOutputOptions): ExperimentOutput {
   const result: ExperimentOutput = {
     id: experiment.id,
+    capabilities: new Map(),
     scenarios: new Map(),
     treatments: new Map(),
     trials: new Map(),
   }
 
   for (const {trial, result: trialResult} of runPlanResult.results) {
+    if (experiment.type === 'benchmark' && !('capability' in trial)) {
+      throw new Error(`Capability not found for benchmark experiment trial: ${trial.id}`)
+    }
+    const capability = 'capability' in trial ? trial.capability : undefined
+    if (capability && !result.capabilities.has(capability.id)) {
+      result.capabilities.set(capability.id, {
+        id: capability.id,
+        name: capability.name,
+        scenarioIds: capability.scenarios.map(scenario => {
+          return scenario.id
+        }),
+      })
+    }
     if (!result.scenarios.has(trial.scenario.id)) {
       result.scenarios.set(trial.scenario.id, ScenarioOutputSchema.parse(trial.scenario))
     }
@@ -173,6 +235,7 @@ function createExperimentOutput({experiment, runPlanResult}: CreateExperimentOut
     result.trials.set(trial.id, {
       agent: trialResult.agent,
       artifacts: trialResult.artifacts,
+      ...(capability ? {capabilityId: capability.id} : {}),
       checks: trialResult.checks,
       id: trial.id,
       judges: trialResult.judges,
@@ -199,12 +262,16 @@ async function mergeExperimentOutputFiles({
   outputDirectory,
 }: MergeExperimentOutputFilesOptions): Promise<ExperimentOutput> {
   const files = ExperimentOutputFilesSchema.parse(outputs)
+  const capabilities = new Map<string, CapabilityOutput>()
   const scenarios = new Map<string, ScenarioOutput>()
   const treatments = new Map<string, TreatmentOutput>()
   const trials = new Map<string, ExperimentTrialOutput>()
   const id = files[0].id
 
   for (const output of files) {
+    for (const [key, value] of Object.entries(output.capabilities)) {
+      capabilities.set(key, value)
+    }
     for (const [key, value] of Object.entries(output.scenarios)) {
       scenarios.set(key, value)
     }
@@ -216,7 +283,7 @@ async function mergeExperimentOutputFiles({
       const filepath = await resolveTrialArtifactsPath(host, outputDirectory, value)
 
       const contents = await host.fs.readFile(filepath, 'utf-8')
-      const trialOutput = ExperimentTrialOutputSchema.parse(JSON.parse(contents))
+      const trialOutput = parseExperimentTrialOutput(JSON.parse(contents), new Map(Object.entries(output.capabilities)))
       if (trialOutput.id !== key) {
         throw new Error(`Cannot merge experiment output files: mismatched trial ID for: ${key}`)
       }
@@ -225,7 +292,7 @@ async function mergeExperimentOutputFiles({
     }
   }
 
-  return {id, scenarios, treatments, trials}
+  return {id, capabilities, scenarios, treatments, trials}
 }
 
 type WriteExperimentOutputOptions = {
@@ -249,6 +316,7 @@ async function writeExperimentOutput({host = DefaultHost, output, outputPath}: W
 
   const experimentFile: ExperimentOutputFile = {
     id: output.id,
+    capabilities: Object.fromEntries(output.capabilities),
     scenarios: Object.fromEntries(output.scenarios),
     treatments: Object.fromEntries(output.treatments),
     trials: Object.fromEntries(trials),
@@ -290,6 +358,7 @@ async function listExperimentOutputFiles({
 export {
   ExperimentOutputFileSchema,
   ExperimentTrialOutputSchema,
+  parseExperimentTrialOutput,
   createExperimentOutput,
   listExperimentOutputFiles,
   mergeExperimentOutputFiles,

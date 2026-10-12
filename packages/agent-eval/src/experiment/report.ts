@@ -1,5 +1,6 @@
 import type {ModelVariant} from '../model'
 import type {CopilotRunner} from '../copilot-runner'
+import type {Capability} from '../benchmark/benchmark'
 import type {RunPlanResult} from '../plan'
 import {formatTable, type TableRow} from '../report/format'
 import {getCheckDimensions, type CheckDimension} from '../report/checks'
@@ -19,6 +20,7 @@ import type {ExperimentTrial} from './plan'
 type ExperimentSummary = TrialSummary & {
   treatmentId: string
   treatment: string
+  capability?: Capability
   scenario?: string
   model?: ModelVariant
   runner: CopilotRunner
@@ -33,6 +35,7 @@ function compareExperimentNames(a: ExperimentSummary, b: ExperimentSummary): num
   return (
     a.treatment.localeCompare(b.treatment) ||
     a.runner.localeCompare(b.runner) ||
+    (a.capability?.name ?? '').localeCompare(b.capability?.name ?? '') ||
     (a.scenario ?? '').localeCompare(b.scenario ?? '') ||
     (a.model?.name ?? '').localeCompare(b.model?.name ?? '') ||
     (a.model?.reasoningEffort ?? '').localeCompare(b.model?.reasoningEffort ?? '')
@@ -49,16 +52,30 @@ function sortExperimentSummaries(summaries: Array<ExperimentSummary>): Array<Exp
 function formatExperimentSummary(
   experiment: Experiment,
   summary: ExperimentSummary,
-  level: 'treatment' | 'scenario' | 'model',
+  level: 'treatment' | 'capability' | 'scenario' | 'model',
   dimensions: Array<CheckDimension>,
   showRunner: boolean,
 ): TableRow {
+  const showCapability = experiment.type === 'benchmark'
+  const scenarioIndent = showCapability ? '    ' : '  '
+  const modelIndent = showCapability ? '      ' : '    '
   return {
     Experiment: level === 'treatment' ? experiment.name : '',
     Treatment: level === 'treatment' ? summary.treatment : '',
     ...(showRunner ? {Runner: level === 'treatment' ? summary.runner : ''} : {}),
-    Scenario: level === 'treatment' ? 'All scenarios' : level === 'scenario' ? `  ${summary.scenario}` : '',
-    Model: level === 'model' ? `    ${summary.model?.name}` : 'All models',
+    ...(showCapability
+      ? {
+          Capability:
+            level === 'treatment' ? 'All capabilities' : level === 'capability' ? `  ${summary.capability?.name}` : '',
+        }
+      : {}),
+    Scenario:
+      level === 'treatment' || level === 'capability'
+        ? 'All scenarios'
+        : level === 'scenario'
+          ? `${scenarioIndent}${summary.scenario}`
+          : '',
+    Model: level === 'model' ? `${modelIndent}${summary.model?.name}` : 'All models',
     'Reasoning Effort': level === 'model' ? (summary.model?.reasoningEffort ?? '') : '',
     ...formatTrialSummary(summary, dimensions),
   }
@@ -70,13 +87,19 @@ function createExperimentReport({experiment, runPlanResult}: CreateExperimentRep
   }
 
   const treatmentSummaries = new Map<string, ExperimentSummary>()
+  const capabilitySummaries = new Map<string, ExperimentSummary>()
   const scenarioSummaries = new Map<string, ExperimentSummary>()
   const modelSummaries = new Map<string, ExperimentSummary>()
+  const showCapability = experiment.type === 'benchmark'
   const showRunner = runPlanResult.results.some(({trial}) => {
     return trial.runner === 'copilot-sdk'
   })
 
   for (const {trial, result} of runPlanResult.results) {
+    if (showCapability && !('capability' in trial)) {
+      throw new Error(`Capability not found for benchmark experiment trial: ${trial.id}`)
+    }
+    const capability = showCapability && 'capability' in trial ? trial.capability : undefined
     const values = {
       treatmentId: trial.treatment.id,
       treatment: trial.treatment.name,
@@ -87,8 +110,19 @@ function createExperimentReport({experiment, runPlanResult}: CreateExperimentRep
     addTrialResultToSummary(treatmentSummary, result)
     treatmentSummaries.set(treatmentKey, treatmentSummary)
 
-    const scenarioValues = {...values, scenario: trial.scenario.id}
-    const scenarioKey = JSON.stringify([trial.treatment.id, values.runner, trial.scenario.id])
+    if (capability) {
+      const capabilityKey = JSON.stringify([trial.treatment.id, values.runner, capability.id])
+      const capabilitySummary = capabilitySummaries.get(capabilityKey) ?? {
+        ...createTrialSummary(),
+        ...values,
+        capability,
+      }
+      addTrialResultToSummary(capabilitySummary, result)
+      capabilitySummaries.set(capabilityKey, capabilitySummary)
+    }
+
+    const scenarioValues = {...values, capability, scenario: trial.scenario.id}
+    const scenarioKey = JSON.stringify([trial.treatment.id, values.runner, capability?.id, trial.scenario.id])
     const scenarioSummary = scenarioSummaries.get(scenarioKey) ?? {...createTrialSummary(), ...scenarioValues}
     addTrialResultToSummary(scenarioSummary, result)
     scenarioSummaries.set(scenarioKey, scenarioSummary)
@@ -96,6 +130,7 @@ function createExperimentReport({experiment, runPlanResult}: CreateExperimentRep
     const modelKey = JSON.stringify([
       trial.treatment.id,
       values.runner,
+      capability?.id,
       trial.scenario.id,
       trial.model.name,
       trial.model.reasoningEffort,
@@ -113,21 +148,39 @@ function createExperimentReport({experiment, runPlanResult}: CreateExperimentRep
   const dimensions = getCheckDimensions([...treatmentSummaries.values()])
   for (const treatment of sortExperimentSummaries([...treatmentSummaries.values()])) {
     rows.push(formatExperimentSummary(experiment, treatment, 'treatment', dimensions, showRunner))
-    const scenarios = [...scenarioSummaries.values()].filter(summary => {
-      return summary.treatmentId === treatment.treatmentId && summary.runner === treatment.runner
-    })
+    const groups = showCapability
+      ? sortExperimentSummaries(
+          [...capabilitySummaries.values()].filter(summary => {
+            return summary.treatmentId === treatment.treatmentId && summary.runner === treatment.runner
+          }),
+        )
+      : [treatment]
 
-    for (const scenario of sortExperimentSummaries(scenarios)) {
-      rows.push(formatExperimentSummary(experiment, scenario, 'scenario', dimensions, showRunner))
-      const models = [...modelSummaries.values()].filter(summary => {
+    for (const group of groups) {
+      if (showCapability) {
+        rows.push(formatExperimentSummary(experiment, group, 'capability', dimensions, showRunner))
+      }
+      const scenarios = [...scenarioSummaries.values()].filter(summary => {
         return (
           summary.treatmentId === treatment.treatmentId &&
           summary.runner === treatment.runner &&
-          summary.scenario === scenario.scenario
+          summary.capability?.id === group.capability?.id
         )
       })
-      for (const model of sortExperimentSummaries(models)) {
-        rows.push(formatExperimentSummary(experiment, model, 'model', dimensions, showRunner))
+
+      for (const scenario of sortExperimentSummaries(scenarios)) {
+        rows.push(formatExperimentSummary(experiment, scenario, 'scenario', dimensions, showRunner))
+        const models = [...modelSummaries.values()].filter(summary => {
+          return (
+            summary.treatmentId === treatment.treatmentId &&
+            summary.runner === treatment.runner &&
+            summary.capability?.id === group.capability?.id &&
+            summary.scenario === scenario.scenario
+          )
+        })
+        for (const model of sortExperimentSummaries(models)) {
+          rows.push(formatExperimentSummary(experiment, model, 'model', dimensions, showRunner))
+        }
       }
     }
   }
@@ -137,6 +190,7 @@ function createExperimentReport({experiment, runPlanResult}: CreateExperimentRep
       'Experiment',
       'Treatment',
       ...(showRunner ? ['Runner'] : []),
+      ...(showCapability ? ['Capability'] : []),
       'Scenario',
       'Model',
       'Reasoning Effort',

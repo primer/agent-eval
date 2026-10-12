@@ -9,7 +9,7 @@ plugins, or execution backends on the same tasks. Use a
 | Item                | Rule                                                                                 |
 | :------------------ | :----------------------------------------------------------------------------------- |
 | File and import     | `experiments/<id>.ts`; `defineConfig` from `@primer/agent-eval/experiment`           |
-| Export              | Prefer named `experiment`; default also supported                                    |
+| Export              | Use a default export; named `experiment` also supported                              |
 | Required fields     | `name`, `description`, `models`, `treatments`, and either `scenarios` or `benchmark` |
 | Optional fields     | `setup`, `runners`                                                                   |
 | CLI identifier      | Filename without extension, not display `name`                                       |
@@ -24,7 +24,10 @@ Do not put the tested resource in shared setup or the fixture.
 The harness adds `Control` automatically. Treatment names must be unique and
 cannot be `Control`. For scenario-backed experiments, `treatments: []` runs
 control only. Benchmark-backed experiments also add a `Benchmark` treatment
-using the benchmark and capability setup; `Benchmark` is also a reserved name.
+using only benchmark-level setup; `Benchmark` is also a reserved name.
+Capability setup runs for every treatment in that capability, including
+`Control` and custom treatments, after experiment setup and before treatment
+setup.
 
 ## Reports
 
@@ -54,7 +57,7 @@ Save this complete configuration as `experiments/verification.ts`:
 ```ts
 import {defineConfig} from '@primer/agent-eval/experiment'
 
-export const experiment = defineConfig({
+export default defineConfig({
   name: 'Verification instructions',
   description: 'Test whether verification instructions improve correctness on a small transformation task',
   models: [{name: 'gpt-5.4', reasoningEfforts: ['low']}],

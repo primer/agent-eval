@@ -17,6 +17,9 @@ time. Use an [experiment](experiments.md) to compare multiple interventions.
 Benchmark-level `setup` runs only for `Benchmark`. Capability-level setup
 runs for **both** treatments, before treatment setup. Put neutral prerequisites
 in capability setup and the resource being measured in benchmark setup.
+When an experiment selects this benchmark, capability setup runs for every
+treatment, including custom treatments, after experiment setup. Benchmark-level
+setup still runs only for `Benchmark`.
 
 ## Minimal example
 

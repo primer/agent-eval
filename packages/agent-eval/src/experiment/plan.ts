@@ -253,7 +253,7 @@ async function parseExperimentPlanManifest({
           ControlTreatment,
           createTreatment({
             name: 'Benchmark',
-            setup: composeTreatmentSetup(experiment.benchmark.setup, capability.setup),
+            setup: experiment.benchmark.setup,
           }),
           ...experiment.treatments,
         ]
@@ -271,7 +271,7 @@ async function parseExperimentPlanManifest({
           scenario,
           capability,
           treatment,
-          setup: experiment.setup,
+          setup: composeTreatmentSetup(experiment.setup, capability.setup),
         }
       }),
     }

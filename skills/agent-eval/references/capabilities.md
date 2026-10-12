@@ -1,8 +1,8 @@
 # Capabilities
 
 **Use when:** grouping benchmark scenarios under a behavior such as navigation,
-forms, or API migration. Experiments select scenarios directly, without
-capability groups.
+forms, or API migration. Benchmark-backed experiments reuse the benchmark's
+capability groups; scenario-backed experiments select scenarios directly.
 
 ## Contract
 
@@ -13,10 +13,12 @@ capability groups.
 | Optional field      | `setup`                                                    |
 | Identity            | Name-derived ID; names must be unique within the benchmark |
 | Scenario references | Folder names under the selected scenarios directory        |
-| Setup scope         | Both `Control` and `Benchmark`, before treatment setup     |
+| Setup scope         | Every treatment in the capability, before treatment setup  |
 
 Put only shared prerequisites in capability setup. Install the resource being
-measured in the benchmark's top-level setup.
+measured in the benchmark's top-level setup, which runs only for `Benchmark`.
+In benchmark-backed experiments, capability setup also applies to custom
+treatments, after experiment setup and before treatment setup.
 
 ## Configuration fragment
 
@@ -37,9 +39,9 @@ Prefer pinned dependencies in the fixture manifest when no setup hook is needed.
 
 ## Run and verify
 
-Create and run the enclosing [benchmark](benchmarks.md), not the capability
-itself. Inspect its plan for the expected capability/scenario memberships and
-both treatment conditions.
+Create and run the enclosing [benchmark](benchmarks.md) or a benchmark-backed
+[experiment](experiments.md), not the capability itself. Inspect its plan for
+the expected capability/scenario memberships and all treatment conditions.
 
 Group related tasks without making one scenario cover every behavior. Keep
 granular scenario checks so the capability summary does not hide failures.

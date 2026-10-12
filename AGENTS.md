@@ -31,6 +31,16 @@
   `SKILL.md` concise, put detailed guidance in references, and use npm/npx in
   skill examples.
 
+## Evidence for decisions
+
+- When a decision, recommendation, or review finding relies on a resource,
+  include the specific evidence and explain how it supports the conclusion.
+- Cite repository files with paths and line numbers. For external resources,
+  link to the relevant section or comment and quote the supporting passage
+  when line numbers are unavailable.
+- Read the cited resource before relying on it. Distinguish what it explicitly
+  states from your inference, and state uncertainty or conflicting evidence.
+
 ## Code
 
 - Parse, don't validate. Use the type system to gurantee correctness.
@@ -123,7 +133,7 @@ When adding an experiment, follow these rules:
   it, when appropriate
 - New experiments are added at `./experiments` as a new `*.ts` file
 - Provide an appropriate name for the experiment as its file name
-- Export an `experiment` named export created with `defineConfig`
+- Use a default export created with `defineConfig`
 - Provide an appropriate name and description for what we are testing
 - Select appropriate models and scenarios based on the experiment
 - For treatments, make sure to include the fewest number possible to meet the

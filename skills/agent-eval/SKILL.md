@@ -29,6 +29,11 @@ not a prerequisite for every operation.
 
 ## Execution rules
 
+- When a decision or recommendation relies on a resource, include the specific
+  evidence and explain how it supports the conclusion. Cite file paths and line
+  numbers, or link to the relevant external section or comment and quote the
+  supporting passage. Read the resource first and distinguish evidence from
+  inference.
 - For a first comparison, use one scenario, one model/effort, and one treatment
   beyond the automatic control.
 - Keep prompts and fixtures treatment-blind. Put the knowledge being tested in

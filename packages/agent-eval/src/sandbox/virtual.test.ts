@@ -15,7 +15,7 @@ describe('VirtualSandbox', () => {
 
     expect(await sandbox.exists('nested/example.txt')).toBe(true)
     expect(await sandbox.readFile('nested/example.txt')).toBe('example')
-    expect(await host.fs.readFile(path.join(CONTAINER_WORKDIR, 'nested/example.txt'), 'utf8')).toBe('example')
+    expect(await host.fs.promises.readFile(path.join(CONTAINER_WORKDIR, 'nested/example.txt'), 'utf8')).toBe('example')
   })
 
   test('resolves absolute and relative container paths', async () => {
@@ -63,9 +63,9 @@ describe('VirtualSandbox', () => {
       },
     })
 
-    expect(await host.fs.readFile('/download/included.txt', 'utf8')).toBe('included')
-    expect(await host.fs.readFile('/download/nested/included.txt', 'utf8')).toBe('nested')
-    await expect(host.fs.access('/download/nested/ignored.txt')).rejects.toMatchObject({
+    expect(await host.fs.promises.readFile('/download/included.txt', 'utf8')).toBe('included')
+    expect(await host.fs.promises.readFile('/download/nested/included.txt', 'utf8')).toBe('nested')
+    await expect(host.fs.promises.access('/download/nested/ignored.txt')).rejects.toMatchObject({
       code: 'ENOENT',
     })
   })
@@ -80,6 +80,6 @@ describe('VirtualSandbox', () => {
 
     await sandbox.download('./nested/../result.txt', '/download')
 
-    expect(await host.fs.readFile('/download/result.txt', 'utf8')).toBe('result')
+    expect(await host.fs.promises.readFile('/download/result.txt', 'utf8')).toBe('result')
   })
 })

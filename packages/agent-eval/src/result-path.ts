@@ -11,12 +11,12 @@ async function resolveTrialArtifactsPath(host: Host, outputDirectory: string, re
   const filepath = path.resolve(directory, relativePath)
   assertInsideBundle(directory, filepath)
 
-  if (!host.existsSync(filepath)) {
+  if (!host.fs.existsSync(filepath)) {
     throw new Error(`Trial artifacts file does not exist: ${filepath}`)
   }
 
-  const realDirectory = await host.fs.realpath(directory)
-  const realFilepath = await host.fs.realpath(filepath)
+  const realDirectory = await host.fs.promises.realpath(directory)
+  const realFilepath = await host.fs.promises.realpath(filepath)
   assertInsideBundle(realDirectory, realFilepath)
 
   return filepath

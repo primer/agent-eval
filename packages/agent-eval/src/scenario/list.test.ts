@@ -15,8 +15,8 @@ describe('listScenarios', () => {
       '/scenarios/a-first/package.json': '{}',
       '/scenarios/a-first/scenario.config.ts': 'export default {prompt: "First task"}',
     })
-    const readdir = host.fs.readdir.bind(host.fs)
-    vi.spyOn(host.fs, 'readdir').mockImplementation(async (...args) => {
+    const readdir = host.fs.promises.readdir.bind(host.fs.promises)
+    vi.spyOn(host.fs.promises, 'readdir').mockImplementation(async (...args) => {
       return (await readdir(...args)).reverse()
     })
 
@@ -77,7 +77,7 @@ describe('listScenarios', () => {
 
   test('returns an empty list for an empty directory', async () => {
     const host = VirtualHost.create()
-    await host.fs.mkdir('/scenarios')
+    await host.fs.promises.mkdir('/scenarios')
 
     const scenarios = await listScenarios({host, directory: '/scenarios'})
 
@@ -115,8 +115,8 @@ describe('listScenarios', () => {
 
   test('propagates directory enumeration failures', async () => {
     const host = VirtualHost.create()
-    await host.fs.mkdir('/scenarios')
-    vi.spyOn(host.fs, 'readdir').mockRejectedValue(new Error('Cannot read scenarios directory'))
+    await host.fs.promises.mkdir('/scenarios')
+    vi.spyOn(host.fs.promises, 'readdir').mockRejectedValue(new Error('Cannot read scenarios directory'))
 
     await expect(listScenarios({host, directory: '/scenarios'})).rejects.toThrow('Cannot read scenarios directory')
   })

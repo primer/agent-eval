@@ -120,7 +120,7 @@ async function getDockerfileContents(host: Host, scenario: Scenario): Promise<st
     `
   }
 
-  return await host.fs.readFile(scenario.image.dockerfile, 'utf8')
+  return await host.fs.promises.readFile(scenario.image.dockerfile, 'utf8')
 }
 
 const pendingScenarioBuilds = new WeakMap<Scenario, Promise<ImageBuild>>()

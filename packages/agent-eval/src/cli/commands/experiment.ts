@@ -65,7 +65,7 @@ const experimentCommand = defineCommand({
 
         for (const [, outputFilePath] of outputs) {
           logger.debug('Deleting experiment shard output file: %s', path.relative(process.cwd(), outputFilePath))
-          await host.fs.unlink(outputFilePath)
+          await host.fs.promises.unlink(outputFilePath)
         }
 
         logger.info('Successfully merged experiment results into: %s', path.relative(process.cwd(), outputPath))
@@ -126,10 +126,10 @@ const experimentCommand = defineCommand({
               plan,
             })
 
-            await host.fs.mkdir(path.dirname(outputPath), {
+            await host.fs.promises.mkdir(path.dirname(outputPath), {
               recursive: true,
             })
-            await host.fs.writeFile(outputPath, JSON.stringify(manifest, null, 2), 'utf-8')
+            await host.fs.promises.writeFile(outputPath, JSON.stringify(manifest, null, 2), 'utf-8')
 
             logger.info('Wrote experiment plan to: %s', path.relative(process.cwd(), outputPath))
           },
@@ -181,11 +181,11 @@ const experimentCommand = defineCommand({
             })
 
             logger.info('Parsing plan manifest from: %s', path.relative(process.cwd(), planPath))
-            if (!host.existsSync(planPath)) {
+            if (!host.fs.existsSync(planPath)) {
               throw new Error(`Plan file does not exist: ${planPath}`)
             }
 
-            const contents = await host.fs.readFile(planPath, 'utf-8')
+            const contents = await host.fs.promises.readFile(planPath, 'utf-8')
             const manifest = await parseExperimentPlanManifest({
               benchmarksDirectory,
               experimentsDirectory,

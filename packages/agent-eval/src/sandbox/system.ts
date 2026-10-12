@@ -76,7 +76,7 @@ class SystemSandbox implements Sandbox {
 
   async copy(sourcePath: string, destinationPath: string, options: CopyOptions = {}): Promise<void> {
     const source = path.resolve(sourcePath)
-    const sourceStats = await this.#host.fs.stat(source)
+    const sourceStats = await this.#host.fs.promises.stat(source)
     if (!sourceStats.isDirectory() && !sourceStats.isFile()) {
       throw new Error(`Cannot copy "${sourcePath}" because it is not a file or directory`)
     }
@@ -115,7 +115,7 @@ class SystemSandbox implements Sandbox {
   async download(containerFilePath: string, hostDestinationPath: string, options: DownloadOptions = {}): Promise<void> {
     const containerPath = resolveContainerPath(containerFilePath)
 
-    await this.#host.fs.mkdir(hostDestinationPath, {
+    await this.#host.fs.promises.mkdir(hostDestinationPath, {
       recursive: true,
     })
 

@@ -10,13 +10,13 @@ type ListScenariosOptions = {
 }
 
 async function listScenarios({directory, host = DefaultHost}: ListScenariosOptions): Promise<Array<Scenario>> {
-  const stats = await host.fs.stat(directory)
+  const stats = await host.fs.promises.stat(directory)
   if (!stats.isDirectory()) {
     throw new Error('Expected scenarios path to be a directory')
   }
 
   const entries = (
-    await host.fs.readdir(directory, {
+    await host.fs.promises.readdir(directory, {
       withFileTypes: true,
     })
   ).sort((a, b) => {
@@ -28,7 +28,7 @@ async function listScenarios({directory, host = DefaultHost}: ListScenariosOptio
     }
 
     const packageJsonPath = path.join(directory, entry.name, 'package.json')
-    if (!host.existsSync(packageJsonPath)) {
+    if (!host.fs.existsSync(packageJsonPath)) {
       return false
     }
 
@@ -37,7 +37,7 @@ async function listScenarios({directory, host = DefaultHost}: ListScenariosOptio
     }
 
     const scenarioConfigPath = path.join(directory, entry.name, 'scenario.config.ts')
-    if (!host.existsSync(scenarioConfigPath)) {
+    if (!host.fs.existsSync(scenarioConfigPath)) {
       return false
     }
 

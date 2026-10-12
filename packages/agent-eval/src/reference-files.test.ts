@@ -36,7 +36,7 @@ describe.each([
 
   test('rejects a parent symlink pointing outside the scenario', async () => {
     const host = createHost()
-    await host.fs.symlink('/scenario-sibling', '/scenario/references/linked')
+    await host.fs.promises.symlink('/scenario-sibling', '/scenario/references/linked')
 
     await expect(parseConfig(host, '/scenario', referenceConfig('references/linked/file.json'))).rejects.toThrow(
       'file path must be inside the scenario directory',
@@ -47,7 +47,7 @@ describe.each([
     'rejects a final-component symlink to %s',
     async target => {
       const host = createHost()
-      await host.fs.symlink(target, '/scenario/link.json')
+      await host.fs.promises.symlink(target, '/scenario/link.json')
 
       await expect(parseConfig(host, '/scenario', referenceConfig('link.json'))).rejects.toThrow(
         'file path must not be a symbolic link',
@@ -65,7 +65,7 @@ describe.each([
 
   test('allows contained parent symlinks without changing the destination path', async () => {
     const host = createHost()
-    await host.fs.symlink('/scenario/references', '/scenario/linked')
+    await host.fs.promises.symlink('/scenario/references', '/scenario/linked')
 
     const parsed = await parseConfig(host, '/scenario', referenceConfig('linked/file.json'))
 
@@ -74,7 +74,7 @@ describe.each([
 
   test('allows a symlinked scenario root', async () => {
     const host = createHost()
-    await host.fs.symlink('/scenario', '/scenario-alias')
+    await host.fs.promises.symlink('/scenario', '/scenario-alias')
 
     const parsed = await parseConfig(host, '/scenario-alias', referenceConfig('references/file.json'))
 

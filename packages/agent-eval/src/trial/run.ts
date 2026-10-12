@@ -497,16 +497,16 @@ const saveStage = {
     const copilotConfigDirectory = path.join(artifactDirectory, '.copilot')
     const skillsConfigDirectory = path.join(artifactDirectory, '.agents')
 
-    if (host.existsSync(artifactDirectory)) {
+    if (host.fs.existsSync(artifactDirectory)) {
       logger.debug('[%s] Cleaning up artifact directory: %s', trial.id, artifactDirectory)
-      await host.fs.rm(artifactDirectory, {recursive: true, force: true})
+      await host.fs.promises.rm(artifactDirectory, {recursive: true, force: true})
     }
 
     logger.debug('[%s] Creating artifact directory: %s', trial.id, artifactDirectory)
-    await host.fs.mkdir(artifactDirectory, {recursive: true})
+    await host.fs.promises.mkdir(artifactDirectory, {recursive: true})
 
     logger.debug('[%s] Creating workspace directory: %s', trial.id, workspaceDirectory)
-    await host.fs.mkdir(workspaceDirectory, {recursive: true})
+    await host.fs.promises.mkdir(workspaceDirectory, {recursive: true})
 
     logger.info('[%s] Downloading artifacts to: %s', trial.id, artifactDirectory)
 
@@ -553,7 +553,7 @@ const saveStage = {
     await sandbox.download(AGENTS_DIR, skillsConfigDirectory)
 
     if (walkthrough.type !== 'Unavailable') {
-      await host.fs.mkdir(walkthroughDirectory, {
+      await host.fs.promises.mkdir(walkthroughDirectory, {
         recursive: true,
       })
 

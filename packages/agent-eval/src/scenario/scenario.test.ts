@@ -38,9 +38,9 @@ test('getScenario and listScenarios accept an options object with an injected ho
 
 test('getScenario and listScenarios use DefaultHost when host is omitted', async () => {
   const host = createHost()
-  vi.spyOn(DefaultHost, 'existsSync').mockImplementation(host.existsSync)
-  vi.spyOn(DefaultHost.fs, 'stat').mockImplementation(host.fs.stat)
-  vi.spyOn(DefaultHost.fs, 'readdir').mockImplementation(host.fs.readdir)
+  vi.spyOn(DefaultHost.fs, 'existsSync').mockImplementation(host.fs.existsSync)
+  vi.spyOn(DefaultHost.fs.promises, 'stat').mockImplementation(host.fs.promises.stat)
+  vi.spyOn(DefaultHost.fs.promises, 'readdir').mockImplementation(host.fs.promises.readdir)
   const loadModule = vi.spyOn(DefaultHost, 'loadModule').mockImplementation(host.loadModule.bind(host))
 
   await expect(getScenario({directory: '/scenarios', name: 'example'})).resolves.toMatchObject({id: 'example'})

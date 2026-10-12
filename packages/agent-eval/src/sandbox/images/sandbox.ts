@@ -1,6 +1,8 @@
 import {getImageReference, buildImageFromDockerfile, type ImageBuild} from '../../docker'
 import {getToolsImageBuild} from './tools'
 
+const COREPACK_VERSION = '0.36.0'
+
 const DOCKERFILE = `ARG BASE_IMAGE
 ARG TOOLS_IMAGE
 
@@ -14,6 +16,8 @@ USER root
 RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates chromium git \
     && rm -rf /var/lib/apt/lists/*
+
+RUN npm install --global corepack@${COREPACK_VERSION}
 
 RUN mkdir -p \\
     /home/sandbox/workspace \\

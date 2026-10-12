@@ -1,8 +1,24 @@
 import {afterEach, expect, test, vi} from 'vitest'
 import {DefaultHost, VirtualHost} from '../host'
+import {VirtualSandbox, type Sandbox} from '../sandbox'
 import {getScenario} from './get'
 import {listScenarios} from './list'
 import {defaultScenarioSetup} from './scenario'
+
+function createRecordingSandbox(packageJson: string) {
+  const host = VirtualHost.create({
+    '/home/sandbox/workspace/package.json': packageJson,
+  })
+  const sandbox: Sandbox = new VirtualSandbox(host)
+  const commands: Array<{command: string; args: Array<string>}> = []
+
+  vi.spyOn(sandbox, 'runCommand').mockImplementation(async (command, args = []) => {
+    commands.push({command, args})
+    return {stdout: '', stderr: '', exitCode: 0}
+  })
+
+  return {sandbox, commands}
+}
 
 afterEach(() => {
   vi.restoreAllMocks()
@@ -52,4 +68,43 @@ test('getScenario reports a missing name with the supplied directory', async () 
   await expect(getScenario({host: createHost(), directory: '/scenarios', name: 'missing'})).rejects.toThrow(
     'Scenario "missing" was not found in: /scenarios',
   )
+})
+
+test('defaultScenarioSetup uses npm when no package manager is configured', async () => {
+  const {sandbox, commands} = createRecordingSandbox(JSON.stringify({scripts: {build: 'tsc'}}))
+
+  await defaultScenarioSetup({sandbox})
+
+  expect(commands.slice(-2)).toEqual([
+    {command: 'npm', args: ['install']},
+    {command: 'npm', args: ['run', 'build']},
+  ])
+})
+
+test.each(['pnpm@10.1.0', 'yarn@4.6.0'])(
+  'defaultScenarioSetup uses Corepack for the configured %s package manager',
+  async packageManager => {
+    const {sandbox, commands} = createRecordingSandbox(
+      JSON.stringify({
+        packageManager,
+        scripts: {build: 'tsc'},
+      }),
+    )
+    const manager = packageManager.split('@')[0]!
+
+    await defaultScenarioSetup({sandbox})
+
+    expect(commands.slice(-2)).toEqual([
+      {command: 'corepack', args: [manager, 'install']},
+      {command: 'corepack', args: [manager, 'run', 'build']},
+    ])
+  },
+)
+
+test('defaultScenarioSetup skips the build when the package has no build script', async () => {
+  const {sandbox, commands} = createRecordingSandbox('{}')
+
+  await defaultScenarioSetup({sandbox})
+
+  expect(commands.at(-1)).toEqual({command: 'npm', args: ['install']})
 })

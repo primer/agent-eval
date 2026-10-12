@@ -10,6 +10,13 @@ import {TreatmentSetupSchema, type TreatmentSetup} from '../treatment'
 import {DEFAULT_DOCKER_IMAGE, NODE_USER} from '../sandbox/constants'
 import {buildImage, getImageReference, type ImageBuild} from '../docker'
 
+const PackageJsonSchema = z.object({
+  packageManager: z.optional(z.string()),
+  scripts: z.optional(z.record(z.string(), z.string())),
+})
+
+const PackageManagerSchema = z.enum(['npm', 'pnpm', 'yarn'])
+
 type Scenario = {
   id: string
   directory: string
@@ -181,6 +188,11 @@ async function buildScenarioImage({host = DefaultHost, scenario}: BuildScenarioI
 }
 
 const defaultScenarioSetup: TreatmentSetup = async ({sandbox}) => {
+  const packageJson = PackageJsonSchema.parse(JSON.parse(await sandbox.readFile('package.json')))
+  const packageManager = PackageManagerSchema.parse(packageJson.packageManager?.split('@')[0] ?? 'npm')
+  const command = packageManager === 'npm' ? 'npm' : 'corepack'
+  const commandArgs = packageManager === 'npm' ? [] : [packageManager]
+
   logger.info('Obfuscating package name')
   await sandbox.runCommand('npm', ['pkg', 'set', `name=example`], {
     user: NODE_USER,
@@ -192,14 +204,16 @@ const defaultScenarioSetup: TreatmentSetup = async ({sandbox}) => {
   })
 
   logger.info('Installing dependencies')
-  await sandbox.runCommand('npm', ['install'], {
+  await sandbox.runCommand(command, [...commandArgs, 'install'], {
     user: NODE_USER,
   })
 
-  logger.info('Running build script')
-  await sandbox.runCommand('npm', ['run', 'build', '--if-present'], {
-    user: NODE_USER,
-  })
+  if (packageJson.scripts?.build) {
+    logger.info('Running build script')
+    await sandbox.runCommand(command, [...commandArgs, 'run', 'build'], {
+      user: NODE_USER,
+    })
+  }
 }
 
 export {ScenarioSchema, getScenarioIgnoreFiles, buildScenarioImage, defaultScenarioSetup}

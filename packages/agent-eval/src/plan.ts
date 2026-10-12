@@ -177,6 +177,8 @@ async function runPlan<T extends Trial>({
         return {trial, result: previous}
       }
 
+      await host.fs.promises.rm(checkpointPath, {force: true})
+
       let result: RunTrialResult
       try {
         result = await retry(() => {

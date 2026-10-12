@@ -43,6 +43,22 @@ test('runPlan rejects checkpoint reuse for a different capability', async () => 
   )
 })
 
+test('runPlan invalidates stale checkpoints before rerunning trials without resume', async () => {
+  const host = createRunHost()
+  await runTrials(host, [createRunTrial('successful')])
+  const checkpointPath = '/results/artifacts/.checkpoints/successful.json'
+  expect(host.fs.existsSync(checkpointPath)).toBe(true)
+  let checkpointExistsDuringRerun: boolean | undefined
+  const rerun = createRunTrial('successful', async () => {
+    checkpointExistsDuringRerun = host.fs.existsSync(checkpointPath)
+  })
+
+  await runTrials(host, [rerun])
+
+  expect(checkpointExistsDuringRerun).toBe(false)
+  expect(host.fs.existsSync(checkpointPath)).toBe(true)
+})
+
 vi.mock('./scenario/scenario', async importOriginal => {
   const original = await importOriginal<typeof import('./scenario/scenario')>()
   return {

@@ -31,16 +31,16 @@ async function listExperiments({
   host = DefaultHost,
   scenariosDirectory,
 }: ListExperimentsOptions): Promise<Array<Experiment>> {
-  if (!host.existsSync(experimentsDirectory)) {
+  if (!host.fs.existsSync(experimentsDirectory)) {
     throw new Error(`Experiments directory does not exist: ${experimentsDirectory}`)
   }
 
-  const stats = await host.fs.stat(experimentsDirectory)
+  const stats = await host.fs.promises.stat(experimentsDirectory)
   if (!stats.isDirectory()) {
     throw new Error(`Experiments path is not a directory: ${experimentsDirectory}`)
   }
 
-  const filenames = (await host.fs.readdir(experimentsDirectory)).sort()
+  const filenames = (await host.fs.promises.readdir(experimentsDirectory)).sort()
   const experiments: Array<Experiment> = []
 
   for (const filename of filenames) {
@@ -49,7 +49,7 @@ async function listExperiments({
     }
 
     const filepath = path.join(experimentsDirectory, filename)
-    if (!(await host.fs.stat(filepath)).isFile()) {
+    if (!(await host.fs.promises.stat(filepath)).isFile()) {
       continue
     }
 

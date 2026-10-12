@@ -36,6 +36,7 @@ import type {
   RunOptions,
   Sandbox,
   SandboxCreateOptions,
+  SandboxGlobOptions,
 } from './types'
 import {DefaultHost, type Host} from '../host'
 import {VirtualSandbox} from './virtual'
@@ -43,6 +44,7 @@ import {resolveContainerPath} from './path'
 import {logger} from '../logger'
 import {createContainer, removeContainer, exec, type RunningContainer} from '../docker'
 import {getSandboxImageBuild} from './images/sandbox'
+import {globInContainer} from './glob'
 
 const DEFAULT_MCP_CONFIG: McpConfigFile = {
   mcpServers: {},
@@ -76,7 +78,7 @@ class SystemSandbox implements Sandbox {
 
   async copy(sourcePath: string, destinationPath: string, options: CopyOptions = {}): Promise<void> {
     const source = path.resolve(sourcePath)
-    const sourceStats = await this.#host.fs.stat(source)
+    const sourceStats = await this.#host.fs.promises.stat(source)
     if (!sourceStats.isDirectory() && !sourceStats.isFile()) {
       throw new Error(`Cannot copy "${sourcePath}" because it is not a file or directory`)
     }
@@ -115,7 +117,7 @@ class SystemSandbox implements Sandbox {
   async download(containerFilePath: string, hostDestinationPath: string, options: DownloadOptions = {}): Promise<void> {
     const containerPath = resolveContainerPath(containerFilePath)
 
-    await this.#host.fs.mkdir(hostDestinationPath, {
+    await this.#host.fs.promises.mkdir(hostDestinationPath, {
       recursive: true,
     })
 
@@ -143,6 +145,10 @@ class SystemSandbox implements Sandbox {
         ignore: options.ignore,
       }),
     )
+  }
+
+  glob(pattern: string | Array<string>, options?: SandboxGlobOptions): Promise<Array<string>> {
+    return globInContainer(this, pattern, options)
   }
 
   async readdir(filepath: string): Promise<Array<string>> {

@@ -37,16 +37,16 @@ async function listBenchmarks({
   host = DefaultHost,
   scenariosDirectory,
 }: ListBenchmarksOptions): Promise<Array<Benchmark>> {
-  if (!host.existsSync(benchmarksDirectory)) {
+  if (!host.fs.existsSync(benchmarksDirectory)) {
     throw new Error(`Benchmarks directory does not exist: ${benchmarksDirectory}`)
   }
 
-  const stats = await host.fs.stat(benchmarksDirectory)
+  const stats = await host.fs.promises.stat(benchmarksDirectory)
   if (!stats.isDirectory()) {
     throw new Error(`Benchmarks path is not a directory: ${benchmarksDirectory}`)
   }
 
-  const filenames = (await host.fs.readdir(benchmarksDirectory)).sort()
+  const filenames = (await host.fs.promises.readdir(benchmarksDirectory)).sort()
   const benchmarks: Array<Benchmark> = []
 
   for (const filename of filenames) {

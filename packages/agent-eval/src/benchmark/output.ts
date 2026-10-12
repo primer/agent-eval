@@ -294,7 +294,7 @@ async function mergeBenchmarkOutputFiles({
     for (const [key, value] of Object.entries(output.trials)) {
       const filepath = await resolveTrialArtifactsPath(host, outputDirectory, value)
 
-      const contents = await host.fs.readFile(filepath, 'utf-8')
+      const contents = await host.fs.promises.readFile(filepath, 'utf-8')
       const trialOutput = parseBenchmarkTrialOutput(JSON.parse(contents), new Map(Object.entries(output.capabilities)))
       if (trialOutput.id !== key) {
         throw new Error(`Cannot merge benchmark output files: mismatched trial ID for: ${key}`)
@@ -324,7 +324,7 @@ type WriteBenchmarkOutputOptions = {
 async function writeBenchmarkOutput({host = DefaultHost, output, outputPath}: WriteBenchmarkOutputOptions) {
   const outputDirectory = path.dirname(outputPath)
   const trials = new Map<string, string>()
-  await host.fs.mkdir(outputDirectory, {recursive: true})
+  await host.fs.promises.mkdir(outputDirectory, {recursive: true})
 
   for (const trial of output.trials.values()) {
     const trialFilePath = path.join(trial.artifacts.directory, `${trial.id}.json`)
@@ -342,7 +342,7 @@ async function writeBenchmarkOutput({host = DefaultHost, output, outputPath}: Wr
       walkthrough: trial.walkthrough,
     }
 
-    await host.fs.writeFile(trialFilePath, JSON.stringify(trialFile, null, 2), 'utf-8')
+    await host.fs.promises.writeFile(trialFilePath, JSON.stringify(trialFile, null, 2), 'utf-8')
 
     trials.set(trial.id, path.relative(outputDirectory, trialFilePath))
   }
@@ -355,7 +355,7 @@ async function writeBenchmarkOutput({host = DefaultHost, output, outputPath}: Wr
     trials: Object.fromEntries(trials),
   }
 
-  await host.fs.writeFile(outputPath, JSON.stringify(benchmarkFile, null, 2), 'utf-8')
+  await host.fs.promises.writeFile(outputPath, JSON.stringify(benchmarkFile, null, 2), 'utf-8')
 }
 
 type ListBenchmarkOutputFilesOptions = {
@@ -369,7 +369,7 @@ async function listBenchmarkOutputFiles({
   host = DefaultHost,
   outputDirectory,
 }: ListBenchmarkOutputFilesOptions): Promise<Array<[output: BenchmarkOutputFile, filepath: string]>> {
-  const entries = await host.fs.readdir(outputDirectory, {
+  const entries = await host.fs.promises.readdir(outputDirectory, {
     withFileTypes: true,
   })
   const outputFiles: Array<[output: BenchmarkOutputFile, filepath: string]> = []
@@ -388,7 +388,7 @@ async function listBenchmarkOutputFiles({
     }
 
     const filepath = path.join(outputDirectory, entry.name)
-    const contents = await host.fs.readFile(filepath, 'utf-8')
+    const contents = await host.fs.promises.readFile(filepath, 'utf-8')
     const outputFile = BenchmarkOutputFileSchema.parse(JSON.parse(contents))
     outputFiles.push([outputFile, filepath])
   }

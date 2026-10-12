@@ -382,7 +382,7 @@ describe(runCopilotCli, () => {
       }
       if (command === 'rm') {
         expect(args).toEqual(['-f', '--', usagePath])
-        await host.fs.rm(usagePath, {force: true})
+        await host.fs.promises.rm(usagePath, {force: true})
       }
       return {exitCode: 0, stderr: '', stdout: ''}
     })

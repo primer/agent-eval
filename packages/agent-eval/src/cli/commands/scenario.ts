@@ -224,10 +224,10 @@ const scenarioCommand = defineCommand({
           }),
         }
 
-        await host.fs.mkdir(path.dirname(outputPath), {
+        await host.fs.promises.mkdir(path.dirname(outputPath), {
           recursive: true,
         })
-        await host.fs.writeFile(outputPath, JSON.stringify(output, null, 2), 'utf-8')
+        await host.fs.promises.writeFile(outputPath, JSON.stringify(output, null, 2), 'utf-8')
       },
     }),
   },

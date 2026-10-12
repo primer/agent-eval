@@ -31,8 +31,8 @@ test('loadScenario selects the default image and setup without requiring a packa
 
 test('loadScenario uses DefaultHost when host is omitted', async () => {
   const host = createHost()
-  vi.spyOn(DefaultHost, 'existsSync').mockImplementation(host.existsSync)
-  vi.spyOn(DefaultHost.fs, 'stat').mockImplementation(host.fs.stat)
+  vi.spyOn(DefaultHost.fs, 'existsSync').mockImplementation(host.fs.existsSync)
+  vi.spyOn(DefaultHost.fs.promises, 'stat').mockImplementation(host.fs.promises.stat)
   vi.spyOn(DefaultHost, 'loadModule').mockImplementation(host.loadModule.bind(host))
 
   const scenario = await loadScenario({directory: '/scenarios/example'})
@@ -108,7 +108,7 @@ test('loadScenario wires configured checks and judges into a usable scenario in 
       {name: 'usability', scores: [{value: 1, description: 'Usable'}]},
     ],
   }`)
-  await host.fs.writeFile('/scenarios/example/reference.txt', 'Expected appearance')
+  await host.fs.promises.writeFile('/scenarios/example/reference.txt', 'Expected appearance')
   await using sandbox = await VirtualSandbox.create({host})
 
   const scenario = ScenarioSchema.parse(await loadScenario({host, directory: '/scenarios/example'}))
@@ -126,7 +126,9 @@ test('loadScenario wires configured checks and judges into a usable scenario in 
       return judge.name
     }),
   ).toEqual(['visual', 'usability'])
-  await expect(host.fs.readFile(scenario.judges[0]!.files[0]!.filepath, 'utf8')).resolves.toBe('Expected appearance')
+  await expect(host.fs.promises.readFile(scenario.judges[0]!.files[0]!.filepath, 'utf8')).resolves.toBe(
+    'Expected appearance',
+  )
 })
 
 test('loadScenario reports a missing directory using the default name', async () => {
@@ -147,7 +149,7 @@ test('loadScenario rejects a file used as the scenario directory with the explic
 
 test('loadScenario reports the missing config path with the explicit name', async () => {
   const host = VirtualHost.create()
-  await host.fs.mkdir('/scenarios/example', {recursive: true})
+  await host.fs.promises.mkdir('/scenarios/example', {recursive: true})
 
   await expect(loadScenario({host, directory: '/scenarios/example', name: 'custom'})).rejects.toThrow(
     'Scenario "custom" config file was not found: /scenarios/example/scenario.config.ts',

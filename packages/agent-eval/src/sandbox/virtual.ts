@@ -1,7 +1,16 @@
 import path from 'node:path'
+import {fileURLToPath} from 'node:url'
+import {glob} from 'glob'
 import {VirtualHost, type Host} from '../host'
 import {resolveContainerPath} from './path'
-import type {CommandResult, CopyOptions, DownloadOptions, Sandbox, SandboxCreateOptions} from './types'
+import type {
+  CommandResult,
+  CopyOptions,
+  DownloadOptions,
+  Sandbox,
+  SandboxCreateOptions,
+  SandboxGlobOptions,
+} from './types'
 
 const defaultCreateOptions: SandboxCreateOptions = {}
 
@@ -22,7 +31,7 @@ export class VirtualSandbox implements Sandbox {
 
   async copy(sourcePath: string, destinationPath: string, options: CopyOptions = {}): Promise<void> {
     const source = path.resolve(sourcePath)
-    const sourceStats = await this.#host.fs.stat(source)
+    const sourceStats = await this.#host.fs.promises.stat(source)
     if (!sourceStats.isDirectory() && !sourceStats.isFile()) {
       throw new Error(`Cannot copy "${sourcePath}" because it is not a file or directory`)
     }
@@ -41,14 +50,14 @@ export class VirtualSandbox implements Sandbox {
   async download(containerFilePath: string, hostDestinationPath: string, options: DownloadOptions = {}): Promise<void> {
     const source = resolveContainerPath(containerFilePath)
     const destination = path.resolve(hostDestinationPath)
-    const sourceStats = await this.#host.fs.stat(source)
+    const sourceStats = await this.#host.fs.promises.stat(source)
 
-    await this.#host.fs.mkdir(destination, {
+    await this.#host.fs.promises.mkdir(destination, {
       recursive: true,
     })
 
     if (sourceStats.isDirectory()) {
-      const entries = await this.#host.fs.readdir(source)
+      const entries = await this.#host.fs.promises.readdir(source)
       for (const entry of entries) {
         const name = entry.toString()
         if (options.ignore?.(name)) {
@@ -68,25 +77,38 @@ export class VirtualSandbox implements Sandbox {
     }
   }
 
+  glob(pattern: string | Array<string>, options?: SandboxGlobOptions): Promise<Array<string>> {
+    const cwd = options?.cwd ?? '.'
+    return glob(pattern, {
+      platform: 'linux',
+      nocase: false,
+      ...options,
+      cwd: resolveContainerPath(
+        cwd instanceof URL || cwd.startsWith('file:') ? fileURLToPath(cwd, {windows: false}) : cwd,
+      ),
+      fs: this.#host.fs,
+    })
+  }
+
   readdir(filepath: string): Promise<Array<string>> {
-    return this.#host.fs.readdir(resolveContainerPath(filepath))
+    return this.#host.fs.promises.readdir(resolveContainerPath(filepath))
   }
 
   readFile(filepath: string): Promise<string> {
-    return this.#host.fs.readFile(resolveContainerPath(filepath), 'utf8')
+    return this.#host.fs.promises.readFile(resolveContainerPath(filepath), 'utf8')
   }
 
   async writeFile(filepath: string, contents: string): Promise<void> {
     const destination = resolveContainerPath(filepath)
-    await this.#host.fs.mkdir(path.posix.dirname(destination), {
+    await this.#host.fs.promises.mkdir(path.posix.dirname(destination), {
       recursive: true,
     })
-    await this.#host.fs.writeFile(destination, contents, 'utf8')
+    await this.#host.fs.promises.writeFile(destination, contents, 'utf8')
   }
 
   async exists(filepath: string): Promise<boolean> {
     try {
-      await this.#host.fs.access(resolveContainerPath(filepath))
+      await this.#host.fs.promises.access(resolveContainerPath(filepath))
       return true
     } catch (error) {
       if (isErrorWithCode(error, 'ENOENT')) {
@@ -130,13 +152,13 @@ async function copyPath(
     return
   }
 
-  const stats = await host.fs.stat(source)
+  const stats = await host.fs.promises.stat(source)
   if (stats.isDirectory()) {
-    await host.fs.mkdir(destination, {
+    await host.fs.promises.mkdir(destination, {
       recursive: true,
     })
 
-    const entries = await host.fs.readdir(source)
+    const entries = await host.fs.promises.readdir(source)
     for (const entry of entries) {
       const name = entry.toString()
       await copyPath(host, path.join(source, name), path.join(destination, name), ignore, root)
@@ -148,10 +170,10 @@ async function copyPath(
     throw new Error(`Cannot copy "${source}" because it is not a file or directory`)
   }
 
-  await host.fs.mkdir(path.dirname(destination), {
+  await host.fs.promises.mkdir(path.dirname(destination), {
     recursive: true,
   })
-  await host.fs.copyFile(source, destination)
+  await host.fs.promises.copyFile(source, destination)
 }
 
 function normalizeCopyPath(filepath: string): string {

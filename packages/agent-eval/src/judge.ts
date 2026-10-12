@@ -54,7 +54,7 @@ async function parseJudgeConfig(host: Host, directory: string, json: unknown): P
           return await Promise.all(
             files.map(async input => {
               const filepath = path.isAbsolute(input) ? input : path.resolve(directory, input)
-              if (!host.existsSync(filepath)) {
+              if (!host.fs.existsSync(filepath)) {
                 ctx.issues.push({
                   code: 'custom',
                   message: `Judge config file does not exist: ${input}`,
@@ -72,7 +72,7 @@ async function parseJudgeConfig(host: Host, directory: string, json: unknown): P
                 return z.NEVER
               }
 
-              const stats = await host.fs.lstat(filepath)
+              const stats = await host.fs.promises.lstat(filepath)
               if (stats.isSymbolicLink()) {
                 ctx.issues.push({
                   code: 'custom',
@@ -82,8 +82,8 @@ async function parseJudgeConfig(host: Host, directory: string, json: unknown): P
                 return z.NEVER
               }
 
-              const realDirectory = await host.fs.realpath(directory)
-              const realFilepath = await host.fs.realpath(filepath)
+              const realDirectory = await host.fs.promises.realpath(directory)
+              const realFilepath = await host.fs.promises.realpath(filepath)
               if (!isPathInside(realDirectory, realFilepath)) {
                 ctx.issues.push({
                   code: 'custom',

@@ -105,7 +105,7 @@ test.each(['Design System', 'Renamed Design System'])(
     expect(manifest).toMatchObject({id: 'design-system', name: 'Design System'})
     expect(manifest.trials).toHaveLength(2)
 
-    await host.fs.writeFile('/benchmarks/design-system.ts', benchmarkConfig(name))
+    await host.fs.promises.writeFile('/benchmarks/design-system.ts', benchmarkConfig(name))
     const parsed = await parseBenchmarkPlanManifest({...options, contents: JSON.stringify(manifest)})
 
     expect(parsed.benchmark).toMatchObject({id: 'design-system', name})
@@ -213,10 +213,13 @@ test('preserves capability setup for control and benchmark trials in created and
 
 test.each([false, true])('validates capability-specific scenario membership (shared: %s)', async shared => {
   const host = createHost()
-  await host.fs.mkdir('/scenarios/other')
-  await host.fs.writeFile('/scenarios/other/package.json', '{}')
-  await host.fs.writeFile('/scenarios/other/scenario.config.ts', 'export default {prompt: "Create another page"}')
-  await host.fs.writeFile(
+  await host.fs.promises.mkdir('/scenarios/other')
+  await host.fs.promises.writeFile('/scenarios/other/package.json', '{}')
+  await host.fs.promises.writeFile(
+    '/scenarios/other/scenario.config.ts',
+    'export default {prompt: "Create another page"}',
+  )
+  await host.fs.promises.writeFile(
     '/benchmarks/design-system.ts',
     `export default ${JSON.stringify({
       name: 'Design System',

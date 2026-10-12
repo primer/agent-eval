@@ -282,7 +282,7 @@ async function mergeExperimentOutputFiles({
     for (const [key, value] of Object.entries(output.trials)) {
       const filepath = await resolveTrialArtifactsPath(host, outputDirectory, value)
 
-      const contents = await host.fs.readFile(filepath, 'utf-8')
+      const contents = await host.fs.promises.readFile(filepath, 'utf-8')
       const trialOutput = parseExperimentTrialOutput(JSON.parse(contents), new Map(Object.entries(output.capabilities)))
       if (trialOutput.id !== key) {
         throw new Error(`Cannot merge experiment output files: mismatched trial ID for: ${key}`)
@@ -305,12 +305,12 @@ async function writeExperimentOutput({host = DefaultHost, output, outputPath}: W
   const outputDirectory = path.dirname(outputPath)
   const trials = new Map<string, string>()
 
-  await host.fs.mkdir(outputDirectory, {recursive: true})
+  await host.fs.promises.mkdir(outputDirectory, {recursive: true})
 
   for (const trial of output.trials.values()) {
     const trialFilePath = path.join(trial.artifacts.directory, `${trial.id}.json`)
-    await host.fs.mkdir(path.dirname(trialFilePath), {recursive: true})
-    await host.fs.writeFile(trialFilePath, JSON.stringify(trial, null, 2), 'utf-8')
+    await host.fs.promises.mkdir(path.dirname(trialFilePath), {recursive: true})
+    await host.fs.promises.writeFile(trialFilePath, JSON.stringify(trial, null, 2), 'utf-8')
     trials.set(trial.id, path.relative(outputDirectory, trialFilePath))
   }
 
@@ -322,7 +322,7 @@ async function writeExperimentOutput({host = DefaultHost, output, outputPath}: W
     trials: Object.fromEntries(trials),
   }
 
-  await host.fs.writeFile(outputPath, JSON.stringify(experimentFile, null, 2), 'utf-8')
+  await host.fs.promises.writeFile(outputPath, JSON.stringify(experimentFile, null, 2), 'utf-8')
 }
 
 type ListExperimentOutputFilesOptions = {
@@ -336,7 +336,7 @@ async function listExperimentOutputFiles({
   host = DefaultHost,
   outputDirectory,
 }: ListExperimentOutputFilesOptions): Promise<Array<[output: ExperimentOutputFile, filepath: string]>> {
-  const entries = await host.fs.readdir(outputDirectory, {
+  const entries = await host.fs.promises.readdir(outputDirectory, {
     withFileTypes: true,
   })
   const outputFiles: Array<[output: ExperimentOutputFile, filepath: string]> = []
@@ -347,7 +347,7 @@ async function listExperimentOutputFiles({
     }
 
     const filepath = path.join(outputDirectory, entry.name)
-    const contents = await host.fs.readFile(filepath, 'utf-8')
+    const contents = await host.fs.promises.readFile(filepath, 'utf-8')
     const outputFile = ExperimentOutputFileSchema.parse(JSON.parse(contents))
     outputFiles.push([outputFile, filepath])
   }

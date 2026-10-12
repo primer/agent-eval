@@ -11,6 +11,7 @@ The [`Sandbox` interface](../packages/agent-eval/src/sandbox/types.ts) provides 
 | :-------------------- | :---------------------------------------------------------------------------- |
 | `copy`                | Copies a host file or directory into the sandbox                              |
 | `download`            | Downloads a file or directory from the sandbox to the host                    |
+| `glob`                | Matches file and directory paths in the sandbox.                              |
 | `readdir`             | Lists the files and directories in a sandbox directory.                       |
 | `readFile`            | Reads a UTF-8 file from the sandbox.                                          |
 | `writeFile`           | Writes a UTF-8 file to the sandbox.                                           |
@@ -21,3 +22,11 @@ The [`Sandbox` interface](../packages/agent-eval/src/sandbox/types.ts) provides 
 | `addCustomAgent`      | Adds a custom agent, with optional supporting files and tools.                |
 | `addMcpServer`        | Adds an MCP server to the sandbox's Copilot configuration.                    |
 | `addCopilotPlugin`    | Installs a remote, local, or marketplace Copilot plugin in the sandbox.       |
+
+Use `sandbox.glob(pattern, options)` to search the sandbox filesystem. Patterns
+and `cwd` are workspace-relative by default; absolute paths refer to the
+sandbox, not the host. Pass a string or an array of patterns and optional
+glob options such as `ignore`, `nodir`, `dot`, or `absolute`. Matching is
+case-sensitive by default, and result ordering is unspecified. Options must be
+serializable: `ignore` accepts a string or array of patterns, not callbacks.
+`AbortSignal` is not supported.

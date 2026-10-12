@@ -95,7 +95,7 @@ function parseScenarioConfig(host: Host, scenarioDirectory: string, input: unkno
         const dockerfile = path.isAbsolute(image.dockerfile)
           ? image.dockerfile
           : path.resolve(scenarioDirectory, image.dockerfile)
-        if (!host.existsSync(dockerfile)) {
+        if (!host.fs.existsSync(dockerfile)) {
           ctx.issues.push({
             code: 'custom',
             message: `Dockerfile does not exist: ${image.dockerfile}`,
@@ -105,7 +105,7 @@ function parseScenarioConfig(host: Host, scenarioDirectory: string, input: unkno
         }
 
         const context = path.isAbsolute(image.context) ? image.context : path.resolve(scenarioDirectory, image.context)
-        if (!host.existsSync(context)) {
+        if (!host.fs.existsSync(context)) {
           ctx.issues.push({
             code: 'custom',
             message: `Docker context directory does not exist: ${image.context}`,

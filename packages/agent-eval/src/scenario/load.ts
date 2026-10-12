@@ -16,17 +16,17 @@ async function loadScenario({
   host = DefaultHost,
   name = path.basename(directory),
 }: LoadScenarioOptions): Promise<Scenario> {
-  if (!host.existsSync(directory)) {
+  if (!host.fs.existsSync(directory)) {
     throw new Error(`Scenario "${name}" directory was not found: ${directory}`)
   }
 
-  const stats = await host.fs.stat(directory)
+  const stats = await host.fs.promises.stat(directory)
   if (!stats.isDirectory()) {
     throw new Error(`Scenario "${name}" directory was not found: ${directory}`)
   }
 
   const configPath = path.join(directory, 'scenario.config.ts')
-  if (!host.existsSync(configPath)) {
+  if (!host.fs.existsSync(configPath)) {
     throw new Error(`Scenario "${name}" config file was not found: ${configPath}`)
   }
 

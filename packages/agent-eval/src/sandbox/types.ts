@@ -1,3 +1,4 @@
+import type {GlobOptions} from 'glob/raw'
 import type {ImageBuild} from '../docker'
 import type {Host} from '../host'
 import type {McpServerConfig} from '../mcp-config'
@@ -78,6 +79,29 @@ type CustomAgentOptions = {
   tools?: Array<string>
 }
 
+type SandboxGlobOptions = Pick<
+  GlobOptions,
+  | 'absolute'
+  | 'cwd'
+  | 'dot'
+  | 'dotRelative'
+  | 'follow'
+  | 'mark'
+  | 'matchBase'
+  | 'maxDepth'
+  | 'nobrace'
+  | 'nocase'
+  | 'nodir'
+  | 'noext'
+  | 'noglobstar'
+  | 'posix'
+  | 'realpath'
+  | 'root'
+  | 'stat'
+> & {
+  ignore?: string | Array<string>
+}
+
 interface Sandbox {
   /**
    * Stops and removes the sandbox container.
@@ -93,6 +117,11 @@ interface Sandbox {
    * Downloads a file or directory from the sandbox to the host.
    */
   download(containerFilePath: string, hostDestinationPath: string, options?: DownloadOptions): Promise<void>
+
+  /**
+   * Matches paths in the sandbox, relative to its workspace unless cwd is supplied.
+   */
+  glob(pattern: string | Array<string>, options?: SandboxGlobOptions): Promise<Array<string>>
 
   /**
    * Lists the files and directories in a sandbox directory.
@@ -173,4 +202,5 @@ export type {
   Sandbox,
   SandboxConstructor,
   SandboxCreateOptions,
+  SandboxGlobOptions,
 }

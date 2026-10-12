@@ -8,6 +8,7 @@ test('distinguishes missing runs from runs with no trials', () => {
   expect(getExperimentResults(createRun([]))).toEqual({
     date: '2026-09-10',
     treatments: [],
+    capabilities: [],
     scenarios: [
       {id: 'scenario-a', treatments: []},
       {id: 'scenario-b', treatments: []},
@@ -56,8 +57,9 @@ test('averages checks and implementation usage per trial, not per scenario or ou
 
   expect(summary?.treatments).toEqual([
     {
-      id: JSON.stringify(['control', 'gpt-5.6-sol', 'medium']),
+      id: JSON.stringify(['control', 'copilot-cli', 'gpt-5.6-sol', 'medium']),
       treatment: 'Control',
+      runner: 'copilot-cli',
       model: 'gpt-5.6-sol',
       reasoningEffort: 'medium',
       trials: 3,
@@ -120,4 +122,49 @@ test('preserves recorded scenario and treatment IDs even when metadata is absent
     id: 'historical-scenario',
     treatments: [{treatment: 'historical-treatment'}],
   })
+})
+
+test('keeps shared scenarios separate across capabilities and runners', () => {
+  const first = createResult({id: 'components-cli', capabilityId: 'components'})
+  const run = createRun([
+    first,
+    createResult({
+      id: 'components-sdk',
+      capabilityId: 'components',
+      runner: 'copilot-sdk',
+      agent: {sessions: [{...first.agent.sessions[0], outputTokens: 300}]},
+    }),
+    createResult({
+      id: 'layout-cli',
+      capabilityId: 'layout',
+      agent: {sessions: [{...first.agent.sessions[0], outputTokens: 900}]},
+    }),
+  ])
+  run.output.capabilities = new Map([
+    ['layout', {id: 'layout', name: 'Layout', scenarioIds: ['scenario-a']}],
+    ['components', {id: 'components', name: 'Components', scenarioIds: ['scenario-a']}],
+  ])
+
+  const summary = getExperimentResults(run)
+
+  expect(summary?.scenarios).toEqual([])
+  expect(summary?.treatments).toMatchObject([
+    {runner: 'copilot-cli', trials: 2, outputTokens: 500},
+    {runner: 'copilot-sdk', trials: 1, outputTokens: 300},
+  ])
+  expect(summary?.capabilities).toMatchObject([
+    {
+      id: 'components',
+      treatments: [
+        {runner: 'copilot-cli', trials: 1, outputTokens: 100},
+        {runner: 'copilot-sdk', trials: 1, outputTokens: 300},
+      ],
+      scenarios: [{id: 'scenario-a', treatments: [{outputTokens: 100}, {outputTokens: 300}]}],
+    },
+    {
+      id: 'layout',
+      treatments: [{runner: 'copilot-cli', trials: 1, outputTokens: 900}],
+      scenarios: [{id: 'scenario-a', treatments: [{outputTokens: 900}]}],
+    },
+  ])
 })

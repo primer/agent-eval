@@ -162,6 +162,51 @@ test.each(['benchmark', 'experiment'] as const)(
   },
 )
 
+test('reads benchmark-backed experiment capability metadata without losing trial membership', async () => {
+  const directory = await createDirectory()
+  const output = createBenchmarkOutput([
+    {...createTrial(), capabilityId: 'a'},
+    {...createTrial({id: 'trial-2', runner: 'copilot-sdk'}), capabilityId: 'b'},
+  ])
+  output.id = 'test-experiment'
+  const filepath = await writeBundle(directory, output)
+
+  const parsed = await readExperimentOutput(filepath)
+
+  expect(parsed).toEqual(output)
+  if (!parsed) {
+    throw new Error('Expected an experiment bundle')
+  }
+  const details = await createExperimentRunDetails('2026-09-15', parsed)
+  expect(
+    details.results.map(result => {
+      return result.capability
+    }),
+  ).toEqual([
+    {id: 'a', name: 'First capability'},
+    {id: 'b', name: 'Overlapping capability'},
+  ])
+})
+
+test('reads a legacy experiment manifest without inventing capability membership', async () => {
+  const directory = await createDirectory()
+  const output = createExperimentOutput()
+  const filepath = await writeBundle(directory, output)
+  const manifest = JSON.parse(await fs.readFile(filepath, 'utf8'))
+  delete manifest.capabilities
+  await fs.writeFile(filepath, JSON.stringify(manifest))
+
+  expect(await readExperimentOutput(filepath)).toEqual(output)
+})
+
+test('rejects experiment trial capability membership that conflicts with the manifest', async () => {
+  const directory = await createDirectory()
+  const output = createBenchmarkOutput([{...createTrial(), capabilityId: 'unknown'}])
+  const filepath = await writeBundle(directory, output)
+
+  await expect(readExperimentOutput(filepath)).rejects.toThrow('Invalid capability "unknown"')
+})
+
 test.each([
   {key: 'benchmarkId', read: readBenchmarkOutput},
   {key: 'experimentId', read: readExperimentOutput},

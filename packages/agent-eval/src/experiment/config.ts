@@ -4,7 +4,35 @@ import {ModelVariantConfigSchema} from '../model'
 import {ControlTreatment, TreatmentConfigSchema, TreatmentSetupSchema} from '../treatment'
 import {InlineScenarioConfigSchema} from '../scenario/config'
 
-const ExperimentConfigSchema = z.strictObject({
+const BenchmarkExperimentConfig = z.strictObject({
+  name: z.string(),
+  description: z.string(),
+  models: z.array(ModelVariantConfigSchema),
+  runners: CopilotRunnerConfigSchema,
+  benchmark: z.string().check(z.minLength(1)),
+  setup: z.optional(TreatmentSetupSchema),
+  treatments: z.array(TreatmentConfigSchema).check(
+    z.refine(
+      treatments => {
+        const names = new Set<string>([ControlTreatment.name, 'Benchmark'])
+        for (const treatment of treatments) {
+          if (names.has(treatment.name)) {
+            return false
+          }
+          names.add(treatment.name)
+        }
+        return true
+      },
+      {
+        message: 'Treatment names must be unique and cannot use the reserved names "Control" or "Benchmark"',
+      },
+    ),
+  ),
+})
+
+type BenchmarkExperimentConfig = z.infer<typeof BenchmarkExperimentConfig>
+
+const ScenarioExperimentConfig = z.strictObject({
   name: z.string(),
   description: z.string(),
   models: z.array(ModelVariantConfigSchema),
@@ -29,6 +57,10 @@ const ExperimentConfigSchema = z.strictObject({
     ),
   ),
 })
+
+type ScenarioExperimentConfig = z.infer<typeof ScenarioExperimentConfig>
+
+const ExperimentConfigSchema = z.union([ScenarioExperimentConfig, BenchmarkExperimentConfig])
 
 type ExperimentConfig = z.infer<typeof ExperimentConfigSchema>
 

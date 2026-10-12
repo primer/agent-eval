@@ -103,6 +103,7 @@ function createTrial(overrides: Partial<ExperimentTrialOutput> = {}): Experiment
 function createExperimentOutput(trials: Array<ExperimentTrialOutput> = [createTrial()]): ExperimentOutput {
   return {
     id: 'test-experiment',
+    capabilities: new Map(),
     scenarios: new Map([
       [
         'empty-state',

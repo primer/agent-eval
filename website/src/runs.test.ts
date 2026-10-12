@@ -25,6 +25,7 @@ beforeEach(async () => {
   }
   vi.mocked(read).mockResolvedValue({
     id: 'example',
+    capabilities: new Map(),
     scenarios: new Map(),
     treatments: new Map(),
     trials: new Map(),
@@ -83,6 +84,7 @@ test('rejects a bundle belonging to a different experiment without reading older
   const latest = await createRunDirectory('2026-09-10')
   vi.mocked(read).mockResolvedValueOnce({
     id: 'other',
+    capabilities: new Map(),
     scenarios: new Map(),
     treatments: new Map(),
     trials: new Map(),

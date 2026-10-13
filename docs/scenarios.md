@@ -111,6 +111,8 @@ Use `image` to customize the environment where a scenario runs. This is useful w
 
 If you omit `image`, agent-eval uses its default Node.js image, copies in the scenario files, and runs the default setup to install dependencies and build the starting project.
 
+The default setup uses npm unless the project's `package.json` sets `packageManager` to a versioned pnpm or Yarn release, such as `"pnpm@10.1.0"` or `"yarn@4.6.0"`. Those managers run through Corepack, which the sandbox provides.
+
 #### Use an existing image
 
 Provide an image reference to use as the base for the scenario:
@@ -162,7 +164,7 @@ Files declared in a check's or judge's `files` option are excluded from the buil
 
 Setting `image` disables the default scenario setup. Install dependencies and build the starting project in your Dockerfile or in a scenario `setup` callback. An explicit `setup` callback also replaces the default setup when `image` is omitted.
 
-Agent-eval adds its Copilot tools and sandbox configuration on top of the scenario image. The current sandbox expects a Debian-compatible base with `apt-get`, npm, and a `node` user and group with UID/GID `1000`. The Debian-based official Node.js images are a starting point; Alpine images are not supported by this setup.
+Agent-eval adds its Copilot tools and sandbox configuration on top of the scenario image. The current sandbox expects a Debian-compatible base with `apt-get`, npm, and a `node` user and group with UID/GID `1000`. It also installs Corepack for pnpm or Yarn selected through `package.json`. The Debian-based official Node.js images are a starting point; Alpine images are not supported by this setup.
 
 ## CLI
 

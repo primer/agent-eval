@@ -29,6 +29,29 @@ test('loadScenario selects the default image and setup without requiring a packa
   })
 })
 
+test('loadScenario defers package manager selection to default setup', async () => {
+  const host = VirtualHost.create({
+    '/scenarios/example/package.json': JSON.stringify({packageManager: 'pnpm@10.1.0'}),
+    '/scenarios/example/scenario.config.ts': 'export default {prompt: "Create a page"}',
+  })
+  const scenario = await loadScenario({host, directory: '/scenarios/example'})
+  const sandbox = await host.createSandbox()
+  const commands: Array<{command: string; args: Array<string>}> = []
+  vi.spyOn(sandbox, 'runCommand').mockImplementation(async (command, args = []) => {
+    commands.push({command, args})
+    return {stdout: '', stderr: '', exitCode: 0}
+  })
+  await sandbox.writeFile('package.json', JSON.stringify({packageManager: 'yarn@4.6.0', scripts: {build: 'tsc'}}))
+
+  await scenario.setup!({sandbox})
+
+  expect(scenario).not.toHaveProperty('packageManager')
+  expect(commands.slice(-2)).toEqual([
+    {command: 'corepack', args: ['yarn@4.6.0', 'install']},
+    {command: 'corepack', args: ['yarn@4.6.0', 'run', 'build']},
+  ])
+})
+
 test('loadScenario uses DefaultHost when host is omitted', async () => {
   const host = createHost()
   vi.spyOn(DefaultHost.fs, 'existsSync').mockImplementation(host.fs.existsSync)

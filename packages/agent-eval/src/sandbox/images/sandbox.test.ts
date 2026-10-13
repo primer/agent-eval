@@ -20,7 +20,7 @@ vi.mock('./tools', () => {
   }
 })
 
-test('augments custom images with walkthrough tools, a writable workspace, and the npm executable path', async () => {
+test('augments custom images with walkthrough tools, Corepack, a writable workspace, and the npm executable path', async () => {
   await getSandboxImageBuild({baseImage: 'node:26-slim'})
 
   expect(buildImageFromDockerfile).toHaveBeenCalledOnce()
@@ -32,6 +32,7 @@ test('augments custom images with walkthrough tools, a writable workspace, and t
   expect(dockerfile).toMatch(/apt-get install[^\n]*\bchromium\b/)
   expect(dockerfile).toMatch(/apt-get install[^\n]*\bgit\b/)
   expect(dockerfile).toMatch(/chown -R node:node\s*\\\n\s*\/home\/sandbox/)
+  expect(dockerfile).toContain('npm install --global corepack@0.36.0')
   expect(dockerfile).toContain('npm config set prefix /home/node/.npm-global')
   expect(dockerfile).toContain('ENV PATH="/home/node/.npm-global/bin:${PATH}"')
 })

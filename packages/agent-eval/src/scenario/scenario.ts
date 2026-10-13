@@ -9,6 +9,12 @@ import {logger} from '../logger'
 import {TreatmentSetupSchema, type TreatmentSetup} from '../treatment'
 import {DEFAULT_DOCKER_IMAGE, NODE_USER} from '../sandbox/constants'
 import {buildImage, getImageReference, type ImageBuild} from '../docker'
+import {parsePackageManager} from './package-manager'
+
+const PackageJsonSchema = z.object({
+  packageManager: z.optional(z.unknown()),
+  scripts: z.optional(z.record(z.string(), z.string())),
+})
 
 type Scenario = {
   id: string
@@ -181,6 +187,11 @@ async function buildScenarioImage({host = DefaultHost, scenario}: BuildScenarioI
 }
 
 const defaultScenarioSetup: TreatmentSetup = async ({sandbox}) => {
+  const packageJson = PackageJsonSchema.parse(JSON.parse(await sandbox.readFile('package.json')))
+  const packageManager = parsePackageManager(packageJson.packageManager)
+  const command = packageManager.specifier ? 'corepack' : 'npm'
+  const commandArgs = packageManager.specifier ? [packageManager.specifier] : []
+
   logger.info('Obfuscating package name')
   await sandbox.runCommand('npm', ['pkg', 'set', `name=example`], {
     user: NODE_USER,
@@ -192,14 +203,18 @@ const defaultScenarioSetup: TreatmentSetup = async ({sandbox}) => {
   })
 
   logger.info('Installing dependencies')
-  await sandbox.runCommand('npm', ['install'], {
+  await sandbox.runCommand(command, [...commandArgs, 'install'], {
+    ...(command === 'corepack' ? {env: {COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'}} : {}),
     user: NODE_USER,
   })
 
-  logger.info('Running build script')
-  await sandbox.runCommand('npm', ['run', 'build', '--if-present'], {
-    user: NODE_USER,
-  })
+  if (packageJson.scripts?.build) {
+    logger.info('Running build script')
+    await sandbox.runCommand(command, [...commandArgs, 'run', 'build'], {
+      ...(command === 'corepack' ? {env: {COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'}} : {}),
+      user: NODE_USER,
+    })
+  }
 }
 
 export {ScenarioSchema, getScenarioIgnoreFiles, buildScenarioImage, defaultScenarioSetup}

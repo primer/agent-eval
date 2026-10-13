@@ -1,6 +1,6 @@
 import {afterEach, expect, test, vi} from 'vitest'
 import {DefaultHost, VirtualHost} from '../host'
-import {VirtualSandbox, type Sandbox} from '../sandbox'
+import {VirtualSandbox, type RunOptions, type Sandbox} from '../sandbox'
 import {getScenario} from './get'
 import {listScenarios} from './list'
 import {defaultScenarioSetup} from './scenario'
@@ -10,10 +10,10 @@ function createRecordingSandbox(packageJson: string) {
     '/home/sandbox/workspace/package.json': packageJson,
   })
   const sandbox: Sandbox = new VirtualSandbox(host)
-  const commands: Array<{command: string; args: Array<string>}> = []
+  const commands: Array<{command: string; args: Array<string>; options?: RunOptions}> = []
 
-  vi.spyOn(sandbox, 'runCommand').mockImplementation(async (command, args = []) => {
-    commands.push({command, args})
+  vi.spyOn(sandbox, 'runCommand').mockImplementation(async (command, args = [], options) => {
+    commands.push({command, args, options})
     return {stdout: '', stderr: '', exitCode: 0}
   })
 
@@ -76,7 +76,7 @@ test('defaultScenarioSetup uses npm when no package manager is configured', asyn
 
   await defaultScenarioSetup({sandbox})
 
-  expect(commands.slice(-2)).toEqual([
+  expect(commands.slice(-2).map(({command, args}) => ({command, args}))).toEqual([
     {command: 'npm', args: ['install']},
     {command: 'npm', args: ['run', 'build']},
   ])
@@ -95,8 +95,16 @@ test.each(['pnpm@10.1.0', 'yarn@4.6.0'])(
     await defaultScenarioSetup({sandbox})
 
     expect(commands.slice(-2)).toEqual([
-      {command: 'corepack', args: [packageManager, 'install']},
-      {command: 'corepack', args: [packageManager, 'run', 'build']},
+      expect.objectContaining({
+        command: 'corepack',
+        args: [packageManager, 'install'],
+        options: expect.objectContaining({env: {COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'}}),
+      }),
+      expect.objectContaining({
+        command: 'corepack',
+        args: [packageManager, 'run', 'build'],
+        options: expect.objectContaining({env: {COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'}}),
+      }),
     ])
   },
 )
@@ -106,5 +114,5 @@ test('defaultScenarioSetup skips the build when the package has no build script'
 
   await defaultScenarioSetup({sandbox})
 
-  expect(commands.at(-1)).toEqual({command: 'npm', args: ['install']})
+  expect(commands.at(-1)).toMatchObject({command: 'npm', args: ['install']})
 })

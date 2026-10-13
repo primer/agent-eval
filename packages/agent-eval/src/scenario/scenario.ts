@@ -204,12 +204,14 @@ const defaultScenarioSetup: TreatmentSetup = async ({sandbox}) => {
 
   logger.info('Installing dependencies')
   await sandbox.runCommand(command, [...commandArgs, 'install'], {
+    ...(command === 'corepack' ? {env: {COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'}} : {}),
     user: NODE_USER,
   })
 
   if (packageJson.scripts?.build) {
     logger.info('Running build script')
     await sandbox.runCommand(command, [...commandArgs, 'run', 'build'], {
+      ...(command === 'corepack' ? {env: {COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'}} : {}),
       user: NODE_USER,
     })
   }

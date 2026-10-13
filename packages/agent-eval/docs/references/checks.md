@@ -57,6 +57,21 @@ type and value. Either collection can contain `{type: 'error', message: '...'}`.
 Do not add the internal group discriminant `type: 'outcomes'` or
 `type: 'measurements'` to authored return values; the library normalizes them.
 
+### Outcome metadata
+
+Individual outcomes may include optional `path` and `annotation` strings,
+independently of their `id` and status:
+
+```ts
+{type: 'outcome', status: 'failed', path: 'scenario.test.ts', annotation: 'filters by name'}
+```
+
+Use `path` for a related file and `annotation` for a test name or details that
+explain the result. Both are preserved in saved benchmark and experiment trial
+results. Paths may be relative or absolute; they are metadata only and do not
+copy files or require them to exist. Measurements and errors do not support
+these fields.
+
 ## Run
 
 Use `createVitestCheck` from `@primer/agent-eval/scenario` for Vitest grading:

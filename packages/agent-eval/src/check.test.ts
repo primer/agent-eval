@@ -1,5 +1,5 @@
 import {expect, expectTypeOf, test} from 'vitest'
-import {CheckOutputSchema, CheckRunSchema, parseCheckConfig, type CheckRunResult} from './check'
+import {CheckOutputSchema, CheckRunSchema, parseCheckConfig, type CheckConfigRun, type CheckRunResult} from './check'
 import {VirtualHost} from './host'
 import {logger} from './logger'
 import {VirtualSandbox} from './sandbox'
@@ -31,6 +31,30 @@ test('check runs still accept outcomes without IDs', async () => {
   await using sandbox = await VirtualSandbox.create()
 
   await expect(run({logger, sandbox})).resolves.toEqual([result])
+})
+
+test.each(['single group', 'multiple groups'])('parsed checks preserve outcome metadata in %s', async shape => {
+  const result = {
+    id: 'tests',
+    outcomes: [
+      {type: 'outcome' as const, status: 'passed' as const, path: 'src/App.tsx'},
+      {type: 'outcome' as const, status: 'failed' as const, annotation: 'filters by name'},
+      {
+        type: 'outcome' as const,
+        id: 'optional-case',
+        status: 'skipped' as const,
+        path: '/home/sandbox/workspace/scenario.test.ts',
+        annotation: 'requires browser support',
+      },
+    ],
+  }
+  const run: CheckConfigRun = async () => {
+    return shape === 'single group' ? result : [result]
+  }
+  const check = await parseCheckConfig(VirtualHost.create(), '/scenario', {name: 'tests', run})
+  await using sandbox = await VirtualSandbox.create()
+
+  await expect(check.run({logger, sandbox})).resolves.toEqual([{...result, type: 'outcomes'}])
 })
 
 test('check outcome IDs must be strings', async () => {
@@ -174,6 +198,10 @@ test.each([
   {type: 'outcomes', results: []},
   {type: 'measurements', results: []},
   {outcomes: [{type: 'outcome', id: 123, status: 'failed'}]},
+  {outcomes: [{type: 'outcome', path: 123, status: 'failed'}]},
+  {outcomes: [{type: 'outcome', annotation: 123, status: 'failed'}]},
+  {outcomes: [{type: 'outcome', path: null, status: 'failed'}]},
+  {outcomes: [{type: 'outcome', annotation: null, status: 'failed'}]},
   {outcomes: [{type: 'outcome', status: 'invalid'}]},
   {measurements: [{type: 'measurement', value: '42'}]},
   {measurements: [], direction: 'invalid'},

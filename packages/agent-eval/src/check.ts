@@ -21,7 +21,8 @@ const OutcomeSchema = z.object({
   type: z.literal('outcome'),
   id: z.optional(z.string()),
   status: z.enum(['passed', 'failed', 'skipped']),
-  // annotations: z._default(z.array(AnnotationSchema), []),
+  path: z.optional(z.string()),
+  annotation: z.optional(z.string()),
 })
 
 const ErrorSchema = z.object({

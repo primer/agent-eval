@@ -47,6 +47,29 @@ test('parses legacy experiment output with a required CLI runner', () => {
   expectTypeOf<ExperimentTrialOutput['runner']>().toEqualTypeOf<CopilotRunner>()
 })
 
+test('preserves outcome metadata in serialized experiment trial output', () => {
+  const checks = [
+    {
+      check: {name: 'tests', files: []},
+      result: {
+        type: 'outcomes',
+        outcomes: [
+          {
+            type: 'outcome',
+            status: 'failed',
+            path: 'scenario.test.ts',
+            annotation: 'filters by name',
+          },
+        ],
+      },
+    },
+  ]
+
+  const parsed = parseExperimentTrialOutput(JSON.parse(JSON.stringify({...trial, checks})), new Map())
+
+  expect(parsed.checks).toEqual(checks)
+})
+
 test.each(['copilot-cli', 'copilot-sdk'] as const)('preserves the explicit %s experiment output runner', runner => {
   const parsed = ExperimentTrialOutputSchema.parse({
     ...trial,

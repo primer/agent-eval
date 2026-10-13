@@ -52,6 +52,23 @@ Files listed in a check's `files` option are withheld from the agent's initial w
 
 Checks return either `outcomes` or `measurements`. Outcomes report a `passed`, `failed`, or `skipped` status. Measurements report numeric values, with optional units and a direction such as `higher-is-better` or `lower-is-better`.
 
+Individual outcomes may include optional `path` and `annotation` strings to identify a related file and describe the result, such as a test name or failure details:
+
+```ts
+return {
+  outcomes: [
+    {
+      type: 'outcome',
+      status: 'failed',
+      path: 'scenario.test.ts',
+      annotation: 'Search filters projects by name',
+    },
+  ],
+}
+```
+
+These fields are preserved in saved trial results for benchmarks and experiments. Paths are metadata only: they may be relative or absolute and do not cause files to be copied or checked for existence.
+
 ### Judges
 
 Judges use a model to evaluate the agent's output against a rubric. They are useful for criteria that are difficult to verify deterministically, such as visual consistency or the clarity of an interaction.

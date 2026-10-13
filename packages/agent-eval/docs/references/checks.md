@@ -90,6 +90,8 @@ helper lists the config and tests in `files`, invokes `npx vitest run` with the
 supplied config and test filters, and selects its own JSON reporter. It returns
 one outcome per assertion using its full name as the ID, maps pending/todo/skipped
 to skipped, and rejects unusable reports. See [getting started](getting-started.md).
+Each outcome also includes the assertion's full name as `annotation` and its
+suite's file name as `path` when reported by Vitest.
 Pass an optional `files` array for additional private files or directories, such
 as test helpers, setup files, or fixtures. These are withheld from the agent and
 copied in before the check runs alongside the config and tests, but are not used

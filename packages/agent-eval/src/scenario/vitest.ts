@@ -14,6 +14,7 @@ const ReportSchema = z.object({
   numFailedTests: z.number().check(z.int(), z.gte(0)),
   testResults: z.array(
     z.object({
+      name: z.optional(z.string()),
       message: z.string(),
       assertionResults: z.array(
         z.object({
@@ -50,7 +51,12 @@ function createVitestCheck({name, configPath, testPaths, files = []}: VitestChec
         }
 
         const report = parseReport(await sandbox.readFile(reportPath))
-        const assertions = report.testResults.flatMap(result => result.assertionResults)
+        const assertions = report.testResults.flatMap(result =>
+          result.assertionResults.map(assertion => ({
+            ...assertion,
+            ...(result.name === undefined ? {} : {path: result.name}),
+          })),
+        )
         const failedTests = assertions.filter(assertion => assertion.status === 'failed').length
         const suiteErrors = report.testResults.map(result => result.message).filter(Boolean)
         if (
@@ -70,6 +76,8 @@ function createVitestCheck({name, configPath, testPaths, files = []}: VitestChec
             type: 'outcome',
             id: assertion.fullName,
             status: assertion.status === 'passed' ? 'passed' : assertion.status === 'failed' ? 'failed' : 'skipped',
+            ...(assertion.path === undefined ? {} : {path: assertion.path}),
+            annotation: assertion.fullName,
           })),
         }
       } finally {

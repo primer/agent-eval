@@ -69,6 +69,8 @@ return {
 
 These fields are preserved in saved trial results for benchmarks and experiments. Paths are metadata only: they may be relative or absolute and do not cause files to be copied or checked for existence.
 
+`createVitestCheck` populates `annotation` with each assertion's full name and `path` with its suite's file name when reported by Vitest. Existing outcome IDs and status mapping are unchanged.
+
 ### Judges
 
 Judges use a model to evaluate the agent's output against a rubric. They are useful for criteria that are difficult to verify deterministically, such as visual consistency or the clarity of an interaction.

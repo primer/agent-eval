@@ -32,6 +32,7 @@ async function loadScenario({
 
   const data: ScenarioConfigModule = await host.loadModule(configPath)
   const config = parseScenarioConfig(host, directory, data.default)
+
   const scenario: Scenario = {
     id: name,
     directory,

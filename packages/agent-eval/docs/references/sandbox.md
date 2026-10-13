@@ -19,7 +19,7 @@ to expose secrets or run untrusted fixtures without review: setup hooks run
 from host-loaded configuration, package installs execute code, and the agent
 has broad command permissions inside the container.
 
-The default runtime provides Node.js, npm, Git, Chromium, and Copilot tooling.
+The default runtime provides Node.js, npm, Corepack, Git, Chromium, and Copilot tooling.
 A custom `--docker-image` must be a Debian-based Node image with npm, `apt-get`,
 and a `node` user; the harness layers its tools on top.
 

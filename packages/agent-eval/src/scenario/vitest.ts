@@ -13,6 +13,7 @@ const ReportSchema = z.object({
   numFailedTests: z.number().check(z.int(), z.gte(0)),
   testResults: z.array(
     z.object({
+      message: z.string(),
       assertionResults: z.array(
         z.object({
           fullName: z.string(),
@@ -52,6 +53,7 @@ function createVitestCheck({name, configPath, testPaths}: VitestCheckOptions): C
         const failedTests = assertions.filter(assertion => assertion.status === 'failed').length
         if (
           assertions.length === 0 ||
+          report.testResults.some(result => result.message !== '') ||
           report.numTotalTests !== assertions.length ||
           report.numFailedTests !== failedTests ||
           (command.exitCode === 1 && failedTests === 0) ||

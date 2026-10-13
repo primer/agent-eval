@@ -17,6 +17,7 @@ function createReport(statuses: Array<string> = ['passed']) {
     numTotalTests: statuses.length,
     numFailedTests: statuses.filter(status => status === 'failed').length,
     testResults: statuses.map((status, index) => ({
+      message: '',
       assertionResults: [{fullName: `suite test ${index}`, status}],
     })),
   }
@@ -122,6 +123,17 @@ describe(createVitestCheck, () => {
     expect(runCommand.mock.calls[1][0]).toBe('rm')
   })
 
+  test('rejects suite execution errors even when another suite reports failed assertions', async () => {
+    const report = createReport(['failed'])
+    report.testResults.push({message: 'Failed to load module', assertionResults: []})
+    const {sandbox: resource} = await createSandbox(JSON.stringify(report), 1)
+    await using sandbox = resource
+
+    await expect(createVitestCheck(options).run({sandbox, logger})).rejects.toThrow(
+      'Vitest did not produce usable test outcomes',
+    )
+  })
+
   test.each([
     {name: 'invalid JSON', contents: '{'},
     {name: 'missing suites', contents: JSON.stringify({numTotalTests: 1, numFailedTests: 0})},
@@ -130,7 +142,7 @@ describe(createVitestCheck, () => {
       name: 'invalid name',
       contents: JSON.stringify({
         ...createReport(),
-        testResults: [{assertionResults: [{fullName: 1, status: 'passed'}]}],
+        testResults: [{message: '', assertionResults: [{fullName: 1, status: 'passed'}]}],
       }),
     },
     {name: 'invalid status', contents: JSON.stringify(createReport(['unknown']))},

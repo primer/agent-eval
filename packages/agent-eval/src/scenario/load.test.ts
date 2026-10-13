@@ -25,8 +25,32 @@ test('loadScenario selects the default image and setup without requiring a packa
     directory: '/scenarios/example',
     prompt: 'Create a page',
     image: {type: 'Default'},
+    packageManager: {name: 'npm'},
     setup: defaultScenarioSetup,
   })
+})
+
+test('loadScenario parses the package manager once and uses it for default setup', async () => {
+  const host = VirtualHost.create({
+    '/scenarios/example/package.json': JSON.stringify({packageManager: 'pnpm@10.1.0'}),
+    '/scenarios/example/scenario.config.ts': 'export default {prompt: "Create a page"}',
+  })
+  const scenario = await loadScenario({host, directory: '/scenarios/example'})
+  const sandbox = await host.createSandbox()
+  const commands: Array<{command: string; args: Array<string>}> = []
+  vi.spyOn(sandbox, 'runCommand').mockImplementation(async (command, args = []) => {
+    commands.push({command, args})
+    return {stdout: '', stderr: '', exitCode: 0}
+  })
+  await sandbox.writeFile('package.json', JSON.stringify({packageManager: 'yarn@4.6.0', scripts: {build: 'tsc'}}))
+
+  await scenario.setup!({sandbox})
+
+  expect(scenario.packageManager).toEqual({name: 'pnpm', specifier: 'pnpm@10.1.0'})
+  expect(commands.slice(-2)).toEqual([
+    {command: 'corepack', args: ['pnpm@10.1.0', 'install']},
+    {command: 'corepack', args: ['pnpm@10.1.0', 'run', 'build']},
+  ])
 })
 
 test('loadScenario uses DefaultHost when host is omitted', async () => {

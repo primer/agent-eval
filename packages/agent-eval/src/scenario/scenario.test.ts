@@ -3,7 +3,8 @@ import {DefaultHost, VirtualHost} from '../host'
 import {VirtualSandbox, type Sandbox} from '../sandbox'
 import {getScenario} from './get'
 import {listScenarios} from './list'
-import {defaultScenarioSetup} from './scenario'
+import {createDefaultScenarioSetup, defaultScenarioSetup} from './scenario'
+import {parsePackageManager} from './package-manager'
 
 function createRecordingSandbox(packageJson: string) {
   const host = VirtualHost.create({
@@ -45,6 +46,7 @@ test('getScenario and listScenarios accept an options object with an injected ho
     image: {
       type: 'Default',
     },
+    packageManager: {name: 'npm'},
     setup: defaultScenarioSetup,
   }
 
@@ -57,6 +59,7 @@ test('getScenario and listScenarios use DefaultHost when host is omitted', async
   vi.spyOn(DefaultHost.fs, 'existsSync').mockImplementation(host.fs.existsSync)
   vi.spyOn(DefaultHost.fs.promises, 'stat').mockImplementation(host.fs.promises.stat)
   vi.spyOn(DefaultHost.fs.promises, 'readdir').mockImplementation(host.fs.promises.readdir)
+  vi.spyOn(DefaultHost.fs.promises, 'readFile').mockImplementation(host.fs.promises.readFile)
   const loadModule = vi.spyOn(DefaultHost, 'loadModule').mockImplementation(host.loadModule.bind(host))
 
   await expect(getScenario({directory: '/scenarios', name: 'example'})).resolves.toMatchObject({id: 'example'})
@@ -82,21 +85,20 @@ test('defaultScenarioSetup uses npm when no package manager is configured', asyn
 })
 
 test.each(['pnpm@10.1.0', 'yarn@4.6.0'])(
-  'defaultScenarioSetup uses Corepack for the configured %s package manager',
+  'default scenario setup uses Corepack for the configured %s package manager',
   async packageManager => {
     const {sandbox, commands} = createRecordingSandbox(
       JSON.stringify({
-        packageManager,
         scripts: {build: 'tsc'},
       }),
     )
-    const manager = packageManager.split('@')[0]!
+    const setup = createDefaultScenarioSetup(parsePackageManager(packageManager))
 
-    await defaultScenarioSetup({sandbox})
+    await setup({sandbox})
 
     expect(commands.slice(-2)).toEqual([
-      {command: 'corepack', args: [manager, 'install']},
-      {command: 'corepack', args: [manager, 'run', 'build']},
+      {command: 'corepack', args: [packageManager, 'install']},
+      {command: 'corepack', args: [packageManager, 'run', 'build']},
     ])
   },
 )

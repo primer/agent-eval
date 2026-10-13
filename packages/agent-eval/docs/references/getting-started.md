@@ -10,15 +10,6 @@ read. A blocked live run is incomplete, not a successful evaluation.
 
 ## 1. Prepare the environment
 
-If the skill is not already installed:
-
-```sh
-npx skills add primer/agent-eval --skill agent-eval
-```
-
-Keep the entire `agent-eval` skill directory, including `references`. Installing
-the skill does **not** install the evaluation package, Docker, or credentials.
-
 In your evaluation project, use Node.js 26 or newer, npm, a running Docker
 daemon, and a GitHub token authorized for Copilot and the selected models.
 The container also needs network access to download dependencies and reach
@@ -49,6 +40,15 @@ npx agent-eval --help
 In an existing project, preserve its package setup and use its package manager.
 Commands here use npm on the host. The evaluation harness runs `npm install`
 inside each scenario container, so fixtures must be independently installable.
+
+The package includes these agent docs. To have your agent load the docs for the
+installed version, add this line to your project's `AGENTS.md`:
+
+> When working with agent-eval, first read `node_modules/@primer/agent-eval/docs/AGENTS.md`.
+
+Alternatively, install the discovery skill with
+`npx skills add primer/agent-eval --skill agent-eval`. It points to the same
+package docs; it does not install the package, Docker, or credentials.
 
 ## 2. Create the scenario
 

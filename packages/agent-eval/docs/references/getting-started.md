@@ -108,7 +108,6 @@ import {defineConfig} from 'vitest/config'
 export default defineConfig({
   test: {
     include: ['scenario.test.ts'],
-    reporters: [['json', {outputFile: 'vitest-scenario-report.json'}]],
   },
 })
 ```
@@ -116,48 +115,25 @@ export default defineConfig({
 Create `scenarios/001-labels/scenario.config.ts`:
 
 ```ts
-import {defineConfig} from '@primer/agent-eval/scenario'
-import type {JsonTestResults} from 'vitest/node'
+import {createVitestCheck, defineConfig} from '@primer/agent-eval/scenario'
 
 export default defineConfig({
   description: 'Smoke-test an agent implementing a small data transformation',
   prompt:
     'Implement normalizeLabels in labels.js. Trim whitespace, remove empty and duplicate labels, and return labels in ascending alphabetical order without changing the input array.',
   checks: [
-    {
+    createVitestCheck({
       name: 'node-tests',
-      files: ['scenario.test.ts', 'vitest.config.scenario.ts'],
-      async run({sandbox}) {
-        const command = await sandbox.runCommand('npx', ['vitest', 'run', '--config', 'vitest.config.scenario.ts'], {
-          allowNonZeroExitCode: true,
-        })
-        if (command.exitCode !== 0 && command.exitCode !== 1) {
-          throw new Error(`Vitest failed with exit code ${command.exitCode}: ${command.stderr}`)
-        }
-        const report: JsonTestResults = JSON.parse(await sandbox.readFile('vitest-scenario-report.json'))
-        if (report.numTotalTests === 0 || (command.exitCode !== 0 && report.numFailedTests === 0)) {
-          throw new Error(`Vitest did not produce usable test outcomes: ${command.stderr}`)
-        }
-        return {
-          outcomes: report.testResults.flatMap(({assertionResults}) => {
-            return assertionResults.map(assertion => {
-              return {
-                type: 'outcome',
-                id: assertion.fullName,
-                status: assertion.status === 'passed' ? 'passed' : assertion.status === 'failed' ? 'failed' : 'skipped',
-              }
-            })
-          }),
-        }
-      },
-    },
+      configPath: 'vitest.config.scenario.ts',
+      testPaths: ['scenario.test.ts'],
+    }),
   ],
 })
 ```
 
-`files` keeps the grader out of the implementation agent's initial workspace.
-The harness restores those files before running the check. There is no implicit
-test runner: the check explicitly invokes Vitest and returns its outcomes.
+`createVitestCheck` lists the config and tests in `files` to keep the grader out
+of the implementation agent's initial workspace. The harness restores those
+files before running the check; the helper invokes Vitest and returns its outcomes.
 
 ## 3. Validate the grader
 

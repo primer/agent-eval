@@ -187,6 +187,15 @@ async function parseCheckConfig(host: Host, directory: string, json: unknown): P
                 return z.NEVER
               }
 
+              if (realFilepath === realDirectory) {
+                ctx.issues.push({
+                  code: 'custom',
+                  message: `Check config file path must not be the scenario directory: ${input}`,
+                  input,
+                })
+                return z.NEVER
+              }
+
               if (stats.isDirectory()) {
                 const symbolicLinkPath = await findSymbolicLink(host, filepath)
                 if (symbolicLinkPath) {

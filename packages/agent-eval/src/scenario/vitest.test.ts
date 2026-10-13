@@ -107,6 +107,22 @@ describe(createVitestCheck, () => {
     )
   })
 
+  test('rejects the scenario root as an additional directory', async () => {
+    const host = VirtualHost.create()
+    for (const filepath of [options.configPath, ...options.testPaths]) {
+      await host.fs.promises.mkdir(`/scenario/${filepath.slice(0, filepath.lastIndexOf('/') + 1)}`, {recursive: true})
+      await host.fs.promises.writeFile(`/scenario/${filepath}`, '')
+    }
+    const config = defineConfig({
+      prompt: 'Implement a feature',
+      checks: [createVitestCheck({...options, files: ['.']})],
+    })
+
+    await expect(parseCheckConfig(host, '/scenario', config.checks[0])).rejects.toThrow(
+      'Check config file path must not be the scenario directory: .',
+    )
+  })
+
   test('rejects nested symlinks in staged directories', async () => {
     const host = VirtualHost.create()
     for (const filepath of [options.configPath, ...options.testPaths]) {

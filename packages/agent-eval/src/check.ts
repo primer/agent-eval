@@ -187,6 +187,18 @@ async function parseCheckConfig(host: Host, directory: string, json: unknown): P
                 return z.NEVER
               }
 
+              if (stats.isDirectory()) {
+                const symbolicLinkPath = await findSymbolicLink(host, filepath)
+                if (symbolicLinkPath) {
+                  ctx.issues.push({
+                    code: 'custom',
+                    message: `Check config file directory must not contain a symbolic link: ${path.relative(directory, symbolicLinkPath)}`,
+                    input,
+                  })
+                  return z.NEVER
+                }
+              }
+
               const relativePath = path.posix.relative(directory, filepath)
 
               return {
@@ -215,6 +227,26 @@ async function parseCheckConfig(host: Host, directory: string, json: unknown): P
       })
     }),
   }
+}
+
+async function findSymbolicLink(host: Host, filepath: string): Promise<string | undefined> {
+  const entries = await host.fs.promises.readdir(filepath)
+  for (const entry of entries) {
+    const entryPath = path.join(filepath, entry.toString())
+    const stats = await host.fs.promises.lstat(entryPath)
+    if (stats.isSymbolicLink()) {
+      return entryPath
+    }
+
+    if (stats.isDirectory()) {
+      const nestedSymbolicLinkPath = await findSymbolicLink(host, entryPath)
+      if (nestedSymbolicLinkPath) {
+        return nestedSymbolicLinkPath
+      }
+    }
+  }
+
+  return undefined
 }
 
 const CheckSchema = z.object({

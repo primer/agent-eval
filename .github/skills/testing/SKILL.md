@@ -24,4 +24,4 @@ implementation details or external services.
 - Run the focused tests and confirm they fail when the intended behavior breaks.
 
 This skill covers repository tests. For grading agent-generated work in a
-scenario, use the [checks reference](../../../skills/agent-eval/references/checks.md).
+scenario, use the [checks reference](../../../packages/agent-eval/docs/references/checks.md).

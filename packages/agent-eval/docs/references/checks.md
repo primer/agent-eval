@@ -66,6 +66,7 @@ createVitestCheck({
   name: 'tests',
   configPath: 'vitest.config.scenario.ts',
   testPaths: ['scenario.test.ts'],
+  files: ['helpers/setup.ts', 'fixtures'],
 })
 ```
 
@@ -74,8 +75,10 @@ helper lists the config and tests in `files`, invokes `npx vitest run` with the
 supplied config and test filters, and selects its own JSON reporter. It returns
 one outcome per assertion using its full name as the ID, maps pending/todo/skipped
 to skipped, and rejects unusable reports. See [getting started](getting-started.md).
-If tests import private helpers, extend the returned check's `files` to include
-those helpers too.
+Pass an optional `files` array for additional private files or directories, such
+as test helpers, setup files, or fixtures. These are withheld from the agent and
+copied in before the check runs alongside the config and tests, but are not used
+as Vitest test filters. Omitting `files` adds no extra paths.
 
 For custom checks, run Vitest with `allowNonZeroExitCode: true`: assertion failures commonly exit
 with `1`, and you still need the report. Reject unexpected exit codes, missing

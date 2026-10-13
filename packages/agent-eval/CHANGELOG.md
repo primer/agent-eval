@@ -1,5 +1,11 @@
 # @primer/agent-eval
 
+## 0.16.0
+
+### Minor Changes
+
+- 7d2716c: Add an optional `files` option to `createVitestCheck` for additional private files or directories needed by the check, without adding them to Vitest's test filters.
+
 ## 0.15.0
 
 ### Minor Changes

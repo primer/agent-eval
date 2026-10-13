@@ -51,15 +51,17 @@ function createVitestCheck({name, configPath, testPaths}: VitestCheckOptions): C
         const report = parseReport(await sandbox.readFile(reportPath))
         const assertions = report.testResults.flatMap(result => result.assertionResults)
         const failedTests = assertions.filter(assertion => assertion.status === 'failed').length
+        const suiteErrors = report.testResults.map(result => result.message).filter(Boolean)
         if (
           assertions.length === 0 ||
-          report.testResults.some(result => result.message !== '') ||
+          suiteErrors.length > 0 ||
           report.numTotalTests !== assertions.length ||
           report.numFailedTests !== failedTests ||
           (command.exitCode === 1 && failedTests === 0) ||
           (command.exitCode === 0 && failedTests !== 0)
         ) {
-          throw new Error(`Vitest did not produce usable test outcomes: ${command.stderr}`)
+          const diagnostics = [...suiteErrors, command.stderr].filter(Boolean).join('\n')
+          throw new Error(`Vitest did not produce usable test outcomes${diagnostics ? `: ${diagnostics}` : ''}`)
         }
 
         return {

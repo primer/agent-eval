@@ -6,6 +6,7 @@ type VitestCheckOptions = {
   name: string
   configPath: string
   testPaths: Array<string>
+  files?: Array<string>
 }
 
 const ReportSchema = z.object({
@@ -32,10 +33,10 @@ function parseReport(contents: string) {
   }
 }
 
-function createVitestCheck({name, configPath, testPaths}: VitestCheckOptions): CheckConfig {
+function createVitestCheck({name, configPath, testPaths, files = []}: VitestCheckOptions): CheckConfig {
   return {
     name,
-    files: [configPath, ...testPaths],
+    files: [configPath, ...testPaths, ...files],
     async run({sandbox}) {
       const reportPath = `/tmp/agent-eval-vitest-${randomUUID()}.json`
       try {

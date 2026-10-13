@@ -86,6 +86,90 @@ describe(createVitestCheck, () => {
     ])
   })
 
+  test('stages additional files and directories alongside the config and tests', async () => {
+    const host = VirtualHost.create()
+    const files = ['helpers/setup.ts', 'fixtures']
+    await host.fs.promises.mkdir('/scenario/helpers', {recursive: true})
+    await host.fs.promises.mkdir('/scenario/tests', {recursive: true})
+    await host.fs.promises.mkdir('/scenario/fixtures', {recursive: true})
+    for (const filepath of [options.configPath, ...options.testPaths, files[0], 'fixtures/input.json']) {
+      await host.fs.promises.writeFile(`/scenario/${filepath}`, '')
+    }
+    const config = defineConfig({prompt: 'Implement a feature', checks: [createVitestCheck({...options, files})]})
+
+    const check = await parseCheckConfig(host, '/scenario', config.checks[0])
+
+    expect(check.files).toEqual(
+      [options.configPath, ...options.testPaths, ...files].map(relativePath => ({
+        filepath: `/scenario/${relativePath}`,
+        relativePath,
+      })),
+    )
+  })
+
+  test('rejects the scenario root as an additional directory', async () => {
+    const host = VirtualHost.create()
+    for (const filepath of [options.configPath, ...options.testPaths]) {
+      await host.fs.promises.mkdir(`/scenario/${filepath.slice(0, filepath.lastIndexOf('/') + 1)}`, {recursive: true})
+      await host.fs.promises.writeFile(`/scenario/${filepath}`, '')
+    }
+    const config = defineConfig({
+      prompt: 'Implement a feature',
+      checks: [createVitestCheck({...options, files: ['.']})],
+    })
+
+    await expect(parseCheckConfig(host, '/scenario', config.checks[0])).rejects.toThrow(
+      'Check config file path must not be the scenario directory: .',
+    )
+  })
+
+  test('rejects nested symlinks in staged directories', async () => {
+    const host = VirtualHost.create()
+    for (const filepath of [options.configPath, ...options.testPaths]) {
+      await host.fs.promises.mkdir(`/scenario/${filepath.slice(0, filepath.lastIndexOf('/') + 1)}`, {recursive: true})
+      await host.fs.promises.writeFile(`/scenario/${filepath}`, '')
+    }
+    await host.fs.promises.mkdir('/scenario/fixtures/nested', {recursive: true})
+    await host.fs.promises.mkdir('/scenario-sibling')
+    await host.fs.promises.writeFile('/scenario-sibling/secret.json', 'outside scenario')
+    await host.fs.promises.symlink('/scenario-sibling/secret.json', '/scenario/fixtures/nested/secret.json')
+    const config = defineConfig({
+      prompt: 'Implement a feature',
+      checks: [createVitestCheck({...options, files: ['fixtures']})],
+    })
+
+    await expect(parseCheckConfig(host, '/scenario', config.checks[0])).rejects.toThrow(
+      'Check config file directory must not contain a symbolic link: fixtures/nested/secret.json',
+    )
+  })
+
+  test('accepts an empty list of additional files', () => {
+    expect(createVitestCheck({...options, files: []}).files).toEqual([options.configPath, ...options.testPaths])
+  })
+
+  test('does not use additional files as Vitest test filters', async () => {
+    const {sandbox: resource, runCommand} = await createSandbox(JSON.stringify(createReport()))
+    await using sandbox = resource
+    const check = createVitestCheck({...options, files: ['helpers/setup.ts', 'fixtures']})
+
+    await check.run({sandbox, logger})
+
+    expect(runCommand.mock.calls[0]).toEqual([
+      'npx',
+      [
+        'vitest',
+        'run',
+        '--config',
+        options.configPath,
+        '--reporter=json',
+        '--outputFile',
+        expect.any(String),
+        ...options.testPaths,
+      ],
+      {allowNonZeroExitCode: true},
+    ])
+  })
+
   test('preserves individual names and maps failed and skipped assertions across suites', async () => {
     const {sandbox: resource} = await createSandbox(
       JSON.stringify(createReport(['passed', 'failed', 'pending', 'todo', 'skipped'])),

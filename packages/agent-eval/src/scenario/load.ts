@@ -1,15 +1,9 @@
 import path from 'node:path'
-import * as z from 'zod/mini'
 import {DefaultHost, type Host} from '../host'
 import {parseJudgeConfig} from '../judge'
 import {parseScenarioConfig, type ScenarioConfigModule} from './config'
-import {createDefaultScenarioSetup, defaultScenarioSetup, type Scenario} from './scenario'
-import {parsePackageManager} from './package-manager'
+import {defaultScenarioSetup, type Scenario} from './scenario'
 import {parseCheckConfig} from '../check'
-
-const PackageJsonSchema = z.object({
-  packageManager: z.optional(z.unknown()),
-})
 
 type LoadScenarioOptions = {
   directory: string
@@ -38,12 +32,6 @@ async function loadScenario({
 
   const data: ScenarioConfigModule = await host.loadModule(configPath)
   const config = parseScenarioConfig(host, directory, data.default)
-  const packageManager = config.setup || config.image ? undefined : await loadPackageManager(host, directory)
-  const defaultSetup = packageManager
-    ? packageManager.specifier
-      ? createDefaultScenarioSetup(packageManager)
-      : defaultScenarioSetup
-    : undefined
 
   const scenario: Scenario = {
     id: name,
@@ -61,8 +49,7 @@ async function loadScenario({
       }),
     ),
     image: config.image ?? {type: 'Default'},
-    ...(packageManager ? {packageManager} : {}),
-    setup: config.setup ?? defaultSetup,
+    setup: config.setup ? config.setup : config.image ? undefined : defaultScenarioSetup,
   }
 
   if (config.description) {
@@ -70,16 +57,6 @@ async function loadScenario({
   }
 
   return scenario
-}
-
-async function loadPackageManager(host: Host, directory: string) {
-  const packageJsonPath = path.join(directory, 'package.json')
-  if (!host.fs.existsSync(packageJsonPath)) {
-    return parsePackageManager(undefined)
-  }
-
-  const packageJson = PackageJsonSchema.parse(JSON.parse(await host.fs.promises.readFile(packageJsonPath, 'utf8')))
-  return parsePackageManager(packageJson.packageManager)
 }
 
 export {loadScenario}

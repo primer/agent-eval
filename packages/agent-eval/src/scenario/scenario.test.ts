@@ -3,8 +3,7 @@ import {DefaultHost, VirtualHost} from '../host'
 import {VirtualSandbox, type Sandbox} from '../sandbox'
 import {getScenario} from './get'
 import {listScenarios} from './list'
-import {createDefaultScenarioSetup, defaultScenarioSetup} from './scenario'
-import {parsePackageManager} from './package-manager'
+import {defaultScenarioSetup} from './scenario'
 
 function createRecordingSandbox(packageJson: string) {
   const host = VirtualHost.create({
@@ -46,7 +45,6 @@ test('getScenario and listScenarios accept an options object with an injected ho
     image: {
       type: 'Default',
     },
-    packageManager: {name: 'npm'},
     setup: defaultScenarioSetup,
   }
 
@@ -89,12 +87,12 @@ test.each(['pnpm@10.1.0', 'yarn@4.6.0'])(
   async packageManager => {
     const {sandbox, commands} = createRecordingSandbox(
       JSON.stringify({
+        packageManager,
         scripts: {build: 'tsc'},
       }),
     )
-    const setup = createDefaultScenarioSetup(parsePackageManager(packageManager))
 
-    await setup({sandbox})
+    await defaultScenarioSetup({sandbox})
 
     expect(commands.slice(-2)).toEqual([
       {command: 'corepack', args: [packageManager, 'install']},

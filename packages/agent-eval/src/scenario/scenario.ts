@@ -9,9 +9,10 @@ import {logger} from '../logger'
 import {TreatmentSetupSchema, type TreatmentSetup} from '../treatment'
 import {DEFAULT_DOCKER_IMAGE, NODE_USER} from '../sandbox/constants'
 import {buildImage, getImageReference, type ImageBuild} from '../docker'
-import type {PackageManager} from './package-manager'
+import {parsePackageManager} from './package-manager'
 
 const PackageJsonSchema = z.object({
+  packageManager: z.optional(z.unknown()),
   scripts: z.optional(z.record(z.string(), z.string())),
 })
 
@@ -24,7 +25,6 @@ type Scenario = {
   checks: Array<Check>
   judges: Array<Judge>
   image: DockerImage
-  packageManager?: PackageManager
   setup?: TreatmentSetup
 }
 
@@ -55,13 +55,6 @@ const ScenarioSchema = z.object({
   checks: z._default(z.array(CheckSchema), []),
   judges: z._default(z.array(JudgeSchema), []),
   image: DockerImageSchema,
-  packageManager: z.optional(
-    z.discriminatedUnion('name', [
-      z.object({name: z.literal('npm'), specifier: z.optional(z.string())}),
-      z.object({name: z.literal('pnpm'), specifier: z.string()}),
-      z.object({name: z.literal('yarn'), specifier: z.string()}),
-    ]),
-  ),
   setup: z.optional(TreatmentSetupSchema),
 }) satisfies z.ZodMiniType<Scenario>
 
@@ -193,37 +186,34 @@ async function buildScenarioImage({host = DefaultHost, scenario}: BuildScenarioI
   })
 }
 
-function createDefaultScenarioSetup(packageManager: PackageManager): TreatmentSetup {
-  return async ({sandbox}) => {
-    const packageJson = PackageJsonSchema.parse(JSON.parse(await sandbox.readFile('package.json')))
-    const command = packageManager.specifier ? 'corepack' : 'npm'
-    const commandArgs = packageManager.specifier ? [packageManager.specifier] : []
+const defaultScenarioSetup: TreatmentSetup = async ({sandbox}) => {
+  const packageJson = PackageJsonSchema.parse(JSON.parse(await sandbox.readFile('package.json')))
+  const packageManager = parsePackageManager(packageJson.packageManager)
+  const command = packageManager.specifier ? 'corepack' : 'npm'
+  const commandArgs = packageManager.specifier ? [packageManager.specifier] : []
 
-    logger.info('Obfuscating package name')
-    await sandbox.runCommand('npm', ['pkg', 'set', `name=example`], {
+  logger.info('Obfuscating package name')
+  await sandbox.runCommand('npm', ['pkg', 'set', `name=example`], {
+    user: NODE_USER,
+  })
+
+  logger.info('Removing workspace dependency')
+  await sandbox.runCommand('npm', ['pkg', 'delete', 'devDependencies.@primer/agent-eval'], {
+    user: NODE_USER,
+  })
+
+  logger.info('Installing dependencies')
+  await sandbox.runCommand(command, [...commandArgs, 'install'], {
+    user: NODE_USER,
+  })
+
+  if (packageJson.scripts?.build) {
+    logger.info('Running build script')
+    await sandbox.runCommand(command, [...commandArgs, 'run', 'build'], {
       user: NODE_USER,
     })
-
-    logger.info('Removing workspace dependency')
-    await sandbox.runCommand('npm', ['pkg', 'delete', 'devDependencies.@primer/agent-eval'], {
-      user: NODE_USER,
-    })
-
-    logger.info('Installing dependencies')
-    await sandbox.runCommand(command, [...commandArgs, 'install'], {
-      user: NODE_USER,
-    })
-
-    if (packageJson.scripts?.build) {
-      logger.info('Running build script')
-      await sandbox.runCommand(command, [...commandArgs, 'run', 'build'], {
-        user: NODE_USER,
-      })
-    }
   }
 }
 
-const defaultScenarioSetup = createDefaultScenarioSetup({name: 'npm'})
-
-export {ScenarioSchema, getScenarioIgnoreFiles, buildScenarioImage, createDefaultScenarioSetup, defaultScenarioSetup}
+export {ScenarioSchema, getScenarioIgnoreFiles, buildScenarioImage, defaultScenarioSetup}
 export type {Scenario}

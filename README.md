@@ -17,9 +17,17 @@ Install the agent-eval skill to help your agent set up and run evaluations:
 npx skills add primer/agent-eval --skill agent-eval
 ```
 
-The [skill](./skills/agent-eval/SKILL.md) includes a getting-started guide and
-references for evaluation methodology, domain models, and the CLI. The skill
-and runtime package are installed separately.
+The [skill](./skills/agent-eval/SKILL.md) points to the docs included in your
+installed `@primer/agent-eval` package, so guidance stays aligned with that
+version. The skill and runtime package are installed separately.
+
+You can also skip installing the skill and add this one line to your project's
+`AGENTS.md` after installing the package:
+
+> When working with agent-eval, first read `node_modules/@primer/agent-eval/docs/AGENTS.md`.
+
+The [package docs entrypoint](./packages/agent-eval/docs/AGENTS.md) links to
+getting-started, evaluation methodology, domain model, and CLI guides.
 
 Install the [agent-eval-investigate skill](./skills/agent-eval-investigate/SKILL.md)
 to investigate experiment or benchmark results, explain observed model behavior

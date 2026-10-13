@@ -1,5 +1,13 @@
 # @primer/agent-eval
 
+## 0.15.0
+
+### Minor Changes
+
+- 11a3809: Add support for scenarios that declare pnpm or Yarn in `packageManager`.
+- 404ce12: Add createVitestCheck to @primer/agent-eval/scenario to run Vitest checks and report an outcome for each test assertion.
+- bf93ae6: Ship version-matched agent documentation with the package. Add `When working with agent-eval, first read node_modules/@primer/agent-eval/docs/AGENTS.md.` to your project's `AGENTS.md`, or use the agent-eval skill to load the installed package docs.
+
 ## 0.14.0
 
 ### Minor Changes

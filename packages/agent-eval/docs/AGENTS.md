@@ -40,7 +40,8 @@ setup improvements and offers focused reruns only with the user's approval.
   treatment setup, not shared setup.
 - Withhold grader files using `files`. Verify the starter fails for the intended
   reasons and a correct solution passes; restore the starter before execution.
-  For Vitest grading, use `createVitestCheck` as described in [Checks](references/checks.md).
+  For Vitest or ESLint grading, use `createVitestCheck` or `createESLintCheck` as
+  described in [Checks](references/checks.md).
 - Inspect the plan's combinations before running. Use a fresh output directory.
 - Finish by reading trial results and reporting outcomes and errors separately.
   Command completion alone does not establish quality.

@@ -21,7 +21,10 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
-test('the default scenario Dockerfile uses the shared sandbox image', async () => {
+test.each([
+  {name: 'package default', dockerImage: undefined, expected: DEFAULT_DOCKER_IMAGE},
+  {name: 'override', dockerImage: 'node:26-slim', expected: 'node:26-slim'},
+])('the default scenario Dockerfile uses the $name and retains system tooling', async ({dockerImage, expected}) => {
   const context = tarFs.pack('.', {entries: [], finalize: false})
   const entry = vi.spyOn(context, 'entry')
   vi.spyOn(tarFs, 'pack').mockImplementation((_directory, options) => {
@@ -30,6 +33,7 @@ test('the default scenario Dockerfile uses the shared sandbox image', async () =
   })
 
   await buildScenarioImage({
+    dockerImage,
     host: VirtualHost.create(),
     scenario: {
       id: 'example',
@@ -44,7 +48,77 @@ test('the default scenario Dockerfile uses the shared sandbox image', async () =
 
   expect(entry).toHaveBeenCalledWith(
     expect.objectContaining({name: 'Dockerfile'}),
-    expect.stringContaining(`FROM ${DEFAULT_DOCKER_IMAGE}\n`),
+    expect.stringContaining(`FROM ${expected}\n`),
+  )
+  expect(entry).toHaveBeenCalledWith(
+    expect.objectContaining({name: 'Dockerfile'}),
+    expect.stringContaining('apt-get install -y --no-install-recommends ca-certificates chromium curl git'),
+  )
+})
+
+test('default image overrides have distinct cache identities and only deduplicate matching pending builds', async () => {
+  const createArchive = tarFs.pack
+  vi.spyOn(tarFs, 'pack').mockImplementation(() => {
+    return createArchive('.', {entries: []})
+  })
+  const host = VirtualHost.create()
+  const scenario: Scenario = {
+    id: 'example',
+    directory: '/scenarios/example',
+    prompt: 'Update the example',
+    tags: [],
+    checks: [],
+    judges: [],
+    image: {type: 'Default'},
+  }
+
+  const [defaultImage, explicitDefault, override, repeatedOverride] = await Promise.all([
+    buildScenarioImage({host, scenario}),
+    buildScenarioImage({host, scenario, dockerImage: DEFAULT_DOCKER_IMAGE}),
+    buildScenarioImage({host, scenario, dockerImage: 'node:26-slim'}),
+    buildScenarioImage({host, scenario, dockerImage: 'node:26-slim'}),
+  ])
+  const laterOverride = await buildScenarioImage({host, scenario, dockerImage: 'node:26-slim'})
+
+  expect(defaultImage.tagName).toBe(explicitDefault.tagName)
+  expect(override.tagName).not.toBe(defaultImage.tagName)
+  expect(repeatedOverride.tagName).toBe(override.tagName)
+  expect(laterOverride.tagName).toBe(override.tagName)
+  expect(buildImage).toHaveBeenCalledTimes(3)
+})
+
+test.each(['Reference', 'Build'] as const)('%s images ignore the default base image override', async type => {
+  const dockerfile = 'FROM node:26-slim\nCOPY . .\n'
+  const host = VirtualHost.create({'/scenarios/example/Dockerfile': dockerfile})
+  const context = tarFs.pack('.', {entries: [], finalize: false})
+  const entry = vi.spyOn(context, 'entry')
+  vi.spyOn(tarFs, 'pack').mockImplementation((_directory, options) => {
+    options?.finish?.(context)
+    return context
+  })
+  const scenario: Scenario = {
+    id: 'example',
+    directory: '/scenarios/example',
+    prompt: 'Update the example',
+    tags: [],
+    checks: [],
+    judges: [],
+    image:
+      type === 'Reference'
+        ? {type, name: 'node:26-slim'}
+        : {type, dockerfile: '/scenarios/example/Dockerfile', context: '/scenarios/example'},
+  }
+
+  const [normal, overridden] = await Promise.all([
+    buildScenarioImage({host, scenario}),
+    buildScenarioImage({host, scenario, dockerImage: 'node:24-slim'}),
+  ])
+
+  expect(overridden.tagName).toBe(normal.tagName)
+  expect(buildImage).toHaveBeenCalledTimes(1)
+  expect(entry).toHaveBeenCalledWith(
+    expect.objectContaining({name: 'Dockerfile'}),
+    type === 'Build' ? dockerfile : expect.stringContaining('FROM node:26-slim\n'),
   )
 })
 

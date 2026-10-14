@@ -95,11 +95,14 @@ function getScenarioIgnoreFiles(scenario: Scenario): Array<{filepath: string; re
 }
 
 type BuildScenarioImageOptions = {
+  dockerImage?: string
   host?: Host
   scenario: Scenario
 }
 
-const DEFAULT_DOCKERFILE = `FROM ${DEFAULT_DOCKER_IMAGE}
+async function getDockerfileContents(host: Host, scenario: Scenario, dockerImage: string): Promise<string> {
+  if (scenario.image.type === 'Default') {
+    return `FROM ${dockerImage}
 
 RUN apt-get update \\
   && apt-get install -y --no-install-recommends ca-certificates chromium curl git \\
@@ -110,10 +113,6 @@ WORKDIR /home/sandbox/workspace
 
 COPY . .
 `
-
-async function getDockerfileContents(host: Host, scenario: Scenario): Promise<string> {
-  if (scenario.image.type === 'Default') {
-    return DEFAULT_DOCKERFILE
   }
 
   if (scenario.image.type === 'Reference') {
@@ -129,16 +128,22 @@ async function getDockerfileContents(host: Host, scenario: Scenario): Promise<st
   return await host.fs.promises.readFile(scenario.image.dockerfile, 'utf8')
 }
 
-const pendingScenarioBuilds = new WeakMap<Scenario, Promise<ImageBuild>>()
+const pendingScenarioBuilds = new WeakMap<Scenario, Map<string, Promise<ImageBuild>>>()
 
-async function buildScenarioImage({host = DefaultHost, scenario}: BuildScenarioImageOptions): Promise<ImageBuild> {
-  const pendingScenarioBuild = pendingScenarioBuilds.get(scenario)
+async function buildScenarioImage({
+  dockerImage = DEFAULT_DOCKER_IMAGE,
+  host = DefaultHost,
+  scenario,
+}: BuildScenarioImageOptions): Promise<ImageBuild> {
+  const cacheKey = scenario.image.type === 'Default' ? dockerImage : ''
+  const pendingBuilds = pendingScenarioBuilds.get(scenario) ?? new Map<string, Promise<ImageBuild>>()
+  const pendingScenarioBuild = pendingBuilds.get(cacheKey)
   if (pendingScenarioBuild) {
     return pendingScenarioBuild
   }
 
   const build = async () => {
-    const dockerfileContents = await getDockerfileContents(host, scenario)
+    const dockerfileContents = await getDockerfileContents(host, scenario, dockerImage)
     const contextDirectory = scenario.image.type === 'Build' ? scenario.image.context : scenario.directory
     const imageTag = getImageReference({
       name: `agent-eval/scenarios/${scenario.id}`,
@@ -179,10 +184,14 @@ async function buildScenarioImage({host = DefaultHost, scenario}: BuildScenarioI
   }
   const promise = build()
 
-  pendingScenarioBuilds.set(scenario, promise)
+  pendingBuilds.set(cacheKey, promise)
+  pendingScenarioBuilds.set(scenario, pendingBuilds)
 
   return promise.finally(() => {
-    pendingScenarioBuilds.delete(scenario)
+    pendingBuilds.delete(cacheKey)
+    if (pendingBuilds.size === 0) {
+      pendingScenarioBuilds.delete(scenario)
+    }
   })
 }
 

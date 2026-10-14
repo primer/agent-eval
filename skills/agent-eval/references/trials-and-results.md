@@ -55,11 +55,11 @@ against the bundle's capability map. Scenario-only and legacy experiment
 bundles default to an empty capability map; missing historical membership is
 not inferred.
 
-New output manifests and trial results include `createdAt` as an ISO 8601 UTC
+New output manifests and trial results require `createdAt` as an ISO 8601 UTC
 string, recording result creation after execution completes (not execution
 start). Merging shards creates a new manifest timestamp and preserves trial
-timestamps. Older files without `createdAt` remain readable; missing timestamps
-are not inferred. Plan manifests remain unchanged.
+timestamps. Older files without `createdAt` are not readable by the result
+schemas. Plan manifests remain unchanged.
 
 Standalone `scenario run` writes a different output: `{id, createdAt, results}`, with
 entries containing `trial: {id}` and an embedded `result`. Do not parse it as a

@@ -57,7 +57,7 @@ const RunTrialResultSchema = z.object({
   agent: TrialAgentSchema,
   artifacts: TrialArtifactsSchema,
   checks: TrialChecksSchema,
-  createdAt: z.optional(z.iso.datetime()),
+  createdAt: z.iso.datetime(),
   judges: TrialJudgesSchema,
   trial: TrialSchema,
   walkthrough: TrialWalkthroughSchema,

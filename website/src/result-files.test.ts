@@ -330,6 +330,7 @@ test('rejects missing trial files, mismatched IDs, and paths outside the bundle'
   const output = createExperimentOutput()
   const manifest = {
     id: output.id,
+    createdAt: output.createdAt,
     scenarios: Object.fromEntries(output.scenarios),
     treatments: Object.fromEntries(output.treatments),
     trials: {'trial-1': 'missing.json'},

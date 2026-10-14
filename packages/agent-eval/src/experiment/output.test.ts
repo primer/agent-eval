@@ -34,19 +34,30 @@ const trial = {
     workspaceDirectory: '/artifacts/trial/workspace',
   },
   checks: [],
+  createdAt: '2026-10-14T20:00:00.000Z',
   judges: [],
   walkthrough: {
     type: 'Unavailable',
   },
 }
 
-test('parses legacy experiment output with a required CLI runner', () => {
+test('defaults the missing CLI runner when parsing experiment output', () => {
   const parsed = ExperimentTrialOutputSchema.parse(trial)
 
   expect(parsed.runner).toBe('copilot-cli')
-  expect(parsed.createdAt).toBeUndefined()
-  expect(ExperimentOutputFileSchema.parse(createOutputFile()).createdAt).toBeUndefined()
+  expect(parsed.createdAt).toBe(trial.createdAt)
+  expect(ExperimentOutputFileSchema.parse(createOutputFile()).createdAt).toBe(trial.createdAt)
   expectTypeOf<ExperimentTrialOutput['runner']>().toEqualTypeOf<CopilotRunner>()
+})
+
+test('requires createdAt on experiment output and trials', () => {
+  const trialWithoutCreatedAt: Record<string, unknown> = {...trial}
+  const outputWithoutCreatedAt: Record<string, unknown> = createOutputFile()
+  delete trialWithoutCreatedAt.createdAt
+  delete outputWithoutCreatedAt.createdAt
+
+  expect(() => ExperimentTrialOutputSchema.parse(trialWithoutCreatedAt)).toThrow()
+  expect(() => ExperimentOutputFileSchema.parse(outputWithoutCreatedAt)).toThrow()
 })
 
 test.each(['copilot-cli', 'copilot-sdk'] as const)('preserves the explicit %s experiment output runner', runner => {
@@ -70,6 +81,7 @@ test.each([null, 'unknown'])('rejects an invalid experiment output runner: %s', 
 function createOutputFile(trials: Record<string, string> = {}) {
   return {
     id: 'example',
+    createdAt: '2026-10-14T20:00:00.000Z',
     capabilities: {},
     scenarios: {
       example: {
@@ -288,7 +300,7 @@ test('merges compatible experiment shards with repeated metadata and distinct tr
   expect([...output.trials.keys()]).toEqual(['trial', 'second'])
   expect(output.scenarios.size).toBe(1)
   expect(output.treatments.size).toBe(1)
-  expect(output.trials.get('trial')?.createdAt).toBeUndefined()
+  expect(output.trials.get('trial')?.createdAt).toBe(trial.createdAt)
 })
 
 test('preserves benchmark capabilities and trial membership through writing and merging shards', async () => {

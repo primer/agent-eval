@@ -49,8 +49,8 @@ Use `agent-eval benchmarks --help` to see the available commands and options.
 ## Results
 
 Saved output manifests (`output.json` and shard outputs) and trial JSON files
-include `createdAt` as an ISO 8601 UTC string. The timestamp records when the
+require `createdAt` as an ISO 8601 UTC string. The timestamp records when the
 result is created, after execution completes, not when execution starts.
 Merging shards creates a new manifest timestamp and preserves each trial's
-original timestamp. Older files without `createdAt` remain readable; their
-missing timestamps are not inferred. Plan manifests do not include timestamps.
+original timestamp. Older files without `createdAt` are not readable by the
+result schemas. Plan manifests do not include timestamps.

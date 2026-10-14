@@ -24,7 +24,7 @@ const ExperimentTrialOutputSchema = z.object({
   artifacts: TrialArtifactsSchema,
   capabilityId: z.optional(z.string()),
   checks: z._default(TrialChecksSchema, []),
-  createdAt: z.optional(z.iso.datetime()),
+  createdAt: z.iso.datetime(),
   id: z.string(),
   judges: TrialJudgesSchema,
   model: ModelVariantSchema,
@@ -56,7 +56,7 @@ type TreatmentOutput = z.infer<typeof TreatmentOutputSchema>
 
 const ExperimentOutputFileSchema = z.object({
   id: z.string(),
-  createdAt: z.optional(z.iso.datetime()),
+  createdAt: z.iso.datetime(),
   capabilities: z._default(
     z.record(z.string(), CapabilityOutputSchema).check(ctx => {
       for (const [key, capability] of Object.entries(ctx.value)) {
@@ -172,7 +172,7 @@ const ExperimentOutputFilesSchema = z
 
 type ExperimentOutput = {
   id: string
-  createdAt?: string
+  createdAt: string
   capabilities: Map<string, CapabilityOutput>
   scenarios: Map<string, ScenarioOutput>
   treatments: Map<string, TreatmentOutput>

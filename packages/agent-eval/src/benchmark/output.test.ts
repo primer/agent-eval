@@ -34,6 +34,7 @@ const trial = {
     workspaceDirectory: '/artifacts/trial/workspace',
   },
   checks: [],
+  createdAt: '2026-10-14T20:00:00.000Z',
   judges: [],
   walkthrough: {
     type: 'Unavailable',
@@ -51,13 +52,23 @@ const capabilities = new Map([
   ],
 ])
 
-test('parses legacy benchmark output with a required CLI runner', () => {
+test('defaults the missing CLI runner when parsing benchmark output', () => {
   const parsed = parseBenchmarkTrialOutput(trial, capabilities)
 
   expect(parsed.runner).toBe('copilot-cli')
-  expect(parsed.createdAt).toBeUndefined()
-  expect(BenchmarkOutputFileSchema.parse(createOutputFile()).createdAt).toBeUndefined()
+  expect(parsed.createdAt).toBe(trial.createdAt)
+  expect(BenchmarkOutputFileSchema.parse(createOutputFile()).createdAt).toBe(trial.createdAt)
   expectTypeOf<BenchmarkTrialOutput['runner']>().toEqualTypeOf<CopilotRunner>()
+})
+
+test('requires createdAt on benchmark output and trials', () => {
+  const trialWithoutCreatedAt: Record<string, unknown> = {...trial}
+  const outputWithoutCreatedAt: Record<string, unknown> = createOutputFile()
+  delete trialWithoutCreatedAt.createdAt
+  delete outputWithoutCreatedAt.createdAt
+
+  expect(() => parseBenchmarkTrialOutput(trialWithoutCreatedAt, capabilities)).toThrow()
+  expect(() => BenchmarkOutputFileSchema.parse(outputWithoutCreatedAt)).toThrow()
 })
 
 test.each(['copilot-cli', 'copilot-sdk'] as const)('preserves the explicit %s benchmark output runner', runner => {
@@ -87,6 +98,7 @@ test.each([null, 'unknown'])('rejects an invalid benchmark output runner: %s', r
 function createOutputFile(trials: Record<string, string> = {}) {
   return {
     id: 'example',
+    createdAt: '2026-10-14T20:00:00.000Z',
     capabilities: {
       components: {
         id: 'components',
@@ -357,5 +369,5 @@ test('merges compatible benchmark shards with repeated metadata and distinct tri
   expect(output.capabilities.get('components')?.scenarioIds).toEqual(['example', 'other'])
   expect(output.scenarios.size).toBe(1)
   expect(output.treatments.size).toBe(1)
-  expect(output.trials.get('trial')?.createdAt).toBeUndefined()
+  expect(output.trials.get('trial')?.createdAt).toBe(trial.createdAt)
 })

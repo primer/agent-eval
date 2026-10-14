@@ -27,12 +27,21 @@ function usageEvent(totalNanoAiu: number, type = 'session.usage_checkpoint', age
 }
 
 describe(getAgentSession, () => {
-  test('aggregates resumed CLI turns but only uses the latest cumulative credit checkpoint', () => {
+  test('uses the latest cumulative usage snapshot across resumed CLI turns', () => {
     const messages = [
       usageEvent(1_000_000_000),
       {...result, usage: {...result.usage, outputTokens: 42}},
       usageEvent(3_000_000_000),
-      {...result, usage: {...result.usage, outputTokens: 58}},
+      {
+        ...result,
+        usage: {
+          ...result.usage,
+          outputTokens: 100,
+          premiumRequests: 2,
+          totalApiDurationMs: 246,
+          sessionDurationMs: 912,
+        },
+      },
     ].map(parseMessage)
 
     expect(getAgentSession(messages)).toMatchObject({

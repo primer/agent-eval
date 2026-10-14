@@ -60,21 +60,20 @@ function getAgentSession(messages: Array<Message>): AgentSession {
     }
   }
 
-  const results = messages.filter(message => isMessageType(message, 'result'))
-  if (results.length === 0) {
+  const result = messages.findLast(message => isMessageType(message, 'result'))
+  if (!result) {
     throw new Error('No result message found in copilot output')
   }
 
   return {
     messages,
-    outputTokens: results.every(result => result.usage.outputTokens !== undefined)
-      ? results.reduce((total, result) => total + result.usage.outputTokens!, 0)
-      : (usageOutputTokens ?? (hasModelOutput ? modelOutputTokens : assistantOutputTokens)),
-    premiumRequests: results.reduce((total, result) => total + result.usage.premiumRequests, 0),
+    outputTokens:
+      result.usage.outputTokens ?? usageOutputTokens ?? (hasModelOutput ? modelOutputTokens : assistantOutputTokens),
+    premiumRequests: result.usage.premiumRequests,
     ...(totalNanoAiu === undefined ? {} : {aiCredits: totalNanoAiu / 1_000_000_000}),
-    sessionDurationMs: results.reduce((total, result) => total + result.usage.sessionDurationMs, 0),
+    sessionDurationMs: result.usage.sessionDurationMs,
     tools: Object.fromEntries(toolCalls),
-    totalApiDurationMs: results.reduce((total, result) => total + result.usage.totalApiDurationMs, 0),
+    totalApiDurationMs: result.usage.totalApiDurationMs,
     turns: turns.size,
   }
 }

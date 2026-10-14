@@ -356,7 +356,10 @@ describe(runCopilotCli, () => {
         }
         const usagePath = args[args.indexOf('--usage-output-file') + 1]
         usagePaths.push(usagePath)
-        await sandbox.writeFile(usagePath, JSON.stringify({modelMetrics: {main: {usage: {outputTokens: 42}}}}))
+        await sandbox.writeFile(
+          usagePath,
+          JSON.stringify({modelMetrics: {main: {usage: {outputTokens: 42 * (turn + 1)}}}}),
+        )
         await Promise.resolve()
         completed.push(args[1])
         if (turn === 1 && outcome === 'command failure') {
@@ -374,9 +377,9 @@ describe(runCopilotCli, () => {
                   sessionId: 'shared-session',
                   exitCode: 0,
                   usage: {
-                    premiumRequests: 1,
-                    totalApiDurationMs: 123,
-                    sessionDurationMs: 456,
+                    premiumRequests: turn + 1,
+                    totalApiDurationMs: 123 * (turn + 1),
+                    sessionDurationMs: 456 * (turn + 1),
                     codeChanges: {linesAdded: 0, linesRemoved: 0, filesModified: []},
                   },
                 }),

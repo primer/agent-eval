@@ -81,7 +81,10 @@ test.each(['copilot-cli', 'copilot-sdk'] as const)(
             expect(args[args.indexOf('--resume') + 1]).toBe('session')
           }
           const usagePath = args[args.indexOf('--usage-output-file') + 1]
-          await sandbox.writeFile(usagePath, JSON.stringify({modelMetrics: {'gpt-5.5': {usage: {outputTokens: 42}}}}))
+          await sandbox.writeFile(
+            usagePath,
+            JSON.stringify({modelMetrics: {'gpt-5.5': {usage: {outputTokens: 42 * taskCalls}}}}),
+          )
         }
         await expect(sandbox.exists('vitest.config.scenario.ts')).resolves.toBe(false)
         await expect(sandbox.exists('checks/reference.json')).resolves.toBe(false)

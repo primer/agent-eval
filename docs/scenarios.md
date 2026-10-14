@@ -24,6 +24,25 @@ The scenario's workspace files are copied into a [sandbox](./sandbox.md), where 
 
 Add `checks` for deterministic verification, `judges` for model-based evaluation, or both.
 
+### Multi-turn prompts
+
+Set `prompt` to a non-empty array of strings to describe a task across multiple turns:
+
+```ts
+import {defineConfig} from '@primer/agent-eval/scenario'
+
+export default defineConfig({
+  prompt: [
+    'Add a search feature that filters the list of projects by name.',
+    'Now add an empty state when no projects match the search.',
+  ],
+})
+```
+
+Prompts run in order in the same sandbox and conversation, waiting for each turn to finish before starting the next. Checks and judges run after all prompts complete. Both the CLI and SDK runners support this behavior.
+
+A string remains valid input and is normalized to a single-element array. Parsed scenario configurations, loaded scenarios, and result metadata always expose `prompt` as an array.
+
 ### Checks
 
 Checks are used to deterministically evaluate how well an agent performed on a task. They can run tools like Vitest or ESLint, compare files to a baseline, or collect measurements about the result.

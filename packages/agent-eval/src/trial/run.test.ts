@@ -34,7 +34,7 @@ test.each(['copilot-cli', 'copilot-sdk'] as const)(
       scenario: {
         id: 'example',
         directory: '/scenarios/example',
-        prompt: 'Update the example',
+        prompt: ['Update the example', 'Add search'],
         tags: [],
         judges: [],
         image: {type: 'Default'},
@@ -60,7 +60,7 @@ test.each(['copilot-cli', 'copilot-sdk'] as const)(
     const copilotQueue = new Queue({concurrency: 1})
     vi.spyOn(sandbox, 'runCommand').mockImplementation(async (command, args = []) => {
       if (
-        (command === '/opt/agent-eval/copilot/bin/copilot' && args.includes(trial.scenario.prompt)) ||
+        (command === '/opt/agent-eval/copilot/bin/copilot' && trial.scenario.prompt.includes(args[1])) ||
         (command === '/opt/agent-eval/node/bin/node' && args[0] === '/opt/agent-eval/sdk-runner/run.cjs')
       ) {
         taskCalls++
@@ -75,6 +75,11 @@ test.each(['copilot-cli', 'copilot-sdk'] as const)(
             prompt: trial.scenario.prompt,
           })
         } else {
+          expect(args[1]).toBe(trial.scenario.prompt[taskCalls - 1])
+          if (taskCalls > 1) {
+            expect(args).toContain('--resume')
+            expect(args[args.indexOf('--resume') + 1]).toBe('session')
+          }
           const usagePath = args[args.indexOf('--usage-output-file') + 1]
           await sandbox.writeFile(usagePath, JSON.stringify({modelMetrics: {'gpt-5.5': {usage: {outputTokens: 42}}}}))
         }
@@ -113,8 +118,8 @@ test.each(['copilot-cli', 'copilot-sdk'] as const)(
       trial,
     })
 
-    expect(taskCalls).toBe(1)
-    expect(result.agent.sessions[0].outputTokens).toBe(runner === 'copilot-cli' ? 42 : 0)
+    expect(taskCalls).toBe(runner === 'copilot-cli' ? 2 : 1)
+    expect(result.agent.sessions[0].outputTokens).toBe(runner === 'copilot-cli' ? 84 : 0)
     expect(sandbox.runCommand).toHaveBeenCalledWith(
       'npm',
       ['install', '-g', '--prefix', '/home/node/.npm-global', '--allow-scripts=agent-browser', 'agent-browser'],

@@ -3,7 +3,7 @@ import {VirtualHost} from '../host'
 import {setupInstructions} from './setup'
 
 const snippet =
-  '## agent-eval\n\nWhen working with agent-eval, first read `node_modules/@primer/agent-eval/docs/AGENTS.md`.\n'
+  '<!-- BEGIN:agent-eval -->\n## agent-eval\n\nWhen working with agent-eval, first read `node_modules/@primer/agent-eval/docs/AGENTS.md`.\n<!-- END:agent-eval -->\n'
 
 test.each(['AGENTS.md', '.github/copilot-instructions.md', 'copilot-instructions.md'])(
   'appends guidance to existing %s without replacing instructions',
@@ -89,6 +89,51 @@ test('recognizes the previously recommended instruction without a heading', asyn
   const result = await setupInstructions(host, '/project')
 
   expect(result.updated).toBe(false)
+  expect(await host.fs.promises.readFile('/project/AGENTS.md', 'utf-8')).toBe(contents)
+})
+
+test.each(['\n', '\r\n'])(
+  'replaces an outdated managed block and preserves surrounding content with %j',
+  async newline => {
+    const before = `# Project${newline}${newline}Keep these instructions.${newline}${newline}`
+    const after = `${newline}${newline}## Other tools${newline}Keep these too.`
+    const oldBlock =
+      `<!-- BEGIN:agent-eval -->${newline}## agent-eval${newline}${newline}` +
+      `When working with agent-eval, first read \`node_modules/@primer/agent-eval/docs/AGENTS.md\`.${newline}` +
+      `Outdated instructions to remove.${newline}<!-- END:agent-eval -->`
+    const host = VirtualHost.create({'/project/AGENTS.md': before + oldBlock + after})
+
+    const result = await setupInstructions(host, '/project')
+
+    expect(result).toEqual({filepath: '/project/AGENTS.md', updated: true})
+    expect(await host.fs.promises.readFile(result.filepath, 'utf-8')).toBe(
+      before + snippet.trimEnd().replaceAll('\n', newline) + after,
+    )
+  },
+)
+
+test('replaces a managed block without the current instruction', async () => {
+  const host = VirtualHost.create({
+    '/project/AGENTS.md': '<!-- BEGIN:agent-eval -->\nOld guidance\n<!-- END:agent-eval -->',
+  })
+
+  const result = await setupInstructions(host, '/project')
+
+  expect(result.updated).toBe(true)
+  expect(await host.fs.promises.readFile(result.filepath, 'utf-8')).toBe(snippet.trimEnd())
+})
+
+test.each([
+  '<!-- BEGIN:agent-eval -->\nDo not remove this.',
+  'Do not remove this.\n<!-- END:agent-eval -->',
+  '<!-- END:agent-eval -->\nDo not remove this.\n<!-- BEGIN:agent-eval -->',
+  '<!-- BEGIN:agent-eval -->\n<!-- BEGIN:agent-eval -->\n<!-- END:agent-eval -->',
+  '<!-- BEGIN:agent-eval -->\n<!-- END:agent-eval -->\n<!-- END:agent-eval -->',
+])('rejects malformed markers without modifying instructions: %j', async contents => {
+  const host = VirtualHost.create({'/project/AGENTS.md': contents})
+
+  await expect(setupInstructions(host, '/project')).rejects.toThrow('Invalid agent-eval comment markers')
+
   expect(await host.fs.promises.readFile('/project/AGENTS.md', 'utf-8')).toBe(contents)
 })
 

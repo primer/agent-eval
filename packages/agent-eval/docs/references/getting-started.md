@@ -52,7 +52,9 @@ Setup appends an `## agent-eval` section pointing to
 `node_modules/@primer/agent-eval/docs/AGENTS.md`. It uses the first existing file
 in this order: `AGENTS.md`, `.github/copilot-instructions.md`, or
 `copilot-instructions.md`; otherwise it creates `AGENTS.md`. It preserves
-existing instructions and skips guidance already present.
+existing instructions and encloses the section in comment markers so subsequent
+setup runs can update it. Unchanged blocks and existing unmarked guidance are
+left alone.
 
 Alternatively, install the discovery skill with
 `npx skills add primer/agent-eval --skill agent-eval`. It points to the same

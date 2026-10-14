@@ -48,8 +48,12 @@ It appends an `## agent-eval` section directing agents to the installed
 `node_modules/@primer/agent-eval/docs/AGENTS.md`.
 It updates the first existing file in this order: `AGENTS.md`,
 `.github/copilot-instructions.md`, or `copilot-instructions.md`. If none exists,
-it creates `AGENTS.md`. Existing content is preserved, and repeated setup skips
-guidance already present. Setup does not require Docker or a Copilot token.
+it creates `AGENTS.md`. The section is enclosed in `<!-- BEGIN:agent-eval -->`
+and `<!-- END:agent-eval -->` markers. Repeated setup replaces only this block
+with the current guidance, preserving surrounding content. Unchanged blocks
+and existing unmarked guidance are left alone. Incomplete, reversed, or duplicate
+markers cause an error without modifying the file. Setup does not require
+Docker or a Copilot token.
 
 ## Options by scope
 

@@ -11,7 +11,7 @@ const setup = defineCommand({
   async run() {
     const {filepath, updated} = await setupInstructions(DefaultHost, process.cwd())
     logger.info(
-      updated ? 'Added agent-eval instructions to %s' : 'Agent-eval instructions already present in %s',
+      updated ? 'Updated agent-eval instructions in %s' : 'Agent-eval instructions already present in %s',
       filepath,
     )
   },

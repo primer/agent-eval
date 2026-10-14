@@ -52,7 +52,7 @@ test('parses legacy benchmark output with a required CLI runner', () => {
   expectTypeOf<BenchmarkTrialOutput['runner']>().toEqualTypeOf<CopilotRunner>()
 })
 
-test('preserves outcome metadata in serialized benchmark trial output', () => {
+test('preserves outcome and measurement annotations in serialized benchmark trial output', () => {
   const checks = [
     {
       check: {name: 'tests', files: []},
@@ -62,10 +62,16 @@ test('preserves outcome metadata in serialized benchmark trial output', () => {
           {
             type: 'outcome',
             status: 'failed',
-            path: 'scenario.test.ts',
-            annotation: 'filters by name',
+            annotations: [{context: 'scenario.test.ts', message: 'filters by name', snippet: 'test("filters", ...)'}],
           },
         ],
+      },
+    },
+    {
+      check: {name: 'size', files: []},
+      result: {
+        type: 'measurements',
+        measurements: [{type: 'measurement', value: 42, annotations: [{message: 'Bundle size'}]}],
       },
     },
   ]

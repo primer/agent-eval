@@ -54,7 +54,7 @@ function createVitestCheck({name, configPath, testPaths, files = []}: VitestChec
         const assertions = report.testResults.flatMap(result =>
           result.assertionResults.map(assertion => ({
             ...assertion,
-            ...(result.name === undefined ? {} : {path: result.name}),
+            ...(result.name === undefined ? {} : {context: result.name}),
           })),
         )
         const failedTests = assertions.filter(assertion => assertion.status === 'failed').length
@@ -76,8 +76,12 @@ function createVitestCheck({name, configPath, testPaths, files = []}: VitestChec
             type: 'outcome',
             id: assertion.fullName,
             status: assertion.status === 'passed' ? 'passed' : assertion.status === 'failed' ? 'failed' : 'skipped',
-            ...(assertion.path === undefined ? {} : {path: assertion.path}),
-            annotation: assertion.fullName,
+            annotations: [
+              {
+                ...(assertion.context === undefined ? {} : {context: assertion.context}),
+                message: assertion.fullName,
+              },
+            ],
           })),
         }
       } finally {

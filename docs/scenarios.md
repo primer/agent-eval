@@ -52,7 +52,7 @@ Files listed in a check's `files` option are withheld from the agent's initial w
 
 Checks return either `outcomes` or `measurements`. Outcomes report a `passed`, `failed`, or `skipped` status. Measurements report numeric values, with optional units and a direction such as `higher-is-better` or `lower-is-better`.
 
-Individual outcomes may include optional `path` and `annotation` strings to identify a related file and describe the result, such as a test name or failure details:
+Individual outcomes and measurements may include an optional `annotations` array. Each annotation has a required `message` and optional `context` and `snippet` strings:
 
 ```ts
 return {
@@ -60,16 +60,21 @@ return {
     {
       type: 'outcome',
       status: 'failed',
-      path: 'scenario.test.ts',
-      annotation: 'Search filters projects by name',
+      annotations: [
+        {
+          context: 'scenario.test.ts',
+          message: 'Search filters projects by name',
+          snippet: 'expect(filteredProjects).toHaveLength(1)',
+        },
+      ],
     },
   ],
 }
 ```
 
-These fields are preserved in saved trial results for benchmarks and experiments. Paths are metadata only: they may be relative or absolute and do not cause files to be copied or checked for existence.
+Annotations are preserved in saved trial results for benchmarks and experiments. Use `message` to describe the result, `context` for a related file or other context, and `snippet` for relevant source text. Context is descriptive metadata, not a filesystem reference to resolve or copy.
 
-`createVitestCheck` populates `annotation` with each assertion's full name and `path` with its suite's file name when reported by Vitest. Existing outcome IDs and status mapping are unchanged.
+`createVitestCheck` includes one annotation per outcome, using the assertion's full name as `message` and its suite's file name as `context` when reported by Vitest. Existing outcome IDs and status mapping are unchanged.
 
 ### Judges
 

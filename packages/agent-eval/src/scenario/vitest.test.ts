@@ -64,7 +64,7 @@ describe(createVitestCheck, () => {
     const check = createVitestCheck(options)
 
     await expect(check.run({sandbox, logger})).resolves.toEqual({
-      outcomes: [{type: 'outcome', id: 'suite test 0', status: 'passed', annotation: 'suite test 0'}],
+      outcomes: [{type: 'outcome', id: 'suite test 0', status: 'passed', annotations: [{message: 'suite test 0'}]}],
     })
     const reportPath = runCommand.mock.calls[0][1]?.[6]
     expect(runCommand.mock.calls).toEqual([
@@ -179,11 +179,11 @@ describe(createVitestCheck, () => {
 
     await expect(createVitestCheck(options).run({sandbox, logger})).resolves.toEqual({
       outcomes: [
-        {type: 'outcome', id: 'suite test 0', status: 'passed', annotation: 'suite test 0'},
-        {type: 'outcome', id: 'suite test 1', status: 'failed', annotation: 'suite test 1'},
-        {type: 'outcome', id: 'suite test 2', status: 'skipped', annotation: 'suite test 2'},
-        {type: 'outcome', id: 'suite test 3', status: 'skipped', annotation: 'suite test 3'},
-        {type: 'outcome', id: 'suite test 4', status: 'skipped', annotation: 'suite test 4'},
+        {type: 'outcome', id: 'suite test 0', status: 'passed', annotations: [{message: 'suite test 0'}]},
+        {type: 'outcome', id: 'suite test 1', status: 'failed', annotations: [{message: 'suite test 1'}]},
+        {type: 'outcome', id: 'suite test 2', status: 'skipped', annotations: [{message: 'suite test 2'}]},
+        {type: 'outcome', id: 'suite test 3', status: 'skipped', annotations: [{message: 'suite test 3'}]},
+        {type: 'outcome', id: 'suite test 4', status: 'skipped', annotations: [{message: 'suite test 4'}]},
       ],
     })
   })
@@ -225,22 +225,21 @@ describe(createVitestCheck, () => {
             type: 'outcome',
             id: 'search filters by name',
             status: 'passed',
-            path: '/home/sandbox/workspace/tests/first.test.ts',
-            annotation: 'search filters by name',
+            annotations: [{context: '/home/sandbox/workspace/tests/first.test.ts', message: 'search filters by name'}],
           },
           {
             type: 'outcome',
             id: 'search shows empty state',
             status: 'failed',
-            path: '/home/sandbox/workspace/tests/first.test.ts',
-            annotation: 'search shows empty state',
+            annotations: [
+              {context: '/home/sandbox/workspace/tests/first.test.ts', message: 'search shows empty state'},
+            ],
           },
           {
             type: 'outcome',
             id: 'search optional case',
             status: 'skipped',
-            path: 'tests/second.test.ts',
-            annotation: 'search optional case',
+            annotations: [{context: 'tests/second.test.ts', message: 'search optional case'}],
           },
         ],
       },

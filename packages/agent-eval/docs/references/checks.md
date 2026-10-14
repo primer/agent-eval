@@ -52,25 +52,32 @@ when neither is inherently preferable.
 
 To return several groups, return an array with a unique `id` on each group.
 Each group contains **either** outcomes **or** measurements, not both.
-Individual outcomes may have IDs; individual measurements contain only their
-type and value. Either collection can contain `{type: 'error', message: '...'}`.
+Individual outcomes may have IDs; individual measurements contain their type
+and value. Both support annotations. Either collection can contain
+`{type: 'error', message: '...'}`.
 Do not add the internal group discriminant `type: 'outcomes'` or
 `type: 'measurements'` to authored return values; the library normalizes them.
 
-### Outcome metadata
+### Annotations
 
-Individual outcomes may include optional `path` and `annotation` strings,
-independently of their `id` and status:
+Individual outcomes and measurements may include an optional `annotations`
+array. Each annotation has a required `message` string and optional `context`
+and `snippet` strings:
 
 ```ts
-{type: 'outcome', status: 'failed', path: 'scenario.test.ts', annotation: 'filters by name'}
+{
+  type: 'outcome',
+  status: 'failed',
+  annotations: [{context: 'scenario.test.ts', message: 'filters by name'}],
+}
 ```
 
-Use `path` for a related file and `annotation` for a test name or details that
-explain the result. Both are preserved in saved benchmark and experiment trial
-results. Paths may be relative or absolute; they are metadata only and do not
-copy files or require them to exist. Measurements and errors do not support
-these fields.
+Use `message` for a test name or details explaining the result, `context` for a
+related file or other context, and `snippet` for relevant source text.
+Annotations are preserved in saved benchmark and experiment trial results.
+Context is descriptive metadata, not a filesystem reference to resolve or copy.
+Omitting annotations leaves the field absent; an empty array is also accepted.
+Errors do not support annotations.
 
 ## Run
 
@@ -90,8 +97,8 @@ helper lists the config and tests in `files`, invokes `npx vitest run` with the
 supplied config and test filters, and selects its own JSON reporter. It returns
 one outcome per assertion using its full name as the ID, maps pending/todo/skipped
 to skipped, and rejects unusable reports. See [getting started](getting-started.md).
-Each outcome also includes the assertion's full name as `annotation` and its
-suite's file name as `path` when reported by Vitest.
+Each outcome also includes one annotation with the assertion's full name as
+`message` and its suite's file name as `context` when reported by Vitest.
 Pass an optional `files` array for additional private files or directories, such
 as test helpers, setup files, or fixtures. These are withheld from the agent and
 copied in before the check runs alongside the config and tests, but are not used

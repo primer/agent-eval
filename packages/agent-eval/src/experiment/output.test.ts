@@ -47,7 +47,7 @@ test('parses legacy experiment output with a required CLI runner', () => {
   expectTypeOf<ExperimentTrialOutput['runner']>().toEqualTypeOf<CopilotRunner>()
 })
 
-test('preserves outcome metadata in serialized experiment trial output', () => {
+test('preserves outcome and measurement annotations in serialized experiment trial output', () => {
   const checks = [
     {
       check: {name: 'tests', files: []},
@@ -57,10 +57,16 @@ test('preserves outcome metadata in serialized experiment trial output', () => {
           {
             type: 'outcome',
             status: 'failed',
-            path: 'scenario.test.ts',
-            annotation: 'filters by name',
+            annotations: [{context: 'scenario.test.ts', message: 'filters by name', snippet: 'test("filters", ...)'}],
           },
         ],
+      },
+    },
+    {
+      check: {name: 'size', files: []},
+      result: {
+        type: 'measurements',
+        measurements: [{type: 'measurement', value: 42, annotations: [{message: 'Bundle size'}]}],
       },
     },
   ]

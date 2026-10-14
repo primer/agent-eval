@@ -2,6 +2,6 @@
 '@primer/agent-eval': minor
 ---
 
-Add optional `path` and `annotation` strings to check outcomes, preserving file references and result details in saved benchmark and experiment trial output.
+Add optional `annotations` arrays to check outcomes and measurements. Each annotation includes a required `message` and optional `context` and `snippet` strings, preserved in saved benchmark and experiment trial output.
 
-`createVitestCheck` now includes each assertion's full name as its annotation and its reported test file as its path.
+`createVitestCheck` now includes each assertion's full name as an annotation message and its reported test file as the annotation context.

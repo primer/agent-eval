@@ -50,6 +50,26 @@ Files listed in a check's `files` option are withheld from the agent's initial w
 
 `createVitestCheck` lists the config and test paths in `files` automatically. Pass an optional `files` array to include additional private files or directories, such as `files: ['helpers/setup.ts', 'fixtures']`. These paths are also withheld and copied in before the check runs, but are not used as test filters. Use paths relative to the scenario directory and install Vitest in the scenario. The helper runs `npx vitest run` with those test filters and the supplied config, selecting a JSON reporter without requiring reporter settings in the config. Each assertion's full name becomes its outcome ID; pending, todo, and skipped assertions become skipped outcomes. Unexpected exits, missing or malformed reports, zero tests, and inconsistent results throw evaluation errors rather than reporting a passing check.
 
+For ESLint grading, use `createESLintCheck` to report one outcome per linted file:
+
+```ts
+import {createESLintCheck, defineConfig} from '@primer/agent-eval/scenario'
+
+export default defineConfig({
+  prompt: 'Add a search feature that filters the list of projects by name.',
+  checks: [
+    createESLintCheck({
+      name: 'eslint',
+      configPath: 'eslint.config.scenario.js',
+      lintPaths: ['src'],
+      files: ['helpers/lint-rules.js'],
+    }),
+  ],
+})
+```
+
+Install ESLint and any config plugins in the scenario. Use paths relative to the scenario directory and provide at least one lint target in `lintPaths` (files, directories, or globs). The helper withholds the config and optional additional `files`, not the lint targets. It runs `npx eslint` with a JSON formatter and `--max-warnings 0`. Each reported file's path becomes its outcome ID; errors or warnings (including syntax errors) fail that file. Unexpected exits, missing or malformed reports, zero reported files, and inconsistent exit codes throw evaluation errors. Temporary reports are removed after each check, including on failure.
+
 Checks return either `outcomes` or `measurements`. Outcomes report a `passed`, `failed`, or `skipped` status. Measurements report numeric values, with optional units and a direction such as `higher-is-better` or `lower-is-better`.
 
 ### Judges

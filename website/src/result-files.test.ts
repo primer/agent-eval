@@ -37,6 +37,7 @@ async function writeBundle(
     filepath,
     JSON.stringify({
       id: output.id,
+      createdAt: output.createdAt,
       scenarios: Object.fromEntries(output.scenarios),
       treatments: Object.fromEntries(output.treatments),
       trials: Object.fromEntries(trialPaths),
@@ -45,6 +46,19 @@ async function writeBundle(
   )
   return filepath
 }
+
+test.each(['benchmark', 'experiment'] as const)('preserves %s manifest and trial creation timestamps', async kind => {
+  const directory = await createDirectory()
+  const output = kind === 'benchmark' ? createBenchmarkOutput() : createExperimentOutput()
+  output.createdAt = '2026-10-14T20:01:00.000Z'
+  for (const trial of output.trials.values()) {
+    trial.createdAt = '2026-10-14T20:00:00.000Z'
+  }
+  const filepath = await writeBundle(directory, output)
+  const read = kind === 'benchmark' ? readBenchmarkOutput : readExperimentOutput
+
+  expect(await read(filepath)).toEqual(output)
+})
 
 test('getBenchmarkRun reads only the requested date, not broken historical bundles', async () => {
   const directory = await createDirectory()

@@ -1,4 +1,4 @@
-import {expect, expectTypeOf, test} from 'vitest'
+import {expect, expectTypeOf, onTestFinished, test, vi} from 'vitest'
 import type {CopilotRunner} from '../copilot-runner'
 import {VirtualHost} from '../host'
 import {RunTrialResultSchema} from '../trial/run'
@@ -44,6 +44,8 @@ test('parses legacy experiment output with a required CLI runner', () => {
   const parsed = ExperimentTrialOutputSchema.parse(trial)
 
   expect(parsed.runner).toBe('copilot-cli')
+  expect(parsed.createdAt).toBeUndefined()
+  expect(ExperimentOutputFileSchema.parse(createOutputFile()).createdAt).toBeUndefined()
   expectTypeOf<ExperimentTrialOutput['runner']>().toEqualTypeOf<CopilotRunner>()
 })
 
@@ -87,6 +89,24 @@ function createOutputFile(trials: Record<string, string> = {}) {
     trials,
   }
 }
+
+test.each([null, 'yesterday', '2026-02-30T00:00:00.000Z'])(
+  'rejects invalid experiment artifact timestamps: %s',
+  createdAt => {
+    expect(() => {
+      ExperimentOutputFileSchema.parse({
+        ...createOutputFile(),
+        createdAt,
+      })
+    }).toThrow()
+    expect(() => {
+      ExperimentTrialOutputSchema.parse({
+        ...trial,
+        createdAt,
+      })
+    }).toThrow()
+  },
+)
 
 test('rejects an empty experiment output collection through the schema', async () => {
   await expect(
@@ -268,9 +288,17 @@ test('merges compatible experiment shards with repeated metadata and distinct tr
   expect([...output.trials.keys()]).toEqual(['trial', 'second'])
   expect(output.scenarios.size).toBe(1)
   expect(output.treatments.size).toBe(1)
+  expect(output.trials.get('trial')?.createdAt).toBeUndefined()
 })
 
 test('preserves benchmark capabilities and trial membership through writing and merging shards', async () => {
+  vi.useFakeTimers({toFake: ['Date']})
+  onTestFinished(() => {
+    vi.useRealTimers()
+  })
+  const trialCreatedAt = '2026-10-14T20:00:00.000Z'
+  const outputCreatedAt = '2026-10-14T20:01:00.000Z'
+  const mergedCreatedAt = '2026-10-14T20:02:00.000Z'
   const host = VirtualHost.create({
     '/experiments/example.ts':
       'export default {name: "Example", description: "Compare a benchmark", models: ["gpt-5.5"], benchmark: "example", treatments: []}',
@@ -292,6 +320,7 @@ test('preserves benchmark capabilities and trial membership through writing and 
       trial: entry,
       result: RunTrialResultSchema.parse({
         ...trial,
+        createdAt: trialCreatedAt,
         trial: entry,
         artifacts: {
           ...trial.artifacts,
@@ -300,7 +329,9 @@ test('preserves benchmark capabilities and trial membership through writing and 
       }),
     }
   })
+  vi.setSystemTime(outputCreatedAt)
   const expected = createExperimentOutput({experiment, runPlanResult: {results}})
+  expect(expected.createdAt).toBe(outputCreatedAt)
 
   for (const [index, shard] of [results.slice(0, 2), results.slice(2)].entries()) {
     await writeExperimentOutput({
@@ -310,6 +341,12 @@ test('preserves benchmark capabilities and trial membership through writing and 
     })
   }
   const files = await listExperimentOutputFiles({host, outputDirectory: '/results'})
+  expect(
+    files.map(([output]) => {
+      return output.createdAt
+    }),
+  ).toEqual([outputCreatedAt, outputCreatedAt])
+  vi.setSystemTime(mergedCreatedAt)
   const merged = await mergeExperimentOutputFiles({
     host,
     outputDirectory: '/results',
@@ -318,7 +355,22 @@ test('preserves benchmark capabilities and trial membership through writing and 
     }),
   })
 
-  expect(merged).toEqual(expected)
+  expect(merged).toEqual({
+    ...expected,
+    createdAt: mergedCreatedAt,
+  })
+  expect(
+    [...merged.trials.values()].map(entry => {
+      return entry.createdAt
+    }),
+  ).toEqual(
+    results.map(() => {
+      return trialCreatedAt
+    }),
+  )
+  await writeExperimentOutput({host, output: merged, outputPath: '/results/output.json'})
+  const manifest = JSON.parse(await host.fs.promises.readFile('/results/output.json', 'utf-8'))
+  expect(manifest.createdAt).toBe(mergedCreatedAt)
   expect(
     [...merged.capabilities.values()]
       .map(capability => {

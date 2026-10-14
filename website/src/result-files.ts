@@ -120,6 +120,7 @@ async function loadBenchmarkOutput(filepath: string): Promise<BenchmarkOutput | 
   }
   return {
     id: file.id,
+    createdAt: file.createdAt,
     capabilities,
     scenarios: new Map(Object.entries(file.scenarios)),
     treatments: new Map(Object.entries(file.treatments)),
@@ -142,6 +143,7 @@ async function loadExperimentOutput(filepath: string): Promise<ExperimentOutput 
   }
   return {
     id: file.id,
+    createdAt: file.createdAt,
     capabilities,
     scenarios: new Map(Object.entries(file.scenarios)),
     treatments: new Map(Object.entries(file.treatments)),

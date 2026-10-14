@@ -56,6 +56,15 @@ You can interact with experiments using the `experiments` subcommand of the `age
 
 Use `agent-eval experiments --help` to see the available commands and options.
 
+## Results
+
+Saved output manifests (`output.json` and shard outputs) and trial JSON files
+include `createdAt` as an ISO 8601 UTC string. The timestamp records when the
+result is created, after execution completes, not when execution starts.
+Merging shards creates a new manifest timestamp and preserves each trial's
+original timestamp. Older files without `createdAt` remain readable; their
+missing timestamps are not inferred. Plan manifests do not include timestamps.
+
 ## Reports
 
 Experiment runs print a summary grouped by treatment, scenario, and model

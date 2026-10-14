@@ -204,6 +204,7 @@ const scenarioCommand = defineCommand({
 
         type ScenarioOutput = {
           id: string
+          createdAt: string
           results: Array<{
             trial: {
               id: string
@@ -214,6 +215,7 @@ const scenarioCommand = defineCommand({
 
         const output: ScenarioOutput = {
           id: scenario.id,
+          createdAt: new Date().toISOString(),
           results: results.map(result => {
             return {
               trial: {

@@ -15,6 +15,7 @@ Image commands require Docker but not a Copilot token.
 
 | Command                         | Purpose                          |
 | :------------------------------ | :------------------------------- |
+| `setup`                         | Set up agent instructions        |
 | `benchmark run <name>`          | Run a benchmark directly         |
 | `benchmark plan create <name>`  | Write a benchmark plan           |
 | `benchmark plan run`            | Execute a saved benchmark plan   |
@@ -39,6 +40,20 @@ npx agent-eval scenario run --help
 npx agent-eval scenario image build --help
 npx agent-eval scenario image clean --help
 ```
+
+## Setup
+
+Run `npx agent-eval setup` from the project root after installing the package.
+It appends an `## agent-eval` section directing agents to the installed
+`node_modules/@primer/agent-eval/docs/AGENTS.md`.
+It updates the first existing file in this order: `AGENTS.md`,
+`.github/copilot-instructions.md`, or `copilot-instructions.md`. If none exists,
+it creates `AGENTS.md`. The section is enclosed in `<!-- BEGIN:agent-eval -->`
+and `<!-- END:agent-eval -->` markers. Repeated setup replaces only this block
+with the current guidance, preserving surrounding content. Unchanged blocks
+and existing unmarked guidance are left alone. Incomplete, reversed, or duplicate
+markers cause an error without modifying the file. Setup does not require
+Docker or a Copilot token.
 
 ## Options by scope
 

@@ -1,6 +1,6 @@
 {
   "name": "@primer/agent-eval",
-  "version": "0.14.0",
+  "version": "0.16.0",
   "type": "module",
   "bin": {
     "agent-eval": "bin/agent-eval"
@@ -28,7 +28,8 @@
   },
   "files": [
     "bin",
-    "dist"
+    "dist",
+    "docs"
   ],
   "scripts": {
     "build": "rolldown -c",

@@ -59,11 +59,28 @@ Do not add the internal group discriminant `type: 'outcomes'` or
 
 ## Run
 
-Use `scenario.test.ts`, a dedicated `vitest.config.scenario.ts` with a JSON
-reporter, and `files` listing both plus any private helpers. See the complete
-working pattern in [getting started](getting-started.md).
+Use `createVitestCheck` from `@primer/agent-eval/scenario` for Vitest grading:
 
-Run Vitest with `allowNonZeroExitCode: true`: assertion failures commonly exit
+```ts
+createVitestCheck({
+  name: 'tests',
+  configPath: 'vitest.config.scenario.ts',
+  testPaths: ['scenario.test.ts'],
+  files: ['helpers/setup.ts', 'fixtures'],
+})
+```
+
+Install Vitest in the scenario and use paths relative to its directory. The
+helper lists the config and tests in `files`, invokes `npx vitest run` with the
+supplied config and test filters, and selects its own JSON reporter. It returns
+one outcome per assertion using its full name as the ID, maps pending/todo/skipped
+to skipped, and rejects unusable reports. See [getting started](getting-started.md).
+Pass an optional `files` array for additional private files or directories, such
+as test helpers, setup files, or fixtures. These are withheld from the agent and
+copied in before the check runs alongside the config and tests, but are not used
+as Vitest test filters. Omitting `files` adds no extra paths.
+
+For custom checks, run Vitest with `allowNonZeroExitCode: true`: assertion failures commonly exit
 with `1`, and you still need the report. Reject unexpected exit codes, missing
 or invalid reports, zero tests, and a nonzero exit without failed assertions
 as evaluation errors. Do not convert them into empty outcomes or a passing

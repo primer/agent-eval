@@ -28,39 +28,27 @@ Add `checks` for deterministic verification, `judges` for model-based evaluation
 
 Checks are used to deterministically evaluate how well an agent performed on a task. They can run tools like Vitest or ESLint, compare files to a baseline, or collect measurements about the result.
 
-Each check has a name and a `run` function that receives the sandbox. For example, a scenario with Vitest installed and tests in `scenario.test.ts` can report whether its test suite passes:
+Each check has a name and a `run` function that receives the sandbox. For Vitest tests, use `createVitestCheck` to report one outcome per assertion:
 
 ```ts
-import {defineConfig} from '@primer/agent-eval/scenario'
+import {createVitestCheck, defineConfig} from '@primer/agent-eval/scenario'
 
 export default defineConfig({
   prompt: 'Add a search feature that filters the list of projects by name.',
   description: 'Evaluate whether the agent can add search to an existing application',
   checks: [
-    {
+    createVitestCheck({
       name: 'tests',
-      description: 'Verify that the search behavior passes the tests',
-      files: ['vitest.config.scenario.ts', 'scenario.test.ts'],
-      async run({sandbox}) {
-        const result = await sandbox.runCommand('npx', ['vitest', 'run', '--config', 'vitest.config.scenario.ts'], {
-          allowNonZeroExitCode: true,
-        })
-
-        return {
-          outcomes: [
-            {
-              type: 'outcome',
-              status: result.exitCode === 0 ? 'passed' : 'failed',
-            },
-          ],
-        }
-      },
-    },
+      configPath: 'vitest.config.scenario.ts',
+      testPaths: ['scenario.test.ts'],
+    }),
   ],
 })
 ```
 
 Files listed in a check's `files` option are withheld from the agent's initial workspace and copied in before that check runs.
+
+`createVitestCheck` lists the config and test paths in `files` automatically. Pass an optional `files` array to include additional private files or directories, such as `files: ['helpers/setup.ts', 'fixtures']`. These paths are also withheld and copied in before the check runs, but are not used as test filters. Use paths relative to the scenario directory and install Vitest in the scenario. The helper runs `npx vitest run` with those test filters and the supplied config, selecting a JSON reporter without requiring reporter settings in the config. Each assertion's full name becomes its outcome ID; pending, todo, and skipped assertions become skipped outcomes. Unexpected exits, missing or malformed reports, zero tests, and inconsistent results throw evaluation errors rather than reporting a passing check.
 
 Checks return either `outcomes` or `measurements`. Outcomes report a `passed`, `failed`, or `skipped` status. Measurements report numeric values, with optional units and a direction such as `higher-is-better` or `lower-is-better`.
 
@@ -110,6 +98,8 @@ Check files and judge reference files must stay inside the scenario directory, i
 Use `image` to customize the environment where a scenario runs. This is useful when a task needs a different Node.js version, additional system packages, or dependencies installed ahead of time.
 
 If you omit `image`, agent-eval uses its default Node.js image, copies in the scenario files, and runs the default setup to install dependencies and build the starting project.
+
+The default setup uses npm unless the project's `package.json` sets `packageManager` to a versioned pnpm or Yarn release, such as `"pnpm@10.1.0"` or `"yarn@4.6.0"`. Those managers run through Corepack, which the sandbox provides.
 
 #### Use an existing image
 
@@ -162,7 +152,7 @@ Files declared in a check's or judge's `files` option are excluded from the buil
 
 Setting `image` disables the default scenario setup. Install dependencies and build the starting project in your Dockerfile or in a scenario `setup` callback. An explicit `setup` callback also replaces the default setup when `image` is omitted.
 
-Agent-eval adds its Copilot tools and sandbox configuration on top of the scenario image. The current sandbox expects a Debian-compatible base with `apt-get`, npm, and a `node` user and group with UID/GID `1000`. The Debian-based official Node.js images are a starting point; Alpine images are not supported by this setup.
+Agent-eval adds its Copilot tools and sandbox configuration on top of the scenario image. The current sandbox expects a Debian-compatible base with `apt-get`, npm, and a `node` user and group with UID/GID `1000`. It also installs Corepack for pnpm or Yarn selected through `package.json`. The Debian-based official Node.js images are a starting point; Alpine images are not supported by this setup.
 
 ## CLI
 

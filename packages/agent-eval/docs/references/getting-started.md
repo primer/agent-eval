@@ -10,15 +10,6 @@ read. A blocked live run is incomplete, not a successful evaluation.
 
 ## 1. Prepare the environment
 
-If the skill is not already installed:
-
-```sh
-npx skills add primer/agent-eval --skill agent-eval
-```
-
-Keep the entire `agent-eval` skill directory, including `references`. Installing
-the skill does **not** install the evaluation package, Docker, or credentials.
-
 In your evaluation project, use Node.js 26 or newer, npm, a running Docker
 daemon, and a GitHub token authorized for Copilot and the selected models.
 The container also needs network access to download dependencies and reach
@@ -49,6 +40,15 @@ npx agent-eval --help
 In an existing project, preserve its package setup and use its package manager.
 Commands here use npm on the host. The evaluation harness runs `npm install`
 inside each scenario container, so fixtures must be independently installable.
+
+The package includes these agent docs. To have your agent load the docs for the
+installed version, add this line to your project's `AGENTS.md`:
+
+> When working with agent-eval, first read `node_modules/@primer/agent-eval/docs/AGENTS.md`.
+
+Alternatively, install the discovery skill with
+`npx skills add primer/agent-eval --skill agent-eval`. It points to the same
+package docs; it does not install the package, Docker, or credentials.
 
 ## 2. Create the scenario
 
@@ -108,7 +108,6 @@ import {defineConfig} from 'vitest/config'
 export default defineConfig({
   test: {
     include: ['scenario.test.ts'],
-    reporters: [['json', {outputFile: 'vitest-scenario-report.json'}]],
   },
 })
 ```
@@ -116,48 +115,25 @@ export default defineConfig({
 Create `scenarios/001-labels/scenario.config.ts`:
 
 ```ts
-import {defineConfig} from '@primer/agent-eval/scenario'
-import type {JsonTestResults} from 'vitest/node'
+import {createVitestCheck, defineConfig} from '@primer/agent-eval/scenario'
 
 export default defineConfig({
   description: 'Smoke-test an agent implementing a small data transformation',
   prompt:
     'Implement normalizeLabels in labels.js. Trim whitespace, remove empty and duplicate labels, and return labels in ascending alphabetical order without changing the input array.',
   checks: [
-    {
+    createVitestCheck({
       name: 'node-tests',
-      files: ['scenario.test.ts', 'vitest.config.scenario.ts'],
-      async run({sandbox}) {
-        const command = await sandbox.runCommand('npx', ['vitest', 'run', '--config', 'vitest.config.scenario.ts'], {
-          allowNonZeroExitCode: true,
-        })
-        if (command.exitCode !== 0 && command.exitCode !== 1) {
-          throw new Error(`Vitest failed with exit code ${command.exitCode}: ${command.stderr}`)
-        }
-        const report: JsonTestResults = JSON.parse(await sandbox.readFile('vitest-scenario-report.json'))
-        if (report.numTotalTests === 0 || (command.exitCode !== 0 && report.numFailedTests === 0)) {
-          throw new Error(`Vitest did not produce usable test outcomes: ${command.stderr}`)
-        }
-        return {
-          outcomes: report.testResults.flatMap(({assertionResults}) => {
-            return assertionResults.map(assertion => {
-              return {
-                type: 'outcome',
-                id: assertion.fullName,
-                status: assertion.status === 'passed' ? 'passed' : assertion.status === 'failed' ? 'failed' : 'skipped',
-              }
-            })
-          }),
-        }
-      },
-    },
+      configPath: 'vitest.config.scenario.ts',
+      testPaths: ['scenario.test.ts'],
+    }),
   ],
 })
 ```
 
-`files` keeps the grader out of the implementation agent's initial workspace.
-The harness restores those files before running the check. There is no implicit
-test runner: the check explicitly invokes Vitest and returns its outcomes.
+`createVitestCheck` lists the config and tests in `files` to keep the grader out
+of the implementation agent's initial workspace. The harness restores those
+files before running the check; the helper invokes Vitest and returns its outcomes.
 
 ## 3. Validate the grader
 

@@ -14,7 +14,7 @@ jobs:
   release:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       id-token: write
     steps:
       - name: Checkout repository
@@ -34,21 +34,44 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
       - name: Create canary snapshot
         run: |
-          pnpm changeset add \
-            --patch @primer/agent-eval \
-            --message "On-demand canary snapshot"
+          snapshot_date="$(date -u +%Y%m%d)"
           pnpm changeset version \
-            --snapshot "canary-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+            --snapshot canary \
+            --snapshot-prerelease-template "{tag}-{commit-short}-$snapshot_date"
+      - name: Prepare canary release notes
+        id: canary
+        run: |
+          version="$(node -p "require('./packages/agent-eval/package.json').version")"
+          {
+            printf 'Source commit: `%s`\n\n' "$GITHUB_SHA"
+            printf 'Install this version:\n\n```sh\nnpm install @primer/agent-eval@%s\n```\n' "$version"
+            bash script/release-canary-notes.sh "$version"
+          } > "$RUNNER_TEMP/canary-release-notes.md"
+          printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
       - name: Build and check package
         run: pnpm exec turbo run build lint:npm --filter=@primer/agent-eval
       - name: Publish canary to npm
         run: pnpm changeset publish --tag canary --no-git-tag
-      - name: Summarize canary release
+      - name: Create GitHub prerelease and tag
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.canary.outputs.version }}
         run: |
-          version="$(node -p "require('./packages/agent-eval/package.json').version")"
+          release_url="$(gh release create "@primer/agent-eval@$VERSION" \
+            --target "$GITHUB_SHA" \
+            --title "@primer/agent-eval@$VERSION" \
+            --prerelease \
+            --latest=false \
+            --notes-file "$RUNNER_TEMP/canary-release-notes.md")"
+          printf 'url=%s\n' "$release_url" >> "$GITHUB_OUTPUT"
+      - name: Summarize canary release
+        env:
+          RELEASE_URL: ${{ steps.release.outputs.url }}
+        run: |
           {
             printf '## Canary release\n\n'
-            printf 'Source commit: `%s`\n\n' "$GITHUB_SHA"
-            printf 'Install this version:\n\n```sh\nnpm install @primer/agent-eval@%s\n```\n\n' "$version"
-            printf 'Or install the latest canary:\n\n```sh\nnpm install @primer/agent-eval@canary\n```\n'
+            printf 'GitHub prerelease: %s\n\n' "$RELEASE_URL"
+            cat "$RUNNER_TEMP/canary-release-notes.md"
+            printf '\nOr install the latest canary:\n\n```sh\nnpm install @primer/agent-eval@canary\n```\n'
           } >> "$GITHUB_STEP_SUMMARY"

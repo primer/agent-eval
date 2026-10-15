@@ -3,7 +3,8 @@
 - The project uses pnpm for managing dependencies
 - The project uses Turbo for running tasks. Prefer `pnpm exec turbo run <task>`
   whenever a Turbo task exists
-- Add repository automation scripts to the `script` directory
+- Add automation scripts to the `script` directory of the workspace that owns
+  them. Use the top-level `script` directory only for repository-wide automation.
 - For tests, use `pnpm exec turbo run test -- --run`. You can optionally apply a filter to filter
   by test name, path, etc
 - For linting, use `pnpm exec turbo run lint lint:npm`

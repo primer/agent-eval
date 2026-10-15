@@ -43,3 +43,24 @@ test('@primer/agent-eval publishes the agent docs entrypoint and its references'
     expect(files).toContain(`docs/${reference}`)
   }
 })
+
+test('@primer/agent-eval publishes the standalone UI and static-build sources', async () => {
+  const directory = path.resolve(import.meta.dirname, '..')
+  const {stdout} = await promisify(execFile)('npm', ['pack', '--dry-run', '--json', '--ignore-scripts'], {
+    cwd: directory,
+  })
+  const [archive]: Array<{files: Array<{path: string}>}> = JSON.parse(stdout)
+  const files = archive.files.map(file => {
+    return file.path
+  })
+
+  expect(files).toContain('dist/ui/server.js')
+  expect(files).toContain('dist/ui/.next/BUILD_ID')
+  expect(files).toContain('dist/ui-source/next.config.mjs')
+  expect(files).toContain('dist/ui-source/app/page.jsx')
+  expect(
+    files.some(file => {
+      return file.startsWith('dist/ui/.next/static/') && file.endsWith('.js')
+    }),
+  ).toBe(true)
+})

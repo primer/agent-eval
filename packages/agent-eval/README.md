@@ -27,9 +27,9 @@ If none exists, it creates `AGENTS.md`. Existing instructions are preserved,
 and running setup again replaces only the marked block with the current guidance.
 An unchanged block or existing unmarked guidance is left alone.
 
+<!-- prettier-ignore -->
 ```md
 <!-- BEGIN:agent-eval -->
-
 ## agent-eval
 
 When working with agent-eval, first read `node_modules/@primer/agent-eval/docs/AGENTS.md`.

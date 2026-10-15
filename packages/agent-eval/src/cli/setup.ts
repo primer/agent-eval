@@ -12,14 +12,10 @@ async function setupInstructions(host: Host, directory: string) {
 
   for (const candidate of candidates) {
     const candidatePath = path.resolve(directory, candidate)
-    try {
+    if (host.fs.existsSync(candidatePath)) {
       contents = await host.fs.promises.readFile(candidatePath, 'utf-8')
       filepath = candidatePath
       break
-    } catch (error) {
-      if (typeof error !== 'object' || error === null || !('code' in error) || error.code !== 'ENOENT') {
-        throw error
-      }
     }
   }
 

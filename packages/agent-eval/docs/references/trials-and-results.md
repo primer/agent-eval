@@ -5,13 +5,13 @@ treatments. Each trial has its own ID, sandbox, execution, and evidence.
 
 ## Contract
 
-| Item                        | Rule                                                                       |
-| :-------------------------- | :------------------------------------------------------------------------- |
-| Trial identity              | Scenario, treatment, model variant, runner; also capability for benchmarks |
-| Benchmark/experiment output | `output.json` manifest with `trials` mapping IDs to relative file paths    |
-| Trial result location       | `artifacts/<trial-id>/<trial-id>.json`                                     |
-| Scenario output             | `{id, results}`, with embedded results rather than a trial-file manifest   |
-| Quality evidence            | Check outcomes/measurements and judge results, not command exit alone      |
+| Item                        | Rule                                                                                |
+| :-------------------------- | :---------------------------------------------------------------------------------- |
+| Trial identity              | Scenario, treatment, model variant, runner; also capability for benchmarks          |
+| Benchmark/experiment output | `output.json` manifest with `trials` mapping IDs to relative file paths             |
+| Trial result location       | `artifacts/<trial-id>/<trial-id>.json`                                              |
+| Scenario output             | `{id, createdAt, results}`, with embedded results rather than a trial-file manifest |
+| Quality evidence            | Check outcomes/measurements and judge results, not command exit alone               |
 
 ## Lifecycle
 
@@ -55,7 +55,13 @@ against the bundle's capability map. Scenario-only and legacy experiment
 bundles default to an empty capability map; missing historical membership is
 not inferred.
 
-Standalone `scenario run` writes a different output: `{id, results}`, with
+New output manifests and trial results require `createdAt` as an ISO 8601 UTC
+string, recording result creation after execution completes (not execution
+start). Merging shards creates a new manifest timestamp and preserves trial
+timestamps. Older files without `createdAt` are not readable by the result
+schemas. Plan manifests remain unchanged.
+
+Standalone `scenario run` writes a different output: `{id, createdAt, results}`, with
 entries containing `trial: {id}` and an embedded `result`. Do not parse it as a
 benchmark/experiment manifest.
 

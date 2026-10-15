@@ -23,6 +23,7 @@ const BenchmarkTrialOutputSchema = z.object({
   artifacts: TrialArtifactsSchema,
   capabilityId: z.string(),
   checks: z._default(TrialChecksSchema, []),
+  createdAt: z.iso.datetime(),
   id: z.string(),
   judges: TrialJudgesSchema,
   model: ModelVariantSchema,
@@ -71,6 +72,7 @@ type TreatmentOutput = z.infer<typeof TreatmentOutputSchema>
 
 const BenchmarkOutputFileSchema = z.object({
   id: z.string(),
+  createdAt: z.iso.datetime(),
   capabilities: z.record(z.string(), CapabilityOutputSchema).check(ctx => {
     for (const [key, capability] of Object.entries(ctx.value)) {
       if (capability.id !== key) {
@@ -183,6 +185,7 @@ const BenchmarkOutputFilesSchema = z
 
 type BenchmarkOutput = {
   id: string
+  createdAt: string
   capabilities: Map<string, CapabilityOutput>
   scenarios: Map<string, ScenarioOutput>
   treatments: Map<string, TreatmentOutput>
@@ -207,6 +210,7 @@ type CreateBenchmarkOutputOptions = {
 function createBenchmarkOutput({benchmark, runPlanResult}: CreateBenchmarkOutputOptions): BenchmarkOutput {
   const result: BenchmarkOutput = {
     id: benchmark.id,
+    createdAt: new Date().toISOString(),
     capabilities: new Map(),
     scenarios: new Map(),
     treatments: new Map(),
@@ -247,6 +251,7 @@ function createBenchmarkOutput({benchmark, runPlanResult}: CreateBenchmarkOutput
       artifacts: trialResult.artifacts,
       capabilityId: trial.capability.id,
       checks: trialResult.checks,
+      createdAt: trialResult.createdAt,
       id: trial.id,
       judges: trialResult.judges,
       model: trial.model,
@@ -306,6 +311,7 @@ async function mergeBenchmarkOutputFiles({
 
   const output: BenchmarkOutput = {
     id,
+    createdAt: new Date().toISOString(),
     capabilities,
     scenarios,
     treatments,
@@ -333,6 +339,7 @@ async function writeBenchmarkOutput({host = DefaultHost, output, outputPath}: Wr
       artifacts: trial.artifacts,
       capabilityId: trial.capabilityId,
       checks: trial.checks,
+      createdAt: trial.createdAt,
       id: trial.id,
       judges: trial.judges,
       model: trial.model,
@@ -349,6 +356,7 @@ async function writeBenchmarkOutput({host = DefaultHost, output, outputPath}: Wr
 
   const benchmarkFile: BenchmarkOutputFile = {
     id: output.id,
+    createdAt: output.createdAt,
     capabilities: Object.fromEntries(output.capabilities),
     scenarios: Object.fromEntries(output.scenarios),
     treatments: Object.fromEntries(output.treatments),

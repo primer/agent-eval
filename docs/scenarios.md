@@ -168,6 +168,10 @@ agent-eval scenario run 001-agent-scenario
 
 Use `--check <check-name>` to select a specific check. To compare models or treatments across scenarios, include them in a benchmark or experiment.
 
+Scenario output requires a `createdAt` ISO 8601 UTC string on the output and
+each embedded trial result. These timestamps record result creation after
+execution completes, not execution start.
+
 ### Build an image
 
 Build a scenario's image without running the agent, checks, or judges:

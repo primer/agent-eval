@@ -68,6 +68,7 @@ function createResult(
         walkthroughDirectory: '/artifacts/walkthrough',
         workspaceDirectory: '/artifacts/workspace',
       },
+      createdAt: '2026-10-14T20:00:00.000Z',
       checks: [
         {
           check: {

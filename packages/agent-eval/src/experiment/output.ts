@@ -24,6 +24,7 @@ const ExperimentTrialOutputSchema = z.object({
   artifacts: TrialArtifactsSchema,
   capabilityId: z.optional(z.string()),
   checks: z._default(TrialChecksSchema, []),
+  createdAt: z.iso.datetime(),
   id: z.string(),
   judges: TrialJudgesSchema,
   model: ModelVariantSchema,
@@ -55,6 +56,7 @@ type TreatmentOutput = z.infer<typeof TreatmentOutputSchema>
 
 const ExperimentOutputFileSchema = z.object({
   id: z.string(),
+  createdAt: z.iso.datetime(),
   capabilities: z._default(
     z.record(z.string(), CapabilityOutputSchema).check(ctx => {
       for (const [key, capability] of Object.entries(ctx.value)) {
@@ -170,6 +172,7 @@ const ExperimentOutputFilesSchema = z
 
 type ExperimentOutput = {
   id: string
+  createdAt: string
   capabilities: Map<string, CapabilityOutput>
   scenarios: Map<string, ScenarioOutput>
   treatments: Map<string, TreatmentOutput>
@@ -201,6 +204,7 @@ type CreateExperimentOutputOptions = {
 function createExperimentOutput({experiment, runPlanResult}: CreateExperimentOutputOptions): ExperimentOutput {
   const result: ExperimentOutput = {
     id: experiment.id,
+    createdAt: new Date().toISOString(),
     capabilities: new Map(),
     scenarios: new Map(),
     treatments: new Map(),
@@ -237,6 +241,7 @@ function createExperimentOutput({experiment, runPlanResult}: CreateExperimentOut
       artifacts: trialResult.artifacts,
       ...(capability ? {capabilityId: capability.id} : {}),
       checks: trialResult.checks,
+      createdAt: trialResult.createdAt,
       id: trial.id,
       judges: trialResult.judges,
       model: trial.model,
@@ -292,7 +297,14 @@ async function mergeExperimentOutputFiles({
     }
   }
 
-  return {id, capabilities, scenarios, treatments, trials}
+  return {
+    id,
+    createdAt: new Date().toISOString(),
+    capabilities,
+    scenarios,
+    treatments,
+    trials,
+  }
 }
 
 type WriteExperimentOutputOptions = {
@@ -316,6 +328,7 @@ async function writeExperimentOutput({host = DefaultHost, output, outputPath}: W
 
   const experimentFile: ExperimentOutputFile = {
     id: output.id,
+    createdAt: output.createdAt,
     capabilities: Object.fromEntries(output.capabilities),
     scenarios: Object.fromEntries(output.scenarios),
     treatments: Object.fromEntries(output.treatments),

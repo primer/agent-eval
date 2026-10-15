@@ -96,6 +96,7 @@ function createTrial(overrides: Partial<ExperimentTrialOutput> = {}): Experiment
     checks,
     walkthrough: {type: 'Unavailable'},
     judges,
+    createdAt: '2026-10-14T20:00:00.000Z',
     ...overrides,
   }
 }
@@ -103,6 +104,7 @@ function createTrial(overrides: Partial<ExperimentTrialOutput> = {}): Experiment
 function createExperimentOutput(trials: Array<ExperimentTrialOutput> = [createTrial()]): ExperimentOutput {
   return {
     id: 'test-experiment',
+    createdAt: '2026-10-14T20:00:00.000Z',
     capabilities: new Map(),
     scenarios: new Map([
       [

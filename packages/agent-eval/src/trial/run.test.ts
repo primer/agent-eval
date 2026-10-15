@@ -104,6 +104,7 @@ test.each(['copilot-cli', 'copilot-sdk'] as const)(
       }
     })
 
+    const before = Date.now()
     const result = await runTrial({
       artifactsDirectory: '/artifacts',
       copilotQueue,
@@ -113,6 +114,9 @@ test.each(['copilot-cli', 'copilot-sdk'] as const)(
       trial,
     })
 
+    expect(result.createdAt).toEqual(expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/))
+    expect(Date.parse(result.createdAt)).toBeGreaterThanOrEqual(before)
+    expect(Date.parse(result.createdAt)).toBeLessThanOrEqual(Date.now())
     expect(taskCalls).toBe(1)
     expect(result.agent.sessions[0].outputTokens).toBe(runner === 'copilot-cli' ? 42 : 0)
     expect(sandbox.runCommand).toHaveBeenCalledWith(

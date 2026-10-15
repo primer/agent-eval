@@ -1,0 +1,54 @@
+name: Release canary
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up pnpm
+        uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024 # v3.0.0
+        with:
+          cache: true
+          require-lockfile: true
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: '.nvmrc'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Create canary snapshot
+        run: |
+          pnpm changeset add \
+            --patch @primer/agent-eval \
+            --message "On-demand canary snapshot"
+          pnpm changeset version \
+            --snapshot "canary-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+      - name: Build and check package
+        run: pnpm exec turbo run build lint:npm --filter=@primer/agent-eval
+      - name: Publish canary to npm
+        run: pnpm changeset publish --tag canary --no-git-tag
+      - name: Summarize canary release
+        run: |
+          version="$(node -p "require('./packages/agent-eval/package.json').version")"
+          {
+            printf '## Canary release\n\n'
+            printf 'Source commit: `%s`\n\n' "$GITHUB_SHA"
+            printf 'Install this version:\n\n```sh\nnpm install @primer/agent-eval@%s\n```\n\n' "$version"
+            printf 'Or install the latest canary:\n\n```sh\nnpm install @primer/agent-eval@canary\n```\n'
+          } >> "$GITHUB_STEP_SUMMARY"

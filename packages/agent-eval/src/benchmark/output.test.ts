@@ -52,6 +52,35 @@ test('parses legacy benchmark output with a required CLI runner', () => {
   expectTypeOf<BenchmarkTrialOutput['runner']>().toEqualTypeOf<CopilotRunner>()
 })
 
+test('preserves outcome and measurement annotations in serialized benchmark trial output', () => {
+  const checks = [
+    {
+      check: {name: 'tests', files: []},
+      result: {
+        type: 'outcomes',
+        outcomes: [
+          {
+            type: 'outcome',
+            status: 'failed',
+            annotations: [{context: 'scenario.test.ts', message: 'filters by name', snippet: 'test("filters", ...)'}],
+          },
+        ],
+      },
+    },
+    {
+      check: {name: 'size', files: []},
+      result: {
+        type: 'measurements',
+        measurements: [{type: 'measurement', value: 42, annotations: [{message: 'Bundle size'}]}],
+      },
+    },
+  ]
+
+  const parsed = parseBenchmarkTrialOutput(JSON.parse(JSON.stringify({...trial, checks})), capabilities)
+
+  expect(parsed.checks).toEqual(checks)
+})
+
 test.each(['copilot-cli', 'copilot-sdk'] as const)('preserves the explicit %s benchmark output runner', runner => {
   const parsed = parseBenchmarkTrialOutput(
     {

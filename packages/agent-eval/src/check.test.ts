@@ -1,5 +1,5 @@
 import {expect, expectTypeOf, test} from 'vitest'
-import {CheckOutputSchema, CheckRunSchema, parseCheckConfig, type CheckRunResult} from './check'
+import {CheckOutputSchema, CheckRunSchema, parseCheckConfig, type CheckConfigRun, type CheckRunResult} from './check'
 import {VirtualHost} from './host'
 import {logger} from './logger'
 import {VirtualSandbox} from './sandbox'
@@ -31,6 +31,54 @@ test('check runs still accept outcomes without IDs', async () => {
   await using sandbox = await VirtualSandbox.create()
 
   await expect(run({logger, sandbox})).resolves.toEqual([result])
+})
+
+test.each(['single group', 'multiple groups'])('parsed checks preserve outcome annotations in %s', async shape => {
+  const result = {
+    id: 'tests',
+    outcomes: [
+      {type: 'outcome' as const, status: 'passed' as const, annotations: []},
+      {type: 'outcome' as const, status: 'failed' as const, annotations: [{message: 'filters by name'}]},
+      {
+        type: 'outcome' as const,
+        id: 'optional-case',
+        status: 'skipped' as const,
+        annotations: [
+          {
+            context: '/home/sandbox/workspace/scenario.test.ts',
+            message: 'requires browser support',
+            snippet: 'test.skip',
+          },
+          {message: 'Browser unavailable'},
+        ],
+      },
+    ],
+  }
+  const run: CheckConfigRun = async () => {
+    return shape === 'single group' ? result : [result]
+  }
+  const check = await parseCheckConfig(VirtualHost.create(), '/scenario', {name: 'tests', run})
+  await using sandbox = await VirtualSandbox.create()
+
+  await expect(check.run({logger, sandbox})).resolves.toEqual([{...result, type: 'outcomes'}])
+})
+
+test('parsed checks preserve measurement annotations', async () => {
+  const result = {
+    measurements: [
+      {
+        type: 'measurement' as const,
+        value: 42,
+        annotations: [{context: 'dist/index.js', message: 'Bundle size', snippet: 'export {}'}],
+      },
+      {type: 'measurement' as const, value: 0, annotations: []},
+    ],
+  }
+  const run: CheckConfigRun = async () => result
+  const check = await parseCheckConfig(VirtualHost.create(), '/scenario', {name: 'size', run})
+  await using sandbox = await VirtualSandbox.create()
+
+  await expect(check.run({logger, sandbox})).resolves.toEqual([{...result, type: 'measurements'}])
 })
 
 test('check outcome IDs must be strings', async () => {
@@ -193,6 +241,22 @@ test.each([
   await using sandbox = await VirtualSandbox.create()
 
   await expect(check.run({logger, sandbox})).rejects.toThrow()
+})
+
+test.each([
+  {name: 'non-array annotations', annotations: 'details'},
+  {name: 'null annotations', annotations: null},
+  {name: 'missing message', annotations: [{context: 'test.ts'}]},
+  {name: 'invalid message', annotations: [{message: 123}]},
+  {name: 'invalid context', annotations: [{message: 'details', context: 123}]},
+  {name: 'invalid snippet', annotations: [{message: 'details', snippet: null}]},
+])('check output rejects $name for outcomes and measurements', ({annotations}) => {
+  for (const result of [
+    {type: 'outcomes', outcomes: [{type: 'outcome', status: 'failed', annotations}]},
+    {type: 'measurements', measurements: [{type: 'measurement', value: 42, annotations}]},
+  ]) {
+    expect(() => CheckOutputSchema.parse({check: {name: 'example', files: []}, result})).toThrow()
+  }
 })
 
 test('parsed checks preserve callback arguments and errors', async () => {

@@ -52,6 +52,30 @@ Files listed in a check's `files` option are withheld from the agent's initial w
 
 Checks return either `outcomes` or `measurements`. Outcomes report a `passed`, `failed`, or `skipped` status. Measurements report numeric values, with optional units and a direction such as `higher-is-better` or `lower-is-better`.
 
+Individual outcomes and measurements may include an optional `annotations` array. Each annotation has a required `message` and optional `context` and `snippet` strings:
+
+```ts
+return {
+  outcomes: [
+    {
+      type: 'outcome',
+      status: 'failed',
+      annotations: [
+        {
+          context: 'scenario.test.ts',
+          message: 'Search filters projects by name',
+          snippet: 'expect(filteredProjects).toHaveLength(1)',
+        },
+      ],
+    },
+  ],
+}
+```
+
+Annotations are preserved in saved trial results for benchmarks and experiments. Use `message` to describe the result, `context` for a related file or other context, and `snippet` for relevant source text. Context is descriptive metadata, not a filesystem reference to resolve or copy.
+
+`createVitestCheck` includes one annotation per outcome, using the assertion's full name as `message` and its suite's file name as `context` when reported by Vitest. Existing outcome IDs and status mapping are unchanged.
+
 ### Judges
 
 Judges use a model to evaluate the agent's output against a rubric. They are useful for criteria that are difficult to verify deterministically, such as visual consistency or the clarity of an interaction.

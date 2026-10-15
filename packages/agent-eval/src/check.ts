@@ -5,23 +5,23 @@ import type {Host} from './host'
 import type {Logger} from './logger'
 import {isPathInside} from './path'
 
-// const AnnotationSchema = z.object({
-//   context: z.optional(z.string()),
-//   message: z.string(),
-//   snippet: z.optional(z.string()),
-// })
+const AnnotationSchema = z.object({
+  context: z.optional(z.string()),
+  message: z.string(),
+  snippet: z.optional(z.string()),
+})
 
 const MeasurementSchema = z.object({
   type: z.literal('measurement'),
   value: z.number(),
-  // annotations: z._default(z.array(AnnotationSchema), []),
+  annotations: z.optional(z.array(AnnotationSchema)),
 })
 
 const OutcomeSchema = z.object({
   type: z.literal('outcome'),
   id: z.optional(z.string()),
   status: z.enum(['passed', 'failed', 'skipped']),
-  // annotations: z._default(z.array(AnnotationSchema), []),
+  annotations: z.optional(z.array(AnnotationSchema)),
 })
 
 const ErrorSchema = z.object({

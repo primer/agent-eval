@@ -64,7 +64,7 @@ describe(createVitestCheck, () => {
     const check = createVitestCheck(options)
 
     await expect(check.run({sandbox, logger})).resolves.toEqual({
-      outcomes: [{type: 'outcome', id: 'suite test 0', status: 'passed'}],
+      outcomes: [{type: 'outcome', id: 'suite test 0', status: 'passed', annotations: [{message: 'suite test 0'}]}],
     })
     const reportPath = runCommand.mock.calls[0][1]?.[6]
     expect(runCommand.mock.calls).toEqual([
@@ -179,13 +179,71 @@ describe(createVitestCheck, () => {
 
     await expect(createVitestCheck(options).run({sandbox, logger})).resolves.toEqual({
       outcomes: [
-        {type: 'outcome', id: 'suite test 0', status: 'passed'},
-        {type: 'outcome', id: 'suite test 1', status: 'failed'},
-        {type: 'outcome', id: 'suite test 2', status: 'skipped'},
-        {type: 'outcome', id: 'suite test 3', status: 'skipped'},
-        {type: 'outcome', id: 'suite test 4', status: 'skipped'},
+        {type: 'outcome', id: 'suite test 0', status: 'passed', annotations: [{message: 'suite test 0'}]},
+        {type: 'outcome', id: 'suite test 1', status: 'failed', annotations: [{message: 'suite test 1'}]},
+        {type: 'outcome', id: 'suite test 2', status: 'skipped', annotations: [{message: 'suite test 2'}]},
+        {type: 'outcome', id: 'suite test 3', status: 'skipped', annotations: [{message: 'suite test 3'}]},
+        {type: 'outcome', id: 'suite test 4', status: 'skipped', annotations: [{message: 'suite test 4'}]},
       ],
     })
+  })
+
+  test('preserves each suite file path and assertion name through check parsing', async () => {
+    const report = {
+      numTotalTests: 3,
+      numFailedTests: 1,
+      testResults: [
+        {
+          name: '/home/sandbox/workspace/tests/first.test.ts',
+          message: '',
+          assertionResults: [
+            {fullName: 'search filters by name', status: 'passed'},
+            {fullName: 'search shows empty state', status: 'failed'},
+          ],
+        },
+        {
+          name: 'tests/second.test.ts',
+          message: '',
+          assertionResults: [{fullName: 'search optional case', status: 'skipped'}],
+        },
+      ],
+    }
+    const host = VirtualHost.create()
+    await host.fs.promises.mkdir('/scenario/tests', {recursive: true})
+    for (const filepath of [options.configPath, ...options.testPaths]) {
+      await host.fs.promises.writeFile(`/scenario/${filepath}`, '')
+    }
+    const {sandbox: resource} = await createSandbox(JSON.stringify(report), 1)
+    await using sandbox = resource
+    const check = await parseCheckConfig(host, '/scenario', createVitestCheck(options))
+
+    await expect(check.run({sandbox, logger})).resolves.toEqual([
+      {
+        type: 'outcomes',
+        outcomes: [
+          {
+            type: 'outcome',
+            id: 'search filters by name',
+            status: 'passed',
+            annotations: [{context: '/home/sandbox/workspace/tests/first.test.ts', message: 'search filters by name'}],
+          },
+          {
+            type: 'outcome',
+            id: 'search shows empty state',
+            status: 'failed',
+            annotations: [
+              {context: '/home/sandbox/workspace/tests/first.test.ts', message: 'search shows empty state'},
+            ],
+          },
+          {
+            type: 'outcome',
+            id: 'search optional case',
+            status: 'skipped',
+            annotations: [{context: 'tests/second.test.ts', message: 'search optional case'}],
+          },
+        ],
+      },
+    ])
   })
 
   test('rejects unexpected exits even when a valid report exists', async () => {

@@ -29,15 +29,14 @@
   "files": [
     "bin",
     "dist",
-    "docs",
-    "src/ui"
+    "docs"
   ],
   "scripts": {
     "build": "rolldown -c",
+    "build-ui": "script/build-ui",
     "clean": "rimraf dist",
-    "dev:ui": "next dev src/ui",
     "lint:npm": "publint --types",
-    "type-check": "tsc --noEmit && tsc --project src/ui/tsconfig.json --noEmit",
+    "type-check": "tsc --noEmit",
     "watch": "rolldown -c -w"
   },
   "repository": {
@@ -64,6 +63,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@primer/agent-eval-ui": "workspace:*",
     "@types/dockerode": "^4.0.1",
     "@types/node": "~26.4.0",
     "@types/react": "^19.3.0",

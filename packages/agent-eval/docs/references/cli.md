@@ -26,6 +26,7 @@ Image commands require Docker but not a Copilot token.
 | `scenario run <name>`           | Run one scenario                 |
 | `scenario image build <name>`   | Build a scenario workspace image |
 | `scenario image clean [name]`   | Remove local agent-eval images   |
+| `ui`                            | Start the local benchmark UI     |
 
 Use singular `benchmark`, `experiment`, and `scenario`. There is no CLI
 scaffolding command; create files with the appropriate `defineConfig` helper.
@@ -74,6 +75,14 @@ The CLI requires `--token` or `COPILOT_GITHUB_TOKEN` for evaluation runs. Host C
 login alone does not satisfy this check. Plan creation and merge do not require
 a token. Avoid putting token values on command lines, in logs, or in shell
 history.
+
+## Local UI
+
+Run `npx agent-eval ui` from your evaluation project to list its benchmarks at
+`http://127.0.0.1:3000`. The UI is included in the package; it does not compile
+the app on startup or require a separate installation. Use `--benchmarks` and
+`--scenarios` to override the default `./benchmarks` and `./scenarios`
+directories. Set `PORT` to choose a different port.
 
 ## Scenario images
 

@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+package_directory="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+app_directory="$package_directory/../agent-eval-ui"
+build_directory="$app_directory/.next"
+destination="$package_directory/dist/ui"
+
+if [[ ! -f "$build_directory/BUILD_ID" ]]; then
+  echo "UI build not found at $build_directory. Build @primer/agent-eval-ui first." >&2
+  exit 1
+fi
+
+rm -rf "$destination"
+mkdir -p "$destination/.next"
+
+shopt -s dotglob
+for entry in "$build_directory"/*; do
+  case "${entry##*/}" in
+    cache|dev|standalone)
+      continue
+      ;;
+  esac
+  cp -R "$entry" "$destination/.next/"
+done
+
+cp "$app_directory/next.config.js" "$destination/next.config.js"

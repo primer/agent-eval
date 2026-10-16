@@ -115,6 +115,9 @@ In [primer/agent-eval](https://github.com/primer/agent-eval), `packages/agent-ev
 contains the published library and CLI. `docs` contains usage documentation,
 `benchmarks`, `experiments`, and `scenarios` contain evaluations, `skills`
 contains installable agent guidance, and `website` presents results.
+`packages/agent-eval-ui` is a private Next.js workspace that consumes the built
+library. Its production build is assembled into the published package for
+`agent-eval ui`; consumers do not install it separately.
 
 Those are upstream development conventions, not directories an installed skill
 can assume exist in a consumer project. The references bundled with this skill

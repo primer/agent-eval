@@ -1,0 +1,31 @@
+{
+  "name": "@primer/agent-eval-ui",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "files": [
+    ".next",
+    "!.next/cache",
+    "!.next/dev",
+    "!.next/standalone",
+    "next.config.js"
+  ],
+  "scripts": {
+    "build": "next build",
+    "dev": "next dev",
+    "type-check": "next typegen && tsc --noEmit"
+  },
+  "dependencies": {
+    "@primer/agent-eval": "workspace:*",
+    "next": "^16.4.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "~26.4.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "typescript": "^6.0.3"
+  }
+}

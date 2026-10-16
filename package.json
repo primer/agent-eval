@@ -3,12 +3,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "turbo run build",
+    "build": "turbo run build build-ui",
     "changeset": "changeset",
     "format": "prettier --cache --write '**/*.{js,css,md,mdx,ts,tsx,yml}'",
     "format:diff": "prettier --cache --list-different '**/*.{js,css,md,mdx,ts,tsx,yml}'",
     "lint": "eslint '**/*.{js,ts,tsx}' --max-warnings=0 --cache",
-    "release": "pnpm --filter @primer/agent-eval run build && changeset publish",
+    "release": "turbo run build-ui --filter=@primer/agent-eval && changeset publish",
     "test": "vitest",
     "type-check": "tsc --noEmit"
   },

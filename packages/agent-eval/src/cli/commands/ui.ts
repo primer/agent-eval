@@ -4,7 +4,7 @@ import {spawn} from 'node:child_process'
 import {createRequire} from 'node:module'
 import path from 'node:path'
 import {defineCommand} from 'citty'
-import {benchmarksOption, scenariosOption} from '../options'
+import {benchmarksOption, experimentsOption, scenariosOption} from '../options'
 // import * as z from 'zod/mini'
 // import {logger} from '../../logger'
 
@@ -25,7 +25,7 @@ import {benchmarksOption, scenariosOption} from '../options'
 
 const require = createRequire(import.meta.url)
 const nextBin = require.resolve('next/dist/bin/next')
-const NEXT_APP_DIRECTORY = path.resolve(import.meta.dirname, '..', '..', '..', 'src', 'ui')
+const NEXT_APP_DIRECTORY = path.resolve(import.meta.dirname, '..', '..', 'ui')
 
 const uiCommand = defineCommand({
   meta: {
@@ -86,7 +86,7 @@ const uiCommand = defineCommand({
     const experimentsDirectory = path.resolve(args.experiments)
     const scenariosDirectory = path.resolve(args.scenarios)
 
-    await runNextCommand([], {
+    await runNextCommand(['start', '--hostname', '127.0.0.1'], {
       AGENT_EVAL_UI_BENCHMARKS_DIRECTORY: benchmarksDirectory,
       AGENT_EVAL_UI_EXPERIMENTS_DIRECTORY: experimentsDirectory,
       AGENT_EVAL_UI_SCENARIOS_DIRECTORY: scenariosDirectory,
@@ -99,7 +99,8 @@ async function runNextCommand(args: Array<string> = [], env?: Record<string, str
     cwd: NEXT_APP_DIRECTORY,
     stdio: 'inherit',
     env: {
-      NODE_ENV: 'development',
+      ...process.env,
+      NODE_ENV: 'production',
       ...env,
     },
   })

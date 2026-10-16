@@ -20,7 +20,7 @@ not a prerequisite for every operation.
 | Install resources, search files, or run commands in a trial | [Sandbox](references/sandbox.md)                                                                                |
 | Inspect a run matrix, shard, or merge                       | [Plans](references/plans.md)                                                                                    |
 | Read results or diagnose agent behavior                     | [Trials and results](references/trials-and-results.md), [experiment reports](references/experiments.md#reports) |
-| Find a command, flag, or runtime failure                    | [CLI](references/cli.md)                                                                                        |
+| Find a command, start the local UI, or diagnose a failure   | [CLI](references/cli.md)                                                                                        |
 
 For an evidence-driven investigation of why a model behaved a certain way, use
 the `agent-eval-investigate` skill (installed separately with

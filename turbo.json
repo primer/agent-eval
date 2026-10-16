@@ -6,6 +6,14 @@
       "dependsOn": ["^build"],
       "outputs": ["dist/**", ".next/**", "!.next/cache/**", "!.next/dev/**", "next-env.d.ts"]
     },
+    "@primer/agent-eval#build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", "!dist/ui/**"]
+    },
+    "@primer/agent-eval#build-ui": {
+      "dependsOn": ["build", "@primer/agent-eval-ui#build"],
+      "outputs": ["dist/ui/**"]
+    },
     "@primer/agent-eval-website#build": {
       "dependsOn": ["^build"],
       "env": ["PAGES_BASE_PATH"],
@@ -16,7 +24,7 @@
       "outputs": []
     },
     "//#test": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["^build", "@primer/agent-eval#build-ui"]
     },
     "@primer/agent-eval#lint:npm": {
       "dependsOn": ["build"],

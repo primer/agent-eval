@@ -11,7 +11,6 @@ const config = defineConfig([
   {
     input: {
       benchmark: 'src/benchmark.ts',
-      cli: 'src/cli.ts',
       experiment: 'src/experiment.ts',
       index: 'src/index.ts',
       scenario: 'src/scenario.ts',

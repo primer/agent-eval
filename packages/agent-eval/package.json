@@ -1,10 +1,6 @@
 {
-  "name": "@primer/agent-eval",
-  "version": "0.16.0",
+  "name": "@primer/agent-eval-core",
   "type": "module",
-  "bin": {
-    "agent-eval": "bin/agent-eval"
-  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -18,19 +14,13 @@
       "types": "./dist/experiment.d.ts",
       "default": "./dist/experiment.js"
     },
+    "./package.json": "./package.json",
+    "./sandbox/glob-script": "./dist/sandbox/glob-script.mjs",
     "./scenario": {
       "types": "./dist/scenario.d.ts",
       "default": "./dist/scenario.js"
     }
   },
-  "engines": {
-    "node": ">=26"
-  },
-  "files": [
-    "bin",
-    "dist",
-    "docs"
-  ],
   "scripts": {
     "build": "rolldown -c",
     "clean": "rimraf dist",
@@ -38,16 +28,7 @@
     "type-check": "tsc --noEmit",
     "watch": "rolldown -c -w"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/primer/agent-eval.git"
-  },
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/primer/agent-eval/issues"
-  },
   "dependencies": {
-    "citty": "^0.2.2",
     "dockerode": "^5.0.1",
     "glob": "^13.0.6",
     "memfs": "^4.68.1",

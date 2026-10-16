@@ -1,4 +1,4 @@
-export {defineConfig} from './scenario/config'
-export type {ScenarioConfig} from './scenario/config'
-export {createVitestCheck} from './scenario/vitest'
-export type {VitestCheckOptions} from './scenario/vitest'
+export {defineConfig} from '@primer/agent-eval-core/scenario'
+export type {ScenarioConfig} from '@primer/agent-eval-core/scenario'
+export {createVitestCheck} from '@primer/agent-eval-core/scenario'
+export type {VitestCheckOptions} from '@primer/agent-eval-core/scenario'

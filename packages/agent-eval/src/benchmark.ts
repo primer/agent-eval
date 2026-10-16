@@ -1,2 +1,2 @@
-export {defineConfig} from './benchmark/config'
-export type {BenchmarkConfig} from './benchmark/config'
+export {defineConfig} from '@primer/agent-eval-core/benchmark'
+export type {BenchmarkConfig} from '@primer/agent-eval-core/benchmark'

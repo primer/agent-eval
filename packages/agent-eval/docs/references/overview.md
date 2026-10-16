@@ -112,7 +112,10 @@ Do not import unpublished `src/` internals.
 ## The upstream repository
 
 In [primer/agent-eval](https://github.com/primer/agent-eval), `packages/agent-eval`
-contains the published library and CLI. `docs` contains usage documentation,
+contains the private core library, `packages/cli` contains the published
+`@primer/agent-eval` library and CLI, and `packages/ui` contains the
+private Next.js UI. The CLI build bundles core and the built UI into the
+published package. `docs` contains usage documentation,
 `benchmarks`, `experiments`, and `scenarios` contain evaluations, `skills`
 contains installable agent guidance, and `website` presents results.
 

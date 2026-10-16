@@ -1,8 +1,24 @@
+import fs, {cp} from 'node:fs/promises'
+import {createRequire} from 'node:module'
+import path from 'node:path'
 import {defineConfig} from 'rolldown/config'
 import {dts} from 'rolldown-plugin-dts'
 import packageJson from './package.json' with {type: 'json'}
+import corePackageJson from '@primer/agent-eval-core/package.json' with {type: 'json'}
+import uiPackageJson from '@primer/agent-eval-ui/package.json' with {type: 'json'}
 
-const dependencies = [...Object.keys(packageJson.dependencies), ...Object.keys(packageJson.devDependencies)]
+const require = createRequire(import.meta.url)
+
+const dependencies = [
+  ...Object.keys(packageJson.dependencies),
+  ...Object.keys(packageJson.devDependencies),
+  ...Object.keys(corePackageJson.dependencies),
+  ...Object.keys(corePackageJson.devDependencies),
+  ...Object.keys(uiPackageJson.dependencies),
+  ...Object.keys(uiPackageJson.devDependencies),
+].filter(name => {
+  return !name.startsWith('@primer/agent-eval-')
+})
 const external = dependencies.map(name => {
   return new RegExp(`^${name}(/.*)?`)
 })
@@ -11,21 +27,39 @@ const config = defineConfig([
   {
     input: {
       benchmark: 'src/benchmark.ts',
+      cli: 'src/cli.ts',
       experiment: 'src/experiment.ts',
       index: 'src/index.ts',
       scenario: 'src/scenario.ts',
     },
     platform: 'node',
     external,
-    plugins: [dts({eager: true, sourcemap: true})],
+    plugins: [
+      dts({
+        eager: true,
+        sourcemap: true,
+      }),
+      {
+        name: 'copy-ui',
+        async writeBundle() {
+          const appDirectory = path.resolve(import.meta.dirname, '..', 'ui', 'dist')
+          const targetAppDirectory = path.join(import.meta.dirname, 'dist', 'ui')
+
+          await fs.mkdir(targetAppDirectory, {
+            recursive: true,
+          })
+          await fs.cp(appDirectory, targetAppDirectory, {
+            recursive: true,
+          })
+        },
+      },
+    ],
     output: {
       dir: 'dist',
-      preserveModules: true,
-      preserveModulesRoot: 'src',
     },
   },
   {
-    input: 'src/sandbox/glob-script.ts',
+    input: require.resolve('@primer/agent-eval-core/sandbox/glob-script'),
     platform: 'node',
     output: {
       file: 'dist/sandbox/glob-script.mjs',

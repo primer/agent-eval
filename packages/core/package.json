@@ -1,14 +1,7 @@
 {
-  "name": "@primer/agent-eval",
-  "version": "0.16.0",
-  "files": [
-    "bin",
-    "dist",
-    "docs"
-  ],
-  "bin": {
-    "agent-eval": "bin/agent-eval"
-  },
+  "name": "@primer/agent-eval-core",
+  "private": true,
+  "type": "module",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -22,24 +15,21 @@
       "types": "./dist/experiment.d.ts",
       "default": "./dist/experiment.js"
     },
+    "./package.json": "./package.json",
+    "./sandbox/glob-script": "./dist/sandbox/glob-script.mjs",
     "./scenario": {
       "types": "./dist/scenario.d.ts",
       "default": "./dist/scenario.js"
     }
   },
-  "engines": {
-    "node": ">=26"
-  },
   "scripts": {
     "build": "rolldown -c",
-    "clean": "",
-    "lint:npm": "",
+    "clean": "rimraf dist",
+    "lint:npm": "publint --types",
     "type-check": "tsc --noEmit",
-    "watch": ""
+    "watch": "rolldown -c -w"
   },
   "dependencies": {
-    "citty": "^0.2.2",
-    "cpu-features": "^0.0.10",
     "dockerode": "^5.0.1",
     "glob": "^13.0.6",
     "memfs": "^4.68.1",
@@ -51,21 +41,14 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@primer/agent-eval-core": "workspace:*",
     "@types/dockerode": "^4.0.1",
     "@types/node": "^26.6.4",
+    "@types/tar-fs": "^2.0.4",
+    "@types/tar-stream": "^3.1.4",
     "publint": "^0.3.24",
     "rimraf": "^6.1.3",
     "rolldown": "^1.2.13",
     "rolldown-plugin-dts": "^0.28.6",
     "typescript": "^6.0.3"
-  },
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/primer/agent-eval.git"
-  },
-  "bugs": {
-    "url": "https://github.com/primer/agent-eval/issues"
   }
 }

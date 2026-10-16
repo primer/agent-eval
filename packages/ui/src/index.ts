@@ -6,6 +6,8 @@ const require = createRequire(import.meta.url)
 
 type BuildOptions = {
   directory: string
+  basePath?: string
+  outputDirectory?: string
   benchmarksDirectory: string
   experimentsDirectory: string
   scenariosDirectory: string
@@ -18,10 +20,31 @@ type ServeOptions = {
   scenariosDirectory: string
 }
 
-async function build({directory}: BuildOptions): Promise<void> {
-  await runNextCommand('build', directory, {
+async function build({
+  directory,
+  basePath,
+  outputDirectory,
+  benchmarksDirectory,
+  experimentsDirectory,
+  scenariosDirectory,
+}: BuildOptions): Promise<void> {
+  const env: Record<string, string> = {
+    AGENT_EVAL_UI_BENCHMARKS_DIRECTORY: benchmarksDirectory,
+    AGENT_EVAL_UI_EXPERIMENTS_DIRECTORY: experimentsDirectory,
     AGENT_EVAL_UI_OUTPUT: 'export',
-  })
+    AGENT_EVAL_UI_SCENARIOS_DIRECTORY: scenariosDirectory,
+    NODE_ENV: 'production',
+  }
+
+  if (basePath) {
+    env['AGENT_EVAL_UI_BASE_PATH'] = basePath
+  }
+
+  if (outputDirectory) {
+    env['AGENT_EVAL_UI_OUTPUT_DIRECTORY'] = path.relative(directory, outputDirectory)
+  }
+
+  await runNextCommand('build', directory, env)
 }
 
 async function serve({
@@ -31,9 +54,9 @@ async function serve({
   scenariosDirectory,
 }: ServeOptions): Promise<void> {
   await runNextCommand('dev', directory, {
-    AGENT_EVAL_UI_BENCHMARKS_DIRECTORY: path.resolve(benchmarksDirectory),
-    AGENT_EVAL_UI_EXPERIMENTS_DIRECTORY: path.resolve(experimentsDirectory),
-    AGENT_EVAL_UI_SCENARIOS_DIRECTORY: path.resolve(scenariosDirectory),
+    AGENT_EVAL_UI_BENCHMARKS_DIRECTORY: benchmarksDirectory,
+    AGENT_EVAL_UI_EXPERIMENTS_DIRECTORY: experimentsDirectory,
+    AGENT_EVAL_UI_SCENARIOS_DIRECTORY: scenariosDirectory,
   })
 }
 

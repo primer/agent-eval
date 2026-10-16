@@ -23,6 +23,10 @@ const cli = defineCommand({
     benchmark,
     experiment,
     scenario,
+    async ui() {
+      const mod = await import('./cli/commands/ui')
+      return mod.ui
+    },
   },
   setup({args}) {
     logger.level = args['log-level']

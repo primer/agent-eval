@@ -5,6 +5,8 @@ export const metadata: Metadata = {
   title: 'agent-eval',
 }
 
+export const ensureStatic = 'navigation'
+
 export default function RootLayout({children}: {children: ReactNode}) {
   return (
     <html lang="en">

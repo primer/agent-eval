@@ -1,10 +1,7 @@
-import {connection} from 'next/server'
 import {listBenchmarks} from '@primer/agent-eval-core'
 import {benchmarksDirectory, scenariosDirectory} from '../env'
 
 export default async function IndexPage() {
-  await connection()
-
   const benchmarks = await listBenchmarks({
     benchmarksDirectory,
     scenariosDirectory,

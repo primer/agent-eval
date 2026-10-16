@@ -1,6 +1,6 @@
 import {test, expect} from 'vitest'
 import type {Environment} from '../env'
-import {enabled} from './status'
+import {enabled} from './enabled'
 
 test('enabled returns true for enabled flags', () => {
   const env: Environment = {

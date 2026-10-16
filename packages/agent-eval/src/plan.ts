@@ -81,6 +81,7 @@ type RunPlanOptions<T extends Trial> = {
   copilotConcurrency: number
   containerConcurrency: number
   copilotToken: string
+  dockerImage?: string
   host?: Host
   plan: Plan<T>
 }
@@ -94,6 +95,7 @@ async function runPlan<T extends Trial>({
   copilotConcurrency,
   containerConcurrency,
   copilotToken,
+  dockerImage,
   host = DefaultHost,
   plan,
 }: RunPlanOptions<T>): Promise<RunPlanResult<T>> {
@@ -114,12 +116,13 @@ async function runPlan<T extends Trial>({
     plan.trials.map(trial => {
       return retry(() => {
         return containerQueue.add(async () => {
-          const dockerImage = await buildScenarioImage({
+          const scenarioImage = await buildScenarioImage({
+            dockerImage,
             host,
             scenario: trial.scenario,
           })
           await using sandbox = await host.createSandbox({
-            dockerImage,
+            dockerImage: scenarioImage,
           })
           const result = await runTrial({
             artifactsDirectory,

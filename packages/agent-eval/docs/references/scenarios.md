@@ -53,6 +53,20 @@ configure that separately if needed.
 
 ## Customize the image
 
+To change the default base at execution time without disabling default setup, use
+`--docker-image <image>` on benchmark or experiment `run <name>` or `plan run`:
+
+```sh
+npx agent-eval benchmark plan run --plan-path ./plan.json --docker-image node:26-slim --output-dir ./results
+```
+
+This applies only when a scenario omits `image`. Explicit image references and
+custom Dockerfiles take precedence. Default system packages and sandbox tooling
+are retained, and different bases use different image cache identities. An explicit
+scenario `setup` still replaces default setup. Omitting the flag preserves the
+package default; resolve project-specific `.nvmrc` values in consuming scripts.
+The compatibility requirements below also apply to this flag.
+
 Set `image: 'node:26-slim'` (or `image: {name: 'node:26-slim'}`) in
 `defineConfig` to use an existing base image. To build your own:
 

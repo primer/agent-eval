@@ -101,6 +101,21 @@ If you omit `image`, agent-eval uses its default Node.js image, copies in the sc
 
 The default setup uses npm unless the project's `package.json` sets `packageManager` to a versioned pnpm or Yarn release, such as `"pnpm@10.1.0"` or `"yarn@4.6.0"`. Those managers run through Corepack, which the sandbox provides.
 
+#### Override the default base at execution time
+
+Benchmark and experiment execution accepts `--docker-image` for both direct `run <name>` and saved `plan run` commands:
+
+```sh
+agent-eval benchmark plan run \
+  --plan-path ./plan.json \
+  --docker-image node:26-slim \
+  --output-dir ./results
+```
+
+The flag applies only to scenarios that omit `image`. It retains the default system packages, dependency setup, and sandbox tooling; an explicit scenario `setup` still replaces default setup. Scenario image references and custom Dockerfiles take precedence and are not changed. Omitting the flag preserves the package's default base image. Different base images use different image cache identities.
+
+Use a Debian-based Node.js image with npm, `apt-get`, and a `node` user and group with UID/GID `1000`, as described under [Setup and compatibility](#setup-and-compatibility). Alpine images are unsupported. Agent-eval does not resolve `.nvmrc`; consuming scripts can derive an image and pass it with this flag.
+
 #### Use an existing image
 
 Provide an image reference to use as the base for the scenario:

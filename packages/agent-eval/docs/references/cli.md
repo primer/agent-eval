@@ -55,13 +55,20 @@ npx agent-eval scenario image clean --help
 | `--check <name>`                  | Scenario run only; selects one configured check            |
 | `--copilot-concurrency <n>`, `-c` | Run and plan run; `1`                                      |
 | `--container-concurrency <n>`     | Run and plan run; `5`                                      |
-| `--docker-image <image>`          | Run and plan run; package default Node image               |
+| `--docker-image <image>`          | Benchmark/experiment run and plan run; default Node base   |
 | `--token <token>`                 | Run and plan run; prefer `COPILOT_GITHUB_TOKEN`            |
 | `--log-level <level>`             | Root option; `info`                                        |
 
 Concurrency values must be positive integers. Copilot concurrency limits active
 sessions; container concurrency limits active trial containers. Both apply per
 process, so sharding multiplies the aggregate limits. Start small.
+
+`--docker-image` changes the base only for scenarios that omit `image`, preserving
+default dependency setup and sandbox tooling. Explicit image references and custom
+Dockerfiles take precedence. Omission uses the package's default Node image.
+Use a Debian-based Node image with npm, `apt-get`, and a `node` user/group with
+UID/GID `1000`; Alpine is unsupported. Agent-eval does not resolve `.nvmrc`.
+See [scenario image configuration](scenarios.md#customize-the-image).
 
 `--runner` accepts `copilot-cli` or `copilot-sdk`. It selects the backend for a
 standalone scenario run (default: `copilot-cli`) and filters trials in an existing

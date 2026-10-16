@@ -36,6 +36,7 @@ jobs:
         id: canary
         run: |
           snapshot_date="$(date -u +%Y%m%d)"
+          pnpm changeset add --patch @primer/agent-eval --message "Canary snapshot"
           pnpm changeset version \
             --snapshot canary \
             --snapshot-prerelease-template "{tag}-{commit-short}-$snapshot_date"

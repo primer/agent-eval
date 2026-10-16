@@ -9,7 +9,7 @@ evaluation. Benchmarks and experiments reuse the same scenario across treatments
 | :---------------- | :---------------------------------------------------------------- |
 | Required files    | `package.json` and `scenario.config.ts`                           |
 | Import and export | `defineConfig` from `@primer/agent-eval/scenario`; default export |
-| Required field    | `prompt`, passed to the implementation agent                      |
+| Required field    | `prompt`, a string or non-empty array of strings                  |
 | Optional fields   | `description`, `tags`, `checks`, `judges`, `image`, `setup`       |
 | Defaults          | Empty tags, checks, and judges                                    |
 | Identity          | Directory name by default                                         |
@@ -25,6 +25,14 @@ Use the complete `001-labels` fixture in [getting started](getting-started.md):
 package manifest, starter implementation, private tests, Vitest configuration,
 and scenario configuration with the `node-tests` check. The commands below
 refer to that fixture; a prompt-only configuration is not an equivalent substitute.
+
+## Multi-turn tasks
+
+Use `prompt: ['Implement search.', 'Now add an empty state.']` for multiple
+turns. The harness normalizes a string to a single-element array and runs each
+prompt in order in the same sandbox and conversation. Both runners wait for
+each turn before sending the next; checks and judges run after all turns.
+Parsed configuration, loaded scenarios, and result metadata expose arrays.
 
 ## Build the starting workspace
 

@@ -90,7 +90,7 @@ function createOutputFile(trials: Record<string, string> = {}) {
       example: {
         id: 'example',
         directory: '/scenarios/example',
-        prompt: 'Create a page',
+        prompt: ['Create a page'],
         tags: [],
         judges: [],
       },
@@ -103,6 +103,16 @@ function createOutputFile(trials: Record<string, string> = {}) {
     },
     trials,
   }
+
+  test('normalizes legacy string prompts when reading benchmark manifests', () => {
+    const input = createOutputFile()
+    const parsed = BenchmarkOutputFileSchema.parse({
+      ...input,
+      scenarios: {example: {...input.scenarios.example, prompt: 'Create a page'}},
+    })
+
+    expect(parsed.scenarios.example.prompt).toEqual(['Create a page'])
+  })
 }
 
 test('rejects an empty benchmark output collection through the schema', async () => {
@@ -203,7 +213,7 @@ test.each(['capabilities', 'scenarios', 'treatments'] as const)(
     if (field === 'capabilities') {
       second.capabilities.components.name = 'Other components'
     } else if (field === 'scenarios') {
-      second.scenarios.example.prompt = 'A different task'
+      second.scenarios.example.prompt = ['A different task']
     } else {
       second.treatments.control.name = 'A different treatment'
     }

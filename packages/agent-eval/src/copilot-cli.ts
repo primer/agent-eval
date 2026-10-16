@@ -442,50 +442,62 @@ async function runCopilotCli({
   copilotToken,
 }: {
   sandbox: Sandbox
-  prompt: string
+  prompt: Array<string>
   model: ModelVariant
   copilotToken: string
 }): Promise<Array<Message>> {
-  const usagePath = `${COPILOT_DIR}/usage-${randomUUID()}.json`
-  try {
-    const output = await sandbox.runCommand(
-      '/opt/agent-eval/copilot/bin/copilot',
-      [
-        '--prompt',
-        prompt,
-        '--model',
-        model.name,
-        '--reasoning-effort',
-        model.reasoningEffort,
-        '--mode',
-        'autopilot',
-        '--allow-all',
-        '--output-format',
-        'json',
-        '--usage-output-file',
-        usagePath,
-      ],
-      {
-        user: NODE_USER,
-        env: {COPILOT_GITHUB_TOKEN: copilotToken},
-      },
-    )
-    const usage = UsageOutputSchema.parse(JSON.parse(await sandbox.readFile(usagePath)))
-    const outputTokens = Object.values(usage.modelMetrics).reduce((total, metric) => {
-      return total + metric.usage.outputTokens
-    }, 0)
+  const messages: Array<Message> = []
+  let sessionId: string | undefined
+  for (const turn of prompt) {
+    const usagePath = `${COPILOT_DIR}/usage-${randomUUID()}.json`
+    try {
+      const output = await sandbox.runCommand(
+        '/opt/agent-eval/copilot/bin/copilot',
+        [
+          '--prompt',
+          turn,
+          ...(sessionId === undefined ? [] : ['--resume', sessionId]),
+          '--model',
+          model.name,
+          '--reasoning-effort',
+          model.reasoningEffort,
+          '--mode',
+          'autopilot',
+          '--allow-all',
+          '--output-format',
+          'json',
+          '--usage-output-file',
+          usagePath,
+        ],
+        {
+          user: NODE_USER,
+          env: {COPILOT_GITHUB_TOKEN: copilotToken},
+        },
+      )
+      const usage = UsageOutputSchema.parse(JSON.parse(await sandbox.readFile(usagePath)))
+      const outputTokens = Object.values(usage.modelMetrics).reduce((total, metric) => {
+        return total + metric.usage.outputTokens
+      }, 0)
 
-    return output.stdout.split('\n').flatMap(line => {
-      const trimmed = line.trim()
-      if (trimmed.length === 0) {
-        return []
+      const turnMessages = output.stdout.split('\n').flatMap(line => {
+        const trimmed = line.trim()
+        if (trimmed.length === 0) {
+          return []
+        }
+        const message = parseMessage(JSON.parse(trimmed))
+        return isMessageType(message, 'result') ? {...message, usage: {...message.usage, outputTokens}} : message
+      })
+      const result = turnMessages.find(message => isMessageType(message, 'result'))
+      if (!result) {
+        throw new Error('No result message found in copilot output')
       }
-      const message = parseMessage(JSON.parse(trimmed))
-      return isMessageType(message, 'result') ? {...message, usage: {...message.usage, outputTokens}} : message
-    })
-  } finally {
-    await sandbox.runCommand('rm', ['-f', '--', usagePath], {user: NODE_USER})
+      sessionId = result.sessionId
+      messages.push(...turnMessages)
+    } finally {
+      await sandbox.runCommand('rm', ['-f', '--', usagePath], {user: NODE_USER})
+    }
   }
+  return messages
 }
 
 export {

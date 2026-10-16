@@ -308,7 +308,7 @@ const judgeStage = {
       const model = getJudgeModel(judge, trial)
       const prompt = getJudgePrompt(judge)
       const messages = await copilotQueue.add(async () => {
-        return runCopilotCli({sandbox, prompt, model, copilotToken})
+        return runCopilotCli({sandbox, prompt: [prompt], model, copilotToken})
       })
       const session = getAgentSession(messages)
       const judgeReportPath = getJudgeReportFilename(judge)

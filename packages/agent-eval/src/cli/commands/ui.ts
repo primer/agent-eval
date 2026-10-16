@@ -4,6 +4,7 @@ import {spawn} from 'node:child_process'
 import {createRequire} from 'node:module'
 import path from 'node:path'
 import {defineCommand} from 'citty'
+import {benchmarksOption, scenariosOption} from '../options'
 // import * as z from 'zod/mini'
 // import {logger} from '../../logger'
 
@@ -32,6 +33,9 @@ const uiCommand = defineCommand({
     description: 'Run the agent-eval UI',
   },
   args: {
+    benchmarks: benchmarksOption,
+    experiments: experimentsOption,
+    scenarios: scenariosOption,
     // port: {
     //   type: 'string',
     //   description: 'Port to listen on',
@@ -78,7 +82,15 @@ const uiCommand = defineCommand({
       return
     }
 
-    await runNextCommand()
+    const benchmarksDirectory = path.resolve(args.benchmarks)
+    const experimentsDirectory = path.resolve(args.experiments)
+    const scenariosDirectory = path.resolve(args.scenarios)
+
+    await runNextCommand([], {
+      AGENT_EVAL_UI_BENCHMARKS_DIRECTORY: benchmarksDirectory,
+      AGENT_EVAL_UI_EXPERIMENTS_DIRECTORY: experimentsDirectory,
+      AGENT_EVAL_UI_SCENARIOS_DIRECTORY: scenariosDirectory,
+    })
   },
 })
 

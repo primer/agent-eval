@@ -8,6 +8,7 @@ const config: NextConfig = {
   basePath: exporting ? (process.env.AGENT_EVAL_UI_BASE_PATH ?? '') : '',
   trailingSlash: true,
   reactStrictMode: true,
+  serverExternalPackages: ['@primer/agent-eval'],
   typedRoutes: true,
 }
 

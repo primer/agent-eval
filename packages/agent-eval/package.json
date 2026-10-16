@@ -35,6 +35,7 @@
   "scripts": {
     "build": "rolldown -c",
     "clean": "rimraf dist",
+    "dev:ui": "next dev src/ui",
     "lint:npm": "publint --types",
     "type-check": "tsc --noEmit && tsc --project src/ui/tsconfig.json --noEmit",
     "watch": "rolldown -c -w"

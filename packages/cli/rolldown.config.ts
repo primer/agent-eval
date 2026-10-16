@@ -32,7 +32,6 @@ const config = defineConfig([
     plugins: [
       dts({
         eager: true,
-        emitDtsOnly: true,
         sourcemap: true,
       }),
     ],

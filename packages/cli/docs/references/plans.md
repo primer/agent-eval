@@ -87,6 +87,44 @@ It keeps trial artifacts. Use a dedicated output directory:
 npx agent-eval experiment merge --output-dir ./results/comparison-01
 ```
 
+## Programmatic use
+
+The main `@primer/agent-eval` entrypoint exports the same planning, execution,
+output, and report helpers used by the CLI:
+
+- Create plans with `createBenchmarkPlan`, `createExperimentPlan`, or
+  `createScenarioPlan`.
+- Save benchmark or experiment plans with `createBenchmarkPlanManifest` or
+  `createExperimentPlanManifest`, then reload them with the corresponding
+  `parseBenchmarkPlanManifest` or `parseExperimentPlanManifest`.
+- Select saved trials with `selectPlanTrials` and `parseShard`, then pass them to
+  `createPlanFromManifest`. Execute a plan with `runPlan`.
+- Build result bundles with `createBenchmarkOutput` or `createExperimentOutput`
+  and persist them with `writeBenchmarkOutput` or `writeExperimentOutput`.
+- Generate text reports with `createBenchmarkReport` or `createExperimentReport`.
+
+For example, select a saved benchmark shard without starting containers:
+
+```ts
+import {readFile} from 'node:fs/promises'
+import {createPlanFromManifest, parseBenchmarkPlanManifest, parseShard, selectPlanTrials} from '@primer/agent-eval'
+
+const manifest = await parseBenchmarkPlanManifest({
+  benchmarksDirectory: '/workspace/benchmarks',
+  scenariosDirectory: '/workspace/scenarios',
+  contents: await readFile('/workspace/plan.json', 'utf-8'),
+})
+const plan = createPlanFromManifest({
+  trials: selectPlanTrials({
+    trials: manifest.trials,
+    shard: parseShard('1/2'),
+  }),
+})
+```
+
+`runPlan` requires a Copilot token and artifact directory. It accepts the same
+per-worker Copilot and container concurrency limits described in [CLI](cli.md).
+
 ## Verify
 
 - Before execution, the plan contains the intended combinations and unique IDs.

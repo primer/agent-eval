@@ -25,3 +25,33 @@ export {addCheckResults, formatCheckSummaries, getCheckDimensions, getCheckValue
 export type {CheckSummary} from '@primer/agent-eval-core'
 export {createTrialSummary, createTrialSummaryComparator} from '@primer/agent-eval-core'
 export type {TrialSummary} from '@primer/agent-eval-core'
+export {
+  createBenchmarkReport,
+  createBenchmarkPlan,
+  createBenchmarkPlanManifest,
+  parseBenchmarkPlanManifest,
+  createBenchmarkOutput,
+  listBenchmarkOutputFiles,
+  mergeBenchmarkOutputFiles,
+  writeBenchmarkOutput,
+  createExperimentReport,
+  createExperimentPlan,
+  createExperimentPlanManifest,
+  parseExperimentPlanManifest,
+  createExperimentOutput,
+  listExperimentOutputFiles,
+  mergeExperimentOutputFiles,
+  writeExperimentOutput,
+  CopilotRunnerSchema,
+  DefaultHost,
+  logger,
+  levels,
+  createPlanFromManifest,
+  selectPlanTrials,
+  runPlan,
+  DEFAULT_DOCKER_IMAGE,
+  createScenarioPlan,
+  buildScenarioImage,
+  parseShard,
+} from '@primer/agent-eval-core'
+export type {BenchmarkTrial, ExperimentTrial, Plan, RunPlanResult, Shard, RunTrialResult} from '@primer/agent-eval-core'

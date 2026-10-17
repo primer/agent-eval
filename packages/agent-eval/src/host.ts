@@ -24,9 +24,9 @@ class SystemHost implements Host {
 
   loadModule<T = unknown>(filepath: string): Promise<T> {
     if (filepath.startsWith('file:') || filepath.startsWith('data:')) {
-      return import(/* webpackIgnore: true */ filepath)
+      return import(filepath)
     }
-    return import(/* webpackIgnore: true */ pathToFileURL(filepath).href)
+    return import(pathToFileURL(filepath).href)
   }
 
   createSandbox(options?: SandboxCreateOptions): Promise<Sandbox> {
@@ -54,7 +54,7 @@ class VirtualHost implements Host {
     const contents = await this.fs.promises.readFile(filepath, 'utf-8')
     const encodedContent = Buffer.from(contents).toString('base64')
     const dataUri = `data:text/javascript;base64,${encodedContent}`
-    return await import(/* webpackIgnore: true */ dataUri)
+    return await import(dataUri)
   }
 
   createSandbox(options?: SandboxCreateOptions): Promise<Sandbox> {

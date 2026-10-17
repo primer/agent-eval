@@ -1,4 +1,5 @@
 import {listExperiments} from '@primer/agent-eval'
+import Link from 'next/link'
 import {benchmarksDirectory, experimentsDirectory, scenariosDirectory} from '../../env'
 
 export default async function ExperimentsPage() {
@@ -10,10 +11,26 @@ export default async function ExperimentsPage() {
 
   return (
     <main>
+      <nav>
+        <ol>
+          <li>
+            <Link href="/">Home</Link>
+          </li>
+          <li>
+            <Link href="/experiments" aria-current="true">
+              Experiments
+            </Link>
+          </li>
+        </ol>
+      </nav>
       <h1>Experiments</h1>
       <ul>
         {experiments.map(experiment => {
-          return <li key={experiment.id}>{experiment.name}</li>
+          return (
+            <li key={experiment.id}>
+              <Link href={`/experiments/${experiment.id}`}>{experiment.name}</Link>
+            </li>
+          )
         })}
       </ul>
     </main>

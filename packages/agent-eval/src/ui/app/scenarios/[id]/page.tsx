@@ -1,4 +1,5 @@
 import {listScenarios} from '@primer/agent-eval'
+import Link from 'next/link'
 import {scenariosDirectory} from '../../../env'
 
 export const dynamicParams = false
@@ -12,6 +13,19 @@ export default async function ScenarioPage(props: Props) {
   return (
     <>
       <main>
+        <nav>
+          <ol>
+            <li>
+              <Link href="/scenarios">Scenarios</Link>
+            </li>
+            <li>
+              <Link href={`/scenarios/${params.id}`} aria-current="page">
+                {params.id}
+              </Link>
+            </li>
+          </ol>
+        </nav>
+
         <h1>Scenario {params.id}</h1>
       </main>
     </>

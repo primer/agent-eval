@@ -1,4 +1,5 @@
 import {listBenchmarks} from '@primer/agent-eval'
+import Link from 'next/link'
 import {benchmarksDirectory, scenariosDirectory} from '../../../env'
 
 export const dynamicParams = false
@@ -12,6 +13,18 @@ export default async function BenchmarkPage(props: Props) {
   return (
     <>
       <main>
+        <nav>
+          <ol>
+            <li>
+              <Link href="/benchmarks">Benchmarks</Link>
+            </li>
+            <li>
+              <Link href={`/benchmarks/${params.id}`} aria-current="page">
+                {params.id}
+              </Link>
+            </li>
+          </ol>
+        </nav>
         <h1>Benchmark {params.id}</h1>
       </main>
     </>

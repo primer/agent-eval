@@ -3,34 +3,6 @@ import {defineCommand} from 'citty'
 import {build, serve} from '../../ui'
 import {benchmarksOption, experimentsOption, scenariosOption} from '../options'
 
-// const optionsSchema = z.object({
-//   port: z._default(
-//     z.pipe(
-//       z.string().check(z.regex(/^\d+$/, 'Port must be an integer from 1 to 65535')),
-//       z.coerce.number<string>().check(z.int(), z.minimum(1), z.maximum(65535)),
-//     ),
-//     3000,
-//   ),
-//   hostname: z._default(z.string().check(z.trim(), z.minLength(1)), '127.0.0.1'),
-// })
-//
-// export function parseUiOptions(input: unknown) {
-//   return z.parse(optionsSchema, input)
-// }
-
-// port: {
-//   type: 'string',
-//   description: 'Port to listen on',
-//   default: '3000',
-// },
-// hostname: {
-//   type: 'string',
-//   description: 'Hostname to listen on',
-//   default: '127.0.0.1',
-// },
-
-//   args: {
-
 const uiCommand = defineCommand({
   meta: {
     name: 'ui',

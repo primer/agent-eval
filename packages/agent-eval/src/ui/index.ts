@@ -66,9 +66,13 @@ async function runNextCommand(
   env?: Record<string, string>,
 ): Promise<void> {
   const nextBin = require.resolve('next/dist/bin/next')
-  const args = [nextBin, command]
+  const args = [nextBin, command, directory]
+
+  if (command === 'dev') {
+    args.push('--hostname', '127.0.0.1')
+  }
+
   const child = spawn(process.execPath, args, {
-    cwd: directory,
     stdio: 'inherit',
     env: {
       ...process.env,

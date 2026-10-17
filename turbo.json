@@ -22,6 +22,10 @@
       "dependsOn": ["build"],
       "outputs": []
     },
+    "@primer/agent-eval#type-check": {
+      "dependsOn": ["build"],
+      "outputs": []
+    },
     "type-check": {
       "dependsOn": ["^build"],
       "outputs": []

@@ -10,6 +10,9 @@ const config: NextConfig = {
   agentRules: false,
   basePath,
   distDir,
+  experimental: {
+    turbopackRustReactCompiler: true,
+  },
   output,
   reactCompiler: true,
   reactStrictMode: true,

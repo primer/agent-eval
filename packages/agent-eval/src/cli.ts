@@ -1,9 +1,23 @@
-import {defineCommand, runMain} from 'citty'
+import {defineCommand, runMain, type CommandDef, type Resolvable} from 'citty'
 import {benchmark} from './cli/commands/benchmark'
 import {experiment} from './cli/commands/experiment'
 import {scenario} from './cli/commands/scenario'
+import {enabled} from './feature-flag'
 import {logger, levels} from './logger'
 import packageJson from '../package.json' with {type: 'json'}
+
+const subCommands: Record<string, Resolvable<CommandDef<any>>> = {
+  benchmark,
+  experiment,
+  scenario,
+}
+
+if (enabled('ui-command')) {
+  subCommands.ui = async () => {
+    const mod = await import('./cli/commands/ui')
+    return mod.ui
+  }
+}
 
 const cli = defineCommand({
   meta: {
@@ -19,15 +33,7 @@ const cli = defineCommand({
       description: 'The log level to use',
     },
   },
-  subCommands: {
-    benchmark,
-    experiment,
-    scenario,
-    async ui() {
-      const mod = await import('./cli/commands/ui')
-      return mod.ui
-    },
-  },
+  subCommands,
   setup({args}) {
     logger.level = args['log-level']
   },

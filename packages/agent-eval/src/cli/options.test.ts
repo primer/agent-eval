@@ -1,6 +1,6 @@
 import {parseArgs} from 'citty'
 import {expect, test} from 'vitest'
-import {createScenarioPlan} from '@primer/agent-eval-core'
+import {createScenarioPlan} from '../scenario/plan'
 import {runnerFilterOption, runnerOption} from './options'
 
 test.each([

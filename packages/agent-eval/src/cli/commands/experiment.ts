@@ -1,22 +1,18 @@
 import path from 'node:path'
 import {defineCommand} from 'citty'
+import {getExperiment} from '../../experiment/get'
+import {createExperimentReport} from '../../experiment/report'
 import {
-  getExperiment,
-  createExperimentReport,
   createExperimentOutput,
   listExperimentOutputFiles,
   mergeExperimentOutputFiles,
   writeExperimentOutput,
-  createExperimentPlan,
-  createExperimentPlanManifest,
-  parseExperimentPlanManifest,
-  DefaultHost as host,
-  logger,
-  createPlanFromManifest,
-  selectPlanTrials,
-  runPlan,
-  parseShard,
-} from '@primer/agent-eval-core'
+} from '../../experiment/output'
+import {createExperimentPlan, createExperimentPlanManifest, parseExperimentPlanManifest} from '../../experiment/plan'
+import {DefaultHost as host} from '../../host'
+import {logger} from '../../logger'
+import {createPlanFromManifest, selectPlanTrials, runPlan} from '../../plan'
+import {parseShard} from '../../shard'
 import {
   benchmarksOption,
   copilotConcurrencyOption,

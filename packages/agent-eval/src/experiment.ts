@@ -1,3 +1,4 @@
-export {defineConfig} from '@primer/agent-eval-core/experiment'
-export type {ExperimentConfig, TreatmentSetup} from '@primer/agent-eval-core/experiment'
-export type {CopilotRunner} from '@primer/agent-eval-core/experiment'
+export {defineConfig} from './experiment/config'
+export type {ExperimentConfig} from './experiment/config'
+export type {CopilotRunner} from './copilot-runner'
+export type {TreatmentSetup} from './treatment'

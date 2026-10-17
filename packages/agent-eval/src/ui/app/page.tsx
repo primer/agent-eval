@@ -1,7 +1,7 @@
-import {listBenchmarks} from '@primer/agent-eval-core'
-import {benchmarksDirectory, scenariosDirectory} from '../../env'
+import {listBenchmarks} from '@primer/agent-eval'
+import {benchmarksDirectory, scenariosDirectory} from '../env'
 
-export default async function BenchmarksPage() {
+export default async function IndexPage() {
   const benchmarks = await listBenchmarks({
     benchmarksDirectory,
     scenariosDirectory,

@@ -1,15 +1,13 @@
 import path from 'node:path'
 import Docker from 'dockerode'
 import {defineCommand} from 'citty'
-import {
-  getScenario,
-  DefaultHost as host,
-  logger,
-  createScenarioPlan,
-  buildScenarioImage,
-  runPlan,
-  type RunTrialResult,
-} from '@primer/agent-eval-core'
+import {getScenario} from '../../scenario/get'
+import {DefaultHost as host} from '../../host'
+import {logger} from '../../logger'
+import {createScenarioPlan} from '../../scenario/plan'
+import {buildScenarioImage} from '../../scenario/scenario'
+import {runPlan} from '../../plan'
+import type {RunTrialResult} from '../../trial/run'
 import {
   copilotConcurrencyOption,
   containerConcurrencyOption,

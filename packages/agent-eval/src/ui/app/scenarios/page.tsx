@@ -1,4 +1,4 @@
-import {listScenarios} from '@primer/agent-eval-core'
+import {listScenarios} from '@primer/agent-eval'
 import {scenariosDirectory} from '../../env'
 
 export default async function ScenariosPage() {

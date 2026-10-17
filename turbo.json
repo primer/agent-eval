@@ -4,7 +4,7 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**", ".next/**", "!.next/cache/**", "!.next/dev/**", "next-env.d.ts"]
+      "outputs": ["dist/**", "!dist/**/.next/**"]
     },
     "@primer/agent-eval-website#build": {
       "dependsOn": ["^build"],

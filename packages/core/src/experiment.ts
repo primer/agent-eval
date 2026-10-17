@@ -1,4 +1,0 @@
-export {defineConfig} from './experiment/config'
-export type {ExperimentConfig} from './experiment/config'
-export type {CopilotRunner} from './copilot-runner'
-export type {TreatmentSetup} from './treatment'

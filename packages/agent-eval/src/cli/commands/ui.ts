@@ -1,6 +1,6 @@
 import path from 'node:path'
 import {defineCommand} from 'citty'
-import {build, serve} from '@primer/agent-eval-ui'
+import {build, serve} from '../../ui'
 import {benchmarksOption, experimentsOption, scenariosOption} from '../options'
 
 // const optionsSchema = z.object({
@@ -52,7 +52,7 @@ const uiCommand = defineCommand({
     const scenariosDirectory = path.resolve(args.scenarios)
 
     await serve({
-      directory: path.join(import.meta.dirname, 'ui'),
+      directory: path.resolve(import.meta.dirname, '../../ui'),
       benchmarksDirectory,
       experimentsDirectory,
       scenariosDirectory,
@@ -86,7 +86,7 @@ const uiCommand = defineCommand({
 
         await build({
           basePath: args['base-path'],
-          directory: path.join(import.meta.dirname, 'ui'),
+          directory: path.resolve(import.meta.dirname, '../../ui'),
           benchmarksDirectory,
           experimentsDirectory,
           outputDirectory: path.resolve(args['output-dir']),

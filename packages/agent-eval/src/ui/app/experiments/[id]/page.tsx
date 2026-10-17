@@ -1,4 +1,4 @@
-import {listExperiments} from '@primer/agent-eval-core'
+import {listExperiments} from '@primer/agent-eval'
 import {benchmarksDirectory, experimentsDirectory, scenariosDirectory} from '../../../env'
 
 export const dynamicParams = false

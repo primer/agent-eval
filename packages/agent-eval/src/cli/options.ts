@@ -1,5 +1,7 @@
 import path from 'node:path'
-import {CopilotRunnerSchema, DEFAULT_DOCKER_IMAGE, type Shard} from '@primer/agent-eval-core'
+import {CopilotRunnerSchema} from '../copilot-runner'
+import {DEFAULT_DOCKER_IMAGE} from '../sandbox'
+import type {Shard} from '../shard'
 
 const benchmarksOption = {
   type: 'string',

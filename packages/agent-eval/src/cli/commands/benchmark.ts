@@ -1,22 +1,18 @@
 import path from 'node:path'
 import {defineCommand} from 'citty'
+import {getBenchmark} from '../../benchmark/get'
+import {createBenchmarkReport} from '../../benchmark/report'
+import {createBenchmarkPlan, createBenchmarkPlanManifest, parseBenchmarkPlanManifest} from '../../benchmark/plan'
 import {
-  getBenchmark,
-  createBenchmarkReport,
-  logger,
-  parseShard,
-  createBenchmarkPlan,
-  createBenchmarkPlanManifest,
-  parseBenchmarkPlanManifest,
   createBenchmarkOutput,
   listBenchmarkOutputFiles,
   mergeBenchmarkOutputFiles,
   writeBenchmarkOutput,
-  createPlanFromManifest,
-  selectPlanTrials,
-  runPlan,
-  DefaultHost as host,
-} from '@primer/agent-eval-core'
+} from '../../benchmark/output'
+import {createPlanFromManifest, selectPlanTrials, runPlan} from '../../plan'
+import {DefaultHost as host} from '../../host'
+import {logger} from '../../logger'
+import {parseShard} from '../../shard'
 import {
   benchmarksOption,
   copilotConcurrencyOption,

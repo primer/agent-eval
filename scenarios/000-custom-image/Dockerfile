@@ -4,4 +4,5 @@ RUN mkdir -p /home/sandbox/workspace
 WORKDIR /home/sandbox/workspace
 
 COPY . .
-RUN npm install
+RUN npm pkg delete devDependencies.@primer/agent-eval \
+  && npm install

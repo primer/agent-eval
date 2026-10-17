@@ -254,7 +254,7 @@ importers:
         specifier: ^4.68.1
         version: 4.68.1
       next:
-        specifier: 16.4.0
+        specifier: ^16.4.0
         version: 16.4.0(@types/node@26.6.4)(babel-plugin-react-compiler@1.0.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       p-queue:
         specifier: ^9.3.3

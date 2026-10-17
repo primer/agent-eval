@@ -1,4 +1,4 @@
-import {defineCommand, runMain, type CommandDef, type Resolvable} from 'citty'
+import {defineCommand, runMain, type SubCommandsDef} from 'citty'
 import {benchmark} from './cli/commands/benchmark'
 import {experiment} from './cli/commands/experiment'
 import {scenario} from './cli/commands/scenario'
@@ -6,7 +6,7 @@ import {enabled} from './feature-flag'
 import {logger, levels} from './logger'
 import packageJson from '../package.json' with {type: 'json'}
 
-const subCommands: Record<string, Resolvable<CommandDef<any>>> = {
+const subCommands: SubCommandsDef = {
   benchmark,
   experiment,
   scenario,

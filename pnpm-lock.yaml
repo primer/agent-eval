@@ -175,9 +175,6 @@ importers:
       '@github/prettier-config':
         specifier: ^0.0.6
         version: 0.0.6
-      '@primer/agent-eval':
-        specifier: workspace:*
-        version: link:packages/agent-eval
       '@types/node':
         specifier: ^26.6.4
         version: 26.6.4
@@ -444,7 +441,11 @@ importers:
         specifier: ^5.0.3
         version: 5.0.3(@types/node@26.6.4)(@vitest/browser-playwright@5.0.3)(@vitest/ui@5.0.3)(vite@8.2.2(@types/node@26.6.4)(jiti@2.7.0)(yaml@2.9.0))
 
-  scenarios/000-custom-image: {}
+  scenarios/000-custom-image:
+    devDependencies:
+      '@primer/agent-eval':
+        specifier: workspace:*
+        version: link:../../packages/agent-eval
 
   scenarios/000-llm-as-a-judge:
     dependencies:

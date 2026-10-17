@@ -16,7 +16,7 @@
       "outputs": []
     },
     "//#test": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["@primer/agent-eval#build"]
     },
     "@primer/agent-eval#lint:npm": {
       "dependsOn": ["build"],
@@ -27,7 +27,7 @@
       "outputs": []
     },
     "//#type-check": {
-      "dependsOn": ["^build"],
+      "dependsOn": ["@primer/agent-eval#build"],
       "outputs": []
     }
   }

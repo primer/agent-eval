@@ -13,19 +13,20 @@ Image commands require Docker but not a Copilot token.
 
 ## Commands
 
-| Command                         | Purpose                          |
-| :------------------------------ | :------------------------------- |
-| `benchmark run <name>`          | Run a benchmark directly         |
-| `benchmark plan create <name>`  | Write a benchmark plan           |
-| `benchmark plan run`            | Execute a saved benchmark plan   |
-| `benchmark merge`               | Merge benchmark shard results    |
-| `experiment run <name>`         | Run an experiment directly       |
-| `experiment plan create <name>` | Write an experiment plan         |
-| `experiment plan run`           | Execute a saved experiment plan  |
-| `experiment merge`              | Merge experiment shard results   |
-| `scenario run <name>`           | Run one scenario                 |
-| `scenario image build <name>`   | Build a scenario workspace image |
-| `scenario image clean [name]`   | Remove local agent-eval images   |
+| Command                         | Purpose                                       |
+| :------------------------------ | :-------------------------------------------- |
+| `benchmark run <name>`          | Run a benchmark directly                      |
+| `benchmark plan create <name>`  | Write a benchmark plan                        |
+| `benchmark plan run`            | Execute a saved benchmark plan                |
+| `benchmark merge`               | Merge benchmark shard results                 |
+| `experiment run <name>`         | Run an experiment directly                    |
+| `experiment plan create <name>` | Write an experiment plan                      |
+| `experiment plan run`           | Execute a saved experiment plan               |
+| `experiment merge`              | Merge experiment shard results                |
+| `scenario run <name>`           | Run one scenario                              |
+| `scenario image build <name>`   | Build a scenario workspace image              |
+| `scenario image clean [name]`   | Remove local agent-eval images                |
+| `ui`                            | Start the unstable UI (requires `ui-command`) |
 
 Use singular `benchmark`, `experiment`, and `scenario`. There is no CLI
 scaffolding command; create files with the appropriate `defineConfig` helper.
@@ -42,22 +43,22 @@ npx agent-eval scenario image clean --help
 
 ## Options by scope
 
-| Option                            | Scope and default                                          |
-| :-------------------------------- | :--------------------------------------------------------- |
-| `--benchmarks <dir>`              | Benchmark and experiment run/plan commands; `./benchmarks` |
-| `--experiments <dir>`             | Experiment run and plan commands; `./experiments`          |
-| `--scenarios <dir>`               | Run, plan, and image build; `./scenarios`                  |
-| `--output-dir <dir>`              | Run, plan run, and merge; `./results`                      |
-| `--output-path <file>`            | Plan create only; `plan.json`                              |
-| `--plan-path <file>`              | Plan run only; `./plan.json`                               |
-| `--shard <order>/<total>`         | Plan run only; omitted means all trials                    |
-| `--runner <runner>`               | Scenario run and plan run; see below                       |
-| `--check <name>`                  | Scenario run only; selects one configured check            |
-| `--copilot-concurrency <n>`, `-c` | Run and plan run; `1`                                      |
-| `--container-concurrency <n>`     | Run and plan run; `5`                                      |
-| `--docker-image <image>`          | Run and plan run; package default Node image               |
-| `--token <token>`                 | Run and plan run; prefer `COPILOT_GITHUB_TOKEN`            |
-| `--log-level <level>`             | Root option; `info`                                        |
+| Option                            | Scope and default                                    |
+| :-------------------------------- | :--------------------------------------------------- |
+| `--benchmarks <dir>`              | Benchmark/experiment run/plan and UI; `./benchmarks` |
+| `--experiments <dir>`             | Experiment run/plan and UI; `./experiments`          |
+| `--scenarios <dir>`               | Run, plan, image build, and UI; `./scenarios`        |
+| `--output-dir <dir>`              | Run, plan run, and merge; `./results`                |
+| `--output-path <file>`            | Plan create only; `plan.json`                        |
+| `--plan-path <file>`              | Plan run only; `./plan.json`                         |
+| `--shard <order>/<total>`         | Plan run only; omitted means all trials              |
+| `--runner <runner>`               | Scenario run and plan run; see below                 |
+| `--check <name>`                  | Scenario run only; selects one configured check      |
+| `--copilot-concurrency <n>`, `-c` | Run and plan run; `1`                                |
+| `--container-concurrency <n>`     | Run and plan run; `5`                                |
+| `--docker-image <image>`          | Run and plan run; package default Node image         |
+| `--token <token>`                 | Run and plan run; prefer `COPILOT_GITHUB_TOKEN`      |
+| `--log-level <level>`             | Root option; `info`                                  |
 
 Concurrency values must be positive integers. Copilot concurrency limits active
 sessions; container concurrency limits active trial containers. Both apply per
@@ -74,6 +75,23 @@ The CLI requires `--token` or `COPILOT_GITHUB_TOKEN` for evaluation runs. Host C
 login alone does not satisfy this check. Plan creation and merge do not require
 a token. Avoid putting token values on command lines, in logs, or in shell
 history.
+
+## Local UI
+
+The `ui` command and its subcommands, including `ui build`, are **unstable** and
+disabled by default. Enable the `ui-command` [feature flag](feature-flags.md)
+when running the command from your evaluation project's root:
+
+```sh
+AGENT_EVAL_FEATURE_FLAGS=ui-command npx agent-eval ui
+```
+
+Open `http://127.0.0.1:3000`. The UI lists local benchmarks and loads their
+configurations at request time. Only use trusted configurations.
+
+Use `--benchmarks`, `--experiments`, and `--scenarios` to override configuration
+directories. Set `PORT` to change the port. The server binds to `127.0.0.1`;
+press Ctrl+C to stop it. Browsing does not require Docker or a Copilot token.
 
 ## Scenario images
 

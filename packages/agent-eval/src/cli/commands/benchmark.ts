@@ -2,6 +2,17 @@ import path from 'node:path'
 import {defineCommand} from 'citty'
 import {getBenchmark} from '../../benchmark/get'
 import {createBenchmarkReport} from '../../benchmark/report'
+import {createBenchmarkPlan, createBenchmarkPlanManifest, parseBenchmarkPlanManifest} from '../../benchmark/plan'
+import {
+  createBenchmarkOutput,
+  listBenchmarkOutputFiles,
+  mergeBenchmarkOutputFiles,
+  writeBenchmarkOutput,
+} from '../../benchmark/output'
+import {createPlanFromManifest, selectPlanTrials, runPlan} from '../../plan'
+import {DefaultHost as host} from '../../host'
+import {logger} from '../../logger'
+import {parseShard} from '../../shard'
 import {
   benchmarksOption,
   copilotConcurrencyOption,
@@ -15,17 +26,6 @@ import {
   runnerFilterOption,
   shardOption,
 } from '../options'
-import {logger} from '../../logger'
-import {parseShard} from '../../shard'
-import {createBenchmarkPlan, createBenchmarkPlanManifest, parseBenchmarkPlanManifest} from '../../benchmark/plan'
-import {
-  createBenchmarkOutput,
-  listBenchmarkOutputFiles,
-  mergeBenchmarkOutputFiles,
-  writeBenchmarkOutput,
-} from '../../benchmark/output'
-import {createPlanFromManifest, selectPlanTrials, runPlan} from '../../plan'
-import {DefaultHost as host} from '../../host'
 
 const benchmarkCommand = defineCommand({
   meta: {

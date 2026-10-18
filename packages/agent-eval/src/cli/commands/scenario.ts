@@ -1,8 +1,13 @@
 import path from 'node:path'
 import Docker from 'dockerode'
 import {defineCommand} from 'citty'
+import {getScenario} from '../../scenario/get'
 import {DefaultHost as host} from '../../host'
 import {logger} from '../../logger'
+import {createScenarioPlan} from '../../scenario/plan'
+import {buildScenarioImage} from '../../scenario/scenario'
+import {runPlan} from '../../plan'
+import type {RunTrialResult} from '../../trial/run'
 import {
   copilotConcurrencyOption,
   containerConcurrencyOption,
@@ -14,11 +19,6 @@ import {
   scenariosOption,
   runnerOption,
 } from '../options'
-import {getScenario} from '../../scenario/get'
-import {createScenarioPlan} from '../../scenario/plan'
-import {buildScenarioImage} from '../../scenario/scenario'
-import {runPlan} from '../../plan'
-import type {RunTrialResult} from '../../trial/run'
 
 const scenarioCommand = defineCommand({
   meta: {

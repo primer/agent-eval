@@ -1,4 +1,4 @@
-import {listBenchmarks} from '@primer/agent-eval'
+import {listBenchmarks} from '../../agent-eval'
 import Link from 'next/link'
 import {benchmarksDirectory, scenariosDirectory} from '../../env'
 

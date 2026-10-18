@@ -1,4 +1,4 @@
-import {listScenarios} from '@primer/agent-eval'
+import {listScenarios} from '../../../agent-eval'
 import Link from 'next/link'
 import {scenariosDirectory} from '../../../env'
 

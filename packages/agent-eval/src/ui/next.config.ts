@@ -16,6 +16,7 @@ const config: NextConfig = {
   output,
   reactCompiler: true,
   reactStrictMode: true,
+  serverExternalPackages: ['@primer/agent-eval'],
   typedRoutes: true,
 }
 

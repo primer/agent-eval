@@ -61,11 +61,8 @@ jobs:
         uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024 # v3.0.0
         with:
           cache: true
-          require-lockfile: true
-      - name: Set up Node.js
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
           node-version-file: '.nvmrc'
+          require-lockfile: true
       - name: restore turbo cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -85,11 +82,8 @@ jobs:
         uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024 # v3.0.0
         with:
           cache: true
-          require-lockfile: true
-      - name: Set up Node.js
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
           node-version-file: '.nvmrc'
+          require-lockfile: true
       - name: Check for unformatted files
         run: pnpm run format:diff
 
@@ -102,11 +96,8 @@ jobs:
         uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024 # v3.0.0
         with:
           cache: true
-          require-lockfile: true
-      - name: Set up Node.js
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
           node-version-file: '.nvmrc'
+          require-lockfile: true
       - name: restore turbo cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -128,6 +119,7 @@ jobs:
         uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024 # v3.0.0
         with:
           cache: true
+          node-version-file: '.nvmrc'
           require-lockfile: true
       - name: Set up Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -135,6 +127,32 @@ jobs:
           node-version-file: '.nvmrc'
       - name: Run tests
         run: pnpm exec turbo run test
+
+  test-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up pnpm
+        uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024 # v3.0.0
+        with:
+          cache: true
+          node-version-file: '.nvmrc'
+          require-lockfile: true
+      - name: restore turbo cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .turbo
+          key: turbo-${{ runner.os }}-${{ github.workflow }}-${{ github.job }}-${{ github.sha }}
+          restore-keys: |
+            turbo-${{ runner.os }}-${{ github.workflow }}-${{ github.job }}-
+
+      - name: Build @primer/agent-eval package
+        run: pnpm exec turbo run --filter '@primer/agent-eval' build
+      - name: Run e2e tests
+        uses: docker://mcr.microsoft.com/playwright:v1.64.0-jammy
+        with:
+          args: pnpm run -r test:e2e
 
   type-check:
     runs-on: ubuntu-latest
@@ -145,11 +163,8 @@ jobs:
         uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024 # v3.0.0
         with:
           cache: true
-          require-lockfile: true
-      - name: Set up Node.js
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
           node-version-file: '.nvmrc'
+          require-lockfile: true
       - name: restore turbo cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:

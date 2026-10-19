@@ -15,5 +15,6 @@ If an older package does not include docs, ask the user before upgrading it;
 otherwise use that version's README, package types, and
 `npx agent-eval <command> --help` without assuming newer APIs are available.
 
-To load these docs without installing this skill, run `npx agent-eval setup`
-from the project's root. It adds guidance to the project's agent instructions.
+To load these docs without installing this skill, run
+`npx agent-eval agent setup` from the project's root. It adds guidance to the
+project's agent instructions.

@@ -45,7 +45,7 @@ The package includes these agent docs. To have your agent load the docs for the
 installed version, run from your project's root:
 
 ```sh
-npx agent-eval setup
+npx agent-eval agent setup
 ```
 
 Setup appends an `## agent-eval` section pointing to

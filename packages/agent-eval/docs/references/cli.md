@@ -15,7 +15,7 @@ Image commands require Docker but not a Copilot token.
 
 | Command                         | Purpose                                       |
 | :------------------------------ | :-------------------------------------------- |
-| `setup`                         | Set up agent instructions                     |
+| `agent setup`                   | Set up agent instructions                     |
 | `benchmark run <name>`          | Run a benchmark directly                      |
 | `benchmark plan create <name>`  | Write a benchmark plan                        |
 | `benchmark plan run`            | Execute a saved benchmark plan                |
@@ -29,12 +29,14 @@ Image commands require Docker but not a Copilot token.
 | `scenario image clean [name]`   | Remove local agent-eval images                |
 | `ui`                            | Start the unstable UI (requires `ui-command`) |
 
-Use singular `benchmark`, `experiment`, and `scenario`. There is no CLI
-scaffolding command; create files with the appropriate `defineConfig` helper.
+Use singular `agent`, `benchmark`, `experiment`, and `scenario` command groups.
+There is no CLI scaffolding command; create files with the appropriate
+`defineConfig` helper.
 Do not use legacy top-level `--experiment`, `--output`, or `--artifacts` flags.
 
 ```sh
 npx agent-eval --help
+npx agent-eval agent setup --help
 npx agent-eval experiment run --help
 npx agent-eval benchmark plan create --help
 npx agent-eval scenario run --help
@@ -42,9 +44,9 @@ npx agent-eval scenario image build --help
 npx agent-eval scenario image clean --help
 ```
 
-## Setup
+## Agent setup
 
-Run `npx agent-eval setup` from the project root after installing the package.
+Run `npx agent-eval agent setup` from the project root after installing the package.
 It appends an `## agent-eval` section directing agents to the installed
 `node_modules/@primer/agent-eval/docs/AGENTS.md`.
 It updates the first existing file in this order: `AGENTS.md`,

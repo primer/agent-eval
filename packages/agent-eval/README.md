@@ -18,7 +18,7 @@ Run setup from your project's root so your agent loads the docs before using
 agent-eval:
 
 ```bash
-npx agent-eval setup
+npx agent-eval agent setup
 ```
 
 Setup appends the following snippet to the first existing file in this order:

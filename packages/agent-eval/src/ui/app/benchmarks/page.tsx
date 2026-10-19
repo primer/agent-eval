@@ -1,5 +1,5 @@
 import {listBenchmarks} from '../../agent-eval'
-import Link from 'next/link'
+import {Link} from '../../components/Link'
 import {benchmarksDirectory, scenariosDirectory} from '../../env'
 
 export default async function BenchmarksPage() {

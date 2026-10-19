@@ -1,5 +1,5 @@
 import {listExperiments} from '../../../agent-eval'
-import Link from 'next/link'
+import {Link} from '../../../components/Link'
 import {benchmarksDirectory, experimentsDirectory, scenariosDirectory} from '../../../env'
 
 export const dynamicParams = false

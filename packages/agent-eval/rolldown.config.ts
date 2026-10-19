@@ -12,11 +12,14 @@ const external = dependencies.map(name => {
 })
 
 const uiDirectory = path.join(import.meta.dirname, 'src', 'ui')
-const uiFiles = globSync(['app/**/*.{ts,tsx}', 'agent-eval.ts', 'env.ts', 'next.config.ts', 'postcss.config.ts'], {
-  cwd: uiDirectory,
-  ignore: ['**/*.test.{ts,tsx}', '**/.next/**'],
-  posix: true,
-})
+const uiFiles = globSync(
+  ['app/**/*.{ts,tsx}', 'components/**/*.{ts,tsx}', 'agent-eval.ts', 'env.ts', 'next.config.ts', 'postcss.config.ts'],
+  {
+    cwd: uiDirectory,
+    ignore: ['**/*.test.{ts,tsx}', '**/.next/**'],
+    posix: true,
+  },
+)
 const cssFiles = globSync(['app/**/*.css'], {
   cwd: uiDirectory,
   ignore: ['**/*.test.{ts,tsx}', '**/.next/**'],

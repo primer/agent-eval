@@ -1,5 +1,5 @@
 import {listScenarios} from '../../agent-eval'
-import Link from 'next/link'
+import {Link} from '../../components/Link'
 import {scenariosDirectory} from '../../env'
 
 export default async function ScenariosPage() {

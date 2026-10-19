@@ -1,5 +1,5 @@
 import {listBenchmarks, listExperiments, listScenarios} from '../agent-eval'
-import Link from 'next/link'
+import {Link} from '../components/Link'
 import {benchmarksDirectory, experimentsDirectory, scenariosDirectory} from '../env'
 
 export default async function IndexPage() {

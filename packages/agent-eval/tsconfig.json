@@ -4,5 +4,5 @@
     "jsx": "react-jsx",
     "lib": ["ESNext", "ESNext.Disposable", "DOM", "DOM.Iterable"]
   },
-  "include": ["src", "rolldown.config.ts", "vitest.config.ts"]
+  "include": ["src", "rolldown.config.ts", "vitest.config.ts", "playwright.config.ts"]
 }

@@ -12,7 +12,15 @@ const external = dependencies.map(name => {
 })
 
 const uiDirectory = path.join(import.meta.dirname, 'src', 'ui')
-const uiFiles = globSync(['app/**/*.{ts,tsx}', 'agent-eval.ts', 'env.ts', 'next.config.ts'], {
+const uiFiles = globSync(
+  ['app/**/*.{ts,tsx}', 'components/**/*.{ts,tsx}', 'agent-eval.ts', 'env.ts', 'next.config.ts', 'postcss.config.ts'],
+  {
+    cwd: uiDirectory,
+    ignore: ['**/*.test.{ts,tsx}', '**/.next/**'],
+    posix: true,
+  },
+)
+const cssFiles = globSync(['app/**/*.css'], {
   cwd: uiDirectory,
   ignore: ['**/*.test.{ts,tsx}', '**/.next/**'],
   posix: true,
@@ -35,6 +43,10 @@ const config = defineConfig([
         name: 'compile-ui',
         buildStart() {
           for (const filename of uiFiles) {
+            this.addWatchFile(path.join(uiDirectory, filename))
+          }
+
+          for (const filename of cssFiles) {
             this.addWatchFile(path.join(uiDirectory, filename))
           }
         },
@@ -64,6 +76,22 @@ const config = defineConfig([
                   ext: '.js',
                 }),
                 source: code,
+              })
+            }),
+          )
+
+          await Promise.all(
+            cssFiles.map(async filename => {
+              const source = await fs.readFile(path.join(uiDirectory, filename), 'utf8')
+              const {dir, name} = path.posix.parse(filename)
+              this.emitFile({
+                type: 'asset',
+                fileName: path.posix.format({
+                  dir: path.posix.join('ui', dir),
+                  name,
+                  ext: '.css',
+                }),
+                source,
               })
             }),
           )

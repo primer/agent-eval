@@ -112,6 +112,12 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.0-jammy
+      options: --ipc=host
+    defaults:
+      run:
+        shell: bash
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -121,19 +127,17 @@ jobs:
           cache: true
           node-version-file: '.nvmrc'
           require-lockfile: true
-      - name: Set up Node.js
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version-file: '.nvmrc'
       - name: Run tests
-        uses: docker://mcr.microsoft.com/playwright:v1.64.0-jammy
-        with:
-          entrypoint: /bin/bash
-          args: >-
-            -ec "corepack enable && corepack install && pnpm exec turbo run test"
+        run: pnpm exec turbo run test -- --run
 
   test-e2e:
     runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.0-jammy
+      options: --ipc=host
+    defaults:
+      run:
+        shell: bash
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -153,11 +157,7 @@ jobs:
       - name: Build @primer/agent-eval package
         run: pnpm exec turbo run --filter '@primer/agent-eval' build
       - name: Run e2e tests
-        uses: docker://mcr.microsoft.com/playwright:v1.64.0-jammy
-        with:
-          entrypoint: /bin/bash
-          args: >-
-            -ec "corepack enable && corepack install && pnpm run -r test:e2e"
+        run: pnpm run -r test:e2e
 
   type-check:
     runs-on: ubuntu-latest

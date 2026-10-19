@@ -22,6 +22,11 @@ UI in this project is split between the agent-eval ui in
 
 ## Verification
 
+- Use the most appropriate tool to verify your work.
+- Use the smallest scope possible to verify your work as you are iterating. Expand the scope as-needed to verify the work broadly
+- Prefer fast feedback loops, like unit tests, over slower feedback loops, like end-to-end tests (only if the they are sufficient to verify the work)
+- Use `agent-browser` to verify your work in a browser environment
+
 ### Testing
 
 - End-to-end tests are available through playwright

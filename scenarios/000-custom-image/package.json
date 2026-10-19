@@ -1,4 +1,7 @@
 {
   "name": "000-custom-image",
-  "type": "module"
+  "type": "module",
+  "devDependencies": {
+    "@primer/agent-eval": "workspace:*"
+  }
 }

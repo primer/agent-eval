@@ -8,7 +8,7 @@
     "format": "prettier --cache --write '**/*.{js,css,md,mdx,ts,tsx,yml}'",
     "format:diff": "prettier --cache --list-different '**/*.{js,css,md,mdx,ts,tsx,yml}'",
     "lint": "eslint '**/*.{js,ts,tsx}' --max-warnings=0 --cache",
-    "release": "pnpm --filter @primer/agent-eval run build && changeset publish",
+    "release": "turbo run build --filter=@primer/agent-eval && changeset publish",
     "test": "vitest",
     "type-check": "tsc --noEmit"
   },
@@ -16,18 +16,17 @@
     "@changesets/cli": "^3.0.3",
     "@eslint/js": "10.0.1",
     "@github/prettier-config": "^0.0.6",
-    "@primer/agent-eval": "workspace:*",
-    "@types/node": "^26.4.0",
-    "eslint": "^10.11.0",
+    "@types/node": "^26.6.4",
+    "eslint": "^10.12.0",
     "eslint-plugin-github": "^6.1.2",
     "globals": "^17.12.0",
     "playwright": "1.62.1",
     "prettier": "^3.8.3",
-    "rolldown": "^1.2.12",
+    "rolldown": "^1.2.13",
     "turbo": "^2.10.13",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.71.0",
     "vitest": "^5.0.3"
   },
-  "packageManager": "pnpm@12.11.2+sha512.25a51652a196785af5f28bda6dfe8dc582ebefa4ac1d180221ce1390231c5fb76637822ea4b6e4633ce74acdcb0a77f725af11bad38177fdeddaee818a955cb9"
+  "packageManager": "pnpm@12.14.0+sha512.c18ba6d87993d3d164cb5e8948f32b2c06ee854487e06cd8d86781342fb3e5bb4634367034711e86802baa9c37bea906ce1929ad08d70884c97d801df13389a6"
 }

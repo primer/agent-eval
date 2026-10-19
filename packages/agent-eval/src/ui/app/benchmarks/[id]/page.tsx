@@ -1,4 +1,4 @@
-import {listBenchmarks} from '../../../agent-eval'
+import {getBenchmark, listBenchmarks} from '../../../agent-eval'
 import {Link} from '../../../components/Link'
 import {benchmarksDirectory, scenariosDirectory} from '../../../env'
 
@@ -10,6 +10,11 @@ type Props = {
 
 export default async function BenchmarkPage(props: Props) {
   const params = await props.params
+  const benchmark = await getBenchmark({
+    benchmarksDirectory,
+    scenariosDirectory,
+    id: params.id,
+  })
   return (
     <>
       <main>
@@ -20,12 +25,12 @@ export default async function BenchmarkPage(props: Props) {
             </li>
             <li>
               <Link href={`/benchmarks/${params.id}`} aria-current="page">
-                {params.id}
+                {benchmark.name}
               </Link>
             </li>
           </ol>
         </nav>
-        <h1>Benchmark {params.id}</h1>
+        <h1>Benchmark {benchmark.name}</h1>
       </main>
     </>
   )

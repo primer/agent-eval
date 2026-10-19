@@ -3,6 +3,8 @@ import type {CopilotRunner} from '../copilot-runner'
 import {VirtualHost} from '../host'
 import {RunTrialResultSchema} from '../trial/run'
 import {getExperiment} from './get'
+import {getExperimentId} from './experiment'
+import {getScenarioId} from '../scenario/scenario'
 import {createExperimentPlan} from './plan'
 import {
   ExperimentOutputFileSchema,
@@ -72,6 +74,7 @@ function createOutputFile(trials: Record<string, string> = {}) {
     scenarios: {
       example: {
         id: 'example',
+        name: 'example',
         directory: '/scenarios/example',
         prompt: 'Create a page',
         tags: [],
@@ -281,7 +284,7 @@ test('preserves benchmark capabilities and trial membership through writing and 
   })
   const experiment = await getExperiment({
     host,
-    name: 'example',
+    id: getExperimentId('example'),
     experimentsDirectory: '/experiments',
     benchmarksDirectory: '/benchmarks',
     scenariosDirectory: '/scenarios',
@@ -319,6 +322,11 @@ test('preserves benchmark capabilities and trial membership through writing and 
   })
 
   expect(merged).toEqual(expected)
+  expect(merged.id).toBe(getExperimentId('example'))
+  expect(merged.scenarios.get(getScenarioId('example'))).toMatchObject({
+    id: getScenarioId('example'),
+    name: 'example',
+  })
   expect(
     [...merged.capabilities.values()]
       .map(capability => {

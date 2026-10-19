@@ -51,14 +51,27 @@ const CapabilityOutputSchema = z.object({
 
 type CapabilityOutput = z.infer<typeof CapabilityOutputSchema>
 
-const ScenarioOutputSchema = z.pick(ScenarioSchema, {
-  id: true,
-  directory: true,
-  prompt: true,
-  description: true,
-  tags: true,
-  judges: true,
-})
+const ScenarioOutputSchema = z.pipe(
+  z.extend(
+    z.pick(ScenarioSchema, {
+      id: true,
+      directory: true,
+      prompt: true,
+      description: true,
+      tags: true,
+      judges: true,
+    }),
+    {
+      name: z.optional(z.string()),
+    },
+  ),
+  z.transform(scenario => {
+    return {
+      ...scenario,
+      name: scenario.name ?? scenario.id,
+    }
+  }),
+)
 
 type ScenarioOutput = z.infer<typeof ScenarioOutputSchema>
 
@@ -227,6 +240,7 @@ function createBenchmarkOutput({benchmark, runPlanResult}: CreateBenchmarkOutput
     if (!result.scenarios.has(trial.scenario.id)) {
       result.scenarios.set(trial.scenario.id, {
         id: trial.scenario.id,
+        name: trial.scenario.name,
         directory: trial.scenario.directory,
         prompt: trial.scenario.prompt,
         description: trial.scenario.description,
@@ -400,6 +414,7 @@ export {
   BenchmarkOutputFileSchema,
   BenchmarkTrialOutputSchema,
   CapabilityOutputSchema,
+  ScenarioOutputSchema,
   parseBenchmarkTrialOutput,
   createBenchmarkOutput,
   listBenchmarkOutputFiles,

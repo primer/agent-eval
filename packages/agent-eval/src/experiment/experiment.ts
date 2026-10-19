@@ -3,6 +3,7 @@ import type {ModelVariant} from '../model'
 import type {Scenario} from '../scenario/scenario'
 import type {Treatment, TreatmentSetup} from '../treatment'
 import type {Benchmark} from '../benchmark/benchmark'
+import {hash} from '../hash'
 
 type BenchmarkExperiment = {
   type: 'benchmark'
@@ -32,4 +33,9 @@ type ScenarioExperiment = {
 
 type Experiment = ScenarioExperiment | BenchmarkExperiment
 
+function getExperimentId(filenameStem: string): string {
+  return hash(`Experiment:${filenameStem}`)
+}
+
+export {getExperimentId}
 export type {Experiment, ScenarioExperiment, BenchmarkExperiment}

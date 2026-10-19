@@ -173,7 +173,7 @@ async function parseExperimentPlanManifest({
     benchmarksDirectory,
     experimentsDirectory,
     host,
-    name: result.id,
+    id: result.id,
     scenariosDirectory,
   })
 

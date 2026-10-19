@@ -20,7 +20,13 @@ For an experiment in `experiments/example.ts`, use:
 agent-eval experiment plan create example --output-path ./plan.json
 ```
 
-The name is the configuration filename without its extension. By default, the CLI looks for configurations in `./benchmarks` or `./experiments` and scenarios in `./scenarios`.
+The resource argument accepts a hashed ID, display name, or configuration filename
+without its extension. By default, the CLI looks for configurations in
+`./benchmarks` or `./experiments` and scenarios in `./scenarios`.
+
+Plans store hashed resource IDs. Regenerate plans and results created before
+hashed IDs; they are not migrated automatically. See
+[resource identity and lookup](../packages/agent-eval/docs/references/resources.md).
 
 Creating a plan writes a JSON manifest without running the trials. It includes the configured combinations of scenarios, models, and treatments, including the automatically added control treatment.
 

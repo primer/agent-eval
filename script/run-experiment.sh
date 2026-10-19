@@ -18,8 +18,6 @@ if [[ $# -gt 0 && "$1" != --* ]]; then
 fi
 
 run_date="${RUN_DATE:-$(date -u +%F)}"
-run_directory="$repository_root/results/experiments/$experiment_name/$run_date"
-plan_path="$run_directory/plan.json"
 
 if [[ ! "$experiment_name" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
   echo "Experiment name must be a file name without its extension" >&2
@@ -30,6 +28,13 @@ if [[ ! "$run_date" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
   echo "RUN_DATE must use the YYYY-MM-DD format" >&2
   exit 1
 fi
+
+experiment_id="$(node --input-type=module -e '
+  const {getExperimentId} = await import(process.argv[1])
+  console.log(getExperimentId(process.argv[2]))
+' "$repository_root/packages/agent-eval/dist/index.js" "$experiment_name")"
+run_directory="$repository_root/results/experiments/$experiment_id/$run_date"
+plan_path="$run_directory/plan.json"
 
 case "$mode" in
   run)

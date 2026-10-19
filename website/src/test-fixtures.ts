@@ -107,7 +107,14 @@ function createExperimentOutput(trials: Array<ExperimentTrialOutput> = [createTr
     scenarios: new Map([
       [
         'empty-state',
-        {id: 'empty-state', directory: '/scenarios/empty-state', prompt: 'Create an empty state', tags: [], judges: []},
+        {
+          id: 'empty-state',
+          name: 'empty-state',
+          directory: '/scenarios/empty-state',
+          prompt: 'Create an empty state',
+          tags: [],
+          judges: [],
+        },
       ],
     ]),
     treatments: new Map([

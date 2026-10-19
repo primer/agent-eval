@@ -85,3 +85,42 @@ test('links shared experiment scenarios to distinct capability targets and shows
   expect(details).toContain('Components / scenario-a')
   expect(details).toContain('Layout / scenario-a')
 })
+
+test('renders scenario names while keeping hashed IDs in result links and anchors', async () => {
+  const scenarioId = '3252455659'
+  const result = createResult({scenarioId})
+  const savedRun = createRun([result])
+  savedRun.output.scenarios = new Map([
+    [
+      scenarioId,
+      {
+        id: scenarioId,
+        name: 'Readable task name',
+        directory: '/scenarios/task',
+        prompt: 'Create a page',
+        tags: [],
+        judges: [],
+      },
+    ],
+  ])
+  const run = await createExperimentRunDetails('2026-09-10', savedRun.output)
+
+  const overview = renderToStaticMarkup(<LatestExperimentResults id="noop" results={getExperimentResults(savedRun)} />)
+  const details = renderToStaticMarkup(
+    <RunDetailsPage
+      resource={{
+        id: 'noop',
+        name: 'Example experiment',
+        collectionLabel: 'Experiments',
+        collectionHref: '/experiments',
+        href: '/experiments/noop' as Route,
+      }}
+      run={run}
+    />,
+  )
+
+  expect(overview).toContain('Readable task name')
+  expect(details).toContain('Readable task name')
+  expect(overview).toContain(`#scenario-${scenarioId}`)
+  expect(details).toContain(`id="scenario-${scenarioId}"`)
+})

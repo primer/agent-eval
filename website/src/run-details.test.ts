@@ -149,6 +149,7 @@ test.each([
   expect(details.results[0]).toEqual({
     id: 'trial-1',
     scenarioId: 'empty-state',
+    scenarioName: 'empty-state',
     model: 'gpt-5.6-sol',
     reasoningEffort: 'medium',
     runner: 'copilot-cli',

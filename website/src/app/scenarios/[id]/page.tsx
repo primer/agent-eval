@@ -21,7 +21,7 @@ export async function generateMetadata(props: ScenarioPageProps): Promise<Metada
   const scenario = await get(id)
 
   return {
-    title: scenario.id,
+    title: scenario.name,
     description: scenario.prompt,
   }
 }

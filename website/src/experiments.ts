@@ -32,7 +32,7 @@ export async function get(id: string): Promise<Experiment> {
     benchmarksDirectory: BENCHMARKS_DIR,
     experimentsDirectory: EXPERIMENTS_DIR,
     scenariosDirectory: SCENARIOS_DIR,
-    name: id,
+    id,
   })
 
   return toExperiment(experiment)

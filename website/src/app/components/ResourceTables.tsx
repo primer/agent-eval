@@ -40,12 +40,14 @@ export function ScenariosTable({
           aria-labelledby="scenarios-heading"
           columns={[
             {
-              id: 'id',
-              header: 'ID',
-              field: 'id',
+              id: 'name',
+              header: 'Name',
+              field: 'name',
               rowHeader: true,
               maxWidth: '40ch',
-              renderCell: row => <Link href={`/scenarios/${row.id}`}>{row.id}</Link>,
+              renderCell: row => {
+                return <Link href={`/scenarios/${row.id}`}>{row.name}</Link>
+              },
             },
             {id: 'prompt', header: 'Prompt', field: 'prompt', maxWidth: '1fr'},
           ]}

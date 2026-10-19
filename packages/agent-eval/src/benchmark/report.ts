@@ -26,6 +26,7 @@ type BenchmarkComparison = {
   capability: Capability
   runner: CopilotRunner
   scenario?: string
+  scenarioName?: string
   model?: ModelVariant
   control: TrialSummary
   benchmarkTreatment: TrialSummary
@@ -63,7 +64,7 @@ function formatBenchmarkComparison(
     Benchmark: comparison.scenario ? '' : benchmark.name,
     Capability: comparison.scenario ? '' : comparison.capability.name,
     ...(showRunner ? {Runner: comparison.scenario ? '' : comparison.runner} : {}),
-    Scenario: comparison.model ? '' : comparison.scenario ? `  ${comparison.scenario}` : 'All scenarios',
+    Scenario: comparison.model ? '' : comparison.scenario ? `  ${comparison.scenarioName}` : 'All scenarios',
     Model: comparison.model ? `    ${comparison.model.name}` : 'All models',
     'Reasoning Effort': comparison.model?.reasoningEffort ?? '',
     'Control Runs': comparison.control.runs,
@@ -93,10 +94,10 @@ function createBenchmarkReport({benchmark, runPlanResult}: CreateBenchmarkReport
       throw new Error(`Unexpected benchmark treatment for trial "${trial.id}": ${trial.treatment.name}`)
     }
 
-    const values: Array<{scenario?: string; model?: ModelVariant}> = [
+    const values: Array<{scenario?: string; scenarioName?: string; model?: ModelVariant}> = [
       {},
-      {scenario: trial.scenario.id},
-      {scenario: trial.scenario.id, model: trial.model},
+      {scenario: trial.scenario.id, scenarioName: trial.scenario.name},
+      {scenario: trial.scenario.id, scenarioName: trial.scenario.name, model: trial.model},
     ]
 
     for (const value of values) {

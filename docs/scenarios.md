@@ -4,6 +4,13 @@ Scenarios are used to evaluate agent performance on a given task. By default, th
 
 Each scenario defines a prompt for the agent, a starting workspace, and checks or judges that evaluate the result. Scenarios are shared by [benchmarks](./benchmarks.md) and [experiments](./experiments.md), which select them by their folder names.
 
+Scenario IDs hash directory names. The optional configuration `name` provides a
+display name, defaulting to the directory name. Use `getScenario({id, directory})`
+or `getScenarioByName({name, directory})` for package lookups. CLI and configuration
+references accept IDs, names, or folder names. See
+[resource identity and lookup](../packages/agent-eval/docs/references/resources.md)
+for migration of existing plans/results.
+
 As an example, you may want to evaluate how well an agent adds a search feature to an existing application. The scenario provides the application and a prompt describing the task. Checks can verify that search works, while a judge can evaluate how well the result fits the rest of the application.
 
 ## Config
@@ -194,7 +201,9 @@ Remove locally tagged images for a specific scenario:
 agent-eval scenario image clean 001-agent-scenario
 ```
 
-This targets local images with tags matching `agent-eval/scenarios/001-agent-scenario:`, including older builds, rather than only the image for the current configuration.
+This resolves the scenario and targets local images with tags matching
+`agent-eval/scenarios/<scenario-id>:`, including older builds, rather than only
+the image for the current configuration.
 
 To clean up agent-eval images more broadly, omit the scenario name:
 

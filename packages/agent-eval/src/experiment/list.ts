@@ -3,13 +3,13 @@ import {prettifyError} from 'zod/mini'
 import {DefaultHost, type Host} from '../host'
 import {logger} from '../logger'
 import {getModelVariants} from '../model'
-import {getScenario} from '../scenario/get'
+import {getScenarioByReference} from '../scenario/get'
 import {loadScenario} from '../scenario/load'
 import {createTreatment} from '../treatment'
 import {ExperimentConfigSchema} from './config'
-import type {Experiment} from './experiment'
+import {getExperimentId, type Experiment} from './experiment'
 import {exhaustiveCheck} from '../exhaustive'
-import {getBenchmark} from '../benchmark/get'
+import {getBenchmarkByReference} from '../benchmark/get'
 
 const EXPERIMENT_FILE_EXTENSIONS = new Set(['.cjs', '.js', '.mjs', '.ts'])
 
@@ -71,7 +71,7 @@ async function listExperiments({
       const scenarios = await Promise.all(
         config.scenarios.map(scenario => {
           if (typeof scenario === 'string') {
-            return getScenario({host, directory: scenariosDirectory, name: scenario})
+            return getScenarioByReference({host, directory: scenariosDirectory, reference: scenario})
           }
 
           const directory = path.resolve(scenario.path)
@@ -81,7 +81,7 @@ async function listExperiments({
 
       experiments.push({
         type: 'scenario',
-        id: getExperimentId(filename),
+        id: getExperimentId(path.basename(filename, path.extname(filename))),
         filepath,
         name: config.name,
         description: config.description,
@@ -94,16 +94,16 @@ async function listExperiments({
         }),
       })
     } else if ('benchmark' in config) {
-      const benchmark = await getBenchmark({
+      const benchmark = await getBenchmarkByReference({
         benchmarksDirectory,
         host,
         scenariosDirectory,
-        name: config.benchmark,
+        reference: config.benchmark,
       })
 
       experiments.push({
         type: 'benchmark',
-        id: getExperimentId(filename),
+        id: getExperimentId(path.basename(filename, path.extname(filename))),
         filepath,
         name: config.name,
         description: config.description,
@@ -121,10 +121,6 @@ async function listExperiments({
   }
 
   return experiments
-}
-
-function getExperimentId(filename: string): string {
-  return path.basename(filename, path.extname(filename))
 }
 
 function isExperimentFile(filename: string): boolean {

@@ -390,6 +390,11 @@ export function BenchmarkTrends({
   const [hoveredSeries, setHoveredSeries] = useState<string | null>(null)
   const [selectedTreatment, setSelectedTreatment] = useState<TrendTreatment | null>(null)
   const [hoveredTreatment, setHoveredTreatment] = useState<TrendTreatment | null>(null)
+  const scenarioNames = new Map(
+    points.flatMap(point => {
+      return point.scenarioId === null ? [] : [[point.scenarioId, point.scenarioName ?? point.scenarioId] as const]
+    }),
+  )
   const scenarios = [
     ...new Set(
       points
@@ -400,7 +405,9 @@ export function BenchmarkTrends({
           return point.scenarioId === null ? [] : [point.scenarioId]
         }),
     ),
-  ].toSorted()
+  ].toSorted((first, second) => {
+    return (scenarioNames.get(first) ?? first).localeCompare(scenarioNames.get(second) ?? second)
+  })
   const filteredPoints = points.filter(point => {
     return point.capabilityId === (selectedCapabilityId || null) && point.scenarioId === (selectedScenarioId || null)
   })
@@ -509,7 +516,7 @@ export function BenchmarkTrends({
                 {scenarios.map(scenarioId => {
                   return (
                     <Select.Option key={scenarioId} value={scenarioId}>
-                      {scenarioId}
+                      {scenarioNames.get(scenarioId)}
                     </Select.Option>
                   )
                 })}

@@ -2,7 +2,7 @@ import path from 'node:path'
 import {DefaultHost, type Host} from '../host'
 import {parseJudgeConfig} from '../judge'
 import {parseScenarioConfig, type ScenarioConfigModule} from './config'
-import {defaultScenarioSetup, type Scenario} from './scenario'
+import {defaultScenarioSetup, getScenarioId, type Scenario} from './scenario'
 import {parseCheckConfig} from '../check'
 
 type LoadScenarioOptions = {
@@ -11,30 +11,29 @@ type LoadScenarioOptions = {
   name?: string
 }
 
-async function loadScenario({
-  directory,
-  host = DefaultHost,
-  name = path.basename(directory),
-}: LoadScenarioOptions): Promise<Scenario> {
+async function loadScenario({directory, host = DefaultHost, name}: LoadScenarioOptions): Promise<Scenario> {
+  const directoryName = path.basename(path.resolve(directory))
+  const label = name ?? directoryName
   if (!host.fs.existsSync(directory)) {
-    throw new Error(`Scenario "${name}" directory was not found: ${directory}`)
+    throw new Error(`Scenario "${label}" directory was not found: ${directory}`)
   }
 
   const stats = await host.fs.promises.stat(directory)
   if (!stats.isDirectory()) {
-    throw new Error(`Scenario "${name}" directory was not found: ${directory}`)
+    throw new Error(`Scenario "${label}" directory was not found: ${directory}`)
   }
 
   const configPath = path.join(directory, 'scenario.config.ts')
   if (!host.fs.existsSync(configPath)) {
-    throw new Error(`Scenario "${name}" config file was not found: ${configPath}`)
+    throw new Error(`Scenario "${label}" config file was not found: ${configPath}`)
   }
 
   const data: ScenarioConfigModule = await host.loadModule(configPath)
   const config = parseScenarioConfig(host, directory, data.default)
 
   const scenario: Scenario = {
-    id: name,
+    id: getScenarioId(directoryName),
+    name: name ?? config.name ?? directoryName,
     directory,
     prompt: config.prompt,
     tags: config.tags,

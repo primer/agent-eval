@@ -1,7 +1,7 @@
 import path from 'node:path'
 import Docker from 'dockerode'
 import {defineCommand} from 'citty'
-import {getScenario} from '../../scenario/get'
+import {getScenarioByReference} from '../../scenario/get'
 import {DefaultHost as host} from '../../host'
 import {logger} from '../../logger'
 import {createScenarioPlan} from '../../scenario/plan'
@@ -39,7 +39,7 @@ const scenarioCommand = defineCommand({
           args: {
             name: {
               type: 'positional',
-              description: 'The name of the scenario',
+              description: 'The scenario ID, display name, or directory name',
               required: true,
             },
             scenarios: scenariosOption,
@@ -48,9 +48,9 @@ const scenarioCommand = defineCommand({
             logger.info('Building Docker image for scenario: %s', args.name)
 
             const scenariosDirectory = path.resolve(args.scenarios)
-            const scenario = await getScenario({
+            const scenario = await getScenarioByReference({
               directory: scenariosDirectory,
-              name: args.name,
+              reference: args.name,
             })
 
             await buildScenarioImage({
@@ -66,7 +66,7 @@ const scenarioCommand = defineCommand({
           args: {
             name: {
               type: 'positional',
-              description: 'The name of the scenario',
+              description: 'The scenario ID, display name, or directory name',
               required: false,
             },
             scenarios: scenariosOption,
@@ -76,11 +76,15 @@ const scenarioCommand = defineCommand({
             const docker = new Docker()
 
             if (args.name) {
+              const scenario = await getScenarioByReference({
+                directory: scenariosDirectory,
+                reference: args.name,
+              })
               logger.info('Removing Docker images for scenario: %s', args.name)
               const images = await docker.listImages().then(images => {
                 return images.filter(image => {
                   return image.RepoTags?.some(tag => {
-                    return tag.startsWith(`agent-eval/scenarios/${args.name}:`)
+                    return tag.startsWith(`agent-eval/scenarios/${scenario.id}:`)
                   })
                 })
               })
@@ -143,7 +147,7 @@ const scenarioCommand = defineCommand({
         'container-concurrency': containerConcurrencyOption,
         name: {
           type: 'positional',
-          description: 'The name of the scenario',
+          description: 'The scenario ID, display name, or directory name',
           required: true,
         },
         'output-dir': outputDirectoryOption,
@@ -170,9 +174,9 @@ const scenarioCommand = defineCommand({
           scenariosDirectory,
         })
 
-        const scenario = await getScenario({
+        const scenario = await getScenarioByReference({
           directory: scenariosDirectory,
-          name: args.name,
+          reference: args.name,
         })
 
         if (args.check) {

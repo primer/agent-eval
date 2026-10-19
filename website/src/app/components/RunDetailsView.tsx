@@ -28,6 +28,7 @@ type RunResult = Omit<RunDetails['results'][number], 'workspace'> & {
 type ScenarioResultGroup = {
   id: string
   scenarioId: string
+  scenarioName: string
   capability?: RunResult['capability']
   results: [RunResult, ...Array<RunResult>]
 }
@@ -233,7 +234,7 @@ function ResultTabs({index, result}: {index: number; result: RunResult}) {
   return (
     <section className="bg-default border border-default rounded-lg overflow-hidden">
       <UnderlineNav
-        aria-label={`${result.capability ? `${result.capability.name} / ` : ''}${result.scenarioId} result details`}
+        aria-label={`${result.capability ? `${result.capability.name} / ` : ''}${result.scenarioName} result details`}
       >
         <UnderlineNav.Item
           aria-current={selectedTab === 'walkthrough' ? 'page' : undefined}
@@ -358,7 +359,7 @@ function ResultTabs({index, result}: {index: number; result: RunResult}) {
                 return <JudgeResults judges={details.judges} />
               }
               return (
-                <UiWalkthrough scenarioId={result.scenarioId} walkthrough={details.walkthrough} eager={index === 0} />
+                <UiWalkthrough scenarioId={result.scenarioName} walkthrough={details.walkthrough} eager={index === 0} />
               )
             }}
           </AsyncContent>
@@ -392,6 +393,7 @@ function groupResultsByScenario(results: Array<RunResult>): Array<ScenarioResult
       groups.set(id, {
         id,
         scenarioId: result.scenarioId,
+        scenarioName: result.scenarioName,
         capability: result.capability,
         results: [result],
       })
@@ -401,6 +403,7 @@ function groupResultsByScenario(results: Array<RunResult>): Array<ScenarioResult
   return Array.from(groups.values()).toSorted((firstGroup, secondGroup) => {
     return (
       (firstGroup.capability?.name ?? '').localeCompare(secondGroup.capability?.name ?? '') ||
+      firstGroup.scenarioName.localeCompare(secondGroup.scenarioName) ||
       firstGroup.scenarioId.localeCompare(secondGroup.scenarioId)
     )
   })
@@ -449,7 +452,7 @@ function ScenarioResults({group, index}: {group: ScenarioResultGroup; index: num
       <header className="border-b border-default pb-3 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <h2 className="text-title-medium m-0" id={resultHeadingId}>
           {group.capability ? `${group.capability.name} / ` : null}
-          {group.scenarioId}
+          {group.scenarioName}
         </h2>
         <div className="flex flex-col sm:flex-row gap-3">
           <FormControl>

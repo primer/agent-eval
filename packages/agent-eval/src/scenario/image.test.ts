@@ -33,6 +33,7 @@ test('the default scenario Dockerfile uses the shared sandbox image', async () =
     host: VirtualHost.create(),
     scenario: {
       id: 'example',
+      name: 'example',
       directory: '/scenarios/example',
       prompt: 'Update the example',
       tags: [],
@@ -62,6 +63,7 @@ test.each(['Default', 'Reference', 'Build'] as const)(
     const createScenario = (directory: string): Scenario => {
       return {
         id: 'example',
+        name: 'example',
         directory,
         prompt: 'Update the example',
         tags: [],

@@ -25,6 +25,7 @@ export type BenchmarkPageResults = {
   comparison: BenchmarkComparison
   scenarios: Array<{
     id: string
+    name: string
     comparison: BenchmarkComparison
     models: Array<BenchmarkOverviewResult>
   }>
@@ -66,6 +67,7 @@ export type BenchmarkTrendPoint = {
   date: string
   capabilityId: string | null
   scenarioId: string | null
+  scenarioName?: string
   model: string
   reasoningEffort: string
   metrics: Record<BenchmarkTrendMetricId, BenchmarkTrendMetric>
@@ -334,7 +336,7 @@ function createTrendPoint(
     definitions.set(id, {
       id,
       label:
-        [check.scenarioId, check.name, check.id]
+        [output.scenarios.get(check.scenarioId)?.name ?? check.scenarioId, check.name, check.id]
           .filter(part => {
             return part !== undefined
           })
@@ -356,6 +358,7 @@ function createTrendPoint(
     date,
     capabilityId,
     scenarioId,
+    ...(scenarioId === null ? {} : {scenarioName: output.scenarios.get(scenarioId)?.name ?? scenarioId}),
     model: model.name,
     reasoningEffort: model.reasoningEffort,
     metrics,
@@ -480,6 +483,7 @@ function createScenarioResults(
     })
     return {
       id,
+      name: output.scenarios.get(id)?.name ?? id,
       comparison: createComparison(scenarioTrials, output),
       models: createModelResults(scenarioTrials, output),
     }

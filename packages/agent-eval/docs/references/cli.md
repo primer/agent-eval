@@ -4,9 +4,10 @@
 
 ## Contract
 
-Run from your evaluation project's root with `npx agent-eval`. Names are
-configuration filenames without extensions for benchmarks/experiments and
-folder names for scenarios, not display names or paths to `.ts` files.
+Run from your evaluation project's root with `npx agent-eval`. Resource arguments
+accept hashed IDs, display names, or configuration filename stems (folder names
+for scenarios), not paths to `.ts` files. See
+[resource identity and lookup](resources.md) for ambiguity rules and API helpers.
 Use a fresh output directory per run. Evaluation runs require Docker and
 `COPILOT_GITHUB_TOKEN` or `--token`; planning and merge do not require a token.
 Image commands require Docker but not a Copilot token.

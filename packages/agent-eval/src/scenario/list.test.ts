@@ -2,6 +2,7 @@ import path from 'node:path'
 import {afterEach, describe, expect, test, vi} from 'vitest'
 import {VirtualHost} from '../host'
 import {listScenarios} from './list'
+import {getScenarioId} from './scenario'
 
 afterEach(() => {
   vi.restoreAllMocks()
@@ -27,8 +28,8 @@ describe('listScenarios', () => {
         return {id, directory, prompt}
       }),
     ).toEqual([
-      {id: 'a-first', directory: '/scenarios/a-first', prompt: 'First task'},
-      {id: 'z-last', directory: '/scenarios/z-last', prompt: 'Last task'},
+      {id: getScenarioId('a-first'), directory: '/scenarios/a-first', prompt: 'First task'},
+      {id: getScenarioId('z-last'), directory: '/scenarios/z-last', prompt: 'Last task'},
     ])
   })
 
@@ -49,7 +50,7 @@ describe('listScenarios', () => {
 
     expect(
       scenarios.map(scenario => {
-        return scenario.id
+        return scenario.name
       }),
     ).toEqual(['visible'])
   })
@@ -70,7 +71,7 @@ describe('listScenarios', () => {
 
     expect(
       scenarios.map(scenario => {
-        return scenario.id
+        return scenario.name
       }),
     ).toEqual(['a-valid', 'z-valid'])
   })
@@ -96,7 +97,7 @@ describe('listScenarios', () => {
       scenarios.map(({id, prompt}) => {
         return {id, prompt}
       }),
-    ).toEqual([{id: 'example', prompt: 'Relative task'}])
+    ).toEqual([{id: getScenarioId('example'), prompt: 'Relative task'}])
   })
 
   test('rejects a missing directory rather than returning an empty list', async () => {

@@ -22,12 +22,12 @@ export function Page({scenario, experiments}: Props) {
                 <Breadcrumbs.Item as={NextLink} href="/scenarios">
                   Scenarios
                 </Breadcrumbs.Item>
-                <Breadcrumbs.Item selected>{scenario.id}</Breadcrumbs.Item>
+                <Breadcrumbs.Item selected>{scenario.name}</Breadcrumbs.Item>
               </Breadcrumbs>
             </PageHeader.Breadcrumbs>
           </PageHeader.ContextArea>
           <PageHeader.TitleArea variant="large">
-            <PageHeader.Title as="h1">{scenario.id}</PageHeader.Title>
+            <PageHeader.Title as="h1">{scenario.name}</PageHeader.Title>
           </PageHeader.TitleArea>
         </PageHeader>
       </PageLayout.Header>

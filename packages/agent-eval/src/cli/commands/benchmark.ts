@@ -1,6 +1,6 @@
 import path from 'node:path'
 import {defineCommand} from 'citty'
-import {getBenchmark} from '../../benchmark/get'
+import {getBenchmarkByReference} from '../../benchmark/get'
 import {createBenchmarkReport} from '../../benchmark/report'
 import {createBenchmarkPlan, createBenchmarkPlanManifest, parseBenchmarkPlanManifest} from '../../benchmark/plan'
 import {
@@ -91,7 +91,7 @@ const benchmarkCommand = defineCommand({
             benchmarks: benchmarksOption,
             name: {
               type: 'positional',
-              description: 'The name of the benchmark to plan',
+              description: 'The benchmark ID, display name, or filename stem to plan',
               required: true,
             },
             'output-path': {
@@ -114,10 +114,10 @@ const benchmarkCommand = defineCommand({
               outputPath,
             })
 
-            const benchmark = await getBenchmark({
+            const benchmark = await getBenchmarkByReference({
               benchmarksDirectory,
               scenariosDirectory,
-              name: args.name,
+              reference: args.name,
             })
             const plan = createBenchmarkPlan({
               benchmark,
@@ -235,7 +235,7 @@ const benchmarkCommand = defineCommand({
         'container-concurrency': containerConcurrencyOption,
         name: {
           type: 'positional',
-          description: 'The name of the benchmark to run',
+          description: 'The benchmark ID, display name, or filename stem to run',
           required: true,
         },
         'output-dir': outputDirectoryOption,
@@ -264,10 +264,10 @@ const benchmarkCommand = defineCommand({
           scenariosDirectory,
         })
 
-        const benchmark = await getBenchmark({
+        const benchmark = await getBenchmarkByReference({
           benchmarksDirectory,
           scenariosDirectory,
-          name: args.name,
+          reference: args.name,
         })
         const plan = createBenchmarkPlan({
           benchmark,

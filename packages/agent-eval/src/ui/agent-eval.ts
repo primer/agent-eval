@@ -3,8 +3,13 @@ import {pathToFileURL} from 'node:url'
 
 const require = createRequire(import.meta.url)
 const entry = require.resolve(/* turbopackIgnore: true */ '@primer/agent-eval')
-const {listBenchmarks, listExperiments, listScenarios}: typeof import('@primer/agent-eval') = await import(
-  /* turbopackIgnore: true */ pathToFileURL(entry).href
-)
+const {
+  getBenchmark,
+  getExperiment,
+  getScenario,
+  listBenchmarks,
+  listExperiments,
+  listScenarios,
+}: typeof import('@primer/agent-eval') = await import(/* turbopackIgnore: true */ pathToFileURL(entry).href)
 
-export {listBenchmarks, listExperiments, listScenarios}
+export {getBenchmark, getExperiment, getScenario, listBenchmarks, listExperiments, listScenarios}

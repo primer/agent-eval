@@ -2,7 +2,7 @@ import {describe, expect, test} from 'vitest'
 import type {CopilotRunner} from '../copilot-runner'
 import {VirtualHost} from '../host'
 import type {RunPlanResult} from '../plan'
-import type {Experiment} from './experiment'
+import {getExperimentId, type Experiment} from './experiment'
 import {getExperiment} from './get'
 import {createExperimentPlan, type ExperimentTrial} from './plan'
 import {createExperimentReport} from './report'
@@ -35,7 +35,7 @@ async function createExperiment(type: Experiment['type'], runners: Array<Copilot
     benchmarksDirectory: '/benchmarks',
     experimentsDirectory: '/experiments',
     scenariosDirectory: '/scenarios',
-    name: 'example',
+    id: getExperimentId('example'),
   })
 }
 

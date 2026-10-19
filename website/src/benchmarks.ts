@@ -1,13 +1,15 @@
 import path from 'node:path'
 import type {Benchmark as AgentEvalBenchmark} from '@primer/agent-eval'
 
-const {getBenchmark, listBenchmarks} = await import(
+const {getBenchmark, getBenchmarkId, listBenchmarks} = await import(
   /* turbopackIgnore: true */
   '@primer/agent-eval'
 )
 
 const BENCHMARKS_DIR = path.resolve(process.cwd(), '..', 'benchmarks')
 const SCENARIOS_DIR = path.resolve(process.cwd(), '..', 'scenarios')
+
+export {getBenchmarkId}
 
 export type Benchmark = Pick<AgentEvalBenchmark, 'id' | 'name' | 'description' | 'models'> & {
   capabilities: Array<{
@@ -48,7 +50,7 @@ export async function get(id: string): Promise<Benchmark> {
   const benchmark = await getBenchmark({
     benchmarksDirectory: BENCHMARKS_DIR,
     scenariosDirectory: SCENARIOS_DIR,
-    name: id,
+    id,
   })
 
   return normalizeBenchmark(benchmark)

@@ -1,10 +1,10 @@
 import path from 'node:path'
-import {getCapabilityId, type Benchmark} from './benchmark'
+import {getBenchmarkId, getCapabilityId, type Benchmark} from './benchmark'
 import {BenchmarkConfigSchema} from './config'
 import {DefaultHost, type Host} from '../host'
 import {logger} from '../logger'
 import {getModelVariants} from '../model'
-import {getScenario} from '../scenario/get'
+import {getScenarioByReference} from '../scenario/get'
 import {prettifyError} from 'zod/mini'
 import {loadScenario} from '../scenario/load'
 
@@ -73,7 +73,7 @@ async function listBenchmarks({
         const scenarios = await Promise.all(
           capability.scenarios.map(scenario => {
             if (typeof scenario === 'string') {
-              return getScenario({host, directory: scenariosDirectory, name: scenario})
+              return getScenarioByReference({host, directory: scenariosDirectory, reference: scenario})
             }
 
             const directory = path.resolve(scenario.path)
@@ -91,7 +91,7 @@ async function listBenchmarks({
     )
 
     benchmarks.push({
-      id: getBenchmarkId(filename),
+      id: getBenchmarkId(path.basename(filename, path.extname(filename))),
       filepath,
       name: config.name,
       description: config.description,
@@ -103,10 +103,6 @@ async function listBenchmarks({
   }
 
   return benchmarks
-}
-
-function getBenchmarkId(filename: string): string {
-  return path.basename(filename, path.extname(filename))
 }
 
 function isBenchmarkFile(filename: string): boolean {

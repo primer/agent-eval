@@ -10,8 +10,8 @@ test('distinguishes missing runs from runs with no trials', () => {
     treatments: [],
     capabilities: [],
     scenarios: [
-      {id: 'scenario-a', treatments: []},
-      {id: 'scenario-b', treatments: []},
+      {id: 'scenario-a', name: 'scenario-a', treatments: []},
+      {id: 'scenario-b', name: 'scenario-b', treatments: []},
     ],
   })
 })

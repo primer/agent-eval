@@ -6,6 +6,13 @@ Each experiment defines either a set of scenarios or a benchmark whose
 capabilities and scenarios are used to evaluate each treatment. An experiment
 also defines a set of models to use.
 
+Experiment IDs hash configuration filename stems and remain stable when display
+names change. Use `getExperiment({id, ...directories})` or
+`getExperimentByName({name, ...directories})` for package lookups. CLI and
+configuration references also accept filename stems. See
+[resource identity and lookup](../packages/agent-eval/docs/references/resources.md)
+for directory options and migration of existing plans/results.
+
 As an example, you may want to design an experiment comparing the performance of
 your MCP server to a skills based approach. With this in mind, you create two
 treatments where you install your MCP server in one treatment and install a skills based approach in the other.

@@ -3,6 +3,7 @@ import {VirtualHost} from '../host'
 import type {CopilotRunner} from '../copilot-runner'
 import {VirtualSandbox} from '../sandbox'
 import {ExperimentConfigSchema} from './config'
+import {getExperimentId} from './experiment'
 import {getExperiment} from './get'
 import {createExperimentPlan, createExperimentPlanManifest, parseExperimentPlanManifest} from './plan'
 
@@ -35,7 +36,7 @@ test.each([
       experimentsDirectory: '/experiments',
       scenariosDirectory: '/scenarios',
     }
-    const experiment = await getExperiment({...options, name: 'example'})
+    const experiment = await getExperiment({...options, id: getExperimentId('example')})
     const plan = createExperimentPlan({experiment})
     expectTypeOf(plan.trials[0].runner).toEqualTypeOf<CopilotRunner>()
     expect(plan.trials).toHaveLength(4 * expected.length)
@@ -67,7 +68,7 @@ test('restores legacy plans without a runner as CLI trials', async () => {
     experimentsDirectory: '/experiments',
     scenariosDirectory: '/scenarios',
   }
-  const experiment = await getExperiment({...options, name: 'example'})
+  const experiment = await getExperiment({...options, id: getExperimentId('example')})
   const plan = createExperimentPlan({experiment})
   const manifest = createExperimentPlanManifest({experiment, plan})
   const legacy = {
@@ -125,7 +126,7 @@ test('preserves repeated experiment trial combinations with distinct IDs', async
     experimentsDirectory: '/experiments',
     scenariosDirectory: '/scenarios',
   }
-  const experiment = await getExperiment({...options, name: 'example'})
+  const experiment = await getExperiment({...options, id: getExperimentId('example')})
   const plan = createExperimentPlan({experiment})
   const manifest = createExperimentPlanManifest({experiment, plan})
   manifest.trials.push({
@@ -169,7 +170,7 @@ test('expands and restores benchmark experiment control, benchmark, and custom t
     experimentsDirectory: '/experiments',
     scenariosDirectory: '/scenarios',
   }
-  const experiment = await getExperiment({...options, name: 'example'})
+  const experiment = await getExperiment({...options, id: getExperimentId('example')})
   const plan = createExperimentPlan({experiment})
 
   expect(plan.trials).toHaveLength(6)
@@ -242,7 +243,7 @@ test('preserves shared setup order and treatment isolation in created and restor
     experimentsDirectory: '/experiments',
     scenariosDirectory: '/scenarios',
   }
-  const experiment = await getExperiment({...options, name: 'example'})
+  const experiment = await getExperiment({...options, id: getExperimentId('example')})
   const plan = createExperimentPlan({experiment})
   const manifest = createExperimentPlanManifest({experiment, plan})
   const parsed = await parseExperimentPlanManifest({...options, contents: JSON.stringify(manifest)})

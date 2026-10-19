@@ -23,6 +23,7 @@ export type ExperimentResults = {
   treatments: Array<TreatmentResult>
   scenarios: Array<{
     id: string
+    name: string
     treatments: Array<TreatmentResult>
   }>
   capabilities: Array<{
@@ -99,9 +100,9 @@ function summarizeScenarios(
   }
 
   return Array.from(scenarios, ([id, trials]) => {
-    return {id, treatments: summarizeTreatments(run, trials)}
+    return {id, name: run.output.scenarios.get(id)?.name ?? id, treatments: summarizeTreatments(run, trials)}
   }).toSorted((first, second) => {
-    return first.id.localeCompare(second.id)
+    return first.name.localeCompare(second.name) || first.id.localeCompare(second.id)
   })
 }
 

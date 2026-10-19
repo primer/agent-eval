@@ -29,7 +29,7 @@ export function Page({experiment, runs, results}: Props) {
         <Breadcrumbs.Item as={NextLink} href="/experiments">
           Experiments
         </Breadcrumbs.Item>
-        <Breadcrumbs.Item selected>{experiment.id}</Breadcrumbs.Item>
+        <Breadcrumbs.Item selected>{experiment.name}</Breadcrumbs.Item>
       </Breadcrumbs>
       <div>
         <h1>{experiment.name}</h1>

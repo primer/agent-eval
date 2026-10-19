@@ -1,4 +1,4 @@
-import {listScenarios} from '../../../agent-eval'
+import {getScenario, listScenarios} from '../../../agent-eval'
 import {Link} from '../../../components/Link'
 import {scenariosDirectory} from '../../../env'
 
@@ -10,6 +10,10 @@ type Props = {
 
 export default async function ScenarioPage(props: Props) {
   const params = await props.params
+  const scenario = await getScenario({
+    directory: scenariosDirectory,
+    id: params.id,
+  })
   return (
     <>
       <main>
@@ -20,13 +24,13 @@ export default async function ScenarioPage(props: Props) {
             </li>
             <li>
               <Link href={`/scenarios/${params.id}`} aria-current="page">
-                {params.id}
+                {scenario.name}
               </Link>
             </li>
           </ol>
         </nav>
 
-        <h1>Scenario {params.id}</h1>
+        <h1>Scenario {scenario.name}</h1>
       </main>
     </>
   )

@@ -1,6 +1,8 @@
+import path from 'node:path'
 import {DefaultHost, type Host} from '../host'
 import type {Benchmark} from './benchmark'
 import {listBenchmarks} from './list'
+import {findResource} from '../resource'
 
 type GetBenchmarkOptions = {
   /**
@@ -18,33 +20,47 @@ type GetBenchmarkOptions = {
    */
   scenariosDirectory: string
 
-  /**
-   * The name of the benchmark, corresponds to the filename without the
-   * extension
-   */
+  id: string
+}
+
+type GetBenchmarkByNameOptions = Omit<GetBenchmarkOptions, 'id'> & {
   name: string
 }
 
-/**
- * Get a benchmark by name
- */
-async function getBenchmark({
-  benchmarksDirectory,
-  host = DefaultHost,
-  name,
-  scenariosDirectory,
-}: GetBenchmarkOptions): Promise<Benchmark> {
+type GetBenchmarkByReferenceOptions = Omit<GetBenchmarkOptions, 'id'> & {
+  reference: string
+}
+
+async function getBenchmark({id, ...options}: GetBenchmarkOptions): Promise<Benchmark> {
+  return findBenchmark(options, id, candidate => {
+    return candidate.id === id
+  })
+}
+
+async function getBenchmarkByName({name, ...options}: GetBenchmarkByNameOptions): Promise<Benchmark> {
+  return findBenchmark(options, name, candidate => {
+    return candidate.name === name
+  })
+}
+
+async function getBenchmarkByReference({reference, ...options}: GetBenchmarkByReferenceOptions): Promise<Benchmark> {
+  return findBenchmark(options, reference, candidate => {
+    const filename = path.basename(candidate.filepath, path.extname(candidate.filepath))
+    return candidate.id === reference || candidate.name === reference || filename === reference
+  })
+}
+
+async function findBenchmark(
+  {benchmarksDirectory, host = DefaultHost, scenariosDirectory}: Omit<GetBenchmarkOptions, 'id'>,
+  identifier: string,
+  matches: (benchmark: Benchmark) => boolean,
+): Promise<Benchmark> {
   const benchmarks = await listBenchmarks({
     host,
     benchmarksDirectory,
     scenariosDirectory,
   })
-  const benchmark = benchmarks.find(candidate => candidate.id === name)
-  if (benchmark) {
-    return benchmark
-  }
-
-  throw new Error(`Benchmark "${name}" was not found in: ${benchmarksDirectory}`)
+  return findResource(benchmarks, matches, `Benchmark "${identifier}"`, benchmarksDirectory)
 }
 
-export {getBenchmark}
+export {getBenchmark, getBenchmarkByName, getBenchmarkByReference}

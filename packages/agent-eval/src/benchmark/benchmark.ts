@@ -22,8 +22,8 @@ type Benchmark = {
   capabilities: Array<Capability>
 }
 
-function getBenchmarkId(name: string): string {
-  return hash(`Benchmark:${name}`)
+function getBenchmarkId(filenameStem: string): string {
+  return hash(`Benchmark:${filenameStem}`)
 }
 
 function getCapabilityId(name: string): string {

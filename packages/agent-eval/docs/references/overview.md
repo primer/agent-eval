@@ -101,8 +101,9 @@ results/
 ```
 
 The CLI defaults to these configuration directories, but accepts directory
-overrides. Configuration filenames identify benchmarks and experiments;
-scenario directory names identify scenarios. Display names describe them.
+overrides. Benchmark and experiment IDs hash configuration filename stems;
+scenario IDs hash directory names. Display names describe them. See
+[resource identity and lookup](resources.md) for API helpers and migration.
 
 Use `@primer/agent-eval/benchmark`, `/experiment`, and `/scenario` for their
 respective `defineConfig` helpers. Use `/sandbox` for public sandbox runtime and

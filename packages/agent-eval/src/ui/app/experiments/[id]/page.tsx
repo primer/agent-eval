@@ -1,4 +1,4 @@
-import {listExperiments} from '../../../agent-eval'
+import {getExperiment, listExperiments} from '../../../agent-eval'
 import {Link} from '../../../components/Link'
 import {benchmarksDirectory, experimentsDirectory, scenariosDirectory} from '../../../env'
 
@@ -10,6 +10,12 @@ type Props = {
 
 export default async function ExperimentPage(props: Props) {
   const params = await props.params
+  const experiment = await getExperiment({
+    benchmarksDirectory,
+    experimentsDirectory,
+    scenariosDirectory,
+    id: params.id,
+  })
   return (
     <>
       <main>
@@ -20,12 +26,12 @@ export default async function ExperimentPage(props: Props) {
             </li>
             <li>
               <Link href={`/experiments/${params.id}`} aria-current="page">
-                {params.id}
+                {experiment.name}
               </Link>
             </li>
           </ol>
         </nav>
-        <h1>Experiment {params.id}</h1>
+        <h1>Experiment {experiment.name}</h1>
       </main>
     </>
   )

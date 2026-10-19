@@ -52,7 +52,7 @@ async function listScenarios({directory, host = DefaultHost}: ListScenariosOptio
       continue
     }
 
-    scenarios.push(await loadScenario({host, directory: scenarioDirectory, name: entry.name}))
+    scenarios.push(await loadScenario({host, directory: scenarioDirectory}))
   }
 
   return scenarios

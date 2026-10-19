@@ -50,7 +50,7 @@ export default async function IndexPage() {
             {scenarios.map(scenario => {
               return (
                 <li key={scenario.id}>
-                  <Link href={`/scenarios/${scenario.id}`}>{scenario.id}</Link>
+                  <Link href={`/scenarios/${scenario.id}`}>{scenario.name}</Link>
                 </li>
               )
             })}

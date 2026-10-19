@@ -21,6 +21,7 @@ test.each([
   const plan = createScenarioPlan({
     scenario: {
       id: 'example',
+      name: 'example',
       directory: '/scenarios/example',
       prompt: 'Create a page',
       tags: [],

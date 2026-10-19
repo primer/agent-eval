@@ -5,19 +5,20 @@ evaluation. Benchmarks and experiments reuse the same scenario across treatments
 
 ## Contract
 
-| Item              | Rule                                                              |
-| :---------------- | :---------------------------------------------------------------- |
-| Required files    | `package.json` and `scenario.config.ts`                           |
-| Import and export | `defineConfig` from `@primer/agent-eval/scenario`; default export |
-| Required field    | `prompt`, passed to the implementation agent                      |
-| Optional fields   | `description`, `tags`, `checks`, `judges`, `image`, `setup`       |
-| Defaults          | Empty tags, checks, and judges                                    |
-| Identity          | Directory name by default                                         |
-| Evaluation files  | Declare in check/judge `files`; restored during evaluation        |
+| Item              | Rule                                                                |
+| :---------------- | :------------------------------------------------------------------ |
+| Required files    | `package.json` and `scenario.config.ts`                             |
+| Import and export | `defineConfig` from `@primer/agent-eval/scenario`; default export   |
+| Required field    | `prompt`, passed to the implementation agent                        |
+| Optional fields   | `name`, `description`, `tags`, `checks`, `judges`, `image`, `setup` |
+| Defaults          | Empty tags, checks, and judges                                      |
+| Identity          | Hashed directory name; display `name` defaults to directory name    |
+| Evaluation files  | Declare in check/judge `files`; restored during evaluation          |
 
 Add [checks](checks.md), [judges](judges.md), or both before treating a run as a
 quality evaluation. Empty graders are valid configuration but provide no
 quality verdict. `scenario.test.ts` is needed only when a check uses it.
+See [resource identity and lookup](resources.md) for ID/name helpers and migration.
 
 ## Runnable example
 

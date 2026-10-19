@@ -89,6 +89,7 @@ function createOutputFile(trials: Record<string, string> = {}) {
     scenarios: {
       example: {
         id: 'example',
+        name: 'example',
         directory: '/scenarios/example',
         prompt: 'Create a page',
         tags: [],

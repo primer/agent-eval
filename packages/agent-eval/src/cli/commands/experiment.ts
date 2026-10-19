@@ -1,6 +1,6 @@
 import path from 'node:path'
 import {defineCommand} from 'citty'
-import {getExperiment} from '../../experiment/get'
+import {getExperimentByReference} from '../../experiment/get'
 import {createExperimentReport} from '../../experiment/report'
 import {
   createExperimentOutput,
@@ -87,7 +87,7 @@ const experimentCommand = defineCommand({
             experiments: experimentsOption,
             name: {
               type: 'positional',
-              description: 'The name of the experiment to plan',
+              description: 'The experiment ID, display name, or filename stem to plan',
               required: true,
             },
             'output-path': {
@@ -112,11 +112,11 @@ const experimentCommand = defineCommand({
               outputPath,
             })
 
-            const experiment = await getExperiment({
+            const experiment = await getExperimentByReference({
               benchmarksDirectory,
               experimentsDirectory,
               scenariosDirectory,
-              name: args.name,
+              reference: args.name,
             })
             const plan = createExperimentPlan({
               experiment,
@@ -232,7 +232,7 @@ const experimentCommand = defineCommand({
         'container-concurrency': containerConcurrencyOption,
         name: {
           type: 'positional',
-          description: 'The name of the experiment to run',
+          description: 'The experiment ID, display name, or filename stem to run',
           required: true,
         },
         'output-dir': outputDirectoryOption,
@@ -263,11 +263,11 @@ const experimentCommand = defineCommand({
           scenariosDirectory,
         })
 
-        const experiment = await getExperiment({
+        const experiment = await getExperimentByReference({
           benchmarksDirectory,
           experimentsDirectory,
           scenariosDirectory,
-          name: args.name,
+          reference: args.name,
         })
         const plan = createExperimentPlan({experiment})
         const runPlanResult = await runPlan({

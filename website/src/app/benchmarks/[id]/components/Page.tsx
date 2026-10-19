@@ -52,7 +52,7 @@ function createTableResults(results: BenchmarkPageResults): Array<TableResult> {
             {
               id: `${capability.id}-${scenario.id}`,
               capability: '',
-              scenario: scenario.id,
+              scenario: scenario.name,
               scenarioId: scenario.id,
               model: 'All models',
               reasoningEffort: '',
@@ -92,7 +92,7 @@ export function Page({
         <Breadcrumbs.Item as={NextLink} href="/benchmarks">
           Benchmarks
         </Breadcrumbs.Item>
-        <Breadcrumbs.Item selected>{benchmark.id}</Breadcrumbs.Item>
+        <Breadcrumbs.Item selected>{benchmark.name}</Breadcrumbs.Item>
       </Breadcrumbs>
       <header>
         <h1>{benchmark.name}</h1>

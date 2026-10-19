@@ -36,6 +36,7 @@ type WalkthroughUrls =
 type RunResult = {
   id: string
   scenarioId: string
+  scenarioName: string
   capability?: {id: string; name: string}
   treatment: string
   model: string
@@ -393,6 +394,7 @@ async function createExperimentRunDetails(
     results.push({
       id: result.id,
       scenarioId: result.scenarioId,
+      scenarioName: output.scenarios.get(result.scenarioId)?.name ?? result.scenarioId,
       ...(capability ? {capability: {id: capability.id, name: capability.name}} : {}),
       treatment,
       model: result.model.name,

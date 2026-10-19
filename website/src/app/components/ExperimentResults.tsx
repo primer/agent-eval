@@ -226,13 +226,13 @@ function ScenarioResults({
   capability?: {id: string; name: string}
 }) {
   return scenarios.map(scenario => {
-    const label = capability ? `${capability.name} / ${scenario.id}` : scenario.id
+    const label = capability ? `${capability.name} / ${scenario.name}` : scenario.name
     return (
       <section className="flex flex-col gap-3" key={scenario.id}>
         {capability ? (
-          <h5 className="text-title-small">{scenario.id}</h5>
+          <h5 className="text-title-small">{scenario.name}</h5>
         ) : (
-          <h4 className="text-title-small">{scenario.id}</h4>
+          <h4 className="text-title-small">{scenario.name}</h4>
         )}
         {scenario.treatments.length > 0 ? (
           <>

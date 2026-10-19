@@ -5,14 +5,14 @@ time. Use an [experiment](experiments.md) to compare multiple interventions.
 
 ## Contract
 
-| Item                 | Rule                                                                     |
-| :------------------- | :----------------------------------------------------------------------- |
-| File and import      | `benchmarks/<id>.ts`; `defineConfig` from `@primer/agent-eval/benchmark` |
-| Export               | Named `benchmark` or default                                             |
-| Required fields      | `name`, `description`, `models`, `capabilities`                          |
-| Optional fields      | `setup`, `runners`                                                       |
-| CLI identifier       | Filename without extension, not display `name`                           |
-| Automatic treatments | `Control` and `Benchmark`                                                |
+| Item                 | Rule                                                                           |
+| :------------------- | :----------------------------------------------------------------------------- |
+| File and import      | `benchmarks/<filename>.ts`; `defineConfig` from `@primer/agent-eval/benchmark` |
+| Export               | Named `benchmark` or default                                                   |
+| Required fields      | `name`, `description`, `models`, `capabilities`                                |
+| Optional fields      | `setup`, `runners`                                                             |
+| CLI identifier       | Hashed ID, display name, or filename without extension                         |
+| Automatic treatments | `Control` and `Benchmark`                                                      |
 
 Benchmark-level `setup` runs only for `Benchmark`. Capability-level setup
 runs for **both** treatments, before treatment setup. Put neutral prerequisites
@@ -77,3 +77,6 @@ interventions.
 
 Keep capability names stable when reusing [plans](plans.md). See
 [capabilities](capabilities.md) for grouping and shared-setup rules.
+
+Benchmark IDs hash filename stems, not display names. See
+[resource identity and lookup](resources.md) for package helpers and migration.

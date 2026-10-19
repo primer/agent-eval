@@ -3,6 +3,8 @@ import type {CopilotRunner} from '../copilot-runner'
 import {VirtualHost} from '../host'
 import {VirtualSandbox} from '../sandbox'
 import {ControlTreatment} from '../treatment'
+import {getBenchmarkId} from './benchmark'
+import {getScenarioId} from '../scenario/scenario'
 import {getBenchmark} from './get'
 import {createBenchmarkPlan, createBenchmarkPlanManifest, parseBenchmarkPlanManifest} from './plan'
 
@@ -40,7 +42,7 @@ test.each([
       benchmarksDirectory: '/benchmarks',
       scenariosDirectory: '/scenarios',
     }
-    const benchmark = await getBenchmark({...options, name: 'design-system'})
+    const benchmark = await getBenchmark({...options, id: getBenchmarkId('design-system')})
     const plan = createBenchmarkPlan({benchmark})
 
     expect(plan.trials).toHaveLength(2 * expected.length)
@@ -80,7 +82,7 @@ test.each([
 
 test('defaults legacy benchmark plans to the CLI', async () => {
   const options = {host: createHost(), benchmarksDirectory: '/benchmarks', scenariosDirectory: '/scenarios'}
-  const benchmark = await getBenchmark({...options, name: 'design-system'})
+  const benchmark = await getBenchmark({...options, id: getBenchmarkId('design-system')})
   const plan = createBenchmarkPlan({benchmark})
   const manifest = createBenchmarkPlanManifest({benchmark, plan})
   const contents = JSON.stringify({
@@ -99,16 +101,16 @@ test.each(['Design System', 'Renamed Design System'])(
   async name => {
     const host = createHost()
     const options = {host, benchmarksDirectory: '/benchmarks', scenariosDirectory: '/scenarios'}
-    const benchmark = await getBenchmark({...options, name: 'design-system'})
+    const benchmark = await getBenchmark({...options, id: getBenchmarkId('design-system')})
     const plan = createBenchmarkPlan({benchmark})
     const manifest = createBenchmarkPlanManifest({benchmark, plan})
-    expect(manifest).toMatchObject({id: 'design-system', name: 'Design System'})
+    expect(manifest).toMatchObject({id: getBenchmarkId('design-system'), name: 'Design System'})
     expect(manifest.trials).toHaveLength(2)
 
     await host.fs.promises.writeFile('/benchmarks/design-system.ts', benchmarkConfig(name))
     const parsed = await parseBenchmarkPlanManifest({...options, contents: JSON.stringify(manifest)})
 
-    expect(parsed.benchmark).toMatchObject({id: 'design-system', name})
+    expect(parsed.benchmark).toMatchObject({id: getBenchmarkId('design-system'), name})
     expect(parsed.trials).toEqual(plan.trials)
   },
 )
@@ -128,7 +130,7 @@ test('does not fall back to the display name when the benchmark plan ID is missi
 test('rejects duplicate trial IDs in benchmark plans', async () => {
   const host = createHost()
   const options = {host, benchmarksDirectory: '/benchmarks', scenariosDirectory: '/scenarios'}
-  const benchmark = await getBenchmark({...options, name: 'design-system'})
+  const benchmark = await getBenchmark({...options, id: getBenchmarkId('design-system')})
   const plan = createBenchmarkPlan({benchmark})
   const manifest = createBenchmarkPlanManifest({benchmark, plan})
   manifest.trials[1].id = manifest.trials[0].id
@@ -188,7 +190,7 @@ test('preserves capability setup for control and benchmark trials in created and
   }
   const loadModule = vi.spyOn(host, 'loadModule').mockResolvedValueOnce({default: config})
   const options = {host, benchmarksDirectory: '/benchmarks', scenariosDirectory: '/scenarios'}
-  const benchmark = await getBenchmark({...options, name: 'design-system'})
+  const benchmark = await getBenchmark({...options, id: getBenchmarkId('design-system')})
   const plan = createBenchmarkPlan({benchmark})
   const manifest = createBenchmarkPlanManifest({benchmark, plan})
   loadModule.mockResolvedValueOnce({default: config})
@@ -232,7 +234,7 @@ test.each([false, true])('validates capability-specific scenario membership (sha
     })}`,
   )
   const options = {host, benchmarksDirectory: '/benchmarks', scenariosDirectory: '/scenarios'}
-  const benchmark = await getBenchmark({...options, name: 'design-system'})
+  const benchmark = await getBenchmark({...options, id: getBenchmarkId('design-system')})
   const plan = createBenchmarkPlan({benchmark})
   const manifest = createBenchmarkPlanManifest({benchmark, plan})
   expect(manifest.trials).toHaveLength(4)
@@ -245,7 +247,7 @@ test.each([false, true])('validates capability-specific scenario membership (sha
     }
   } else {
     const trial = manifest.trials[0]
-    trial.scenarioId = trial.scenarioId === 'example' ? 'other' : 'example'
+    trial.scenarioId = trial.scenarioId === getScenarioId('example') ? getScenarioId('other') : getScenarioId('example')
     await expect(parseBenchmarkPlanManifest({...options, contents: JSON.stringify(manifest)})).rejects.toThrow(
       `Scenario "${trial.scenarioId}" does not belong to capability "${trial.capabilityId}" for trial "${trial.id}"`,
     )
@@ -259,7 +261,7 @@ test.each([
 ] as const)('validates benchmark model variant $model (configured: $valid)', async ({model, valid}) => {
   const host = createHost()
   const options = {host, benchmarksDirectory: '/benchmarks', scenariosDirectory: '/scenarios'}
-  const benchmark = await getBenchmark({...options, name: 'design-system'})
+  const benchmark = await getBenchmark({...options, id: getBenchmarkId('design-system')})
   const plan = createBenchmarkPlan({benchmark})
   const manifest = createBenchmarkPlanManifest({benchmark, plan})
   manifest.trials[0].model = model

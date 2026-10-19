@@ -4,6 +4,13 @@ Benchmarks are used to establish a baseline for agent performance on a given tas
 
 Each benchmark is made up of a capabilities. These capabilities are used to determine if the agent is able to complete the task. Each capability has a name and a set of scenarios that are used to evaluate the agent's performance.
 
+Benchmark IDs hash configuration filename stems and remain stable when display
+names change. Use `getBenchmark({id, ...directories})` or
+`getBenchmarkByName({name, ...directories})` for package lookups. CLI and
+configuration references also accept filename stems. See
+[resource identity and lookup](../packages/agent-eval/docs/references/resources.md)
+for directory options and migration of existing plans/results.
+
 As an example, you may be creating a design system benchmark. In it, one of the
 capabilities is around the LLM's usage of icons from your system. You could have
 different scenarios within this icon usage capability that test the different

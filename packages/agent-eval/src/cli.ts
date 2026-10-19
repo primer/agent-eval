@@ -3,7 +3,6 @@ import {agent} from './cli/commands/agent'
 import {benchmark} from './cli/commands/benchmark'
 import {experiment} from './cli/commands/experiment'
 import {scenario} from './cli/commands/scenario'
-import {setup} from './cli/commands/setup'
 import {enabled} from './feature-flag'
 import {logger, levels} from './logger'
 import packageJson from '../package.json' with {type: 'json'}

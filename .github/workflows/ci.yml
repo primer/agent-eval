@@ -128,7 +128,9 @@ jobs:
       - name: Run tests
         uses: docker://mcr.microsoft.com/playwright:v1.64.0-jammy
         with:
-          args: corepack enable && corepack install && pnpm exec turbo run test
+          entrypoint: /bin/bash
+          args: >-
+            -ec "corepack enable && corepack install && pnpm exec turbo run test"
 
   test-e2e:
     runs-on: ubuntu-latest
@@ -153,7 +155,9 @@ jobs:
       - name: Run e2e tests
         uses: docker://mcr.microsoft.com/playwright:v1.64.0-jammy
         with:
-          args: corepack enable && corepack install && pnpm run -r test:e2e
+          entrypoint: /bin/bash
+          args: >-
+            -ec "corepack enable && corepack install && pnpm run -r test:e2e"
 
   type-check:
     runs-on: ubuntu-latest

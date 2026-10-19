@@ -6,6 +6,7 @@ export default defineConfig({
     include: ['**/*.browser.test.ts'],
     passWithNoTests: true,
     browser: {
+      enabled: true,
       provider: playwright(),
       instances: [
         {

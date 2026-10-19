@@ -2,6 +2,7 @@ import {randomUUID} from 'node:crypto'
 import path from 'node:path'
 import {Readable, Writable} from 'node:stream'
 import {pipeline} from 'node:stream/promises'
+import {glob} from 'glob'
 import tarFs from 'tar-fs'
 import type {Headers} from 'tar-fs'
 import tarStream from 'tar-stream'
@@ -318,7 +319,14 @@ class SystemSandbox implements Sandbox {
     }
 
     const destinationPath = path.posix.join(COPILOT_PLUGIN_SOURCES_DIR, randomUUID())
-    await this.copy(source.sourcePath, destinationPath)
+    const exclude = await glob(source.ignore ?? [], {
+      cwd: path.resolve(source.sourcePath),
+      absolute: true,
+      dot: true,
+      nocase: false,
+      fs: this.#host.fs,
+    })
+    await this.copy(source.sourcePath, destinationPath, {exclude})
     return destinationPath
   }
 

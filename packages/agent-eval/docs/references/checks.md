@@ -53,31 +53,50 @@ when neither is inherently preferable.
 To return several groups, return an array with a unique `id` on each group.
 Each group contains **either** outcomes **or** measurements, not both.
 Individual outcomes may have IDs; individual measurements contain their type
-and value. Both support annotations. Either collection can contain
-`{type: 'error', message: '...'}`.
+and value. Either collection can contain `{type: 'error', message: '...'}`.
+Outcomes, measurements, and errors all support annotations.
 Do not add the internal group discriminant `type: 'outcomes'` or
 `type: 'measurements'` to authored return values; the library normalizes them.
 
 ### Annotations
 
-Individual outcomes and measurements may include an optional `annotations`
-array. Each annotation has a required `message` string and optional `context`
-and `snippet` strings:
+Individual outcomes, measurements, and errors may include an optional
+`annotations` array. Each annotation has a required `message` string, optional
+`context` and `snippet` strings, and an optional `location`:
 
 ```ts
 {
   type: 'outcome',
   status: 'failed',
-  annotations: [{context: 'scenario.test.ts', message: 'filters by name'}],
+  annotations: [
+    {
+      context: 'Search filters projects by name',
+      message: 'Expected one matching project, received three',
+      snippet: 'expect(filteredProjects).toHaveLength(1)',
+      location: {
+        path: 'scenario.test.ts',
+        line: 12,
+        column: 3,
+      },
+    },
+  ],
 }
 ```
 
-Use `message` for a test name or details explaining the result, `context` for a
-related file or other context, and `snippet` for relevant source text.
+Use `message` for a test name or details explaining the result, `context` for
+supporting text, and `snippet` for relevant source text. Use `location` for a
+file reference: it requires a nonempty `path` string and accepts optional
+`line` and `column` values as 1-based positive integers. Paths may be relative
+or absolute and are preserved as provided. They are not checked, resolved, or
+copied, so references to files that no longer exist are accepted.
 Annotations are preserved in saved benchmark and experiment trial results.
-Context is descriptive metadata, not a filesystem reference to resolve or copy.
+Context remains free-form descriptive metadata.
 Omitting annotations leaves the field absent; an empty array is also accepted.
-Errors do not support annotations.
+
+Each annotation is self-contained. A UI can render one item per annotation
+with its own message, context, location, and snippet. Keep details describing
+the same diagnostic together in one annotation. Multiple annotations describe
+separate diagnostics, not fragments to combine by array position.
 
 ## Run
 

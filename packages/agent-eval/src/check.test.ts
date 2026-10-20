@@ -48,8 +48,18 @@ test.each(['single group', 'multiple groups'])('parsed checks preserve outcome a
             context: '/home/sandbox/workspace/scenario.test.ts',
             message: 'requires browser support',
             snippet: 'test.skip',
+            location: {
+              path: '/home/sandbox/workspace/scenario.test.ts',
+              line: 1,
+              column: 1,
+            },
           },
-          {message: 'Browser unavailable'},
+          {
+            message: 'Browser unavailable',
+            location: {
+              path: 'vitest.config.ts',
+            },
+          },
         ],
       },
     ],
@@ -69,7 +79,17 @@ test('parsed checks preserve measurement annotations', async () => {
       {
         type: 'measurement' as const,
         value: 42,
-        annotations: [{context: 'dist/index.js', message: 'Bundle size', snippet: 'export {}'}],
+        annotations: [
+          {
+            context: 'dist/index.js',
+            message: 'Bundle size',
+            snippet: 'export {}',
+            location: {
+              path: 'dist/index.js',
+              line: 7,
+            },
+          },
+        ],
       },
       {type: 'measurement' as const, value: 0, annotations: []},
     ],
@@ -79,6 +99,40 @@ test('parsed checks preserve measurement annotations', async () => {
   await using sandbox = await VirtualSandbox.create()
 
   await expect(check.run({logger, sandbox})).resolves.toEqual([{...result, type: 'measurements'}])
+})
+
+test.each(['outcomes', 'measurements'] as const)('parsed checks preserve error annotations in %s', async collection => {
+  const errors = [
+    {
+      type: 'error' as const,
+      message: 'Could not check file',
+      annotations: [
+        {
+          message: 'Missing export',
+          context: 'Search component',
+          snippet: 'import {Search} from "./Search"',
+          location: {
+            path: 'src/Search.tsx',
+            line: 2,
+            column: 1,
+          },
+        },
+      ],
+    },
+    {
+      type: 'error' as const,
+      message: 'No additional details',
+      annotations: [],
+    },
+  ]
+  const result = collection === 'outcomes' ? {outcomes: errors} : {measurements: errors}
+  const run: CheckConfigRun = async () => {
+    return result
+  }
+  const check = await parseCheckConfig(VirtualHost.create(), '/scenario', {name: 'tests', run})
+  await using sandbox = await VirtualSandbox.create()
+
+  await expect(check.run({logger, sandbox})).resolves.toEqual([{...result, type: collection}])
 })
 
 test('check outcome IDs must be strings', async () => {
@@ -250,13 +304,40 @@ test.each([
   {name: 'invalid message', annotations: [{message: 123}]},
   {name: 'invalid context', annotations: [{message: 'details', context: 123}]},
   {name: 'invalid snippet', annotations: [{message: 'details', snippet: null}]},
-])('check output rejects $name for outcomes and measurements', ({annotations}) => {
+])('check output rejects $name for outcomes, measurements, and errors', ({annotations}) => {
   for (const result of [
     {type: 'outcomes', outcomes: [{type: 'outcome', status: 'failed', annotations}]},
     {type: 'measurements', measurements: [{type: 'measurement', value: 42, annotations}]},
+    {type: 'outcomes', outcomes: [{type: 'error', message: 'Could not check file', annotations}]},
+    {type: 'measurements', measurements: [{type: 'error', message: 'Could not measure file', annotations}]},
   ]) {
     expect(() => CheckOutputSchema.parse({check: {name: 'example', files: []}, result})).toThrow()
   }
+})
+
+test.each([
+  {name: 'null location', location: null},
+  {name: 'missing path', location: {line: 1}},
+  {name: 'empty path', location: {path: ''}},
+  {name: 'non-string path', location: {path: 123}},
+  {name: 'zero line', location: {path: 'test.ts', line: 0}},
+  {name: 'negative line', location: {path: 'test.ts', line: -1}},
+  {name: 'fractional line', location: {path: 'test.ts', line: 1.5}},
+  {name: 'non-numeric line', location: {path: 'test.ts', line: '1'}},
+  {name: 'zero column', location: {path: 'test.ts', line: 1, column: 0}},
+  {name: 'negative column', location: {path: 'test.ts', line: 1, column: -1}},
+  {name: 'fractional column', location: {path: 'test.ts', line: 1, column: 1.5}},
+  {name: 'null column', location: {path: 'test.ts', line: 1, column: null}},
+])('check output rejects annotation with $name', ({location}) => {
+  const output = {
+    check: {name: 'tests', files: []},
+    result: {
+      type: 'outcomes',
+      outcomes: [{type: 'outcome', status: 'failed', annotations: [{message: 'Failure', location}]}],
+    },
+  }
+
+  expect(() => CheckOutputSchema.parse(output)).toThrow()
 })
 
 test('parsed checks preserve callback arguments and errors', async () => {

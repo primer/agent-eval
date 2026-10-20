@@ -52,7 +52,7 @@ Files listed in a check's `files` option are withheld from the agent's initial w
 
 Checks return either `outcomes` or `measurements`. Outcomes report a `passed`, `failed`, or `skipped` status. Measurements report numeric values, with optional units and a direction such as `higher-is-better` or `lower-is-better`.
 
-Individual outcomes and measurements may include an optional `annotations` array. Each annotation has a required `message` and optional `context` and `snippet` strings:
+Individual outcomes, measurements, and errors may include an optional `annotations` array. Each annotation has a required `message`, optional `context` and `snippet` strings, and an optional `location`:
 
 ```ts
 return {
@@ -62,9 +62,14 @@ return {
       status: 'failed',
       annotations: [
         {
-          context: 'scenario.test.ts',
-          message: 'Search filters projects by name',
+          context: 'Search filters projects by name',
+          message: 'Expected one matching project, received three',
           snippet: 'expect(filteredProjects).toHaveLength(1)',
+          location: {
+            path: 'scenario.test.ts',
+            line: 12,
+            column: 3,
+          },
         },
       ],
     },
@@ -72,7 +77,9 @@ return {
 }
 ```
 
-Annotations are preserved in saved trial results for benchmarks and experiments. Use `message` to describe the result, `context` for a related file or other context, and `snippet` for relevant source text. Context is descriptive metadata, not a filesystem reference to resolve or copy.
+Annotations are preserved in saved trial results for benchmarks and experiments. Use `message` to describe the result, `context` for supporting text, and `snippet` for relevant source text. Use `location` for a file reference: it requires a nonempty `path` and accepts optional `line` and `column` values as 1-based positive integers. Paths may be relative or absolute and are preserved as provided, without checking, resolving, or copying the referenced file. Context remains free-form descriptive metadata.
+
+Each annotation is self-contained. A UI can render one item per annotation with its own message, context, location, and snippet. Keep details describing the same diagnostic together in one annotation; multiple annotations describe separate diagnostics, not fragments to combine by array position.
 
 `createVitestCheck` includes one annotation per outcome, using the assertion's full name as `message` and its suite's file name as `context` when reported by Vitest. Existing outcome IDs and status mapping are unchanged.
 

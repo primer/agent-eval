@@ -47,7 +47,7 @@ test('parses legacy experiment output with a required CLI runner', () => {
   expectTypeOf<ExperimentTrialOutput['runner']>().toEqualTypeOf<CopilotRunner>()
 })
 
-test('preserves outcome and measurement annotations in serialized experiment trial output', () => {
+test('preserves check annotations and locations in serialized experiment trial output', () => {
   const checks = [
     {
       check: {name: 'tests', files: []},
@@ -57,7 +57,23 @@ test('preserves outcome and measurement annotations in serialized experiment tri
           {
             type: 'outcome',
             status: 'failed',
-            annotations: [{context: 'scenario.test.ts', message: 'filters by name', snippet: 'test("filters", ...)'}],
+            annotations: [
+              {
+                context: 'Search tests',
+                message: 'filters by name',
+                snippet: 'test("filters", ...)',
+                location: {
+                  path: 'scenario.test.ts',
+                  line: 1,
+                  column: 1,
+                },
+              },
+            ],
+          },
+          {
+            type: 'error',
+            message: 'Could not check file',
+            annotations: [{message: 'Missing module', location: {path: 'src/Search.tsx'}}],
           },
         ],
       },
@@ -66,7 +82,18 @@ test('preserves outcome and measurement annotations in serialized experiment tri
       check: {name: 'size', files: []},
       result: {
         type: 'measurements',
-        measurements: [{type: 'measurement', value: 42, annotations: [{message: 'Bundle size'}]}],
+        measurements: [
+          {
+            type: 'measurement',
+            value: 42,
+            annotations: [{message: 'Bundle size', location: {path: '/workspace/dist/index.js'}}],
+          },
+          {
+            type: 'error',
+            message: 'Could not measure file',
+            annotations: [{message: 'Missing output', location: {path: 'dist/missing.js'}}],
+          },
+        ],
       },
     },
   ]

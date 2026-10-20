@@ -9,6 +9,13 @@ const AnnotationSchema = z.object({
   context: z.optional(z.string()),
   message: z.string(),
   snippet: z.optional(z.string()),
+  location: z.optional(
+    z.object({
+      path: z.string().check(z.minLength(1)),
+      line: z.optional(z.number().check(z.int(), z.gte(1))),
+      column: z.optional(z.number().check(z.int(), z.gte(1))),
+    }),
+  ),
 })
 
 const MeasurementSchema = z.object({
@@ -27,7 +34,7 @@ const OutcomeSchema = z.object({
 const ErrorSchema = z.object({
   type: z.literal('error'),
   message: z.string(),
-  // annotations: z._default(z.array(AnnotationSchema), []),
+  annotations: z.optional(z.array(AnnotationSchema)),
 })
 
 const CheckRunResultSchema = z.discriminatedUnion('type', [

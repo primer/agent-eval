@@ -17,8 +17,10 @@
 - For backwards-incompatible public API or behavior changes, deprecations, or
   recommended replacements, update `packages/agent-eval/docs/migrations/` in the
   same change. Load the `changesets` skill and its migration reference even when
-  no changeset is needed. Record source and target versions, before/after
-  examples, and verification steps; use `Unreleased` until a release is known.
+  no changeset is needed. Index guides by version introduced, entrypoint,
+  export(s), and a linked description. Keep guides to a brief change description,
+  versioned before/after snippets, and verification; add migration steps only
+  when needed. Use `Unreleased` until a release is known.
 - Update documentation and skill references only when a change affects how
   consumers use the package or makes existing guidance inaccurate. Do not add
   documentation for type inference or declaration portability fixes, internal

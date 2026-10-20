@@ -7,8 +7,10 @@ description: 'Use when changing public APIs or behavior, deprecating usage, reco
 
 For every backwards-incompatible public API or behavior change, deprecation,
 or recommended replacement, update the migration docs in the same pull request.
-This is required even when no changeset is needed. Read the migration reference
-before writing the guide.
+This is required even when no changeset is needed. Keep guides concise: a brief
+change description, versioned before/after snippets, and verification steps;
+add explicit migration steps only when needed. Read the migration reference
+for the index format and release handling.
 
 | Reference                              | When to read                                                                                                 |
 | :------------------------------------- | :----------------------------------------------------------------------------------------------------------- |

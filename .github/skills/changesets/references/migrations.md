@@ -2,72 +2,41 @@
 
 Update `packages/agent-eval/docs/migrations/` whenever a change breaks public
 usage, deprecates it, or recommends moving to a different API or workflow.
-Author the guide with the implementation, not as a follow-up release task.
-This is agent-maintained documentation, not generated from changeset summaries.
+Author concise guides with the implementation, even when no changeset is needed.
 
 ## Contents
 
-- [When to update](#when-to-update)
-- [Guide contract](#guide-contract)
+- [Index](#index)
+- [Guides](#guides)
 - [Release handling](#release-handling)
-- [Verification](#verification)
 
-## When to update
+## Index
 
-Include exported APIs and types, package entry points, CLI usage, configuration,
-runtime requirements, and persisted result formats. Cover behavior changes even
-when the API signature is unchanged. Deprecations need guidance when introduced,
-not only when the old API is removed.
+Add a row to `packages/agent-eval/docs/migrations/README.md` with these columns:
 
-Skip internal refactors, compatible additions, and fixes that preserve documented
-usage. Changes confined to unreleased features do not need a changeset, but still
-update any existing migration guidance made inaccurate by the change.
+- **Version introduced**: the release introducing the change, or `Unreleased`.
+- **Entrypoint**: the affected package import path or CLI command.
+- **export(s)**: affected exports; use `—` when not applicable.
+- **description**: a brief description linking to the migration guide.
 
-## Guide contract
+## Guides
 
-Create one Markdown file per migration with a stable descriptive filename and
-add a row to `packages/agent-eval/docs/migrations/README.md`. Keep multiple
-migrations for a release separate when they address independent tasks.
+Create one Markdown file per migration with a stable descriptive filename.
+Include only what is needed to perform and verify the migration:
 
-Each guide must include:
+- A brief description of what changed.
+- Paired before/after snippets with version labels and realistic imports or
+  configuration. Use npm/npx for consumer commands.
+- Verification steps using existing project checks or observable outcomes.
 
-- Source version or verified affected version range, and target version. Use
-  `Unreleased` when the target has not shipped; never predict a release number.
-- Status: breaking change, deprecation, or recommended replacement. Record
-  deprecation and removal versions separately; say when removal is unscheduled.
-- Scope: affected imports, symbols, signatures, CLI flags, configuration keys,
-  runtime behavior, or output fields. State who needs to act and who does not.
-- A concise mapping from old usage to new usage, including any behavior changes.
-- Paired, fenced before/after examples with the same intent and realistic
-  imports, configuration, and surrounding context. Label each with its version;
-  use npm/npx for consumer commands. Do not present pseudocode as runnable code.
-- Ordered migration steps, edge cases, compatibility limits, and manual decisions
-  an agent cannot safely infer. If there is no replacement, say so.
-- Verification commands or observable outcomes that establish migration success.
-- Evidence: link the release changelog, implementation, tests, or PR that
-  establishes the version boundary and behavior. Verify old examples against
-  the source release and new ones against the target implementation.
-
-Use the existing experiment-discovery guide as a structural example. Do not
-invent historical signatures, version ranges, or deprecation dates.
+Add explicit migration steps or compatibility notes only when the examples
+are insufficient. Verify examples against the relevant releases and link
+supporting evidence inline rather than adding a separate evidence section.
+Check index links and keep current usage docs aligned with the replacement.
 
 ## Release handling
 
-Keep an `Unreleased` row and guide for pending migrations, linking the associated
-changeset when one exists. When preparing a release, resolve those entries to
-the actual package version assigned by Changesets and update the index,
-before/after labels, and evidence links together. Do not rename stable guide
-files or rewrite previously released examples to match newer APIs.
-
-A changeset summarizes impact; the migration guide supplies the actionable
-replacement. Link the guide from the changeset for changes that need both.
-
-## Verification
-
-Check that the guide is linked from the migration index, all relative links
-resolve, and examples demonstrate the stated source-to-target transition.
-Exercise new examples using existing tests or CLI commands when practical;
-otherwise record what was checked and what remains unverified.
-
-Keep historical instructions explicitly versioned, and current usage guides
-aligned with the current API. Do not add migration guides for unrelated changes.
+Use `Unreleased` for pending versions; replace it in the index and snippets
+with the actual version assigned by Changesets when preparing the release.
+Preserve released examples and stable guide filenames. Link the guide from the
+changeset when one is needed.

@@ -11,7 +11,8 @@ guides to migrate and verify your usage.
 
 This index is not a complete history of breaking changes before this section
 was introduced. Consult the package changelog for releases not covered here.
-`Unreleased` entries, when present, describe pending changes, not published APIs.
+While the package is pre-1.0, pending migrations use the next minor version;
+those entries do not describe published APIs until that release ships.
 
 Use the target release's docs when upgrading; your installed copy cannot
 describe later changes. Apply relevant guides in release order.

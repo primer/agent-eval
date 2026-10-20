@@ -20,7 +20,8 @@
   no changeset is needed. Index guides by version introduced, entrypoint,
   export(s), and a linked description. Keep guides to a brief change description,
   versioned before/after snippets, and verification; add migration steps only
-  when needed. Use `Unreleased` until a release is known.
+  when needed. While the package is pre-1.0, use the next minor version for
+  pending migrations; revisit this policy at 1.0.
 - Update documentation and skill references only when a change affects how
   consumers use the package or makes existing guidance inaccurate. Do not add
   documentation for type inference or declaration portability fixes, internal

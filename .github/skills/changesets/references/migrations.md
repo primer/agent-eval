@@ -14,7 +14,8 @@ Author concise guides with the implementation, even when no changeset is needed.
 
 Add a row to `packages/agent-eval/docs/migrations/README.md` with these columns:
 
-- **Version introduced**: the release introducing the change, or `Unreleased`.
+- **Version introduced**: the release introducing the change; use the next minor
+  version for pending changes while the package is pre-1.0.
 - **Entrypoint**: the affected package import path or CLI command.
 - **export(s)**: affected exports; use `—` when not applicable.
 - **description**: a brief description linking to the migration guide.
@@ -36,7 +37,9 @@ Check index links and keep current usage docs aligned with the replacement.
 
 ## Release handling
 
-Use `Unreleased` for pending versions; replace it in the index and snippets
-with the actual version assigned by Changesets when preparing the release.
+While the package is pre-1.0, use the next minor version from
+`packages/agent-eval/package.json` in the index and snippets for pending changes
+(for example, `0.16.0` → `0.17.0`). Revisit this policy at 1.0 when the semver
+policy changes.
 Preserve released examples and stable guide filenames. Link the guide from the
 changeset when one is needed.

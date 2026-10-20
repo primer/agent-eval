@@ -1,5 +1,13 @@
 # @primer/agent-eval
 
+## 0.18.0
+
+### Minor Changes
+
+- 34971c4: Add createESLintCheck to @primer/agent-eval/scenario to run ESLint with private grading configuration and report one outcome per linted file, failing on errors or warnings.
+- 61d3233: Add optional `annotations` arrays to check outcomes, with a required `message` and optional `context` and `snippet`, preserved in benchmark and experiment trial output. Vitest checks include each assertion's full name and test file in the outcome annotations.
+- 61d3233: Add optional `annotations` arrays to check measurements, with a required `message` and optional `context` and `snippet`, preserved in benchmark and experiment trial output.
+
 ## 0.17.0
 
 ### Minor Changes

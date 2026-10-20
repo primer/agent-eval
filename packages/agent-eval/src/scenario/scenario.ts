@@ -10,6 +10,7 @@ import {TreatmentSetupSchema, type TreatmentSetup} from '../treatment'
 import {DEFAULT_DOCKER_IMAGE, NODE_USER} from '../sandbox/constants'
 import {buildImage, getImageReference, type ImageBuild} from '../docker'
 import {parsePackageManager} from './package-manager'
+import {PromptSchema} from './prompt'
 
 const PackageJsonSchema = z.object({
   packageManager: z.optional(z.unknown()),
@@ -19,7 +20,7 @@ const PackageJsonSchema = z.object({
 type Scenario = {
   id: string
   directory: string
-  prompt: string
+  prompt: Array<string>
   description?: string
   tags: Array<string>
   checks: Array<Check>
@@ -49,7 +50,7 @@ const DockerImageSchema = z.discriminatedUnion('type', [
 const ScenarioSchema = z.object({
   id: z.string(),
   directory: z.string(),
-  prompt: z.string(),
+  prompt: PromptSchema,
   description: z.optional(z.string()),
   tags: z._default(z.array(z.string()), []),
   checks: z._default(z.array(CheckSchema), []),

@@ -17,7 +17,8 @@ treatments. Each trial has its own ID, sandbox, execution, and evidence.
 
 1. Copy the fixture, withhold evaluation files, and install its dependencies.
 2. Run shared setup, treatment setup, and the fixture's build if present.
-3. Run the implementation agent with the scenario prompt.
+3. Run the implementation agent with each scenario prompt, sequentially in the
+   same conversation and sandbox.
 4. Restore check files and execute checks.
 5. Run judges against their rubrics.
 6. Attempt visual walkthrough capture, then save artifacts.

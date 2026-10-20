@@ -23,7 +23,7 @@ test('loadScenario selects the default image and setup without requiring a packa
   expect(scenario).toMatchObject({
     id: 'example',
     directory: '/scenarios/example',
-    prompt: 'Create a page',
+    prompt: ['Create a page'],
     image: {type: 'Default'},
     setup: defaultScenarioSetup,
   })
@@ -60,7 +60,7 @@ test('loadScenario uses DefaultHost when host is omitted', async () => {
 
   const scenario = await loadScenario({directory: '/scenarios/example'})
 
-  expect(scenario).toMatchObject({id: 'example', prompt: 'Create a page'})
+  expect(scenario).toMatchObject({id: 'example', prompt: ['Create a page']})
 })
 
 test('loadScenario preserves metadata when an explicit name overrides the directory basename', async () => {
@@ -73,7 +73,7 @@ test('loadScenario preserves metadata when an explicit name overrides the direct
   expect(scenario).toMatchObject({
     id: 'custom',
     directory: '/scenarios/example',
-    prompt: 'Create a page',
+    prompt: ['Create a page'],
     description: 'Example',
     tags: ['forms', 'accessibility'],
   })

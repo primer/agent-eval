@@ -39,6 +39,8 @@ setup improvements and offers focused reruns only with the user's approval.
   beyond the automatic control.
 - Keep prompts and fixtures treatment-blind. Put the knowledge being tested in
   treatment setup, not shared setup.
+- For multi-turn tasks, use a non-empty `prompt` array; see
+  [Scenarios](references/scenarios.md#multi-turn-tasks).
 - Withhold grader files using `files`. Verify the starter fails for the intended
   reasons and a correct solution passes; restore the starter before execution.
   For Vitest grading, use `createVitestCheck` as described in [Checks](references/checks.md).

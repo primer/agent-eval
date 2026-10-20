@@ -1,10 +1,21 @@
-import {describe, expect, test} from 'vitest'
+import {describe, expect, expectTypeOf, test} from 'vitest'
 import {VirtualHost} from '../host'
 import {logger} from '../logger'
 import {VirtualSandbox} from '../sandbox'
 import {defineConfig, parseScenarioConfig} from './config'
 
 describe('defineConfig', () => {
+  test.each([
+    {name: 'a string', prompt: 'Create a page', expected: ['Create a page']},
+    {name: 'multiple prompts', prompt: ['Create a page', 'Add search'], expected: ['Create a page', 'Add search']},
+  ])('normalizes $name to an ordered array', ({prompt, expected}) => {
+    const config = defineConfig({prompt})
+
+    expect(config.prompt).toEqual(expected)
+    expectTypeOf(config.prompt).toEqualTypeOf<Array<string>>()
+    expect(parseScenarioConfig(VirtualHost.create(), '/scenarios/example', config).prompt).toEqual(expected)
+  })
+
   test('leaves omitted setup undefined', () => {
     const config = defineConfig({prompt: 'Create a page'})
 
@@ -15,7 +26,7 @@ describe('defineConfig', () => {
     const config = defineConfig({prompt: 'Create a page'})
 
     expect(config).toMatchObject({
-      prompt: 'Create a page',
+      prompt: ['Create a page'],
       tags: [],
       checks: [],
       judges: [],
@@ -39,7 +50,7 @@ describe('defineConfig', () => {
     })
 
     expect(config).toMatchObject({
-      prompt: 'Create a page',
+      prompt: ['Create a page'],
       description: 'Example',
       tags: ['forms', 'accessibility'],
       checks: [{name: 'build'}],
@@ -160,6 +171,8 @@ describe('parseScenarioConfig', () => {
   test.each([
     {name: 'a missing prompt', input: {}},
     {name: 'a non-string prompt', input: {prompt: 42}},
+    {name: 'an empty prompt array', input: {prompt: []}},
+    {name: 'a non-string turn', input: {prompt: ['Create a page', 42]}},
   ])('rejects $name', ({input}) => {
     const host = VirtualHost.create()
 

@@ -112,10 +112,12 @@ async function main() {
       emit(event)
     })
 
-    await session.sendAndWait({
-      prompt: config.prompt,
-      agentMode: 'autopilot',
-    }, config.timeoutMs)
+    for (const prompt of config.prompt) {
+      await session.sendAndWait({
+        prompt,
+        agentMode: 'autopilot',
+      }, config.timeoutMs)
+    }
     await session.disconnect()
   } finally {
     const errors = await client.stop()
@@ -154,7 +156,7 @@ async function runCopilotSdk({
   copilotToken,
 }: {
   sandbox: Sandbox
-  prompt: string
+  prompt: Array<string>
   model: ModelVariant
   copilotToken: string
 }): Promise<Array<Message>> {

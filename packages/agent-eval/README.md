@@ -23,6 +23,12 @@ The entrypoint links to task-specific guides for setup, evaluation methodology,
 configuration, and CLI usage. The docs update with the package; no separate
 versioned skill is required.
 
+### Migrations
+
+When upgrading an existing project, read the target version's
+[migration guides](./docs/migrations/README.md) for affected APIs, replacement
+usage, and versioned before/after examples.
+
 This package provides a CLI through `agent-eval` which allows you to create and
 run [benchmarks](#benchmarks) or [experiments](#experiments) to evaluate agent performance on a variety of
 tasks. Benchmarks are used to establish a baseline for agent performance on a given task, while experiments are used to test different approaches to improve performance on that task.

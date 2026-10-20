@@ -400,8 +400,8 @@ function isExcluded(relativePath: string, excludedPaths: ReadonlySet<string>): b
     return false
   }
 
-  for (const excludedPath of excludedPaths) {
-    if (relativePath === excludedPath || relativePath.startsWith(`${excludedPath}/`)) {
+  for (let current = relativePath; current !== '.'; current = path.posix.dirname(current)) {
+    if (excludedPaths.has(current)) {
       return true
     }
   }

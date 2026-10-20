@@ -14,6 +14,11 @@
   using the package. Keep contributor and agent instructions elsewhere
 - Do not create changesets for updates to features, fixes, or other changes
   that have not been released yet
+- For backwards-incompatible public API or behavior changes, deprecations, or
+  recommended replacements, update `packages/agent-eval/docs/migrations/` in the
+  same change. Load the `changesets` skill and its migration reference even when
+  no changeset is needed. Record source and target versions, before/after
+  examples, and verification steps; use `Unreleased` until a release is known.
 - Update documentation and skill references only when a change affects how
   consumers use the package or makes existing guidance inaccurate. Do not add
   documentation for type inference or declaration portability fixes, internal

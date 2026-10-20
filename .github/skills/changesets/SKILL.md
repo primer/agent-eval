@@ -1,9 +1,18 @@
 ---
 name: changesets
-description: 'Determine whether agent-eval changes need a changeset and write consumer-focused changesets for public API changes.'
+description: 'Use when changing public APIs or behavior, deprecating usage, recommending replacements, or preparing releases; maintain changesets and versioned migration guides.'
 ---
 
 # Changesets
+
+For every backwards-incompatible public API or behavior change, deprecation,
+or recommended replacement, update the migration docs in the same pull request.
+This is required even when no changeset is needed. Read the migration reference
+before writing the guide.
+
+| Reference                              | When to read                                                                                                 |
+| :------------------------------------- | :----------------------------------------------------------------------------------------------------------- |
+| [Migrations](references/migrations.md) | Documenting breaking changes, deprecations, or replacements, and finalizing migration versions for a release |
 
 Add a changeset when a pull request changes the public API or user-visible
 behavior of the published `@primer/agent-eval` package. Public API includes:

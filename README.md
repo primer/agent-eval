@@ -9,6 +9,12 @@ To do so, we create a variety of [scenarios](./docs/scenarios.md) that describe 
 
 To learn more about how to use this library, visit [`@primer/agent-eval`](./packages/agent-eval) or install the [agent-eval skill](./skills/agent-eval/SKILL.md) to get started.
 
+## Migrations
+
+See the [migration guides](./packages/agent-eval/docs/migrations/README.md) for
+versioned API replacements, deprecations, and before/after examples when
+upgrading an existing project.
+
 ## Agent skills
 
 Install the agent-eval skill to help your agent set up and run evaluations:

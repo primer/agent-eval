@@ -89,7 +89,9 @@ export default defineConfig({
 })
 ```
 
-Judges run after the agent completes the task and return a score with a rationale and findings.
+Each judge's `scores` must be a nonempty collection of all numbers or all strings; mixed value types are not allowed. For example, use `[{value: 'fail', description: 'Does not meet the criteria'}, {value: 'pass', description: 'Meets the criteria'}]` for a string-valued rubric.
+
+Judges run after the agent completes the task and return one configured score with its original value type, along with a rationale and findings.
 
 Check files and judge reference files must stay inside the scenario directory, including after resolving symlinks. Referenced entries must not themselves be symlinks.
 

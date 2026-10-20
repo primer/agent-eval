@@ -4,9 +4,6 @@ Closes #
 
 <!-- Provide an overview of the changes, including before/after screenshots, videos, or graphs when helpful -->
 
-- [ ] Migration guides and their index are updated for breaking changes,
-      deprecations, or recommended replacements (or not applicable).
-
 ### Changelog
 
 <!-- Under the headings below, list out relevant API changes that this Pull Request introduces -->

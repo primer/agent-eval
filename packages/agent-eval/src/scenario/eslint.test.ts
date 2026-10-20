@@ -57,6 +57,31 @@ describe(createESLintCheck, () => {
     expect(createESLintCheck(options).files).toEqual([options.configPath])
   })
 
+  test('uses the staged path for an absolute config path', async () => {
+    const configPath = '/scenario/config/eslint.config.scenario.js'
+    const host = VirtualHost.create()
+    await host.fs.promises.mkdir('/scenario/config', {recursive: true})
+    await host.fs.promises.writeFile(configPath, '')
+    const config = defineConfig({
+      prompt: 'Implement a feature',
+      checks: [createESLintCheck({...options, configPath})],
+    })
+
+    const check = await parseCheckConfig(host, '/scenario', config.checks[0])
+    const {sandbox: resource, runCommand} = await createSandbox(JSON.stringify([createResult()]))
+    await using sandbox = resource
+
+    await expect(check.run({sandbox, logger})).resolves.toEqual([
+      {
+        type: 'outcomes',
+        outcomes: [{type: 'outcome', id: '/home/sandbox/workspace/src/index.ts', status: 'passed'}],
+      },
+    ])
+
+    expect(check.files).toEqual([{filepath: configPath, relativePath: 'config/eslint.config.scenario.js'}])
+    expect(runCommand.mock.calls[0][1]?.slice(0, 3)).toEqual(['eslint', '--config', 'config/eslint.config.scenario.js'])
+  })
+
   test('runs ESLint with its JSON reporter, selected paths, and zero allowed warnings', async () => {
     const {sandbox: resource, runCommand} = await createSandbox(JSON.stringify([createResult()]))
     await using sandbox = resource

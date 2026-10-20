@@ -1,3 +1,4 @@
+import path from 'node:path'
 import {randomUUID} from 'node:crypto'
 import * as z from 'zod/mini'
 import type {CheckConfig} from '../check'
@@ -33,7 +34,14 @@ function createESLintCheck({name, configPath, lintPaths, files = []}: ESLintChec
   return {
     name,
     files: [configPath, ...files],
-    async run({sandbox}) {
+    async run({sandbox, stagedFiles}) {
+      const stagedConfigPath = path.isAbsolute(configPath)
+        ? stagedFiles?.find(file => path.resolve(file.filepath) === path.resolve(configPath))?.relativePath
+        : configPath
+      if (!stagedConfigPath) {
+        throw new Error(`ESLint config file was not staged: ${configPath}`)
+      }
+
       const reportPath = `/tmp/agent-eval-eslint-${randomUUID()}.json`
       try {
         const command = await sandbox.runCommand(
@@ -41,7 +49,7 @@ function createESLintCheck({name, configPath, lintPaths, files = []}: ESLintChec
           [
             'eslint',
             '--config',
-            configPath,
+            stagedConfigPath,
             '--format',
             'json',
             '--output-file',

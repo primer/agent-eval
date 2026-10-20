@@ -31,8 +31,12 @@ const experiments = await listExperiments({
 ```
 
 For `getExperiment`, add the same option while preserving the existing `name`,
-`host` (if supplied), and other directory options. Imports and return handling
-do not change for this migration.
+`host` (if supplied), and other directory options. Imports do not change.
+The [0.13.0 `Experiment` type](https://github.com/primer/agent-eval/blob/%40primer/agent-eval%400.13.0/packages/agent-eval/src/experiment/experiment.ts#L33)
+is now a scenario/benchmark discriminated union. Before accessing
+`experiment.scenarios`, narrow with `experiment.type === 'scenario'`, even in
+scenario-only projects. Benchmark-backed results expose `experiment.benchmark`
+instead.
 
 ## Verification
 

@@ -12,7 +12,8 @@ Author concise guides with the implementation, even when no changeset is needed.
 
 ## Index
 
-Add a row to `packages/agent-eval/docs/migrations/README.md` with these columns:
+Prepend new rows to `packages/agent-eval/docs/migrations/README.md`, keeping
+versions ordered newest first. Use these columns:
 
 - **Version introduced**: the release introducing the change; use the next minor
   version for pending changes while the package is pre-1.0.

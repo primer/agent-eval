@@ -1,5 +1,13 @@
 # @primer/agent-eval
 
+## 0.17.0
+
+### Minor Changes
+
+- ccc32c4: Add `agent-eval agent setup` to append recommended agent guidance to an existing instruction file, or create `AGENTS.md` when none exists.
+- ea936e2: Add support for experiment `ui` cli command behind `ui-command` feature flag
+- 23c0526: Add optional `include` and `ignore` arrays to local Copilot plugin sources to select or exclude files, directories, and glob matches before copying them into the sandbox, including local marketplace sources. Omit `include` to select the entire source, or pass `[]` to select nothing; `ignore` takes precedence over `include`.
+
 ## 0.16.0
 
 ### Minor Changes

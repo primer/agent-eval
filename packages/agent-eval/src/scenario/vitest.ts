@@ -14,11 +14,27 @@ const ReportSchema = z.object({
   numFailedTests: z.number().check(z.int(), z.gte(0)),
   testResults: z.array(
     z.object({
+      name: z.optional(z.string().check(z.minLength(1))),
       message: z.string(),
       assertionResults: z.array(
         z.object({
           fullName: z.string(),
           status: z.enum(['passed', 'failed', 'pending', 'todo', 'skipped']),
+          failureMessages: z.pipe(
+            z._default(z.nullable(z.array(z.string())), []),
+            z.transform(messages => {
+              return messages ?? []
+            }),
+          ),
+          location: z._default(
+            z.nullable(
+              z.object({
+                line: z.number().check(z.int(), z.gte(1)),
+                column: z.optional(z.number().check(z.int(), z.gte(1))),
+              }),
+            ),
+            null,
+          ),
         }),
       ),
     }),
@@ -42,7 +58,17 @@ function createVitestCheck({name, configPath, testPaths, files = []}: VitestChec
       try {
         const command = await sandbox.runCommand(
           'npx',
-          ['vitest', 'run', '--config', configPath, '--reporter=json', '--outputFile', reportPath, ...testPaths],
+          [
+            'vitest',
+            'run',
+            '--config',
+            configPath,
+            '--reporter=json',
+            '--outputFile',
+            reportPath,
+            '--includeTaskLocation',
+            ...testPaths,
+          ],
           {allowNonZeroExitCode: true},
         )
         if (command.exitCode !== 0 && command.exitCode !== 1) {
@@ -50,7 +76,28 @@ function createVitestCheck({name, configPath, testPaths, files = []}: VitestChec
         }
 
         const report = parseReport(await sandbox.readFile(reportPath))
-        const assertions = report.testResults.flatMap(result => result.assertionResults)
+        const assertions = report.testResults.flatMap(result => {
+          return result.assertionResults.map(assertion => {
+            const messages = assertion.failureMessages.length > 0 ? assertion.failureMessages : [assertion.fullName]
+            return {
+              ...assertion,
+              annotations: messages.map(message => {
+                return {
+                  message,
+                  ...(assertion.failureMessages.length > 0 ? {context: assertion.fullName} : {}),
+                  ...(result.name === undefined
+                    ? {}
+                    : {
+                        location: {
+                          path: result.name,
+                          ...(assertion.location ?? {}),
+                        },
+                      }),
+                }
+              }),
+            }
+          })
+        })
         const failedTests = assertions.filter(assertion => assertion.status === 'failed').length
         const suiteErrors = report.testResults.map(result => result.message).filter(Boolean)
         if (
@@ -70,6 +117,7 @@ function createVitestCheck({name, configPath, testPaths, files = []}: VitestChec
             type: 'outcome',
             id: assertion.fullName,
             status: assertion.status === 'passed' ? 'passed' : assertion.status === 'failed' ? 'failed' : 'skipped',
+            annotations: assertion.annotations,
           })),
         }
       } finally {

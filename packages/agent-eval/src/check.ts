@@ -5,29 +5,36 @@ import type {Host} from './host'
 import type {Logger} from './logger'
 import {isPathInside} from './path'
 
-// const AnnotationSchema = z.object({
-//   context: z.optional(z.string()),
-//   message: z.string(),
-//   snippet: z.optional(z.string()),
-// })
+const AnnotationSchema = z.object({
+  context: z.optional(z.string()),
+  message: z.string(),
+  snippet: z.optional(z.string()),
+  location: z.optional(
+    z.object({
+      path: z.string().check(z.minLength(1)),
+      line: z.optional(z.number().check(z.int(), z.gte(1))),
+      column: z.optional(z.number().check(z.int(), z.gte(1))),
+    }),
+  ),
+})
 
 const MeasurementSchema = z.object({
   type: z.literal('measurement'),
   value: z.number(),
-  // annotations: z._default(z.array(AnnotationSchema), []),
+  annotations: z._default(z.array(AnnotationSchema), []),
 })
 
 const OutcomeSchema = z.object({
   type: z.literal('outcome'),
   id: z.optional(z.string()),
   status: z.enum(['passed', 'failed', 'skipped']),
-  // annotations: z._default(z.array(AnnotationSchema), []),
+  annotations: z._default(z.array(AnnotationSchema), []),
 })
 
 const ErrorSchema = z.object({
   type: z.literal('error'),
   message: z.string(),
-  // annotations: z._default(z.array(AnnotationSchema), []),
+  annotations: z._default(z.array(AnnotationSchema), []),
 })
 
 const CheckRunResultSchema = z.discriminatedUnion('type', [
@@ -105,12 +112,10 @@ const CheckConfigRunReturnSchema = z.promise(
   ]),
 )
 
-type CheckConfigRun = (...args: z.infer<typeof CheckRunInputSchema>) => z.infer<typeof CheckConfigRunReturnSchema>
+type CheckConfigRun = (...args: z.infer<typeof CheckRunInputSchema>) => z.input<typeof CheckConfigRunReturnSchema>
+type ParsedCheckConfigRun = (...args: z.infer<typeof CheckRunInputSchema>) => z.infer<typeof CheckConfigRunReturnSchema>
 
-const CheckConfigRunSchema: z.ZodMiniType<
-  CheckConfigRun,
-  (...args: z.input<typeof CheckRunInputSchema>) => z.input<typeof CheckConfigRunReturnSchema>
-> = z.function({
+const CheckConfigRunSchema: z.ZodMiniType<ParsedCheckConfigRun, CheckConfigRun> = z.function({
   input: CheckRunInputSchema,
   output: CheckConfigRunReturnSchema,
 })
@@ -142,7 +147,7 @@ const CheckConfigSchema = z.object({
   run: CheckConfigRunSchema,
 })
 
-type CheckConfig = z.infer<typeof CheckConfigSchema>
+type CheckConfig = z.input<typeof CheckConfigSchema>
 
 async function parseCheckConfig(host: Host, directory: string, json: unknown): Promise<Check> {
   const schema = z.extend(
@@ -285,4 +290,4 @@ const CheckOutputSchema = z.object({
 type CheckOutput = z.infer<typeof CheckOutputSchema>
 
 export {CheckConfigSchema, CheckSchema, CheckRunSchema, CheckOutputSchema, parseCheckConfig, parseCheckRunResult}
-export type {Check, CheckConfig, CheckRun, CheckConfigRun, CheckRunResult, CheckOutput}
+export type {Check, CheckConfig, CheckRun, CheckConfigRun, ParsedCheckConfigRun, CheckRunResult, CheckOutput}

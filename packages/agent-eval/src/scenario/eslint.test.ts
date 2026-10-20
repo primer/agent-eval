@@ -74,7 +74,7 @@ describe(createESLintCheck, () => {
     await expect(check.run({sandbox, logger})).resolves.toEqual([
       {
         type: 'outcomes',
-        outcomes: [{type: 'outcome', id: '/home/sandbox/workspace/src/index.ts', status: 'passed'}],
+        outcomes: [{type: 'outcome', id: '/home/sandbox/workspace/src/index.ts', status: 'passed', annotations: []}],
       },
     ])
 
@@ -87,7 +87,7 @@ describe(createESLintCheck, () => {
     await using sandbox = resource
 
     await expect(createESLintCheck({...options, files: ['helpers']}).run({sandbox, logger})).resolves.toEqual({
-      outcomes: [{type: 'outcome', id: '/home/sandbox/workspace/src/index.ts', status: 'passed'}],
+      outcomes: [{type: 'outcome', id: '/home/sandbox/workspace/src/index.ts', status: 'passed', annotations: []}],
     })
     const reportPath = runCommand.mock.calls[0][1]?.[6]
     expect(runCommand.mock.calls).toEqual([
@@ -126,11 +126,69 @@ describe(createESLintCheck, () => {
 
     await expect(createESLintCheck(options).run({sandbox, logger})).resolves.toEqual({
       outcomes: [
-        {type: 'outcome', id: '/workspace/clean.ts', status: 'passed'},
-        {type: 'outcome', id: '/workspace/errors.ts', status: 'failed'},
-        {type: 'outcome', id: '/workspace/warnings.ts', status: 'failed'},
+        {type: 'outcome', id: '/workspace/clean.ts', status: 'passed', annotations: []},
+        {type: 'outcome', id: '/workspace/errors.ts', status: 'failed', annotations: []},
+        {type: 'outcome', id: '/workspace/warnings.ts', status: 'failed', annotations: []},
       ],
     })
+  })
+
+  test('preserves each lint diagnostic with its rule and location through check parsing', async () => {
+    const report = [
+      {
+        ...createResult('/workspace/src/index.ts', 1, 1),
+        messages: [
+          {ruleId: 'no-undef', message: "'search' is not defined.", line: 3, column: 5},
+          {ruleId: 'no-unused-vars', message: "'query' is never used.", line: 8, column: 7},
+        ],
+      },
+      createResult('/workspace/src/clean.ts'),
+    ]
+    const host = VirtualHost.create()
+    await host.fs.promises.mkdir('/scenario')
+    await host.fs.promises.writeFile('/scenario/eslint.config.scenario.js', '')
+    const check = await parseCheckConfig(host, '/scenario', createESLintCheck(options))
+    const {sandbox: resource} = await createSandbox(JSON.stringify(report), 1)
+    await using sandbox = resource
+
+    await expect(check.run({sandbox, logger})).resolves.toEqual([
+      {
+        type: 'outcomes',
+        outcomes: [
+          {
+            type: 'outcome',
+            id: '/workspace/src/index.ts',
+            status: 'failed',
+            annotations: [
+              {
+                message: "'search' is not defined.",
+                context: 'no-undef',
+                location: {
+                  path: '/workspace/src/index.ts',
+                  line: 3,
+                  column: 5,
+                },
+              },
+              {
+                message: "'query' is never used.",
+                context: 'no-unused-vars',
+                location: {
+                  path: '/workspace/src/index.ts',
+                  line: 8,
+                  column: 7,
+                },
+              },
+            ],
+          },
+          {
+            type: 'outcome',
+            id: '/workspace/src/clean.ts',
+            status: 'passed',
+            annotations: [],
+          },
+        ],
+      },
+    ])
   })
 
   test.each([
@@ -175,7 +233,7 @@ describe(createESLintCheck, () => {
         {
           ...createResult('/workspace/broken.ts', 1),
           fatalErrorCount: 1,
-          messages: [{message: 'Parsing error: Unexpected token'}],
+          messages: [{ruleId: null, message: 'Parsing error: Unexpected token'}],
         },
         createResult('/workspace/errors.ts', 1),
       ]),
@@ -185,8 +243,20 @@ describe(createESLintCheck, () => {
 
     await expect(createESLintCheck(options).run({sandbox, logger})).resolves.toEqual({
       outcomes: [
-        {type: 'outcome', id: '/workspace/broken.ts', status: 'failed'},
-        {type: 'outcome', id: '/workspace/errors.ts', status: 'failed'},
+        {
+          type: 'outcome',
+          id: '/workspace/broken.ts',
+          status: 'failed',
+          annotations: [
+            {
+              message: 'Parsing error: Unexpected token',
+              location: {
+                path: '/workspace/broken.ts',
+              },
+            },
+          ],
+        },
+        {type: 'outcome', id: '/workspace/errors.ts', status: 'failed', annotations: []},
       ],
     })
   })
@@ -198,6 +268,11 @@ describe(createESLintCheck, () => {
     {name: 'invalid path', contents: JSON.stringify([{...createResult(), filePath: 1}])},
     {name: 'negative count', contents: JSON.stringify([{...createResult(), errorCount: -1}])},
     {name: 'fractional count', contents: JSON.stringify([{...createResult(), warningCount: 0.5}])},
+    {name: 'invalid diagnostic', contents: JSON.stringify([{...createResult(), messages: [{message: 123}]}])},
+    {
+      name: 'invalid diagnostic location',
+      contents: JSON.stringify([{...createResult(), messages: [{message: 'Failure', line: 0}]}]),
+    },
   ])('rejects malformed reports: $name', async ({contents}) => {
     const {sandbox: resource, runCommand} = await createSandbox(contents)
     await using sandbox = resource

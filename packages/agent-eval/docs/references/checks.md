@@ -52,10 +52,52 @@ when neither is inherently preferable.
 
 To return several groups, return an array with a unique `id` on each group.
 Each group contains **either** outcomes **or** measurements, not both.
-Individual outcomes may have IDs; individual measurements contain only their
-type and value. Either collection can contain `{type: 'error', message: '...'}`.
+Individual outcomes may have IDs; individual measurements contain their type
+and value. Either collection can contain `{type: 'error', message: '...'}`.
+Outcomes, measurements, and errors all support annotations.
 Do not add the internal group discriminant `type: 'outcomes'` or
 `type: 'measurements'` to authored return values; the library normalizes them.
+
+### Annotations
+
+Individual outcomes, measurements, and errors may include an optional
+`annotations` array. Each annotation has a required `message` string, optional
+`context` and `snippet` strings, and an optional `location`:
+
+```ts
+{
+  type: 'outcome',
+  status: 'failed',
+  annotations: [
+    {
+      context: 'Search filters projects by name',
+      message: 'Expected one matching project, received three',
+      snippet: 'expect(filteredProjects).toHaveLength(1)',
+      location: {
+        path: 'scenario.test.ts',
+        line: 12,
+        column: 3,
+      },
+    },
+  ],
+}
+```
+
+Use `message` for a test name or details explaining the result, `context` for
+supporting text, and `snippet` for relevant source text. Use `location` for a
+file reference: it requires a nonempty `path` string and accepts optional
+`line` and `column` values as 1-based positive integers. Paths may be relative
+or absolute and are preserved as provided. They are not checked, resolved, or
+copied, so references to files that no longer exist are accepted.
+Annotations are preserved in saved benchmark and experiment trial results.
+Context remains free-form descriptive metadata.
+Omitted annotations are parsed as an empty array, including when reading older
+results. An explicit empty array is also accepted.
+
+Each annotation is self-contained. A UI can render one item per annotation
+with its own message, context, location, and snippet. Keep details describing
+the same diagnostic together in one annotation. Multiple annotations describe
+separate diagnostics, not fragments to combine by array position.
 
 ## Run
 
@@ -75,6 +117,13 @@ helper lists the config and tests in `files`, invokes `npx vitest run` with the
 supplied config and test filters, and selects its own JSON reporter. It returns
 one outcome per assertion using its full name as the ID, maps pending/todo/skipped
 to skipped, and rejects unusable reports. See [getting started](getting-started.md).
+The helper enables test location collection. Each reported failure message
+becomes a self-contained annotation with the assertion's full name as `context`.
+When there are no failure messages, the outcome includes one annotation using
+the assertion's full name as `message`. Each annotation uses the suite's file
+name as `location.path` and includes the test's line and column when reported.
+These locations identify the test declaration, not necessarily the failing
+statement.
 Pass an optional `files` array for additional private files or directories, such
 as test helpers, setup files, or fixtures. These are withheld from the agent and
 copied in before the check runs alongside the config and tests, but are not used
@@ -109,6 +158,10 @@ and optional additional `files` from the agent, but leaves lint targets visible.
 It runs `npx eslint` with the supplied config, a JSON formatter, and
 `--max-warnings 0`. Each reported file has one outcome with its file path as the
 ID: no errors or warnings passes; either fails, including syntax errors.
+Each lint diagnostic becomes an annotation with its message, its rule ID as
+`context` when available, and a `location` containing the file path and any
+reported line and column. Files without diagnostics have an empty annotations
+array.
 Unexpected exits, missing or malformed reports, no reported files, and
 inconsistent exit codes throw evaluation errors. Temporary reports are removed
 after the check, including on failure.

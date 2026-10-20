@@ -11,7 +11,7 @@ function outcomes(statuses: Array<'passed' | 'failed' | 'skipped'>): Array<Check
       result: {
         type: 'outcomes',
         outcomes: statuses.map(status => {
-          return {type: 'outcome', status}
+          return {type: 'outcome', status, annotations: []}
         }),
       },
     },
@@ -196,7 +196,12 @@ test('fills missing historical metric dimensions with null and keeps changed uni
         checks: [
           {
             check: {name: 'performance', files: []},
-            result: {type: 'measurements', id: 'render', unit: 's', measurements: [{type: 'measurement', value: 2}]},
+            result: {
+              type: 'measurements',
+              id: 'render',
+              unit: 's',
+              measurements: [{type: 'measurement', value: 2, annotations: []}],
+            },
           },
         ],
       }),
@@ -254,7 +259,11 @@ test('preserves small measurement values and reports partially missing trial cov
       checks: [
         {
           check: {name: 'small', files: []},
-          result: {type: 'measurements', unit: 's', measurements: [{type: 'measurement', value: 0.00004}]},
+          result: {
+            type: 'measurements',
+            unit: 's',
+            measurements: [{type: 'measurement', value: 0.00004, annotations: []}],
+          },
         },
       ],
     }),

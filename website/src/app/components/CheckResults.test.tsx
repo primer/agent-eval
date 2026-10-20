@@ -52,8 +52,8 @@ test('escapes arbitrary check errors and supplies labels for outcomes without ID
           result: {
             type: 'outcomes',
             outcomes: [
-              {type: 'outcome', status: 'skipped'},
-              {type: 'error', message: '<script>alert(1)</script>'},
+              {type: 'outcome', status: 'skipped', annotations: []},
+              {type: 'error', message: '<script>alert(1)</script>', annotations: []},
             ],
           },
         },

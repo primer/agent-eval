@@ -142,7 +142,7 @@ test('loadScenario wires configured checks and judges into a usable scenario in 
     }),
   ).toEqual(['first', 'second'])
   await expect(scenario.checks[0]!.run({logger, sandbox})).resolves.toEqual([
-    {type: 'outcomes', outcomes: [{type: 'outcome', status: 'passed'}]},
+    {type: 'outcomes', outcomes: [{type: 'outcome', status: 'passed', annotations: []}]},
   ])
   expect(
     scenario.judges.map(judge => {

@@ -4,7 +4,7 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**", ".next/**", "!.next/cache/**", "!.next/dev/**", "next-env.d.ts"]
+      "outputs": ["dist/**", "!dist/**/.next/**"]
     },
     "@primer/agent-eval-website#build": {
       "dependsOn": ["^build"],
@@ -16,9 +16,13 @@
       "outputs": []
     },
     "//#test": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["@primer/agent-eval#build"]
     },
     "@primer/agent-eval#lint:npm": {
+      "dependsOn": ["build"],
+      "outputs": []
+    },
+    "@primer/agent-eval#type-check": {
       "dependsOn": ["build"],
       "outputs": []
     },
@@ -27,7 +31,7 @@
       "outputs": []
     },
     "//#type-check": {
-      "dependsOn": ["^build"],
+      "dependsOn": ["@primer/agent-eval#build"],
       "outputs": []
     }
   }

@@ -56,10 +56,18 @@ type CheckRunResult = z.infer<typeof CheckRunResultSchema>
 
 const CheckRunReturnSchema = z.array(CheckRunResultSchema)
 
+const CheckFileSchema = z.object({
+  filepath: z.string(),
+  relativePath: z.string(),
+})
+
+const CheckFilesSchema = z.array(CheckFileSchema)
+
 const CheckRunInputSchema = z.tuple([
   z.object({
     logger: z.custom<Logger>(),
     sandbox: SandboxSchema,
+    stagedFiles: z.optional(CheckFilesSchema),
   }),
 ])
 
@@ -236,7 +244,7 @@ async function parseCheckConfig(host: Host, directory: string, json: unknown): P
   return {
     ...result.data,
     run: CheckRunSchema.parse(async (input: Parameters<CheckRun>[0]) => {
-      const results = await result.data.run(input)
+      const results = await result.data.run({...input, stagedFiles: result.data.files})
       const groups = Array.isArray(results) ? results : [results]
       return groups.map(group => {
         return parseCheckRunResult(group)
@@ -268,12 +276,7 @@ async function findSymbolicLink(host: Host, filepath: string): Promise<string | 
 const CheckSchema = z.object({
   name: z.string(),
   description: z.optional(z.string()),
-  files: z.array(
-    z.object({
-      filepath: z.string(),
-      relativePath: z.string(),
-    }),
-  ),
+  files: CheckFilesSchema,
   run: CheckRunSchema,
 })
 

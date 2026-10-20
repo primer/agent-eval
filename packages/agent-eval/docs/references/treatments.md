@@ -92,8 +92,18 @@ A local plugin (replace the illustrative host path before running):
 await sandbox.addCopilotPlugin({
   type: 'local',
   sourcePath: '/absolute/host/path/to/plugin',
+  include: ['.github/plugin', 'skills', '**/*.md'],
+  ignore: ['**/*.test.ts'],
 })
 ```
+
+The optional `include` array selects files, directories, or glob matches relative
+to `sourcePath`, preserving relative paths and copying selected directories
+recursively. Omit it to select the entire source; `[]` or unmatched patterns
+select nothing. Paths outside `sourcePath` are not included. The optional `ignore`
+array excludes matches and their descendants, taking precedence over `include`;
+omit it or use `[]` to exclude nothing. Both options match hidden files and
+directories and also apply to local marketplace sources.
 
 Remote plugins use `{type: 'remote', url, version?}`. Marketplace plugins use
 `{type: 'marketplace', name, marketplace: {name, source}}`, where `source` is a

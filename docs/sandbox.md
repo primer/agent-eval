@@ -21,7 +21,7 @@ The [`Sandbox` interface](../packages/agent-eval/src/sandbox/types.ts) provides 
 | `addAgentSkill`       | Adds an agent skill, with optional supporting files.                          |
 | `addCustomAgent`      | Adds a custom agent, with optional supporting files and tools.                |
 | `addMcpServer`        | Adds an MCP server to the sandbox's Copilot configuration.                    |
-| `addCopilotPlugin`    | Installs a remote, local, or marketplace Copilot plugin in the sandbox.       |
+| `addCopilotPlugin`    | Installs remote, local (with filtering), or marketplace Copilot plugins.      |
 
 Use `sandbox.glob(pattern, options)` to search the sandbox filesystem. Patterns
 and `cwd` are workspace-relative by default; absolute paths refer to the
@@ -30,3 +30,23 @@ glob options such as `ignore`, `nodir`, `dot`, or `absolute`. Matching is
 case-sensitive by default, and result ordering is unspecified. Options must be
 serializable: `ignore` accepts a string or array of patterns, not callbacks.
 `AbortSignal` is not supported.
+
+Local Copilot plugin sources accept optional `include` and `ignore` arrays of
+file paths, directory paths, or glob patterns, relative to `sourcePath`. Patterns
+also match hidden files and directories. `include` selects what to copy into the
+sandbox, preserving relative paths and copying selected directories recursively.
+Omitting `include` selects the entire source; `include: []` or unmatched patterns
+select nothing. Paths outside `sourcePath` are not included.
+
+`ignore` excludes matches and their descendants even when selected by `include`.
+Omitting `ignore` or passing `[]` excludes nothing. These options also apply to
+local marketplace sources.
+
+```ts
+await sandbox.addCopilotPlugin({
+  type: 'local',
+  sourcePath: '/absolute/host/path/to/plugin',
+  include: ['.github/plugin', 'skills', '**/*.md'],
+  ignore: ['**/*.test.ts'],
+})
+```

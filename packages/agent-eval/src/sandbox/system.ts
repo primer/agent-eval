@@ -2,6 +2,7 @@ import {randomUUID} from 'node:crypto'
 import path from 'node:path'
 import {Readable, Writable} from 'node:stream'
 import {pipeline} from 'node:stream/promises'
+import {glob} from 'glob'
 import tarFs from 'tar-fs'
 import type {Headers} from 'tar-fs'
 import tarStream from 'tar-stream'
@@ -318,7 +319,38 @@ class SystemSandbox implements Sandbox {
     }
 
     const destinationPath = path.posix.join(COPILOT_PLUGIN_SOURCES_DIR, randomUUID())
-    await this.copy(source.sourcePath, destinationPath)
+    const globOptions = {
+      cwd: path.resolve(source.sourcePath),
+      absolute: true,
+      dot: true,
+      nocase: false,
+      fs: this.#host.fs,
+    }
+    const exclude = await glob(source.ignore ?? [], globOptions)
+    if (source.include !== undefined) {
+      const [includedPaths, sourcePaths] = await Promise.all([
+        glob(source.include, globOptions),
+        glob('**/*', globOptions),
+      ])
+      const included = new Set(
+        includedPaths.map(filepath => normalizeCopyPath(path.relative(globOptions.cwd, filepath))),
+      )
+      const parents = new Set<string>()
+      for (const filepath of included) {
+        let parent = path.posix.dirname(filepath)
+        while (parent !== '.' && parent !== '..' && !parents.has(parent)) {
+          parents.add(parent)
+          parent = path.posix.dirname(parent)
+        }
+      }
+      for (const filepath of sourcePaths) {
+        const relativePath = normalizeCopyPath(path.relative(globOptions.cwd, filepath))
+        if (!parents.has(relativePath) && !isIncluded(relativePath, included)) {
+          exclude.push(filepath)
+        }
+      }
+    }
+    await this.copy(source.sourcePath, destinationPath, {exclude})
     return destinationPath
   }
 
@@ -368,8 +400,22 @@ function isExcluded(relativePath: string, excludedPaths: ReadonlySet<string>): b
     return false
   }
 
-  for (const excludedPath of excludedPaths) {
-    if (relativePath === excludedPath || relativePath.startsWith(`${excludedPath}/`)) {
+  for (let current = relativePath; current !== '.'; current = path.posix.dirname(current)) {
+    if (excludedPaths.has(current)) {
+      return true
+    }
+  }
+
+  return false
+}
+
+function isIncluded(relativePath: string, includedPaths: ReadonlySet<string>): boolean {
+  if (includedPaths.has('')) {
+    return true
+  }
+
+  for (let current = relativePath; current !== '.'; current = path.posix.dirname(current)) {
+    if (includedPaths.has(current)) {
       return true
     }
   }

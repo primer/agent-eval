@@ -10,7 +10,7 @@ not a prerequisite for every operation.
 
 | Task                                                        | Read                                                                                                            |
 | :---------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------- |
-| Install and complete a first evaluation                     | [Getting started](references/getting-started.md)                                                                |
+| Install, set up instructions, and run a first evaluation    | [Getting started](references/getting-started.md)                                                                |
 | Understand project structure and evaluation methodology     | [Overview](references/overview.md)                                                                              |
 | Establish a capability baseline                             | [Benchmarks](references/benchmarks.md), [capabilities](references/capabilities.md)                              |
 | Compare instructions, skills, agents, MCP, or plugins       | [Experiments](references/experiments.md), [treatments](references/treatments.md)                                |
@@ -20,7 +20,9 @@ not a prerequisite for every operation.
 | Install resources, search files, or run commands in a trial | [Sandbox](references/sandbox.md)                                                                                |
 | Inspect a run matrix, shard, or merge                       | [Plans](references/plans.md)                                                                                    |
 | Read results or diagnose agent behavior                     | [Trials and results](references/trials-and-results.md), [experiment reports](references/experiments.md#reports) |
-| Find a command, flag, or runtime failure                    | [CLI](references/cli.md)                                                                                        |
+| Start the unstable, feature-flagged UI or find CLI help     | [CLI](references/cli.md)                                                                                        |
+| Enable or disable unstable features                         | [Feature flags](references/feature-flags.md)                                                                    |
+| Upgrade existing APIs, configuration, or workflows          | [Migrations](migrations/README.md)                                                                              |
 
 For an evidence-driven investigation of why a model behaved a certain way, use
 the `agent-eval-investigate` skill (installed separately with
@@ -40,7 +42,8 @@ setup improvements and offers focused reruns only with the user's approval.
   treatment setup, not shared setup.
 - Withhold grader files using `files`. Verify the starter fails for the intended
   reasons and a correct solution passes; restore the starter before execution.
-  For Vitest grading, use `createVitestCheck` as described in [Checks](references/checks.md).
+  For Vitest or ESLint grading, use `createVitestCheck` or `createESLintCheck` as
+  described in [Checks](references/checks.md).
 - Inspect the plan's combinations before running. Use a fresh output directory.
 - Finish by reading trial results and reporting outcomes and errors separately.
   Command completion alone does not establish quality.

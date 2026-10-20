@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+# Run the development build if not in CI, otherwise build the UI and run tests
+if [ -z "${CI:-}" ]; then
+  pnpm next dev src/ui
+else
+  pnpm next build src/ui
+  pnpm next start src/ui
+fi

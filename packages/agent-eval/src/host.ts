@@ -23,9 +23,10 @@ class SystemHost implements Host {
   }
 
   loadModule<T = unknown>(filepath: string): Promise<T> {
-    const specifier =
-      filepath.startsWith('file:') || filepath.startsWith('data:') ? filepath : pathToFileURL(filepath).href
-    return import(specifier)
+    if (filepath.startsWith('file:') || filepath.startsWith('data:')) {
+      return import(filepath)
+    }
+    return import(pathToFileURL(filepath).href)
   }
 
   createSandbox(options?: SandboxCreateOptions): Promise<Sandbox> {

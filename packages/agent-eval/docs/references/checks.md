@@ -90,6 +90,29 @@ Return one outcome per assertion, using its full test name as the ID.
 This preserves attribution when one part of a task fails. Use runtime behavior
 instead of broad source-string matches when possible.
 
+### ESLint
+
+Use `createESLintCheck` from `@primer/agent-eval/scenario` for lint grading:
+
+```ts
+createESLintCheck({
+  name: 'eslint',
+  configPath: 'eslint.config.scenario.js',
+  lintPaths: ['src', 'lib/**/*.ts'],
+  files: ['helpers/lint-rules.js'],
+})
+```
+
+Install ESLint and any config plugins in the scenario. Use paths relative to its
+directory and provide at least one lint target. The helper withholds the config
+and optional additional `files` from the agent, but leaves lint targets visible.
+It runs `npx eslint` with the supplied config, a JSON formatter, and
+`--max-warnings 0`. Each reported file has one outcome with its file path as the
+ID: no errors or warnings passes; either fails, including syntax errors.
+Unexpected exits, missing or malformed reports, no reported files, and
+inconsistent exit codes throw evaluation errors. Temporary reports are removed
+after the check, including on failure.
+
 ## Verify
 
 - The untouched fixture fails the intended assertions, rather than failing to

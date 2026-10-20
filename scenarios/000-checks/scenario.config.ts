@@ -1,5 +1,4 @@
-import {defineConfig} from '@primer/agent-eval/scenario'
-import type {ESLint} from 'eslint'
+import {createESLintCheck, defineConfig} from '@primer/agent-eval/scenario'
 import type {JsonTestResults} from 'vitest/node'
 
 export default defineConfig({
@@ -81,47 +80,10 @@ export default defineConfig({
         }
       },
     },
-    {
+    createESLintCheck({
       name: 'eslint',
-      description: 'Example for reporting on eslint checks',
-      files: ['eslint.config.scenario.js'],
-      async run({sandbox}) {
-        const commandResult = await sandbox.runCommand(
-          'npx',
-          [
-            'eslint',
-            '--config',
-            'eslint.config.scenario.js',
-            'src',
-            '--format',
-            'json',
-            '--output-file',
-            'eslint-scenario-report.json',
-            '--max-warnings',
-            '0',
-          ],
-          {
-            allowNonZeroExitCode: true,
-          },
-        )
-
-        if (commandResult.exitCode !== 0 && commandResult.exitCode !== 1) {
-          throw new Error(`ESLint failed with exit code ${commandResult.exitCode}: ${commandResult.stderr}`)
-        }
-
-        const contents = await sandbox.readFile('eslint-scenario-report.json')
-        const results: Array<ESLint.LintResult> = JSON.parse(contents)
-
-        return {
-          outcomes: results.map(result => {
-            return {
-              type: 'outcome',
-              id: result.filePath,
-              status: result.errorCount === 0 && result.warningCount === 0 ? 'passed' : 'failed',
-            }
-          }),
-        }
-      },
-    },
+      configPath: 'eslint.config.scenario.js',
+      lintPaths: ['src'],
+    }),
   ],
 })

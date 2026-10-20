@@ -10,7 +10,7 @@ not a prerequisite for every operation.
 
 | Task                                                        | Read                                                                                                            |
 | :---------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------- |
-| Install and complete a first evaluation                     | [Getting started](references/getting-started.md)                                                                |
+| Install, set up instructions, and run a first evaluation    | [Getting started](references/getting-started.md)                                                                |
 | Understand project structure and evaluation methodology     | [Overview](references/overview.md)                                                                              |
 | Establish a capability baseline                             | [Benchmarks](references/benchmarks.md), [capabilities](references/capabilities.md)                              |
 | Compare instructions, skills, agents, MCP, or plugins       | [Experiments](references/experiments.md), [treatments](references/treatments.md)                                |

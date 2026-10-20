@@ -14,10 +14,27 @@ npm install @primer/agent-eval --save-dev
 ### Agent instructions
 
 The package includes [agent docs](./docs/AGENTS.md) for its installed version.
-Add this one line to your project's `AGENTS.md` so your agent loads the docs
-before using agent-eval:
+Run setup from your project's root so your agent loads the docs before using
+agent-eval:
 
-> When working with agent-eval, first read `node_modules/@primer/agent-eval/docs/AGENTS.md`.
+```bash
+npx agent-eval agent setup
+```
+
+Setup appends the following snippet to the first existing file in this order:
+`AGENTS.md`, `.github/copilot-instructions.md`, or `copilot-instructions.md`.
+If none exists, it creates `AGENTS.md`. Existing instructions are preserved,
+and running setup again replaces only the marked block with the current guidance.
+An unchanged block or existing unmarked guidance is left alone.
+
+<!-- prettier-ignore -->
+```md
+<!-- BEGIN:agent-eval -->
+## agent-eval
+
+When working with agent-eval, first read `node_modules/@primer/agent-eval/docs/AGENTS.md`.
+<!-- END:agent-eval -->
+```
 
 The entrypoint links to task-specific guides for setup, evaluation methodology,
 configuration, and CLI usage. The docs update with the package; no separate

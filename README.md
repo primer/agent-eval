@@ -21,8 +21,9 @@ The [skill](./skills/agent-eval/SKILL.md) points to the docs included in your
 installed `@primer/agent-eval` package, so guidance stays aligned with that
 version. The skill and runtime package are installed separately.
 
-You can also skip installing the skill and add this one line to your project's
-`AGENTS.md` after installing the package:
+You can also skip installing the skill and run `npx agent-eval agent setup`
+from your project's root to add this guidance automatically. Or, after
+installing the package, add this one line to your project's `AGENTS.md`:
 
 > When working with agent-eval, first read `node_modules/@primer/agent-eval/docs/AGENTS.md`.
 

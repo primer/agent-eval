@@ -31,16 +31,22 @@ case-sensitive by default, and result ordering is unspecified. Options must be
 serializable: `ignore` accepts a string or array of patterns, not callbacks.
 `AbortSignal` is not supported.
 
-Local Copilot plugin sources accept an optional `ignore` array of file paths,
-directory paths, or glob patterns, relative to `sourcePath`. Matches are excluded
-before copying into the sandbox, including matching hidden files and directories.
-This also applies to local marketplace sources. Omitting `ignore` or passing `[]`
-copies the entire source.
+Local Copilot plugin sources accept optional `include` and `ignore` arrays of
+file paths, directory paths, or glob patterns, relative to `sourcePath`. Patterns
+also match hidden files and directories. `include` selects what to copy into the
+sandbox, preserving relative paths and copying selected directories recursively.
+Omitting `include` selects the entire source; `include: []` or unmatched patterns
+select nothing. Paths outside `sourcePath` are not included.
+
+`ignore` excludes matches and their descendants even when selected by `include`.
+Omitting `ignore` or passing `[]` excludes nothing. These options also apply to
+local marketplace sources.
 
 ```ts
 await sandbox.addCopilotPlugin({
   type: 'local',
   sourcePath: '/absolute/host/path/to/plugin',
-  ignore: ['node_modules', '.git', '**/*.test.ts'],
+  include: ['.github/plugin', 'skills', '**/*.md'],
+  ignore: ['**/*.test.ts'],
 })
 ```

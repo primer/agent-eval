@@ -74,7 +74,12 @@
 
 - Design zod schemas to parse configuration for unknown input
 - When designing them, be as permissive as needed for the configuration but:
-  - Apply reasonable defaults, e.g. `z._defaults(..., [])` for a collection
+  - Apply reasonable defaults during parsing with `z._default`, e.g.
+    `z._default(z.array(ItemSchema), [])` for a collection
+  - Prefer concrete parsed values over `null`, `undefined`, or optional fields
+    whenever a meaningful default exists. Reserve optional or nullable fields
+    for cases where absence has domain meaning, rather than propagating null
+    checks to consumers
   - Transform different inputs into structured types, for example a union of
     object with different fields becomes a discriminated union with a `type` field
 - Design `parse*` functions instead of allowing for zod schemas to be called

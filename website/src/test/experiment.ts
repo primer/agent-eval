@@ -14,10 +14,10 @@ export function createResult(overrides: Partial<ExperimentTrialOutput> = {}): Ex
         result: {
           type: 'outcomes',
           outcomes: [
-            {type: 'outcome', status: 'passed'},
-            {type: 'outcome', status: 'passed'},
-            {type: 'outcome', status: 'passed'},
-            {type: 'outcome', status: 'failed'},
+            {type: 'outcome', status: 'passed', annotations: []},
+            {type: 'outcome', status: 'passed', annotations: []},
+            {type: 'outcome', status: 'passed', annotations: []},
+            {type: 'outcome', status: 'failed', annotations: []},
           ],
         },
       },

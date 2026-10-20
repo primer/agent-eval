@@ -44,8 +44,8 @@ test('averages checks and implementation usage per trial, not per scenario or ou
         result: {
           type: 'outcomes',
           outcomes: [
-            {type: 'outcome', status: 'passed'},
-            {type: 'outcome', status: 'failed'},
+            {type: 'outcome', status: 'passed', annotations: []},
+            {type: 'outcome', status: 'failed', annotations: []},
           ],
         },
       },

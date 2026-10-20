@@ -91,7 +91,8 @@ or absolute and are preserved as provided. They are not checked, resolved, or
 copied, so references to files that no longer exist are accepted.
 Annotations are preserved in saved benchmark and experiment trial results.
 Context remains free-form descriptive metadata.
-Omitting annotations leaves the field absent; an empty array is also accepted.
+Omitted annotations are parsed as an empty array, including when reading older
+results. An explicit empty array is also accepted.
 
 Each annotation is self-contained. A UI can render one item per annotation
 with its own message, context, location, and snippet. Keep details describing
@@ -116,8 +117,13 @@ helper lists the config and tests in `files`, invokes `npx vitest run` with the
 supplied config and test filters, and selects its own JSON reporter. It returns
 one outcome per assertion using its full name as the ID, maps pending/todo/skipped
 to skipped, and rejects unusable reports. See [getting started](getting-started.md).
-Each outcome also includes one annotation with the assertion's full name as
-`message` and its suite's file name as `context` when reported by Vitest.
+The helper enables test location collection. Each reported failure message
+becomes a self-contained annotation with the assertion's full name as `context`.
+When there are no failure messages, the outcome includes one annotation using
+the assertion's full name as `message`. Each annotation uses the suite's file
+name as `location.path` and includes the test's line and column when reported.
+These locations identify the test declaration, not necessarily the failing
+statement.
 Pass an optional `files` array for additional private files or directories, such
 as test helpers, setup files, or fixtures. These are withheld from the agent and
 copied in before the check runs alongside the config and tests, but are not used
@@ -152,6 +158,10 @@ and optional additional `files` from the agent, but leaves lint targets visible.
 It runs `npx eslint` with the supplied config, a JSON formatter, and
 `--max-warnings 0`. Each reported file has one outcome with its file path as the
 ID: no errors or warnings passes; either fails, including syntax errors.
+Each lint diagnostic becomes an annotation with its message, its rule ID as
+`context` when available, and a `location` containing the file path and any
+reported line and column. Files without diagnostics have an empty annotations
+array.
 Unexpected exits, missing or malformed reports, no reported files, and
 inconsistent exit codes throw evaluation errors. Temporary reports are removed
 after the check, including on failure.

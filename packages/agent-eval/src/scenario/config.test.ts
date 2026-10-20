@@ -149,11 +149,11 @@ describe('parseScenarioConfig', () => {
     const config = parseScenarioConfig(host, '/scenarios/example', input)
 
     await expect(config.checks[0]!.run({logger, sandbox})).resolves.toEqual({
-      outcomes: [{type: 'outcome', status: 'passed'}],
+      outcomes: [{type: 'outcome', status: 'passed', annotations: []}],
     })
     await expect(config.checks[1]!.run({logger, sandbox})).resolves.toEqual([
-      {id: 'tests', outcomes: [{type: 'outcome', status: 'passed'}]},
-      {id: 'score', measurements: [{type: 'measurement', value: 42}], unit: 'points'},
+      {id: 'tests', outcomes: [{type: 'outcome', status: 'passed', annotations: []}]},
+      {id: 'score', measurements: [{type: 'measurement', value: 42, annotations: []}], unit: 'points'},
     ])
   })
 

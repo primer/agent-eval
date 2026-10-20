@@ -15,6 +15,17 @@ const ReportSchema = z.array(
     filePath: z.string().check(z.minLength(1)),
     errorCount: z.number().check(z.int(), z.gte(0)),
     warningCount: z.number().check(z.int(), z.gte(0)),
+    messages: z._default(
+      z.array(
+        z.object({
+          message: z.string(),
+          ruleId: z._default(z.nullable(z.string()), null),
+          line: z.optional(z.number().check(z.int(), z.gte(1))),
+          column: z.optional(z.number().check(z.int(), z.gte(1))),
+        }),
+      ),
+      [],
+    ),
   }),
 )
 
@@ -80,6 +91,17 @@ function createESLintCheck({name, configPath, lintPaths, files = []}: ESLintChec
             type: 'outcome',
             id: result.filePath,
             status: result.errorCount === 0 && result.warningCount === 0 ? 'passed' : 'failed',
+            annotations: result.messages.map(message => {
+              return {
+                message: message.message,
+                ...(message.ruleId === null ? {} : {context: message.ruleId}),
+                location: {
+                  path: result.filePath,
+                  ...(message.line === undefined ? {} : {line: message.line}),
+                  ...(message.column === undefined ? {} : {column: message.column}),
+                },
+              }
+            }),
           })),
         }
       } finally {

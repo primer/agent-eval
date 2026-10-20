@@ -17,7 +17,15 @@ test('check runs preserve an outcomes array with a status for each file', async 
   })
   await using sandbox = await VirtualSandbox.create()
 
-  await expect(run({logger, sandbox})).resolves.toEqual([result])
+  await expect(run({logger, sandbox})).resolves.toEqual([
+    {
+      ...result,
+      outcomes: [
+        {type: 'outcome', id: 'src/App.tsx', status: 'passed', annotations: []},
+        {type: 'outcome', id: 'src/main.tsx', status: 'failed', annotations: []},
+      ],
+    },
+  ])
 })
 
 test('check runs still accept outcomes without IDs', async () => {
@@ -30,7 +38,54 @@ test('check runs still accept outcomes without IDs', async () => {
   })
   await using sandbox = await VirtualSandbox.create()
 
-  await expect(run({logger, sandbox})).resolves.toEqual([result])
+  await expect(run({logger, sandbox})).resolves.toEqual([
+    {
+      ...result,
+      outcomes: [{type: 'outcome', status: 'passed', annotations: []}],
+    },
+  ])
+})
+
+test('parsed checks default omitted annotations on outcomes, measurements, and errors to empty arrays', async () => {
+  const run: CheckConfigRun = async () => {
+    return [
+      {
+        id: 'tests',
+        outcomes: [
+          {type: 'outcome', status: 'passed'},
+          {type: 'error', message: 'Could not check file'},
+        ],
+      },
+      {
+        id: 'size',
+        measurements: [
+          {type: 'measurement', value: 42},
+          {type: 'error', message: 'Could not measure file', annotations: undefined},
+        ],
+      },
+    ]
+  }
+  const check = await parseCheckConfig(VirtualHost.create(), '/scenario', {name: 'example', run})
+  await using sandbox = await VirtualSandbox.create()
+
+  await expect(check.run({logger, sandbox})).resolves.toEqual([
+    {
+      type: 'outcomes',
+      id: 'tests',
+      outcomes: [
+        {type: 'outcome', status: 'passed', annotations: []},
+        {type: 'error', message: 'Could not check file', annotations: []},
+      ],
+    },
+    {
+      type: 'measurements',
+      id: 'size',
+      measurements: [
+        {type: 'measurement', value: 42, annotations: []},
+        {type: 'error', message: 'Could not measure file', annotations: []},
+      ],
+    },
+  ])
 })
 
 test.each(['single group', 'multiple groups'])('parsed checks preserve outcome annotations in %s', async shape => {
@@ -173,8 +228,8 @@ test.each([
 })
 
 test.each([
-  {type: 'outcomes', outcomes: [{type: 'outcome', status: 'passed'}]},
-  {type: 'measurements', measurements: [{type: 'measurement', value: 42}], unit: 'ms'},
+  {type: 'outcomes', outcomes: [{type: 'outcome', status: 'passed', annotations: []}]},
+  {type: 'measurements', measurements: [{type: 'measurement', value: 42, annotations: []}], unit: 'ms'},
 ])('check output preserves type-specific result fields: %j', result => {
   const output = {
     check: {name: 'example', files: []},
@@ -200,10 +255,10 @@ test.each([
         type: 'outcomes',
         id: 'lint',
         outcomes: [
-          {type: 'outcome', id: 'src/App.tsx', status: 'passed'},
-          {type: 'outcome', id: 'src/main.tsx', status: 'failed'},
-          {type: 'outcome', status: 'skipped'},
-          {type: 'error', message: 'Could not check file'},
+          {type: 'outcome', id: 'src/App.tsx', status: 'passed', annotations: []},
+          {type: 'outcome', id: 'src/main.tsx', status: 'failed', annotations: []},
+          {type: 'outcome', status: 'skipped', annotations: []},
+          {type: 'error', message: 'Could not check file', annotations: []},
         ],
       },
     ],
@@ -225,8 +280,8 @@ test.each([
         unit: 'ms',
         direction: 'lower-is-better',
         measurements: [
-          {type: 'measurement', value: 42},
-          {type: 'error', message: 'Timed out'},
+          {type: 'measurement', value: 42, annotations: []},
+          {type: 'error', message: 'Timed out', annotations: []},
         ],
       },
     ],
@@ -235,7 +290,7 @@ test.each([
   {input: {measurements: []}, expected: [{type: 'measurements', measurements: []}]},
   {
     input: {outcomes: [{type: 'outcome', status: 'passed'}]},
-    expected: [{type: 'outcomes', outcomes: [{type: 'outcome', status: 'passed'}]}],
+    expected: [{type: 'outcomes', outcomes: [{type: 'outcome', status: 'passed', annotations: []}]}],
   },
   {
     input: [{id: 'tests', outcomes: []}],
@@ -247,11 +302,11 @@ test.each([
       {id: 'score', measurements: [{type: 'measurement', value: 0}], direction: 'higher-is-better'},
     ],
     expected: [
-      {type: 'outcomes', id: 'tests', outcomes: [{type: 'outcome', status: 'passed'}]},
+      {type: 'outcomes', id: 'tests', outcomes: [{type: 'outcome', status: 'passed', annotations: []}]},
       {
         type: 'measurements',
         id: 'score',
-        measurements: [{type: 'measurement', value: 0}],
+        measurements: [{type: 'measurement', value: 0, annotations: []}],
         direction: 'higher-is-better',
       },
     ],

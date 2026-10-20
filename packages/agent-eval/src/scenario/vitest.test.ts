@@ -78,6 +78,7 @@ describe(createVitestCheck, () => {
           '--reporter=json',
           '--outputFile',
           reportPath,
+          '--includeTaskLocation',
           ...options.testPaths,
         ],
         {allowNonZeroExitCode: true},
@@ -164,6 +165,7 @@ describe(createVitestCheck, () => {
         '--reporter=json',
         '--outputFile',
         expect.any(String),
+        '--includeTaskLocation',
         ...options.testPaths,
       ],
       {allowNonZeroExitCode: true},
@@ -197,8 +199,13 @@ describe(createVitestCheck, () => {
           name: '/home/sandbox/workspace/tests/first.test.ts',
           message: '',
           assertionResults: [
-            {fullName: 'search filters by name', status: 'passed'},
-            {fullName: 'search shows empty state', status: 'failed'},
+            {fullName: 'search filters by name', status: 'passed', location: {line: 2, column: 1}},
+            {
+              fullName: 'search shows empty state',
+              status: 'failed',
+              location: {line: 12, column: 3},
+              failureMessages: ['Expected empty state to be visible', 'Expected no search results'],
+            },
           ],
         },
         {
@@ -225,25 +232,118 @@ describe(createVitestCheck, () => {
             type: 'outcome',
             id: 'search filters by name',
             status: 'passed',
-            annotations: [{context: '/home/sandbox/workspace/tests/first.test.ts', message: 'search filters by name'}],
+            annotations: [
+              {
+                message: 'search filters by name',
+                location: {
+                  path: '/home/sandbox/workspace/tests/first.test.ts',
+                  line: 2,
+                  column: 1,
+                },
+              },
+            ],
           },
           {
             type: 'outcome',
             id: 'search shows empty state',
             status: 'failed',
             annotations: [
-              {context: '/home/sandbox/workspace/tests/first.test.ts', message: 'search shows empty state'},
+              {
+                message: 'Expected empty state to be visible',
+                context: 'search shows empty state',
+                location: {
+                  path: '/home/sandbox/workspace/tests/first.test.ts',
+                  line: 12,
+                  column: 3,
+                },
+              },
+              {
+                message: 'Expected no search results',
+                context: 'search shows empty state',
+                location: {
+                  path: '/home/sandbox/workspace/tests/first.test.ts',
+                  line: 12,
+                  column: 3,
+                },
+              },
             ],
           },
           {
             type: 'outcome',
             id: 'search optional case',
             status: 'skipped',
-            annotations: [{context: 'tests/second.test.ts', message: 'search optional case'}],
+            annotations: [{message: 'search optional case', location: {path: 'tests/second.test.ts'}}],
           },
         ],
       },
     ])
+  })
+
+  test('preserves failure messages without inventing a location when the suite path is absent', async () => {
+    const report = {
+      numTotalTests: 1,
+      numFailedTests: 1,
+      testResults: [
+        {
+          message: '',
+          assertionResults: [
+            {
+              fullName: 'search filters by name',
+              status: 'failed',
+              failureMessages: ['AssertionError: expected 3 to be 1'],
+              location: {line: 12, column: 3},
+            },
+          ],
+        },
+      ],
+    }
+    const {sandbox: resource} = await createSandbox(JSON.stringify(report), 1)
+    await using sandbox = resource
+
+    await expect(createVitestCheck(options).run({sandbox, logger})).resolves.toEqual({
+      outcomes: [
+        {
+          type: 'outcome',
+          id: 'search filters by name',
+          status: 'failed',
+          annotations: [{message: 'AssertionError: expected 3 to be 1', context: 'search filters by name'}],
+        },
+      ],
+    })
+  })
+
+  test('accepts null diagnostic metadata from Vitest reports', async () => {
+    const report = {
+      numTotalTests: 1,
+      numFailedTests: 0,
+      testResults: [
+        {
+          name: 'tests/first.test.ts',
+          message: '',
+          assertionResults: [
+            {
+              fullName: 'search filters by name',
+              status: 'passed',
+              failureMessages: null,
+              location: null,
+            },
+          ],
+        },
+      ],
+    }
+    const {sandbox: resource} = await createSandbox(JSON.stringify(report))
+    await using sandbox = resource
+
+    await expect(createVitestCheck(options).run({sandbox, logger})).resolves.toEqual({
+      outcomes: [
+        {
+          type: 'outcome',
+          id: 'search filters by name',
+          status: 'passed',
+          annotations: [{message: 'search filters by name', location: {path: 'tests/first.test.ts'}}],
+        },
+      ],
+    })
   })
 
   test('rejects unexpected exits even when a valid report exists', async () => {

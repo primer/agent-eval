@@ -21,20 +21,20 @@ const AnnotationSchema = z.object({
 const MeasurementSchema = z.object({
   type: z.literal('measurement'),
   value: z.number(),
-  annotations: z.optional(z.array(AnnotationSchema)),
+  annotations: z._default(z.array(AnnotationSchema), []),
 })
 
 const OutcomeSchema = z.object({
   type: z.literal('outcome'),
   id: z.optional(z.string()),
   status: z.enum(['passed', 'failed', 'skipped']),
-  annotations: z.optional(z.array(AnnotationSchema)),
+  annotations: z._default(z.array(AnnotationSchema), []),
 })
 
 const ErrorSchema = z.object({
   type: z.literal('error'),
   message: z.string(),
-  annotations: z.optional(z.array(AnnotationSchema)),
+  annotations: z._default(z.array(AnnotationSchema), []),
 })
 
 const CheckRunResultSchema = z.discriminatedUnion('type', [
@@ -112,12 +112,10 @@ const CheckConfigRunReturnSchema = z.promise(
   ]),
 )
 
-type CheckConfigRun = (...args: z.infer<typeof CheckRunInputSchema>) => z.infer<typeof CheckConfigRunReturnSchema>
+type CheckConfigRun = (...args: z.infer<typeof CheckRunInputSchema>) => z.input<typeof CheckConfigRunReturnSchema>
+type ParsedCheckConfigRun = (...args: z.infer<typeof CheckRunInputSchema>) => z.infer<typeof CheckConfigRunReturnSchema>
 
-const CheckConfigRunSchema: z.ZodMiniType<
-  CheckConfigRun,
-  (...args: z.input<typeof CheckRunInputSchema>) => z.input<typeof CheckConfigRunReturnSchema>
-> = z.function({
+const CheckConfigRunSchema: z.ZodMiniType<ParsedCheckConfigRun, CheckConfigRun> = z.function({
   input: CheckRunInputSchema,
   output: CheckConfigRunReturnSchema,
 })
@@ -149,7 +147,7 @@ const CheckConfigSchema = z.object({
   run: CheckConfigRunSchema,
 })
 
-type CheckConfig = z.infer<typeof CheckConfigSchema>
+type CheckConfig = z.input<typeof CheckConfigSchema>
 
 async function parseCheckConfig(host: Host, directory: string, json: unknown): Promise<Check> {
   const schema = z.extend(
@@ -292,4 +290,4 @@ const CheckOutputSchema = z.object({
 type CheckOutput = z.infer<typeof CheckOutputSchema>
 
 export {CheckConfigSchema, CheckSchema, CheckRunSchema, CheckOutputSchema, parseCheckConfig, parseCheckRunResult}
-export type {Check, CheckConfig, CheckRun, CheckConfigRun, CheckRunResult, CheckOutput}
+export type {Check, CheckConfig, CheckRun, CheckConfigRun, ParsedCheckConfigRun, CheckRunResult, CheckOutput}

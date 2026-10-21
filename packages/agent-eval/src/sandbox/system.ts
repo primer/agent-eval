@@ -304,13 +304,17 @@ class SystemSandbox implements Sandbox {
   async addCopilotPlugin(config: CopilotPluginConfig): Promise<void> {
     if (config.type === 'marketplace') {
       const marketplaceSource = await this.#prepareCopilotPluginSource(config.marketplace.source)
-      await this.runCommand('copilot', ['plugin', 'marketplace', 'add', marketplaceSource])
-      await this.runCommand('copilot', ['plugin', 'install', `${config.name}@${config.marketplace.name}`])
+      await this.runCommand('/opt/agent-eval/copilot/bin/copilot', ['plugin', 'marketplace', 'add', marketplaceSource])
+      await this.runCommand('/opt/agent-eval/copilot/bin/copilot', [
+        'plugin',
+        'install',
+        `${config.name}@${config.marketplace.name}`,
+      ])
       return
     }
 
     const source = await this.#prepareCopilotPluginSource(config)
-    await this.runCommand('copilot', ['plugin', 'install', source])
+    await this.runCommand('/opt/agent-eval/copilot/bin/copilot', ['plugin', 'install', source])
   }
 
   async #prepareCopilotPluginSource(source: CopilotPluginSource): Promise<string> {

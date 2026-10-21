@@ -59,6 +59,7 @@ type RemoteCopilotPluginSource = {
 type LocalCopilotPluginSource = {
   type: 'local'
   sourcePath: string
+  include?: Array<string>
   ignore?: Array<string>
 }
 

@@ -299,7 +299,7 @@ test('keeps heavy trial bodies out of the initial run summaries', async () => {
     checks: [
       {
         check: {name: 'tests', files: []},
-        result: {type: 'outcomes', outcomes: [{type: 'outcome', status: 'passed', id: marker}]},
+        result: {type: 'outcomes', outcomes: [{type: 'outcome', status: 'passed', id: marker, annotations: []}]},
       },
     ],
     judges: [{...judges[0], result: {type: 'result', score: 0, rationale: marker, findings: []}}],

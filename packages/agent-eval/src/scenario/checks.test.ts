@@ -255,7 +255,7 @@ test.each(cases)('$id preserves the original outcomes on the untouched fixture',
   expect(result.check).toBe('node-tests')
   expect(result.outcomes).toEqual(
     scenario.outcomes.map(id => {
-      return {type: 'outcome', id, status: scenario.baselinePassed.includes(id) ? 'passed' : 'failed'}
+      return {type: 'outcome', id, status: scenario.baselinePassed.includes(id) ? 'passed' : 'failed', annotations: []}
     }),
   )
 })
@@ -264,7 +264,7 @@ test.each(cases)('$id accepts a representative passing implementation', async sc
   const result = await runCheck(scenario.id, scenario.solution)
   expect(result.outcomes).toEqual(
     scenario.outcomes.map(id => {
-      return {type: 'outcome', id, status: 'passed'}
+      return {type: 'outcome', id, status: 'passed', annotations: []}
     }),
   )
 })
@@ -278,7 +278,7 @@ test.each(cases)('$id preserves support for alternate quoting', async scenario =
   const result = await runCheck(scenario.id, files)
   expect(result.outcomes).toEqual(
     scenario.outcomes.map(id => {
-      return {type: 'outcome', id, status: 'passed'}
+      return {type: 'outcome', id, status: 'passed', annotations: []}
     }),
   )
 })
@@ -296,7 +296,12 @@ test('a missing primary variant fails only the corresponding button outcome', as
   })
   expect(result.outcomes).toEqual(
     scenario.outcomes.map(id => {
-      return {type: 'outcome', id, status: id === 'src/app/page.tsx uses primary variant' ? 'failed' : 'passed'}
+      return {
+        type: 'outcome',
+        id,
+        status: id === 'src/app/page.tsx uses primary variant' ? 'failed' : 'passed',
+        annotations: [],
+      }
     }),
   )
 })
@@ -317,6 +322,7 @@ test('a missing setup html element remains an individual failed outcome', async 
         type: 'outcome',
         id,
         status: id === 'src/app/layout.tsx configures automatic light and dark color modes' ? 'failed' : 'passed',
+        annotations: [],
       }
     }),
   )

@@ -47,6 +47,62 @@ test('parses legacy experiment output with a required CLI runner', () => {
   expectTypeOf<ExperimentTrialOutput['runner']>().toEqualTypeOf<CopilotRunner>()
 })
 
+test('preserves check annotations and locations in serialized experiment trial output', () => {
+  const checks = [
+    {
+      check: {name: 'tests', files: []},
+      result: {
+        type: 'outcomes',
+        outcomes: [
+          {
+            type: 'outcome',
+            status: 'failed',
+            annotations: [
+              {
+                context: 'Search tests',
+                message: 'filters by name',
+                snippet: 'test("filters", ...)',
+                location: {
+                  path: 'scenario.test.ts',
+                  line: 1,
+                  column: 1,
+                },
+              },
+            ],
+          },
+          {
+            type: 'error',
+            message: 'Could not check file',
+            annotations: [{message: 'Missing module', location: {path: 'src/Search.tsx'}}],
+          },
+        ],
+      },
+    },
+    {
+      check: {name: 'size', files: []},
+      result: {
+        type: 'measurements',
+        measurements: [
+          {
+            type: 'measurement',
+            value: 42,
+            annotations: [{message: 'Bundle size', location: {path: '/workspace/dist/index.js'}}],
+          },
+          {
+            type: 'error',
+            message: 'Could not measure file',
+            annotations: [{message: 'Missing output', location: {path: 'dist/missing.js'}}],
+          },
+        ],
+      },
+    },
+  ]
+
+  const parsed = parseExperimentTrialOutput(JSON.parse(JSON.stringify({...trial, checks})), new Map())
+
+  expect(parsed.checks).toEqual(checks)
+})
+
 test.each(['copilot-cli', 'copilot-sdk'] as const)('preserves the explicit %s experiment output runner', runner => {
   const parsed = ExperimentTrialOutputSchema.parse({
     ...trial,

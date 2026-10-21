@@ -14,6 +14,14 @@
   using the package. Keep contributor and agent instructions elsewhere
 - Do not create changesets for updates to features, fixes, or other changes
   that have not been released yet
+- For backwards-incompatible public API or behavior changes, deprecations, or
+  recommended replacements, update `packages/agent-eval/docs/migrations/` in the
+  same change. Load the `changesets` skill and its migration reference even when
+  no changeset is needed. Index guides by version introduced, entrypoint,
+  export(s), and a linked description. Keep guides to a brief change description,
+  versioned before/after snippets, and verification; add migration steps only
+  when needed. While the package is pre-1.0, use the next minor version for
+  pending migrations; revisit this policy at 1.0.
 - Update documentation and skill references only when a change affects how
   consumers use the package or makes existing guidance inaccurate. Do not add
   documentation for type inference or declaration portability fixes, internal
@@ -66,7 +74,12 @@
 
 - Design zod schemas to parse configuration for unknown input
 - When designing them, be as permissive as needed for the configuration but:
-  - Apply reasonable defaults, e.g. `z._defaults(..., [])` for a collection
+  - Apply reasonable defaults during parsing with `z._default`, e.g.
+    `z._default(z.array(ItemSchema), [])` for a collection
+  - Prefer concrete parsed values over `null`, `undefined`, or optional fields
+    whenever a meaningful default exists. Reserve optional or nullable fields
+    for cases where absence has domain meaning, rather than propagating null
+    checks to consumers
   - Transform different inputs into structured types, for example a union of
     object with different fields becomes a discriminated union with a `type` field
 - Design `parse*` functions instead of allowing for zod schemas to be called

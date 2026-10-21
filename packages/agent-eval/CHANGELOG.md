@@ -1,5 +1,27 @@
 # @primer/agent-eval
 
+## 0.18.1
+
+### Patch Changes
+
+- 0f23c94: Fix Copilot plugin installation when the CLI is not on the sandbox PATH.
+
+## 0.18.0
+
+### Minor Changes
+
+- 34971c4: Add createESLintCheck to @primer/agent-eval/scenario to run ESLint with private grading configuration and report one outcome per linted file, failing on errors or warnings.
+- 61d3233: Add optional `annotations` arrays to check outcomes, with a required `message` and optional `context` and `snippet`, preserved in benchmark and experiment trial output. Vitest checks include each assertion's full name and test file in the outcome annotations.
+- 61d3233: Add optional `annotations` arrays to check measurements, with a required `message` and optional `context` and `snippet`, preserved in benchmark and experiment trial output.
+
+## 0.17.0
+
+### Minor Changes
+
+- ccc32c4: Add `agent-eval agent setup` to append recommended agent guidance to an existing instruction file, or create `AGENTS.md` when none exists.
+- ea936e2: Add support for experiment `ui` cli command behind `ui-command` feature flag
+- 23c0526: Add optional `include` and `ignore` arrays to local Copilot plugin sources to select or exclude files, directories, and glob matches before copying them into the sandbox, including local marketplace sources. Omit `include` to select the entire source, or pass `[]` to select nothing; `ignore` takes precedence over `include`.
+
 ## 0.16.0
 
 ### Minor Changes

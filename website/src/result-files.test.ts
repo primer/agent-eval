@@ -265,7 +265,7 @@ test.each(['benchmark', 'experiment'] as const)(
     await fs.writeFile(invalidPath, JSON.stringify({id: 'invalid'}))
     const read = kind === 'benchmark' ? readBenchmarkOutput : readExperimentOutput
     expect(await read(filepath)).toBeNull()
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining(invalidPath))
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining(await fs.realpath(invalidPath)))
     expect(await fs.readFile(path.join(directory, 'artifacts/trial-1/trial-1.json'), 'utf8')).toContain('trial-1')
   },
 )
@@ -350,7 +350,9 @@ test('references screenshot and video files relative to a relocated run without 
     type: 'Screenshot',
     screenshot: `${baseUrl}/media-0.jpg`,
   })
-  expect(assets.media).toEqual([{name: 'media-0.jpg', filepath: path.join(directory, media), mimeType: 'image/jpeg'}])
+  expect(assets.media).toEqual([
+    {name: 'media-0.jpg', filepath: await fs.realpath(path.join(directory, media)), mimeType: 'image/jpeg'},
+  ])
   const artifacts = '/another-machine/results/artifacts/trial-1/walkthrough'
   expect(
     (await getWalkthroughAssets({type: 'Screenshot', filepath: 'walkthrough/image.jpg'}, directory, baseUrl, artifacts))

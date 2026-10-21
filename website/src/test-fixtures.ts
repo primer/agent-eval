@@ -55,10 +55,10 @@ const checks: Array<CheckOutput> = [
     result: {
       type: 'outcomes',
       outcomes: [
-        {type: 'outcome', id: 'empty state renders', status: 'passed'},
-        {type: 'outcome', id: 'keyboard access', status: 'failed'},
-        {type: 'outcome', id: 'optional browser', status: 'skipped'},
-        {type: 'error', message: 'Browser unavailable'},
+        {type: 'outcome', id: 'empty state renders', status: 'passed', annotations: []},
+        {type: 'outcome', id: 'keyboard access', status: 'failed', annotations: []},
+        {type: 'outcome', id: 'optional browser', status: 'skipped', annotations: []},
+        {type: 'error', message: 'Browser unavailable', annotations: []},
       ],
     },
   },
@@ -70,9 +70,9 @@ const checks: Array<CheckOutput> = [
       unit: 'ms',
       direction: 'lower-is-better',
       measurements: [
-        {type: 'measurement', value: 10},
-        {type: 'measurement', value: 20},
-        {type: 'error', message: 'Timeout'},
+        {type: 'measurement', value: 10, annotations: []},
+        {type: 'measurement', value: 20, annotations: []},
+        {type: 'error', message: 'Timeout', annotations: []},
       ],
     },
   },

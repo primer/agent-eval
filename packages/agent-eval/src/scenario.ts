@@ -1,5 +1,7 @@
 export {defineConfig} from './scenario/config'
 export type {ScenarioConfig} from './scenario/config'
+export {createESLintCheck} from './scenario/eslint'
+export type {ESLintCheckOptions} from './scenario/eslint'
 export {createVitestCheck} from './scenario/vitest'
 export type {VitestCheckOptions} from './scenario/vitest'
 export type {CheckConfigRun} from './check'

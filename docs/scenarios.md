@@ -50,7 +50,60 @@ Files listed in a check's `files` option are withheld from the agent's initial w
 
 `createVitestCheck` lists the config and test paths in `files` automatically. Pass an optional `files` array to include additional private files or directories, such as `files: ['helpers/setup.ts', 'fixtures']`. These paths are also withheld and copied in before the check runs, but are not used as test filters. Use paths relative to the scenario directory and install Vitest in the scenario. The helper runs `npx vitest run` with those test filters and the supplied config, selecting a JSON reporter without requiring reporter settings in the config. Each assertion's full name becomes its outcome ID; pending, todo, and skipped assertions become skipped outcomes. Unexpected exits, missing or malformed reports, zero tests, and inconsistent results throw evaluation errors rather than reporting a passing check.
 
+For ESLint grading, use `createESLintCheck` to report one outcome per linted file:
+
+```ts
+import {createESLintCheck, defineConfig} from '@primer/agent-eval/scenario'
+
+export default defineConfig({
+  prompt: 'Add a search feature that filters the list of projects by name.',
+  checks: [
+    createESLintCheck({
+      name: 'eslint',
+      configPath: 'eslint.config.scenario.js',
+      lintPaths: ['src'],
+      files: ['helpers/lint-rules.js'],
+    }),
+  ],
+})
+```
+
+Install ESLint and any config plugins in the scenario. Use paths relative to the scenario directory and provide at least one lint target in `lintPaths` (files, directories, or globs). The helper withholds the config and optional additional `files`, not the lint targets. It runs `npx eslint` with a JSON formatter and `--max-warnings 0`. Each reported file's path becomes its outcome ID; errors or warnings (including syntax errors) fail that file. Unexpected exits, missing or malformed reports, zero reported files, and inconsistent exit codes throw evaluation errors. Temporary reports are removed after each check, including on failure.
+
+Each ESLint diagnostic becomes an annotation with its message, its rule ID as `context` when available, and a `location` containing the file path and any reported line and column. Files without diagnostics have an empty annotations array.
+
 Checks return either `outcomes` or `measurements`. Outcomes report a `passed`, `failed`, or `skipped` status. Measurements report numeric values, with optional units and a direction such as `higher-is-better` or `lower-is-better`.
+
+Individual outcomes, measurements, and errors may include an optional `annotations` array. Each annotation has a required `message`, optional `context` and `snippet` strings, and an optional `location`:
+
+```ts
+return {
+  outcomes: [
+    {
+      type: 'outcome',
+      status: 'failed',
+      annotations: [
+        {
+          context: 'Search filters projects by name',
+          message: 'Expected one matching project, received three',
+          snippet: 'expect(filteredProjects).toHaveLength(1)',
+          location: {
+            path: 'scenario.test.ts',
+            line: 12,
+            column: 3,
+          },
+        },
+      ],
+    },
+  ],
+}
+```
+
+Annotations are preserved in saved trial results for benchmarks and experiments. Omitted annotations are parsed as an empty array, including when reading older results. Use `message` to describe the result, `context` for supporting text, and `snippet` for relevant source text. Use `location` for a file reference: it requires a nonempty `path` and accepts optional `line` and `column` values as 1-based positive integers. Paths may be relative or absolute and are preserved as provided, without checking, resolving, or copying the referenced file. Context remains free-form descriptive metadata.
+
+Each annotation is self-contained. A UI can render one item per annotation with its own message, context, location, and snippet. Keep details describing the same diagnostic together in one annotation; multiple annotations describe separate diagnostics, not fragments to combine by array position.
+
+`createVitestCheck` collects test locations and includes one annotation per reported failure message, with the assertion's full name as `context`. When there are no failure messages, it includes one annotation using the assertion's full name as `message`. Each annotation uses the suite's file name as `location.path` and includes the test's line and column when reported by Vitest. These locations identify the test declaration, not necessarily the failing statement. Existing outcome IDs and status mapping are unchanged.
 
 ### Judges
 

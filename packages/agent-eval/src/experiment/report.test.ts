@@ -80,6 +80,7 @@ function createResult(
               {
                 type: 'outcome',
                 status: passed ? 'passed' : 'failed',
+                annotations: [],
               },
             ],
           },

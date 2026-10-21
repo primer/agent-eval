@@ -24,7 +24,7 @@ test.each(['copilot-cli', 'copilot-sdk'] as const)(
       await expect(checkSandbox.readFile('vitest.config.scenario.ts')).resolves.toBe('private check config')
       await expect(checkSandbox.readFile('checks/reference.json')).resolves.toBe('private reference')
       await expect(checkSandbox.readFile('src/reference.json')).resolves.toBe('ordinary source')
-      return [{type: 'outcomes', outcomes: [{type: 'outcome', status: 'passed'}]}]
+      return [{type: 'outcomes', outcomes: [{type: 'outcome', status: 'passed', annotations: []}]}]
     })
     const trial: Trial = {
       id: 'trial',
@@ -123,7 +123,7 @@ test.each(['copilot-cli', 'copilot-sdk'] as const)(
     expect(checkRun).toHaveBeenCalledOnce()
     expect(result.checks[0]?.result).toEqual({
       type: 'outcomes',
-      outcomes: [{type: 'outcome', status: 'passed'}],
+      outcomes: [{type: 'outcome', status: 'passed', annotations: []}],
     })
   },
 )

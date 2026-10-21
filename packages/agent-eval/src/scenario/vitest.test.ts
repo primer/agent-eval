@@ -64,7 +64,7 @@ describe(createVitestCheck, () => {
     const check = createVitestCheck(options)
 
     await expect(check.run({sandbox, logger})).resolves.toEqual({
-      outcomes: [{type: 'outcome', id: 'suite test 0', status: 'passed'}],
+      outcomes: [{type: 'outcome', id: 'suite test 0', status: 'passed', annotations: [{message: 'suite test 0'}]}],
     })
     const reportPath = runCommand.mock.calls[0][1]?.[6]
     expect(runCommand.mock.calls).toEqual([
@@ -78,6 +78,7 @@ describe(createVitestCheck, () => {
           '--reporter=json',
           '--outputFile',
           reportPath,
+          '--includeTaskLocation',
           ...options.testPaths,
         ],
         {allowNonZeroExitCode: true},
@@ -164,6 +165,7 @@ describe(createVitestCheck, () => {
         '--reporter=json',
         '--outputFile',
         expect.any(String),
+        '--includeTaskLocation',
         ...options.testPaths,
       ],
       {allowNonZeroExitCode: true},
@@ -179,11 +181,167 @@ describe(createVitestCheck, () => {
 
     await expect(createVitestCheck(options).run({sandbox, logger})).resolves.toEqual({
       outcomes: [
-        {type: 'outcome', id: 'suite test 0', status: 'passed'},
-        {type: 'outcome', id: 'suite test 1', status: 'failed'},
-        {type: 'outcome', id: 'suite test 2', status: 'skipped'},
-        {type: 'outcome', id: 'suite test 3', status: 'skipped'},
-        {type: 'outcome', id: 'suite test 4', status: 'skipped'},
+        {type: 'outcome', id: 'suite test 0', status: 'passed', annotations: [{message: 'suite test 0'}]},
+        {type: 'outcome', id: 'suite test 1', status: 'failed', annotations: [{message: 'suite test 1'}]},
+        {type: 'outcome', id: 'suite test 2', status: 'skipped', annotations: [{message: 'suite test 2'}]},
+        {type: 'outcome', id: 'suite test 3', status: 'skipped', annotations: [{message: 'suite test 3'}]},
+        {type: 'outcome', id: 'suite test 4', status: 'skipped', annotations: [{message: 'suite test 4'}]},
+      ],
+    })
+  })
+
+  test('preserves each suite file path and assertion name through check parsing', async () => {
+    const report = {
+      numTotalTests: 3,
+      numFailedTests: 1,
+      testResults: [
+        {
+          name: '/home/sandbox/workspace/tests/first.test.ts',
+          message: '',
+          assertionResults: [
+            {fullName: 'search filters by name', status: 'passed', location: {line: 2, column: 1}},
+            {
+              fullName: 'search shows empty state',
+              status: 'failed',
+              location: {line: 12, column: 3},
+              failureMessages: ['Expected empty state to be visible', 'Expected no search results'],
+            },
+          ],
+        },
+        {
+          name: 'tests/second.test.ts',
+          message: '',
+          assertionResults: [{fullName: 'search optional case', status: 'skipped'}],
+        },
+      ],
+    }
+    const host = VirtualHost.create()
+    await host.fs.promises.mkdir('/scenario/tests', {recursive: true})
+    for (const filepath of [options.configPath, ...options.testPaths]) {
+      await host.fs.promises.writeFile(`/scenario/${filepath}`, '')
+    }
+    const {sandbox: resource} = await createSandbox(JSON.stringify(report), 1)
+    await using sandbox = resource
+    const check = await parseCheckConfig(host, '/scenario', createVitestCheck(options))
+
+    await expect(check.run({sandbox, logger})).resolves.toEqual([
+      {
+        type: 'outcomes',
+        outcomes: [
+          {
+            type: 'outcome',
+            id: 'search filters by name',
+            status: 'passed',
+            annotations: [
+              {
+                message: 'search filters by name',
+                location: {
+                  path: '/home/sandbox/workspace/tests/first.test.ts',
+                  line: 2,
+                  column: 1,
+                },
+              },
+            ],
+          },
+          {
+            type: 'outcome',
+            id: 'search shows empty state',
+            status: 'failed',
+            annotations: [
+              {
+                message: 'Expected empty state to be visible',
+                context: 'search shows empty state',
+                location: {
+                  path: '/home/sandbox/workspace/tests/first.test.ts',
+                  line: 12,
+                  column: 3,
+                },
+              },
+              {
+                message: 'Expected no search results',
+                context: 'search shows empty state',
+                location: {
+                  path: '/home/sandbox/workspace/tests/first.test.ts',
+                  line: 12,
+                  column: 3,
+                },
+              },
+            ],
+          },
+          {
+            type: 'outcome',
+            id: 'search optional case',
+            status: 'skipped',
+            annotations: [{message: 'search optional case', location: {path: 'tests/second.test.ts'}}],
+          },
+        ],
+      },
+    ])
+  })
+
+  test('preserves failure messages without inventing a location when the suite path is absent', async () => {
+    const report = {
+      numTotalTests: 1,
+      numFailedTests: 1,
+      testResults: [
+        {
+          message: '',
+          assertionResults: [
+            {
+              fullName: 'search filters by name',
+              status: 'failed',
+              failureMessages: ['AssertionError: expected 3 to be 1'],
+              location: {line: 12, column: 3},
+            },
+          ],
+        },
+      ],
+    }
+    const {sandbox: resource} = await createSandbox(JSON.stringify(report), 1)
+    await using sandbox = resource
+
+    await expect(createVitestCheck(options).run({sandbox, logger})).resolves.toEqual({
+      outcomes: [
+        {
+          type: 'outcome',
+          id: 'search filters by name',
+          status: 'failed',
+          annotations: [{message: 'AssertionError: expected 3 to be 1', context: 'search filters by name'}],
+        },
+      ],
+    })
+  })
+
+  test('accepts null diagnostic metadata from Vitest reports', async () => {
+    const report = {
+      numTotalTests: 1,
+      numFailedTests: 0,
+      testResults: [
+        {
+          name: 'tests/first.test.ts',
+          message: '',
+          assertionResults: [
+            {
+              fullName: 'search filters by name',
+              status: 'passed',
+              failureMessages: null,
+              location: null,
+            },
+          ],
+        },
+      ],
+    }
+    const {sandbox: resource} = await createSandbox(JSON.stringify(report))
+    await using sandbox = resource
+
+    await expect(createVitestCheck(options).run({sandbox, logger})).resolves.toEqual({
+      outcomes: [
+        {
+          type: 'outcome',
+          id: 'search filters by name',
+          status: 'passed',
+          annotations: [{message: 'search filters by name', location: {path: 'tests/first.test.ts'}}],
+        },
       ],
     })
   })

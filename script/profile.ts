@@ -153,6 +153,8 @@ export async function runProfile(
         ...options.argv,
       ],
       {
+        // Only the wrapper should receive terminal signals; it forwards them once.
+        detached: process.platform !== 'win32',
         stdio: 'inherit',
         env: {
           ...process.env,

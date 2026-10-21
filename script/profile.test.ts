@@ -229,14 +229,21 @@ test('runProfile reports Docker sampling and final snapshot failures without cha
 }, 15_000)
 
 test.each([
-  {signal: 'SIGINT', code: 130},
-  {signal: 'SIGTERM', code: 143},
+  {signal: 'SIGINT', code: 130, delivery: 'wrapper', group: false},
+  {signal: 'SIGTERM', code: 143, delivery: 'wrapper', group: false},
+  ...(process.platform === 'win32'
+    ? []
+    : ([{signal: 'SIGINT', code: 130, delivery: 'terminal process group', group: true}] as const)),
 ] as const)(
-  'runProfile preserves native profiles after forwarded $signal and CLI-owned cleanup',
-  async ({signal, code}) => {
+  'runProfile preserves native profiles after $signal to the $delivery and asynchronous CLI-owned cleanup',
+  async ({signal, code, group}) => {
     await using context = await fixture(`
+    import {writeFileSync} from 'node:fs';
     process.once(${JSON.stringify(signal)}, () => {
-      Promise.resolve().finally(() => process.exit(${code}));
+      setTimeout(() => {
+        writeFileSync(new URL('./cleanup.txt', import.meta.url), 'finished');
+        process.exit(${code});
+      }, ${group ? 1000 : 100});
     });
     console.log("target-ready");
     setInterval(() => {}, 1000);
@@ -248,7 +255,12 @@ test.each([
      const result = await runProfile(${JSON.stringify(context.options)}, {entrypoint: ${JSON.stringify(context.entrypoint)}});
      process.exitCode = result.exitCode;`,
     )
-    const child = spawn(process.execPath, [wrapper], {stdio: 'pipe', timeout: 10_000, killSignal: 'SIGKILL'})
+    const child = spawn(process.execPath, [wrapper], {
+      detached: group,
+      stdio: 'pipe',
+      timeout: 10_000,
+      killSignal: 'SIGKILL',
+    })
     const exited = new Promise<number | null>((resolveExit, reject) => {
       child.on('error', reject)
       child.on('exit', resolveExit)
@@ -265,8 +277,15 @@ test.each([
           }
         })
       })
-      child.kill(signal)
+      if (group) {
+        // Let the target start cleanup before the wrapper forwards its pending terminal signal.
+        child.kill('SIGSTOP')
+        process.kill(-child.pid!, signal)
+        await new Promise(resolve => setTimeout(resolve, 100))
+        child.kill('SIGCONT')
+      } else child.kill(signal)
       expect(await exited).toBe(code)
+      expect(await readFile(join(context.directory, 'cleanup.txt'), 'utf8')).toBe('finished')
       const run = (await readdir(context.directory)).find(name => name.startsWith('run-'))!
       const report = JSON.parse(await readFile(join(context.directory, run, 'report.json'), 'utf8'))
       expect(report.interruptedBy).toBe(signal)

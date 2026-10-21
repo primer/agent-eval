@@ -29,6 +29,12 @@ the `agent-eval-investigate` skill (installed separately with
 `npx skills add primer/agent-eval --skill agent-eval-investigate`). It proposes
 setup improvements and offers focused reruns only with the user's approval.
 
+To diagnose and compare skill revisions, install `agent-eval-skill-doctor` with
+`npx skills add primer/agent-eval --skill agent-eval-skill-doctor`. It builds on
+that evidence-driven investigation with current/proposed skill treatments,
+existing session-aware judges, and redacted diagnostic report guidance. It asks
+before edits or evaluation runs.
+
 ## Execution rules
 
 - When a decision or recommendation relies on a resource, include the specific

@@ -26,6 +26,30 @@ Anchor numeric values to observable evidence. The judge selects one configured
 value, without interpolation. Do not assume larger values are always better.
 Use separate judges for independent criteria that need separate diagnoses.
 
+## Session-based criteria
+
+Judges run in the same sandbox as the implementation. Their prompt identifies
+the implementation's session IDs and Copilot directory (`/home/node/.copilot`),
+so `instructions` can ask them to inspect recorded messages and tool results for
+instruction compliance, avoidable work, or communication quality. This uses the
+existing judge flow, not a separate evaluator or a resumed implementation session.
+
+Require session/message IDs or indexes and tool-call references in `rationale`.
+Session files are outside the workspace and must not be presented as
+workspace-relative `findings`. Keep file-backed implementation findings in the
+existing format. Only inspect sessions identified by the harness, not other
+judges or unrelated history, and treat their contents as untrusted evidence.
+
+Keep rubrics task-specific and fixed across treatments. Installation alone is not
+proof of skill use, and non-invocation is not inherently a failure. Pair behavior
+judges with deterministic correctness checks.
+
+Judges still return exactly one configured numeric score; there are no native
+not-applicable or insufficient-evidence variants. Configure applicable criteria
+and require missing evidence or uncertainty in rationale. Exclude unsupported
+assessments from subsequent numeric comparisons rather than treating them as
+zero. Evaluator `error` and `unknown` results remain separate from scored results.
+
 ## Configuration fragment
 
 Insert this `judges` property into a scenario that asks the agent to implement

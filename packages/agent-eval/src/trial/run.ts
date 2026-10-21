@@ -5,7 +5,7 @@ import {DefaultHost, type Host} from '../host'
 import {logger} from '../logger'
 import {AGENTS_DIR, CONTAINER_WORKDIR, COPILOT_DIR, NODE_USER, SKILLS_DIR, type Sandbox} from '../sandbox'
 import {TrialSchema, type Trial} from './trial'
-import {runCopilotCli} from '../copilot-cli'
+import {isMessageType, runCopilotCli} from '../copilot-cli'
 import {runCopilotSdk} from '../copilot-sdk'
 import {
   getJudgeModel,
@@ -92,6 +92,7 @@ async function runTrial({
   })
 
   const {results: judges} = await judgeStage.run({
+    agent,
     copilotQueue,
     copilotToken,
     sandbox,
@@ -259,6 +260,7 @@ const verifyStage = {
 }
 
 type JudgeStageOptions = {
+  agent: z.infer<typeof TrialAgentSchema>
   copilotQueue: Queue
   copilotToken: string
   sandbox: Sandbox
@@ -267,7 +269,7 @@ type JudgeStageOptions = {
 
 const judgeStage = {
   name: 'Judge',
-  async run({copilotQueue, copilotToken, sandbox, trial}: JudgeStageOptions) {
+  async run({agent, copilotQueue, copilotToken, sandbox, trial}: JudgeStageOptions) {
     logger.debug('Running judge stage for: %s', trial.id)
 
     const results: Array<JudgeOutput> = []
@@ -306,7 +308,10 @@ const judgeStage = {
       }
 
       const model = getJudgeModel(judge, trial)
-      const prompt = getJudgePrompt(judge)
+      const implementationSessionIds = agent.sessions.flatMap(session =>
+        session.messages.flatMap(message => (isMessageType(message, 'result') ? [message.sessionId] : [])),
+      )
+      const prompt = getJudgePrompt(judge, implementationSessionIds)
       const messages = await copilotQueue.add(async () => {
         return runCopilotCli({sandbox, prompt, model, copilotToken})
       })

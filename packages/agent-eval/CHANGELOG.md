@@ -1,5 +1,11 @@
 # @primer/agent-eval
 
+## 0.18.1
+
+### Patch Changes
+
+- 0f23c94: Fix Copilot plugin installation when the CLI is not on the sandbox PATH.
+
 ## 0.18.0
 
 ### Minor Changes

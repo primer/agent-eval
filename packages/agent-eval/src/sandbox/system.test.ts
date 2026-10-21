@@ -87,7 +87,7 @@ test.each([
   const destination = copy.mock.calls[0]![1]
   expect((await files.glob('**/*', {cwd: destination, dot: true})).sort()).toEqual(expected)
   expect(await files.exists(destination)).toBe(true)
-  expect(runCommand).toHaveBeenCalledWith('copilot', ['plugin', 'install', destination])
+  expect(runCommand).toHaveBeenCalledWith('/opt/agent-eval/copilot/bin/copilot', ['plugin', 'install', destination])
   expect(await host.fs.promises.readFile(path.join(sourcePath, 'notes.tmp'), 'utf8')).toBe('Temporary')
 })
 
@@ -145,7 +145,7 @@ test.each([
     expect(await files.exists(path.posix.join(destination, 'skills/draft.tmp'))).toBe(false)
     expect(await files.exists(path.posix.join(destination, '.cache/cached.tmp'))).toBe(false)
   }
-  expect(runCommand).toHaveBeenCalledWith('copilot', ['plugin', 'install', destination])
+  expect(runCommand).toHaveBeenCalledWith('/opt/agent-eval/copilot/bin/copilot', ['plugin', 'install', destination])
   expect(await host.fs.promises.readFile(path.join(sourcePath, 'notes.tmp'), 'utf8')).toBe('Temporary')
 })
 
@@ -181,8 +181,8 @@ test('addCopilotPlugin filters local marketplace sources before registering them
     'plugins/plugin.json',
   ])
   expect(runCommand.mock.calls).toEqual([
-    ['copilot', ['plugin', 'marketplace', 'add', destination]],
-    ['copilot', ['plugin', 'install', 'plugin@marketplace']],
+    ['/opt/agent-eval/copilot/bin/copilot', ['plugin', 'marketplace', 'add', destination]],
+    ['/opt/agent-eval/copilot/bin/copilot', ['plugin', 'install', 'plugin@marketplace']],
   ])
 })
 
@@ -198,7 +198,7 @@ test.each([
   await resource.addCopilotPlugin({type: 'remote', url: 'https://github.com/example/plugin.git', version})
 
   expect(copy).not.toHaveBeenCalled()
-  expect(runCommand).toHaveBeenCalledWith('copilot', ['plugin', 'install', expected])
+  expect(runCommand).toHaveBeenCalledWith('/opt/agent-eval/copilot/bin/copilot', ['plugin', 'install', expected])
 })
 
 test.each([

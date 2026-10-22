@@ -3,6 +3,7 @@ import {
   executeCloudEvaluation,
   CommandFailure,
   inspectCloudBundle,
+  collectCloudExportSecrets,
   type Command,
   type EvaluationIO,
 } from './copilot-cloud'
@@ -232,6 +233,7 @@ describe('inspectCloudBundle', () => {
       '/bundle/output.json': '{"results":[]}',
       '/bundle/walkthrough/video': 'video data',
     })
+
     await expect(
       inspectCloudBundle('/bundle', ['fixture-sensitive-value'], new AbortController().signal, host),
     ).resolves.toBeUndefined()
@@ -270,5 +272,31 @@ describe('inspectCloudBundle', () => {
     const controller = new AbortController()
     controller.abort(new Error('Stopped'))
     await expect(inspectCloudBundle('/bundle', [], controller.signal, host)).rejects.toThrow('Stopped')
+  })
+})
+
+describe('collectCloudExportSecrets', () => {
+  test('collects real credential values without treating secret-filtering flags or name lists as secrets', async () => {
+    const secrets = collectCloudExportSecrets({
+      COPILOT_ENABLE_SECRET_FILTERING: 'true',
+      COPILOT_GITHUB_TOKEN: 'long-fixture-token',
+      COPILOT_SECRET_NAMES: '["COPILOT_GITHUB_TOKEN"]',
+    })
+    expect(secrets).toEqual(['long-fixture-token'])
+    const host = VirtualHost.create({'/bundle/output.json': '{"completed":true}'})
+    await expect(inspectCloudBundle('/bundle', secrets, new AbortController().signal, host)).resolves.toBeUndefined()
+  })
+  test('ignores short or missing values and arbitrary variables mentioning secrets', () => {
+    expect(
+      collectCloudExportSecrets({
+        GH_TOKEN: 'true',
+        PASSWORD: 'short',
+        API_KEY: undefined,
+        SECRET_FILTERING: 'long-feature-flag-value',
+        SOME_SECRET_PROVIDER: 'long-provider-name-value',
+        CLOUD_EVAL_GITHUB_TOKEN: 'long-fixture-upload-token',
+        MODEL_API_KEY: 'long-fixture-model-key',
+      }),
+    ).toEqual(['long-fixture-upload-token', 'long-fixture-model-key'])
   })
 })

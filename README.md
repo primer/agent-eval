@@ -146,9 +146,10 @@ saved `.copilot` configuration and transcripts, credentials, judge information,
 and screenshots/video. Only use this flag when that entire bundle is approved
 for storage in the draft release and its potential future visibility. Before
 archiving, export rejects symlinks, hardlinks, special files, and files containing
-known environment credential values (variables named like tokens, secrets,
-passwords, credentials, or keys). This scan is **not general secret detection or
-redaction**: unknown, encoded, or transformed credentials and confidential source
+known environment credential values (credential-bearing name suffixes such as
+`_TOKEN` or `_API_KEY`, with values of at least 16 characters after trimming).
+Feature flags and secret-name metadata are excluded. This scan is **not general secret detection or
+redaction**: short, unknown, encoded, or transformed credentials and confidential source
 can still be present. It also cannot secure files against concurrent modification
 between inspection and archiving. Full bundles require your explicit review and
 consent.

@@ -481,6 +481,18 @@ async function inspectCloudBundle(
   await inspect(directory)
 }
 
+function collectCloudExportSecrets(environment: Readonly<Record<string, string | undefined>>): Array<string> {
+  const credentialName =
+    /(?:^|_)(?:TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIALS?|API_KEY|PRIVATE_KEY|ACCESS_KEY|SECRET_KEY)$/i
+  return Array.from(
+    new Set(
+      Object.entries(environment).flatMap(([name, value]) =>
+        credentialName.test(name) && value && value.trim().length >= 16 ? [value] : [],
+      ),
+    ),
+  )
+}
+
 export {
   parseCloudTask,
   parseCloudRequest,
@@ -494,5 +506,6 @@ export {
   executeCloudEvaluation,
   CommandFailure,
   inspectCloudBundle,
+  collectCloudExportSecrets,
 }
 export type {Gh, CloudRequest, Command, EvaluationIO}

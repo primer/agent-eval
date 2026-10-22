@@ -6,6 +6,7 @@ import {
   executeCloudEvaluation,
   CommandFailure,
   inspectCloudBundle,
+  collectCloudExportSecrets,
   type Command,
 } from '../packages/agent-eval/src/copilot-cloud.ts'
 
@@ -79,9 +80,7 @@ if (values.help) {
       },
       read: filename => readFile(filename, 'utf8'),
       async inspectExport(directory, signal) {
-        const secrets = Object.entries(process.env).flatMap(([name, value]) =>
-          /token|secret|password|credential|api_?key|private_?key/i.test(name) && value ? [value] : [],
-        )
+        const secrets = collectCloudExportSecrets(process.env)
         await inspectCloudBundle(directory, secrets, signal)
       },
     })

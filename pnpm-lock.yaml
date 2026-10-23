@@ -239,8 +239,8 @@ importers:
         specifier: ^11.10.0
         version: 11.10.0
       '@primer/react':
-        specifier: ^38.40.1
-        version: 38.40.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react-is@19.3.1)(react@19.3.1)
+        specifier: ^38.41.0
+        version: 38.41.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react-is@19.3.1)(react@19.3.1)
       '@primer/tailwind-config':
         specifier: ^1.0.0
         version: 1.0.0(tailwindcss@4.3.3)
@@ -549,8 +549,8 @@ importers:
   scenarios/003-agent-uses-form-from-primer:
     dependencies:
       '@primer/react':
-        specifier: ^38.40.1
-        version: 38.40.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react-is@19.3.1)(react@19.3.1)
+        specifier: ^38.41.0
+        version: 38.41.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react-is@19.3.1)(react@19.3.1)
       next:
         specifier: ^16
         version: 16.3.1(@playwright/test@1.64.0)(@types/node@26.6.4)(babel-plugin-react-compiler@1.0.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -666,8 +666,8 @@ importers:
         specifier: ^11.10.0
         version: 11.10.0
       '@primer/react':
-        specifier: ^38.40.1
-        version: 38.40.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react-is@19.3.1)(react@19.3.1)
+        specifier: ^38.41.0
+        version: 38.41.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react-is@19.3.1)(react@19.3.1)
       '@primer/tailwind-config':
         specifier: ^1.0.0
         version: 1.0.0(tailwindcss@4.3.3)
@@ -1560,8 +1560,8 @@ packages:
   '@primer/behaviors@1.10.3':
     resolution: {integrity: sha512-cxxWDeR5IE7vdL0Ca0RAAAuPVrU+Bo8CSP1WfawGo4rEP1sZTi7hwl5i7TT0jCTCR0C9IfnQBfSPAkz0oznxUw==}
 
-  '@primer/live-region-element@0.8.0':
-    resolution: {integrity: sha512-DIp04IeZvZ+gwCUcBchIvRwJA2PikP/6hnFhcLKgwttcg5OYjBH9t0cZjLnv10Aq1jN0rAFFG+WPMd3bw4hXcA==}
+  '@primer/live-region-element@0.8.1':
+    resolution: {integrity: sha512-g7bNs9R2A2LfETMOWYsvtT0b5Q/QLM1Fz1vrTcWa5r2LbEhrPm7cZV5pEOleFKiGybrYWmdXteV2sBAQLXuxvg==}
 
   '@primer/octicons-react@19.40.0':
     resolution: {integrity: sha512-z1yyW2WaZxf9t+295e1Ajqj0KXWAg3ZaNk5Q7jMYYsz2e1Pzbya4bkpip+pd1ndmlaYh4kInlmCOAgyDFU+ncw==}
@@ -1571,8 +1571,8 @@ packages:
   '@primer/primitives@11.10.0':
     resolution: {integrity: sha512-ihZxIst4Izry284StKFjpbYvX6R/IBFTLu+qiuAmR93PsKF2hdjoabhSYwKI8iCxOUx94jVP55bI3NoY7STjYQ==}
 
-  '@primer/react@38.40.1':
-    resolution: {integrity: sha512-yTd+QTtWXdqJbWQLCnLibwh280j2TKw1+tREEXtJR6lRYiqrE1dnu5ifCsKhsqIYvxqaKZBNWg4KRqiFG6opZA==}
+  '@primer/react@38.41.0':
+    resolution: {integrity: sha512-P7Gpnd/UMVmUQThI2UrO04Jjff5RrTr/t5oD8CAJI5CIg1joBIjD2wQ3ZSuf2bKIsbHoywX+6BCNo4YsjkXiow==}
     engines: {node: '>=12', npm: '>=7'}
     peerDependencies:
       '@types/react': 18.x || 19.x
@@ -5289,7 +5289,7 @@ snapshots:
 
   '@primer/behaviors@1.10.3': {}
 
-  '@primer/live-region-element@0.8.0':
+  '@primer/live-region-element@0.8.1':
     dependencies:
       '@lit-labs/ssr-dom-shim': 1.6.0
 
@@ -5299,14 +5299,14 @@ snapshots:
 
   '@primer/primitives@11.10.0': {}
 
-  '@primer/react@38.40.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react-is@19.3.1)(react@19.3.1)':
+  '@primer/react@38.41.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react-is@19.3.1)(react@19.3.1)':
     dependencies:
       '@github/mini-throttle': 2.1.1
       '@github/relative-time-element': 5.3.0
       '@lit-labs/react': 1.2.1
       '@oddbird/popover-polyfill': 0.5.2
       '@primer/behaviors': 1.10.3
-      '@primer/live-region-element': 0.8.0
+      '@primer/live-region-element': 0.8.1
       '@primer/octicons-react': 19.40.0(react@19.3.1)
       '@primer/primitives': 11.10.0
       '@tanstack/react-virtual': 3.14.6(react-dom@19.3.1(react@19.3.1))(react@19.3.1)

@@ -5,7 +5,7 @@ set -euo pipefail
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 if [[ $# -lt 1 ]]; then
-  echo "Usage: $0 <benchmark-name> [run|plan|shard|merge] [agent-eval-options...]" >&2
+  echo "Usage: $0 <benchmark-name> [run|plan|shard|merge|retry] [agent-eval-options...]" >&2
   exit 1
 fi
 
@@ -69,6 +69,16 @@ case "$mode" in
       --shard "$SHARD" \
       "$@"
     ;;
+  retry)
+    node "$repository_root/packages/agent-eval/bin/agent-eval" \
+      benchmark retry \
+      --benchmarks "$repository_root/benchmarks" \
+      --copilot-concurrency "${COPILOT_CONCURRENCY:-2}" \
+      --container-concurrency "${CONTAINER_CONCURRENCY:-2}" \
+      --output-dir "$run_directory" \
+      --scenarios "$repository_root/scenarios" \
+      "$@"
+    ;;
   merge)
     node "$repository_root/packages/agent-eval/bin/agent-eval" \
       benchmark merge \
@@ -76,7 +86,7 @@ case "$mode" in
       "$@"
     ;;
   *)
-    echo "Mode must be one of: run, plan, shard, merge" >&2
+    echo "Mode must be one of: run, plan, shard, merge, retry" >&2
     exit 1
     ;;
 esac

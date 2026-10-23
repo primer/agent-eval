@@ -45,6 +45,9 @@ setup improvements and offers focused reruns only with the user's approval.
   For Vitest or ESLint grading, use `createVitestCheck` or `createESLintCheck` as
   described in [Checks](references/checks.md).
 - Inspect the plan's combinations before running. Use a fresh output directory.
+- To recover an incomplete benchmark or experiment, use its `retry` command
+  with the existing `--output-dir` after merging shards. Preserve the original
+  definitions and do not retry the same bundle concurrently.
 - Finish by reading trial results and reporting outcomes and errors separately.
   Narrow trial outputs by `type` before reading success-only fields. Command
   completion alone does not establish quality. Any trial execution error makes

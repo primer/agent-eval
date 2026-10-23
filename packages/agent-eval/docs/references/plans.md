@@ -89,6 +89,11 @@ It keeps trial artifacts. Use a dedicated output directory:
 npx agent-eval experiment merge --output-dir ./results/comparison-01
 ```
 
+After merging, use `npx agent-eval experiment retry --output-dir
+./results/comparison-01` to retry only execution errors without recreating the
+plan or rerunning completed trials. Use `benchmark retry` for benchmark bundles.
+See [retry](cli.md#retry-an-incomplete-evaluation) for details.
+
 ## Verify
 
 - Before execution, the plan contains the intended combinations and unique IDs.

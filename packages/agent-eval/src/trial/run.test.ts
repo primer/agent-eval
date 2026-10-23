@@ -21,6 +21,8 @@ test.each([
       '/scenarios/example/vitest.config.scenario.ts': 'private check config',
       '/scenarios/example/checks/reference.json': 'private reference',
       '/home/sandbox/workspace/src/reference.json': 'ordinary source',
+      '/artifacts/trial/trial.json': '{"type":"error","error":{"name":"Error","message":"Previous failure"}}',
+      '/artifacts/trial/workspace/stale.txt': 'Previous attempt',
       [`${COPILOT_DIR}/config.json`]: '{}',
       [`${AGENTS_DIR}/config.json`]: '{}',
     })
@@ -139,6 +141,10 @@ test.each([
       throw new Error(result.error.message)
     }
     expect(result.agent.sessions[0].outputTokens).toBe(runner === 'copilot-cli' ? 42 : 0)
+    expect(await host.fs.promises.readFile('/artifacts/trial/trial.json', 'utf-8')).toBe(
+      '{"type":"error","error":{"name":"Error","message":"Previous failure"}}',
+    )
+    expect(host.fs.existsSync('/artifacts/trial/workspace/stale.txt')).toBe(false)
     expect(sandbox.runCommand).toHaveBeenCalledWith(
       'npm',
       ['install', '-g', '--prefix', '/home/node/.npm-global', '--allow-scripts=agent-browser', 'agent-browser'],

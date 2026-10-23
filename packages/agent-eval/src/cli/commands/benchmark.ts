@@ -13,6 +13,7 @@ import {createPlanFromManifest, selectPlanTrials, runPlan} from '../../plan'
 import {DefaultHost as host} from '../../host'
 import {logger} from '../../logger'
 import {parseShard} from '../../shard'
+import {retryEvaluation} from '../retry'
 import {
   benchmarksOption,
   copilotConcurrencyOption,
@@ -33,6 +34,33 @@ const benchmarkCommand = defineCommand({
     description: 'Run and plan benchmarks',
   },
   subCommands: {
+    retry: defineCommand({
+      meta: {
+        name: 'retry',
+        description: 'Retry failed trials in an existing benchmark result bundle in place',
+      },
+      args: {
+        benchmarks: benchmarksOption,
+        'copilot-concurrency': copilotConcurrencyOption,
+        'container-concurrency': containerConcurrencyOption,
+        'output-dir': outputDirectoryOption,
+        scenarios: scenariosOption,
+        token: githubCopilotTokenOption,
+      },
+      async run({args}) {
+        const report = await retryEvaluation({
+          type: 'benchmark',
+          benchmarksDirectory: path.resolve(args.benchmarks),
+          experimentsDirectory: path.resolve('./experiments'),
+          scenariosDirectory: path.resolve(args.scenarios),
+          outputDirectory: path.resolve(args['output-dir']),
+          copilotConcurrency: getConcurrencyValue(args['copilot-concurrency'], 'copilot-concurrency'),
+          containerConcurrency: getConcurrencyValue(args['container-concurrency'], 'container-concurrency'),
+          token: args.token,
+        })
+        process.stdout.write(`${report}\n`)
+      },
+    }),
     merge: defineCommand({
       meta: {
         name: 'merge',

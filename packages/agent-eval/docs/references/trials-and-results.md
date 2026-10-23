@@ -111,6 +111,13 @@ diagnosis, but are not aggregated into partial comparisons.
 Failed check assertions in a completed trial remain valid outcomes and do not
 make the evaluation incomplete.
 
+Use `benchmark retry --output-dir <bundle>` or
+`experiment retry --output-dir <bundle>` to retry execution errors in place.
+Completed results stay unchanged. Retried trials keep their IDs and dimensions;
+the full evaluation becomes comparable only when no execution errors remain.
+See [retrying an evaluation](cli.md#retry-an-incomplete-evaluation) for source
+requirements and concurrency constraints.
+
 Implementation-session usage is not automatically a full evaluation bill:
 judges, walkthrough capture, setup, and container execution also have costs.
 Keep usage units explicit and do not translate them into money without a

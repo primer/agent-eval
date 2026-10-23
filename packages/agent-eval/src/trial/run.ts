@@ -528,7 +528,12 @@ const saveStage = {
 
     if (host.fs.existsSync(artifactDirectory)) {
       logger.debug('[%s] Cleaning up artifact directory: %s', trial.id, artifactDirectory)
-      await host.fs.promises.rm(artifactDirectory, {recursive: true, force: true})
+      for (const entry of await host.fs.promises.readdir(artifactDirectory)) {
+        // Keep the previous outcome readable until an in-place retry replaces it.
+        if (entry !== `${trial.id}.json`) {
+          await host.fs.promises.rm(path.join(artifactDirectory, entry), {recursive: true, force: true})
+        }
+      }
     }
 
     logger.debug('[%s] Creating artifact directory: %s', trial.id, artifactDirectory)

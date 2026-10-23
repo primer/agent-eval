@@ -42,6 +42,13 @@ export default defineConfig({
 
 ## CLI
 
-You can interact with benchmarks using the `benchmarks` subcommand of the `agent-eval` CLI. This sub-command gives you access to run benchmarks, create run plans to use for sharding, or merge the results of a plan.
+Use the `benchmark` command group to run benchmarks, create and execute sharded
+plans, merge results, or retry execution errors in an existing result bundle:
 
-Use `agent-eval benchmarks --help` to see the available commands and options.
+```sh
+npx agent-eval benchmark retry --output-dir ./results/baseline-01
+```
+
+Retry preserves completed trials and updates failed trials in place. Use
+`npx agent-eval benchmark --help` for commands and options. To repair an Actions
+run, see [workflow recovery](workflow-recovery.md).

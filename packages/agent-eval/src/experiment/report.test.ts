@@ -43,10 +43,14 @@ function createResult(
   trial: ExperimentTrial,
   outputTokens: number,
   passed = true,
-): RunPlanResult<ExperimentTrial>['results'][number] {
+): {
+  trial: ExperimentTrial
+  result: Extract<RunPlanResult<ExperimentTrial>['results'][number]['result'], {type: 'success'}>
+} {
   return {
     trial,
     result: {
+      type: 'success',
       trial,
       agent: {
         sessions: [
@@ -114,6 +118,102 @@ function readReportRows(report: string): Array<Record<string, string>> {
 }
 
 describe('createExperimentReport', () => {
+  test('separates failed trials from completed runs and check values', async () => {
+    const experiment = await createExperiment('scenario')
+    const plan = createExperimentPlan({experiment})
+    const succeeded = createResult(plan.trials[0], 20)
+    const failedTrial = {
+      ...plan.trials[0],
+      id: 'failed-trial',
+    }
+    const failed: RunPlanResult<ExperimentTrial>['results'][number] = {
+      trial: failedTrial,
+      result: {
+        type: 'error',
+        error: {name: 'Error', message: 'Agent failed'},
+      },
+    }
+
+    const report = createExperimentReport({experiment, runPlanResult: {results: [succeeded, failed]}})
+    const rows = readReportRows(report)
+
+    expect(rows[0]).toMatchObject({
+      Runs: '1',
+      Errors: '1',
+      'Output Tokens': '20',
+    })
+    expect(rows[0].Checks).toContain('1/2 check results with values')
+    expect(report).toContain('Trial "failed-trial" failed: Error: Agent failed')
+  })
+
+  test('keeps all-error groups visible without reporting zero usage as a completed run', async () => {
+    const experiment = await createExperiment('scenario')
+    const plan = createExperimentPlan({experiment})
+
+    const report = createExperimentReport({
+      experiment,
+      runPlanResult: {
+        results: [
+          {
+            trial: plan.trials[0],
+            result: {
+              type: 'error',
+              error: {name: 'Error', message: 'Image failed'},
+            },
+          },
+        ],
+      },
+    })
+    const rows = readReportRows(report)
+
+    expect(rows).toHaveLength(3)
+    expect(rows[0]).toMatchObject({
+      Runs: '0',
+      Errors: '1',
+      'Output Tokens': 'N/A',
+      'Session Time': 'N/A',
+    })
+    expect(report).toContain('Image failed')
+  })
+
+  test('does not rank a partially failed treatment ahead of a complete treatment because of lower usage', async () => {
+    const experiment = await createExperiment('scenario')
+    const plan = createExperimentPlan({experiment})
+    const control = plan.trials.find(trial => {
+      return trial.treatment.name === 'Control'
+    })
+    const skill = plan.trials.find(trial => {
+      return trial.treatment.name === 'Skill'
+    })
+    if (!control || !skill) {
+      throw new Error('Expected both treatments')
+    }
+    const runPlanResult: RunPlanResult<ExperimentTrial> = {
+      results: [
+        createResult(control, 10),
+        {
+          trial: {...control, id: 'failed-control'},
+          result: {
+            type: 'error',
+            error: {name: 'Error', message: 'Setup failed'},
+          },
+        },
+        createResult(skill, 100),
+      ],
+    }
+
+    const rows = readReportRows(createExperimentReport({experiment, runPlanResult}))
+    const treatmentRows = rows.filter(row => {
+      return row.Experiment === 'Example'
+    })
+
+    expect(
+      treatmentRows.map(row => {
+        return row.Treatment
+      }),
+    ).toEqual(['Skill', 'Control'])
+  })
+
   test('preserves scenario experiment rows without capability or runner columns', async () => {
     const experiment = await createExperiment('scenario')
     const plan = createExperimentPlan({experiment})

@@ -12,6 +12,7 @@ import {
   createTrialSummaryComparator,
   createTrialSummary,
   formatTrialSummary,
+  formatTrialErrors,
   type TrialSummary,
 } from '../trial/report'
 import type {Experiment} from './experiment'
@@ -107,7 +108,7 @@ function createExperimentReport({experiment, runPlanResult}: CreateExperimentRep
     }
     const treatmentKey = JSON.stringify([trial.treatment.id, values.runner])
     const treatmentSummary = treatmentSummaries.get(treatmentKey) ?? {...createTrialSummary(), ...values}
-    addTrialResultToSummary(treatmentSummary, result)
+    addTrialResultToSummary(treatmentSummary, trial, result)
     treatmentSummaries.set(treatmentKey, treatmentSummary)
 
     if (capability) {
@@ -117,14 +118,14 @@ function createExperimentReport({experiment, runPlanResult}: CreateExperimentRep
         ...values,
         capability,
       }
-      addTrialResultToSummary(capabilitySummary, result)
+      addTrialResultToSummary(capabilitySummary, trial, result)
       capabilitySummaries.set(capabilityKey, capabilitySummary)
     }
 
     const scenarioValues = {...values, capability, scenario: trial.scenario.id}
     const scenarioKey = JSON.stringify([trial.treatment.id, values.runner, capability?.id, trial.scenario.id])
     const scenarioSummary = scenarioSummaries.get(scenarioKey) ?? {...createTrialSummary(), ...scenarioValues}
-    addTrialResultToSummary(scenarioSummary, result)
+    addTrialResultToSummary(scenarioSummary, trial, result)
     scenarioSummaries.set(scenarioKey, scenarioSummary)
 
     const modelKey = JSON.stringify([
@@ -140,7 +141,7 @@ function createExperimentReport({experiment, runPlanResult}: CreateExperimentRep
       ...scenarioValues,
       model: trial.model,
     }
-    addTrialResultToSummary(modelSummary, result)
+    addTrialResultToSummary(modelSummary, trial, result)
     modelSummaries.set(modelKey, modelSummary)
   }
 
@@ -200,8 +201,9 @@ function createExperimentReport({experiment, runPlanResult}: CreateExperimentRep
     ]),
     ...(dimensions.length > 0 ? [REPORT_CHECKS_NOTE] : []),
     REPORT_USAGE_NOTE,
+    formatTrialErrors(runPlanResult.results),
   ]
-  return sections.join('\n\n')
+  return sections.filter(Boolean).join('\n\n')
 }
 
 export {createExperimentReport}

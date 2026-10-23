@@ -8,6 +8,7 @@ import {createScenarioPlan} from '../../scenario/plan'
 import {buildScenarioImage} from '../../scenario/scenario'
 import {runPlan} from '../../plan'
 import type {RunTrialResult} from '../../trial/run'
+import type {Trial} from '../../trial/trial'
 import {
   copilotConcurrencyOption,
   containerConcurrencyOption,
@@ -205,8 +206,9 @@ const scenarioCommand = defineCommand({
         type ScenarioOutput = {
           id: string
           results: Array<{
-            trial: {
-              id: string
+            trial: Pick<Trial, 'id' | 'model' | 'runner'> & {
+              scenarioId: string
+              treatmentId: string
             }
             result: RunTrialResult
           }>
@@ -218,6 +220,10 @@ const scenarioCommand = defineCommand({
             return {
               trial: {
                 id: result.trial.id,
+                model: result.trial.model,
+                runner: result.trial.runner,
+                scenarioId: result.trial.scenario.id,
+                treatmentId: result.trial.treatment.id,
               },
               result: result.result,
             }

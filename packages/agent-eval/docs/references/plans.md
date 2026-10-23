@@ -93,7 +93,8 @@ npx agent-eval experiment merge --output-dir ./results/comparison-01
 - Before merge, the collected trial IDs match the expected plan selection with
   no missing or duplicated trials.
 - After execution or merge, every `output.json` trial path resolves to a readable
-  result file, and referenced artifacts exist.
+  success or error result. Failed trials remain present through merges; only
+  successful trials reference artifacts.
 
 ## Pitfalls
 

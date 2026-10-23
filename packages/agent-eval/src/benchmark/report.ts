@@ -17,6 +17,7 @@ import {
   addTrialResultToSummary,
   createTrialSummaryComparator,
   createTrialSummary,
+  formatTrialErrors,
   type TrialSummary,
 } from '../trial/report'
 import type {Benchmark, Capability} from './benchmark'
@@ -67,7 +68,9 @@ function formatBenchmarkComparison(
     Model: comparison.model ? `    ${comparison.model.name}` : 'All models',
     'Reasoning Effort': comparison.model?.reasoningEffort ?? '',
     'Control Runs': comparison.control.runs,
+    'Control Errors': comparison.control.errors,
     Runs: comparison.benchmarkTreatment.runs,
+    Errors: comparison.benchmarkTreatment.errors,
     ...formatCheckSummaries(comparison.benchmarkTreatment, dimensions, comparison.control),
     'Output Tokens': formatBenchmarkValue(comparison, 'outputTokens', formatNumber),
     'Premium Requests': formatBenchmarkValue(comparison, 'premiumRequests', formatNumber),
@@ -116,7 +119,7 @@ function createBenchmarkReport({benchmark, runPlanResult}: CreateBenchmarkReport
         benchmarkTreatment: createTrialSummary(),
       }
       const summary = trial.treatment.id === ControlTreatment.id ? comparison.control : comparison.benchmarkTreatment
-      addTrialResultToSummary(summary, result)
+      addTrialResultToSummary(summary, trial, result)
       comparisons.set(key, comparison)
     }
   }
@@ -186,7 +189,9 @@ function createBenchmarkReport({benchmark, runPlanResult}: CreateBenchmarkReport
       'Model',
       'Reasoning Effort',
       'Control Runs',
+      'Control Errors',
       'Runs',
+      'Errors',
       ...(dimensions.length > 0 ? ['Checks'] : []),
       'Output Tokens',
       'Premium Requests',
@@ -200,8 +205,9 @@ function createBenchmarkReport({benchmark, runPlanResult}: CreateBenchmarkReport
         ? 'Percent changes compare check averages and usage totals with control; missing baselines are N/A.'
         : 'Percent changes compare benchmark totals with control totals; missing baselines are N/A.'
     }`,
+    formatTrialErrors(runPlanResult.results),
   ]
-  return sections.join('\n\n')
+  return sections.filter(Boolean).join('\n\n')
 }
 
 export {createBenchmarkReport}

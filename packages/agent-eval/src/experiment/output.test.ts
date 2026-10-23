@@ -44,6 +44,7 @@ test('parses legacy experiment output with a required CLI runner', () => {
   const parsed = ExperimentTrialOutputSchema.parse(trial)
 
   expect(parsed.runner).toBe('copilot-cli')
+  expect(parsed.type).toBe('success')
   expectTypeOf<ExperimentTrialOutput['runner']>().toEqualTypeOf<CopilotRunner>()
 })
 
@@ -100,6 +101,9 @@ test('preserves check annotations and locations in serialized experiment trial o
 
   const parsed = parseExperimentTrialOutput(JSON.parse(JSON.stringify({...trial, checks})), new Map())
 
+  if (parsed.type !== 'success') {
+    throw new Error('Expected successful trial output')
+  }
   expect(parsed.checks).toEqual(checks)
 })
 
@@ -326,7 +330,7 @@ test('merges compatible experiment shards with repeated metadata and distinct tr
   expect(output.treatments.size).toBe(1)
 })
 
-test('preserves benchmark capabilities and trial membership through writing and merging shards', async () => {
+test('preserves benchmark capabilities, successes, and failures through writing and merging shards', async () => {
   const host = VirtualHost.create({
     '/experiments/example.ts':
       'export default {name: "Example", description: "Compare a benchmark", models: ["gpt-5.5"], benchmark: "example", treatments: []}',
@@ -343,17 +347,32 @@ test('preserves benchmark capabilities and trial membership through writing and 
     scenariosDirectory: '/scenarios',
   })
   const plan = createExperimentPlan({experiment})
-  const results = plan.trials.map(entry => {
+  const results = plan.trials.map((entry, index) => {
     return {
       trial: entry,
-      result: RunTrialResultSchema.parse({
-        ...trial,
-        trial: entry,
-        artifacts: {
-          ...trial.artifacts,
-          directory: `/results/artifacts/${entry.id}`,
-        },
-      }),
+      result: RunTrialResultSchema.parse(
+        index % 2 === 0
+          ? {
+              type: 'error',
+              error: {
+                name: 'TypeError',
+                message: 'Setup failed',
+                stack: 'TypeError: Setup failed',
+              },
+            }
+          : {
+              type: 'success',
+              trial: entry,
+              agent: trial.agent,
+              checks: trial.checks,
+              judges: trial.judges,
+              walkthrough: trial.walkthrough,
+              artifacts: {
+                ...trial.artifacts,
+                directory: `/results/artifacts/${entry.id}`,
+              },
+            },
+      ),
     }
   })
   const expected = createExperimentOutput({experiment, runPlanResult: {results}})
@@ -375,6 +394,11 @@ test('preserves benchmark capabilities and trial membership through writing and 
   })
 
   expect(merged).toEqual(expected)
+  expect(
+    [...merged.trials.values()].filter(entry => {
+      return entry.type === 'error'
+    }),
+  ).toHaveLength(2)
   expect(
     [...merged.capabilities.values()]
       .map(capability => {

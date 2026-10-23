@@ -20,10 +20,12 @@ Image commands require Docker but not a Copilot token.
 | `benchmark plan create <name>`  | Write a benchmark plan                        |
 | `benchmark plan run`            | Execute a saved benchmark plan                |
 | `benchmark merge`               | Merge benchmark shard results                 |
+| `benchmark retry`               | Retry execution errors in an existing bundle  |
 | `experiment run <name>`         | Run an experiment directly                    |
 | `experiment plan create <name>` | Write an experiment plan                      |
 | `experiment plan run`           | Execute a saved experiment plan               |
 | `experiment merge`              | Merge experiment shard results                |
+| `experiment retry`              | Retry execution errors in an existing bundle  |
 | `scenario run <name>`           | Run one scenario                              |
 | `scenario image build <name>`   | Build a scenario workspace image              |
 | `scenario image clean [name]`   | Remove local agent-eval images                |
@@ -60,22 +62,22 @@ Docker or a Copilot token.
 
 ## Options by scope
 
-| Option                            | Scope and default                                    |
-| :-------------------------------- | :--------------------------------------------------- |
-| `--benchmarks <dir>`              | Benchmark/experiment run/plan and UI; `./benchmarks` |
-| `--experiments <dir>`             | Experiment run/plan and UI; `./experiments`          |
-| `--scenarios <dir>`               | Run, plan, image build, and UI; `./scenarios`        |
-| `--output-dir <dir>`              | Run, plan run, and merge; `./results`                |
-| `--output-path <file>`            | Plan create only; `plan.json`                        |
-| `--plan-path <file>`              | Plan run only; `./plan.json`                         |
-| `--shard <order>/<total>`         | Plan run only; omitted means all trials              |
-| `--runner <runner>`               | Scenario run and plan run; see below                 |
-| `--check <name>`                  | Scenario run only; selects one configured check      |
-| `--copilot-concurrency <n>`, `-c` | Run and plan run; `1`                                |
-| `--container-concurrency <n>`     | Run and plan run; `5`                                |
-| `--docker-image <image>`          | Run and plan run; package default Node image         |
-| `--token <token>`                 | Run and plan run; prefer `COPILOT_GITHUB_TOKEN`      |
-| `--log-level <level>`             | Root option; `info`                                  |
+| Option                            | Scope and default                                          |
+| :-------------------------------- | :--------------------------------------------------------- |
+| `--benchmarks <dir>`              | Benchmark/experiment run/plan/retry and UI; `./benchmarks` |
+| `--experiments <dir>`             | Experiment run/plan/retry and UI; `./experiments`          |
+| `--scenarios <dir>`               | Run, plan, retry, image build, and UI; `./scenarios`       |
+| `--output-dir <dir>`              | Run, plan run, merge, and retry; `./results`               |
+| `--output-path <file>`            | Plan create only; `plan.json`                              |
+| `--plan-path <file>`              | Plan run only; `./plan.json`                               |
+| `--shard <order>/<total>`         | Plan run only; omitted means all trials                    |
+| `--runner <runner>`               | Scenario run and plan run; see below                       |
+| `--check <name>`                  | Scenario run only; selects one configured check            |
+| `--copilot-concurrency <n>`, `-c` | Run, plan run, and retry; `1`                              |
+| `--container-concurrency <n>`     | Run, plan run, and retry; `5`                              |
+| `--docker-image <image>`          | Run and plan run; package default Node image               |
+| `--token <token>`                 | Run, plan run, and retry; prefer `COPILOT_GITHUB_TOKEN`    |
+| `--log-level <level>`             | Root option; `info`                                        |
 
 Concurrency values must be positive integers. Copilot concurrency limits active
 sessions; container concurrency limits active trial containers. Both apply per
@@ -92,6 +94,32 @@ The CLI requires `--token` or `COPILOT_GITHUB_TOKEN` for evaluation runs. Host C
 login alone does not satisfy this check. Plan creation and merge do not require
 a token. Avoid putting token values on command lines, in logs, or in shell
 history.
+
+## Retry an incomplete evaluation
+
+Retry execution errors in an existing benchmark or experiment bundle:
+
+```sh
+npx agent-eval benchmark retry --output-dir ./results/baseline-01
+npx agent-eval experiment retry --output-dir ./results/comparison-01
+```
+
+The bundle's `output.json` identifies the evaluation, so no name argument or
+saved plan is needed. Merge sharded results before retrying. Retry preserves
+trial IDs, model/effort, runner, scenario, treatment, and capability. Each error
+trial starts again in a fresh sandbox with the normal retry policy. Completed
+trials, including those with failing checks, are not rerun or rewritten.
+
+Retry updates failed trial files in place and prints a report for the entire
+evaluation. Remaining execution errors keep the evaluation incomplete. If there
+are no errors, retry reports a no-op without requiring a token or loading local
+configurations. Run only one retry process per bundle, after all writers finish.
+
+Retry reloads local definitions, not a source snapshot. Preserve the original
+revision, fixtures, dependencies, and setup resources. Missing referenced
+dimensions fail before execution rather than creating new trial combinations.
+Use the directory options above when definitions are outside the current
+project root.
 
 ## Local UI
 

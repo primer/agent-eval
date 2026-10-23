@@ -52,9 +52,16 @@ export default defineConfig({
 
 ## CLI
 
-You can interact with experiments using the `experiments` subcommand of the `agent-eval` CLI. This sub-command gives you access to run experiments, create run plans to use for sharding, or merge the results of a plan.
+Use the `experiment` command group to run experiments, create and execute sharded
+plans, merge results, or retry execution errors in an existing result bundle:
 
-Use `agent-eval experiments --help` to see the available commands and options.
+```sh
+npx agent-eval experiment retry --output-dir ./results/comparison-01
+```
+
+Retry preserves completed trials and updates failed trials in place. Use
+`npx agent-eval experiment --help` for commands and options. To repair an Actions
+run, see [workflow recovery](workflow-recovery.md).
 
 ## Reports
 

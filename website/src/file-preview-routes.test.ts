@@ -77,8 +77,11 @@ const benchmarkRun = {
   directory: '/saved/benchmarks/example/2026-09-03',
   output: {
     trials: new Map([
-      ['not-the-trial-id', {id: 'trial 1', artifacts: {workspaceDirectory: 'artifacts/benchmark-workspace'}}],
-      ['second', {id: 'trial 2', artifacts: {workspaceDirectory: 'artifacts/unavailable'}}],
+      [
+        'not-the-trial-id',
+        {type: 'success', id: 'trial 1', artifacts: {workspaceDirectory: 'artifacts/benchmark-workspace'}},
+      ],
+      ['second', {type: 'success', id: 'trial 2', artifacts: {workspaceDirectory: 'artifacts/unavailable'}}],
     ]),
   },
 }
@@ -88,8 +91,8 @@ const experimentRun = {
   output: {
     id: 'example',
     trials: new Map([
-      ['trial 1', {id: 'trial 1', artifacts: {workspaceDirectory: 'artifacts/experiment-workspace'}}],
-      ['trial 2', {id: 'trial 2', artifacts: {workspaceDirectory: undefined}}],
+      ['trial 1', {type: 'success', id: 'trial 1', artifacts: {workspaceDirectory: 'artifacts/experiment-workspace'}}],
+      ['trial 2', {type: 'success', id: 'trial 2', artifacts: {workspaceDirectory: undefined}}],
     ]),
   },
 }
@@ -159,6 +162,43 @@ test.each(['benchmarks', 'experiments'])('highlights only the requested %s file'
 
 test.each(['benchmarks', 'experiments'])('returns 404 for a missing %s trial', async collection => {
   expect(await getFilePreview({...params(collection), trial: 'missing'})).toBeNull()
+  expect(mocks.getWorkspaceFiles).not.toHaveBeenCalled()
+  expect(mocks.highlightFile).not.toHaveBeenCalled()
+})
+
+test.each(['benchmarks', 'experiments'])('skips failed %s trials without reading workspaces', async collection => {
+  const run = {
+    name: '2026-09-03',
+    directory: '/missing-run-directory',
+    output: {
+      id: 'example',
+      trials: new Map([
+        [
+          'trial 1',
+          {
+            id: 'trial 1',
+            type: 'error',
+            error: {name: 'Error', message: 'Sandbox startup failed'},
+          },
+        ],
+      ]),
+    },
+  }
+  mocks.listBenchmarkRuns.mockResolvedValue(collection === 'benchmarks' ? [run] : [])
+  mocks.listExperimentRuns.mockResolvedValue(collection === 'experiments' ? [run] : [])
+  mocks.getBenchmarkRun.mockResolvedValue(run)
+  mocks.getExperimentRun.mockResolvedValue(run)
+
+  expect(await getFilePreview(params(collection))).toBeNull()
+  expect(await generateFilePreviewParams()).toEqual([
+    {
+      collection: 'benchmarks',
+      id: '__no-runs__',
+      date: '__no-runs__',
+      trial: '__no-runs__',
+      file: '__no-runs__',
+    },
+  ])
   expect(mocks.getWorkspaceFiles).not.toHaveBeenCalled()
   expect(mocks.highlightFile).not.toHaveBeenCalled()
 })

@@ -2,7 +2,9 @@ import type {ExperimentTrialOutput} from '@primer/agent-eval'
 import type {Run} from '../runs'
 import {createExperimentOutput, createTrial, session} from '../test-fixtures'
 
-export function createResult(overrides: Partial<ExperimentTrialOutput> = {}): ExperimentTrialOutput {
+export function createResult(
+  overrides: Partial<Extract<ExperimentTrialOutput, {type: 'success'}>> = {},
+): Extract<ExperimentTrialOutput, {type: 'success'}> {
   return createTrial({
     scenarioId: 'scenario-a',
     agent: {

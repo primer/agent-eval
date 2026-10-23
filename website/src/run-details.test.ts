@@ -6,9 +6,49 @@ import {
   createTrialTranscript,
   getTrialDataUrl,
 } from './run-details'
-import {checks, createBenchmarkOutput, createExperimentOutput, createTrial, judges, session} from './test-fixtures'
+import {
+  checks,
+  createBenchmarkOutput,
+  createErrorTrial,
+  createExperimentOutput,
+  createTrial,
+  judges,
+  session,
+} from './test-fixtures'
 
 type LogMessage = (typeof session.messages)[number]
+
+test('retains failed trials and their error details without success-only data in both collections', async () => {
+  const trial = createErrorTrial()
+  const experiment = await createExperimentRunDetails('2026-09-15', createExperimentOutput([trial]))
+  const benchmark = await createBenchmarkRunDetails({
+    id: '2026-09-15',
+    name: '2026-09-15',
+    date: new Date('2026-09-15'),
+    directory: '/results/benchmark',
+    output: createBenchmarkOutput([trial]),
+  })
+
+  expect(experiment.results).toEqual([
+    {
+      type: 'error',
+      id: trial.id,
+      scenarioId: trial.scenarioId,
+      treatment: 'Control',
+      model: trial.model.name,
+      reasoningEffort: trial.model.reasoningEffort,
+      runner: trial.runner,
+      error: trial.error,
+    },
+  ])
+  expect(benchmark.results).toEqual([
+    {
+      ...experiment.results[0],
+      capability: {id: 'a', name: 'First capability'},
+    },
+  ])
+  expect(createTrialTranscript(trial)).toEqual([])
+})
 
 function toolStart(id: string, args: string | Record<string, unknown>): LogMessage {
   return {
@@ -129,7 +169,7 @@ test('createTrialTranscript preserves empty results and keeps tool content out o
   const entries = createTrialTranscript(trial)
 
   expect(JSON.stringify(run)).not.toContain(marker)
-  expect(run.results[0].counts.transcript).toBe(2)
+  expect(run.results[0]).toMatchObject({counts: {transcript: 2}})
   expect(entries[0].toolCall).toEqual({
     name: 'bash',
     arguments: marker,
@@ -147,6 +187,7 @@ test.each([
   const details = await createExperimentRunDetails('2026-09-15', createExperimentOutput(trials))
   const baseUrl = '/run-data/experiments/test-experiment/2026-09-15/trial-1'
   expect(details.results[0]).toEqual({
+    type: 'success',
     id: 'trial-1',
     scenarioId: 'empty-state',
     model: 'gpt-5.6-sol',
@@ -220,7 +261,7 @@ test('keeps repeated trials and session transcripts distinct while aggregating i
   const details = await createExperimentRunDetails('2026-09-15', output)
   expect(details.results).toHaveLength(2)
   expect(details.results[0]).toMatchObject({turns: 4, outputTokens: 200, premiumRequests: 2, aiCredits: 1})
-  expect(details.results[0].counts.transcript).toBe(2)
+  expect(details.results[0]).toMatchObject({counts: {transcript: 2}})
   expect(details.results[0]).not.toHaveProperty('transcript')
   expect(createTrialTranscript([...output.trials.values()][0])).toEqual([
     {id: '0:event-1', label: 'Assistant', timestamp: '2026-09-15T00:00:00.000Z', content: 'Hello'},
@@ -255,8 +296,8 @@ test.each(['copilot-cli', 'copilot-sdk'] as const)(
       {name: 'edit', count: 1},
       {name: 'github/search', count: 1},
     ]
-    expect(details.results[0].tools).toEqual(expected)
-    expect(details.results[1].tools).toEqual([])
+    expect(details.results[0]).toMatchObject({tools: expected})
+    expect(details.results[1]).toMatchObject({tools: []})
     const benchmark = await createBenchmarkRunDetails({
       id: '2026-09-15',
       name: '2026-09-15',
@@ -264,7 +305,7 @@ test.each(['copilot-cli', 'copilot-sdk'] as const)(
       directory: '/results/benchmark',
       output: createBenchmarkOutput([trial]),
     })
-    expect(benchmark.results[0].tools).toEqual(expected)
+    expect(benchmark.results[0]).toMatchObject({tools: expected})
   },
 )
 
@@ -307,7 +348,7 @@ test('keeps heavy trial bodies out of the initial run summaries', async () => {
   })
   const run = await createExperimentRunDetails('2026-09-15', createExperimentOutput([trial]))
   expect(JSON.stringify(run)).not.toContain(marker)
-  expect(run.results[0].walkthroughPreview).toEqual({type: 'Screenshot', count: 1})
+  expect(run.results[0]).toMatchObject({walkthroughPreview: {type: 'Screenshot', count: 1}})
   for (const field of ['checks', 'judges', 'transcript', 'walkthrough']) {
     expect(run.results[0]).not.toHaveProperty(field)
   }
@@ -318,6 +359,6 @@ test('provides only the gallery shape needed to reserve the initial loading layo
     '2026-09-15',
     createExperimentOutput([createTrial({walkthrough: {type: 'Screenshots', screenshots: ['one.png', 'two.png']}})]),
   )
-  expect(run.results[0].walkthroughPreview).toEqual({type: 'Screenshots', count: 2})
+  expect(run.results[0]).toMatchObject({walkthroughPreview: {type: 'Screenshots', count: 2}})
   expect(JSON.stringify(run)).not.toContain('one.png')
 })

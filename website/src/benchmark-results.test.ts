@@ -2,7 +2,7 @@ import type {CheckOutput} from '@primer/agent-eval'
 import {expect, test} from 'vitest'
 import {getBenchmarkOverviewData, getBenchmarkPageResults, type BenchmarkRun} from './benchmark-results'
 import {formatChecks, summarizeTrials} from './check-results'
-import {createBenchmarkOutput, createTrial, session} from './test-fixtures'
+import {createBenchmarkOutput, createErrorTrial, createTrial, session} from './test-fixtures'
 
 function outcomes(statuses: Array<'passed' | 'failed' | 'skipped'>): Array<CheckOutput> {
   return [
@@ -127,12 +127,106 @@ test('isolates capability comparisons and trends when the same scenario appears 
     const a = overview.trends.find(point => {
       return point.capabilityId === 'a' && point.scenarioId === scenarioId
     })
+
     const b = overview.trends.find(point => {
       return point.capabilityId === 'b' && point.scenarioId === scenarioId
     })
     expect(a?.metrics.outputTokens).toMatchObject({value: 100, controlValue: 50, change: 100})
     expect(b?.metrics.outputTokens).toMatchObject({value: 400, controlValue: 300})
   }
+})
+
+test('preserves successful usage totals alongside failures and keeps failed-only models in results', () => {
+  const output = createBenchmarkOutput([
+    createTrial({id: 'control', checks: outcomes(['passed'])}),
+    createTrial({
+      id: 'control-second',
+      checks: outcomes(['passed']),
+      agent: {
+        sessions: [
+          {
+            ...session,
+            outputTokens: 50,
+            premiumRequests: 0.5,
+            aiCredits: 0.25,
+            totalApiDurationMs: 100,
+            sessionDurationMs: 150,
+          },
+        ],
+      },
+    }),
+    createErrorTrial({id: 'control-error'}),
+    createTrial({id: 'benchmark', treatmentId: 'benchmark', checks: outcomes(['passed'])}),
+    createTrial({
+      id: 'benchmark-second',
+      treatmentId: 'benchmark',
+      checks: outcomes(['passed']),
+      agent: {
+        sessions: [
+          {
+            ...session,
+            outputTokens: 200,
+            premiumRequests: 2,
+            aiCredits: 1,
+            totalApiDurationMs: 400,
+            sessionDurationMs: 600,
+          },
+        ],
+      },
+    }),
+    createErrorTrial({id: 'benchmark-error', treatmentId: 'benchmark'}),
+    createErrorTrial({
+      id: 'failed-only',
+      treatmentId: 'benchmark',
+      model: {name: 'claude-opus-5', reasoningEffort: 'medium'},
+    }),
+  ])
+  const overview = getBenchmarkOverviewData([run(output)])
+  const completed = overview.results.find(result => {
+    return result.model === 'gpt-5.6-sol'
+  })
+  const failed = overview.results.find(result => {
+    return result.model === 'claude-opus-5'
+  })
+
+  expect(completed?.comparison).toMatchObject({
+    outputTokens: '300 (+100.0%)',
+    premiumRequests: '3 (+100.0%)',
+    aiCredits: '1.5 (+100.0%)',
+    sessionTime: '0.9s (+100.0%)',
+    apiTime: '0.6s (+100.0%)',
+  })
+  expect(overview.results[0].model).toBe('gpt-5.6-sol')
+  expect(completed?.comparison.checks).toContain('Control: 1 trial error')
+  const completedPoint = overview.trends.find(point => {
+    return point.model === 'gpt-5.6-sol' && point.capabilityId === null && point.scenarioId === null
+  })
+  expect(completedPoint?.metrics).toMatchObject({
+    outputTokens: {value: 300, controlValue: 150},
+    premiumRequests: {value: 3, controlValue: 1.5},
+    aiCredits: {value: 1.5, controlValue: 0.75},
+    sessionTime: {value: 0.9, controlValue: 0.45},
+    apiTime: {value: 0.6, controlValue: 0.3},
+    trialErrors: {value: 1, controlValue: 1},
+  })
+  expect(getBenchmarkPageResults(run(output))?.capabilities[0].comparison).toMatchObject({
+    outputTokens: '300 (+100.0%)',
+    aiCredits: '1.5 (+100.0%)',
+  })
+  expect(failed?.comparison).toMatchObject({
+    checks: 'N/A [1 trial error]',
+    outputTokens: 'N/A',
+    premiumRequests: 'N/A',
+    aiCredits: 'N/A',
+    sessionTime: 'N/A',
+    apiTime: 'N/A',
+  })
+  const point = overview.trends.find(point => {
+    return point.model === 'claude-opus-5' && point.capabilityId === null && point.scenarioId === null
+  })
+  expect(point?.metrics.outputTokens).toMatchObject({value: null, raw: 'N/A'})
+  expect(point?.metrics.trialErrors).toMatchObject({value: 1, raw: '1', controlValue: 0})
+  expect(getBenchmarkPageResults(run(output))?.capabilities[0].scenarios[0].models).toHaveLength(2)
 })
 
 test('compares AI credits and reports sessions without usage totals as unmeasured', () => {

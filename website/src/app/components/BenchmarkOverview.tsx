@@ -54,7 +54,8 @@ function BenchmarkResultsTable({
         Each metric is the Benchmark result across all capabilities, followed by the percent change from Control in
         parentheses. Models use equal-weight ranks across shared checks with complete, error-free values and a scoring
         direction. Implementation-agent usage breaks ties. Checks average per-check, per-trial pass percentages or
-        measurement means; units and directions stay separate. Skips and errors are shown separately.
+        measurement means; units and directions stay separate. Usage totals include successful trials only. Skips, check
+        errors, and failed trial counts are shown separately. Failed trials have no performance or usage values.
         {date ? (
           <>
             {' '}

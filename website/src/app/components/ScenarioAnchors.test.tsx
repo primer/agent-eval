@@ -4,11 +4,25 @@ import {expect, test, vi} from 'vitest'
 import {getExperimentResults} from '../../experiment-results'
 import {createExperimentRunDetails} from '../../run-details'
 import {createResult, createRun} from '../../test/experiment'
+import {createErrorTrial} from '../../test-fixtures'
 import {LatestExperimentResults} from './ExperimentResults'
 import {RunDetailsPage} from './RunDetailsPage'
 
 vi.mock('server-only', () => {
   return {}
+})
+
+test('keeps all-error experiment summaries visible with unavailable usage and explicit failures', () => {
+  const results = getExperimentResults(createRun([createErrorTrial({scenarioId: 'scenario-a'})]))
+  const overview = renderToStaticMarkup(<LatestExperimentResults id="noop" results={results} />)
+
+  expect(overview).toContain('Trial errors')
+  expect(overview).toContain('1 trial error')
+  expect(overview).toContain('N/A')
+  expect(overview).toContain('View output for scenario-a')
+  expect(overview).not.toContain('No trial results were recorded in the latest run.')
+  expect(overview).not.toContain('NaN')
+  expect(overview).not.toContain('Infinity')
 })
 
 test.each(['001-button', 'space / literal%20 # caf\u00e9'])(

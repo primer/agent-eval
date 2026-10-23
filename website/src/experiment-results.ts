@@ -9,13 +9,14 @@ export type TreatmentResult = {
   model: string
   reasoningEffort: string
   trials: number
+  errors: number
   scenarios: number
   checks: string
-  outputTokens: number
-  premiumRequests: number
+  outputTokens: number | null
+  premiumRequests: number | null
   aiCredits: number | null
-  sessionDurationMs: number
-  totalApiDurationMs: number
+  sessionDurationMs: number | null
+  totalApiDurationMs: number | null
 }
 
 export type ExperimentResults = {
@@ -57,17 +58,18 @@ function summarizeTreatments(run: Run, results: Array<ExperimentTrialOutput>): A
       model: first.model.name,
       reasoningEffort: first.model.reasoningEffort,
       trials: trials.length,
+      errors: totals.errors,
       scenarios: new Set(
         trials.map(trial => {
           return trial.scenarioId
         }),
       ).size,
       checks: formatChecks(totals),
-      outputTokens: totals.outputTokens / trials.length,
-      premiumRequests: totals.premiumRequests / trials.length,
-      aiCredits: totals.aiCredits === null ? null : totals.aiCredits / trials.length,
-      sessionDurationMs: totals.sessionDurationMs / trials.length,
-      totalApiDurationMs: totals.totalApiDurationMs / trials.length,
+      outputTokens: totals.runs === 0 ? null : totals.outputTokens / totals.runs,
+      premiumRequests: totals.runs === 0 ? null : totals.premiumRequests / totals.runs,
+      aiCredits: totals.aiCredits === null || totals.runs === 0 ? null : totals.aiCredits / totals.runs,
+      sessionDurationMs: totals.runs === 0 ? null : totals.sessionDurationMs / totals.runs,
+      totalApiDurationMs: totals.runs === 0 ? null : totals.totalApiDurationMs / totals.runs,
     }
   }).toSorted((first, second) => {
     return (

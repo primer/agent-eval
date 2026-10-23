@@ -150,7 +150,8 @@ export function Page({
             Capability rows aggregate their scenarios and models. Benchmark results are shown first, followed by the
             percent change from Control in parentheses. Checks average per-check, per-trial pass percentages or
             measurement means, keeping units and directions separate. Skips and errors are excluded from values and
-            shown separately. Latest results:{' '}
+            shown separately. Usage totals include successful trials only. Trial errors include failed attempts without
+            performance or usage values. Latest results:{' '}
             <Link href={`/benchmarks/${benchmark.id}/runs/${results.date}` as Route}>
               <time dateTime={results.date}>{results.date}</time>
             </Link>

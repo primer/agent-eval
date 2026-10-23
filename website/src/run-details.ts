@@ -8,8 +8,9 @@ import {getArtifactCandidates, isWithinDirectory, LEGACY_ARTIFACTS_DIRECTORY} fr
 
 const REPOSITORY_ROOT = path.resolve(process.cwd(), '..')
 
-type LogMessage = ExperimentTrialOutput['agent']['sessions'][number]['messages'][number]
-type Walkthrough = ExperimentTrialOutput['walkthrough']
+type SuccessfulTrial = Extract<ExperimentTrialOutput, {type: 'success'}>
+type LogMessage = SuccessfulTrial['agent']['sessions'][number]['messages'][number]
+type Walkthrough = SuccessfulTrial['walkthrough']
 type JudgeDetails = Pick<JudgeOutput, 'judge' | 'result'>
 
 type TranscriptEntry = {
@@ -33,7 +34,7 @@ type WalkthroughUrls =
   | {type: 'Screenshots'; screenshots: Array<string>}
   | {type: 'Video'; video: string}
 
-type RunResult = {
+type RunResultIdentity = {
   id: string
   scenarioId: string
   capability?: {id: string; name: string}
@@ -41,20 +42,31 @@ type RunResult = {
   model: string
   reasoningEffort?: string
   runner: CopilotRunner
-  checkSummary: string
-  turns: number
-  outputTokens: number
-  premiumRequests: number
-  aiCredits: number | null
-  totalApiDurationMs: number
-  sessionDurationMs: number
-  tools: Array<{name: string; count: number}>
-  counts: {checks: number; transcript: number; judges: number}
-  walkthroughPreview: {type: Walkthrough['type']; count: number}
-  detailsUrl: string
-  transcriptUrl: string
-  workspace: WorkspaceFiles
 }
+
+type RunResult = RunResultIdentity &
+  (
+    | {
+        type: 'error'
+        error: Extract<ExperimentTrialOutput, {type: 'error'}>['error']
+      }
+    | {
+        type: 'success'
+        checkSummary: string
+        turns: number
+        outputTokens: number
+        premiumRequests: number
+        aiCredits: number | null
+        totalApiDurationMs: number
+        sessionDurationMs: number
+        tools: Array<{name: string; count: number}>
+        counts: {checks: number; transcript: number; judges: number}
+        walkthroughPreview: {type: Walkthrough['type']; count: number}
+        detailsUrl: string
+        transcriptUrl: string
+        workspace: WorkspaceFiles
+      }
+  )
 
 type TrialDetails = {
   id: string
@@ -329,6 +341,9 @@ function getTrialDataUrl(collection: RunCollection, id: string, date: string, tr
 }
 
 function createTrialTranscript(result: ExperimentTrialOutput): Array<TranscriptEntry> {
+  if (result.type === 'error') {
+    return []
+  }
   return result.agent.sessions.flatMap((session, sessionIndex) => {
     return createTranscript(session.messages).map(entry => {
       return {...entry, id: `${sessionIndex}:${entry.id}`}
@@ -337,7 +352,7 @@ function createTrialTranscript(result: ExperimentTrialOutput): Array<TranscriptE
 }
 
 async function createTrialDetails(
-  result: ExperimentTrialOutput,
+  result: SuccessfulTrial,
   runDirectory: string,
   baseUrl: string,
 ): Promise<TrialDetails> {
@@ -383,6 +398,23 @@ async function createExperimentRunDetails(
     if ((result.capabilityId !== undefined || output.capabilities.size > 0) && !capability) {
       throw new Error(`Unknown capability for trial "${result.id}"`)
     }
+    const identity: RunResultIdentity = {
+      id: result.id,
+      scenarioId: result.scenarioId,
+      ...(capability ? {capability: {id: capability.id, name: capability.name}} : {}),
+      treatment,
+      model: result.model.name,
+      reasoningEffort: result.model.reasoningEffort,
+      runner: result.runner,
+    }
+    if (result.type === 'error') {
+      results.push({
+        ...identity,
+        type: 'error',
+        error: result.error,
+      })
+      continue
+    }
     const baseUrl = getTrialDataUrl(collection, output.id, date, result.id)
     const tools = new Map<string, number>()
     for (const session of result.agent.sessions) {
@@ -391,13 +423,8 @@ async function createExperimentRunDetails(
       }
     }
     results.push({
-      id: result.id,
-      scenarioId: result.scenarioId,
-      ...(capability ? {capability: {id: capability.id, name: capability.name}} : {}),
-      treatment,
-      model: result.model.name,
-      reasoningEffort: result.model.reasoningEffort,
-      runner: result.runner,
+      ...identity,
+      type: 'success',
       checkSummary: formatChecks(summary),
       turns: result.agent.sessions.reduce((total, session) => {
         return total + session.turns

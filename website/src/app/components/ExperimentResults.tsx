@@ -50,6 +50,7 @@ function TreatmentResultsTable({results, label}: {results: Array<TreatmentResult
           {id: 'model', header: 'Model', field: 'model'},
           {id: 'effort', header: 'Effort', field: 'reasoningEffort'},
           {id: 'trials', header: 'Trials', field: 'trials', align: 'end'},
+          {id: 'errors', header: 'Trial errors', field: 'errors', align: 'end'},
           {id: 'scenarios', header: 'Scenarios', field: 'scenarios', align: 'end'},
           {
             id: 'checks',
@@ -63,7 +64,7 @@ function TreatmentResultsTable({results, label}: {results: Array<TreatmentResult
             field: 'outputTokens',
             align: 'end',
             renderCell: row => {
-              return formatNumber(row.outputTokens)
+              return row.outputTokens === null ? 'N/A' : formatNumber(row.outputTokens)
             },
           },
           {
@@ -72,7 +73,7 @@ function TreatmentResultsTable({results, label}: {results: Array<TreatmentResult
             field: 'premiumRequests',
             align: 'end',
             renderCell: row => {
-              return formatNumber(row.premiumRequests)
+              return row.premiumRequests === null ? 'N/A' : formatNumber(row.premiumRequests)
             },
           },
           {
@@ -90,7 +91,7 @@ function TreatmentResultsTable({results, label}: {results: Array<TreatmentResult
             field: 'sessionDurationMs',
             align: 'end',
             renderCell: row => {
-              return `${formatNumber(row.sessionDurationMs / 1000)} s`
+              return row.sessionDurationMs === null ? 'N/A' : `${formatNumber(row.sessionDurationMs / 1000)} s`
             },
           },
           {
@@ -99,7 +100,7 @@ function TreatmentResultsTable({results, label}: {results: Array<TreatmentResult
             field: 'totalApiDurationMs',
             align: 'end',
             renderCell: row => {
-              return `${formatNumber(row.totalApiDurationMs / 1000)} s`
+              return row.totalApiDurationMs === null ? 'N/A' : `${formatNumber(row.totalApiDurationMs / 1000)} s`
             },
           },
         ]}
@@ -113,8 +114,9 @@ function MetricsDescription() {
   return (
     <p className="text-muted">
       Checks show per-trial pass percentages or measurement means, averaged across trials. Skips, errors, and missing
-      values are reported separately. Resource usage is the average per trial. Treatments are grouped by runner, model,
-      and reasoning effort; compare scenario and trial counts before comparing performance.
+      values are reported separately. Trial counts include failed attempts; trial errors have no performance or usage
+      values. Resource usage is the average per successful trial. Treatments are grouped by runner, model, and reasoning
+      effort; compare scenario, trial, and error counts before comparing performance.
     </p>
   )
 }

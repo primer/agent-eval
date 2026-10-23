@@ -27,6 +27,9 @@ type Props = Omit<RunDetailsViewProps, 'run'> & {run: RunDetails}
 
 export function RunDetailsPage({resource, run}: Props) {
   const results = run.results.map(result => {
+    if (result.type === 'error') {
+      return result
+    }
     const workspace = result.workspace
     const segments = [resource.id, run.date, result.id].map(segment => {
       return encodeURIComponent(segment)

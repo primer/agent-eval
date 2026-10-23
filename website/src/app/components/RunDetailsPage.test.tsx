@@ -3,7 +3,7 @@ import type {Route} from 'next'
 import {afterEach, expect, test, vi} from 'vitest'
 import {createBenchmarkRunDetails, createExperimentRunDetails} from '../../run-details'
 import type {TranscriptEntry, WalkthroughUrls} from '../../run-details'
-import {createBenchmarkOutput, createExperimentOutput, createTrial} from '../../test-fixtures'
+import {createBenchmarkOutput, createErrorTrial, createExperimentOutput, createTrial} from '../../test-fixtures'
 import {RunDetailsPage} from './RunDetailsPage'
 import {RunDetailsView, ToolBreakdown, ToolCalls} from './RunDetailsView'
 import {Transcript} from './Transcript'
@@ -236,6 +236,35 @@ test('renders an empty state for a current run without trials', () => {
   expect(html).toContain('No trial results were recorded.')
 })
 
+test('renders escaped failure details without success metrics or artifact tabs', async () => {
+  const run = await createExperimentRunDetails(
+    '2026-09-15',
+    createExperimentOutput([
+      createErrorTrial({
+        error: {
+          name: 'SetupError',
+          message: '<script>startup failed</script>',
+          stack: 'SetupError: startup failed\n    at initialize',
+        },
+      }),
+      createTrial(),
+    ]),
+  )
+  const html = renderToStaticMarkup(<RunDetailsPage resource={resource} run={run} />)
+
+  expect(html).toContain('Trial failed')
+  expect(html).toContain('SetupError: &lt;script&gt;startup failed&lt;/script&gt;')
+  expect(html).toContain('Stack trace')
+  expect(html).toContain('at initialize')
+  expect(html).toContain('(failed)')
+  expect(html).toContain('Trial 2 (trial-1)')
+  expect(html).not.toContain('No trial results were recorded.')
+  expect(html).not.toContain('Output tokens')
+  expect(html).not.toContain('result-0-code-tab')
+  expect(html).not.toContain('result-0-transcript-tab')
+  expect(html).not.toContain('<script>startup failed</script>')
+})
+
 test.each([
   {runner: 'copilot-cli', label: 'Copilot CLI'},
   {runner: 'copilot-sdk', label: 'Copilot SDK'},
@@ -267,7 +296,11 @@ test.each(['benchmarks', 'experiments'] as const)(
       createExperimentOutput([createTrial({id: 'trial 1', runner: 'copilot-sdk'})]),
       collection,
     )
-    run.results[0].workspace = {
+    const result = run.results[0]
+    if (result.type !== 'success') {
+      throw new Error('Expected a successful trial')
+    }
+    result.workspace = {
       type: 'available',
       truncated: false,
       entries: [
@@ -417,7 +450,11 @@ test.each(['checks', 'judges', 'transcript', 'tools'] as const)(
   'uses Primer skeletons and an accessible spinner for %s',
   async tab => {
     const run = await createExperimentRunDetails('2026-09-15', createExperimentOutput())
-    const html = renderToStaticMarkup(<RunDetailsLoading tab={tab} result={run.results[0]} />)
+    const result = run.results[0]
+    if (result.type !== 'success') {
+      throw new Error('Expected a successful trial')
+    }
+    const html = renderToStaticMarkup(<RunDetailsLoading tab={tab} result={result} />)
     expect(html).toContain('role="status"')
     expect(html).toContain(`Loading ${tab}`)
     expect(html).toContain('data-component="Spinner"')

@@ -221,7 +221,8 @@ function createComparison(trials: Array<BenchmarkTrialOutput>, output: Benchmark
     if (value === null) {
       return 'N/A'
     }
-    return `${format(value)} (${formatPercentDelta(control.runs > 0 ? control[key] : null, value)})`
+    const baseline = control.runs === 0 ? null : control[key]
+    return `${format(value)} (${formatPercentDelta(baseline, value)})`
   }
   return {
     checks: formatChecks(benchmark, control),
@@ -318,8 +319,8 @@ function createTrendPoint(
     ['sessionTime', 'sessionDurationMs', 1000, formatDuration],
     ['apiTime', 'totalApiDurationMs', 1000, formatDuration],
   ] as const) {
-    const value = benchmark.runs > 0 ? benchmark[key] : null
-    const baseline = control.runs > 0 ? control[key] : null
+    const value = benchmark.runs === 0 ? null : benchmark[key]
+    const baseline = control.runs === 0 ? null : control[key]
     metrics[id] = createTrendMetric(
       value === null ? null : value / scale,
       value === null ? 'N/A' : format(value),
@@ -327,6 +328,12 @@ function createTrendPoint(
       baseline === null ? 'N/A' : format(baseline),
     )
   }
+  metrics.trialErrors = createTrendMetric(
+    benchmark.errors,
+    formatNumber(benchmark.errors),
+    control.errors,
+    formatNumber(control.errors),
+  )
   // Validate matching check types, units, and directions before comparing them.
   formatChecks(benchmark, control)
   for (const [key, check] of new Map([...control.checks, ...benchmark.checks])) {
@@ -379,6 +386,7 @@ export function getBenchmarkOverviewData(runs: Array<BenchmarkRun>): BenchmarkOv
       {id: 'aiCredits', label: 'AI credits'},
       {id: 'sessionTime', label: 'Session time', unit: 's'},
       {id: 'apiTime', label: 'API time', unit: 's'},
+      {id: 'trialErrors', label: 'Trial errors'},
     ].map(metric => {
       return [metric.id, metric]
     }),

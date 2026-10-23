@@ -22,6 +22,9 @@ async function listRunAssetParams(): Promise<Array<{asset: Array<string>}>> {
   const params: Array<{asset: Array<string>}> = []
   for (const {collection, run} of runs) {
     for (const trial of run.output.trials.values()) {
+      if (trial.type === 'error') {
+        continue
+      }
       const baseUrl = getTrialDataUrl(collection, run.output.id, run.name, trial.id)
       const {media} = await getWalkthroughAssets(
         trial.walkthrough,
@@ -58,7 +61,7 @@ async function getRunAsset(segments: Array<string>): Promise<Response> {
   }
   const run = collection === 'benchmarks' ? await getBenchmarkRun(id, date) : await getExperimentRun(id, date)
   const trial = run?.output.trials.get(trialId)
-  if (!run || !trial) {
+  if (!run || !trial || trial.type === 'error') {
     return new Response('Trial not found', {status: 404})
   }
   const baseUrl = getTrialDataUrl(collection, id, date, trialId)

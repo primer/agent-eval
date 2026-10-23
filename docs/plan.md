@@ -80,7 +80,7 @@ results/example/
 
 Copy the complete `artifacts/` contents from every worker, not just the `output-<order>.json` files. In CI, upload each worker's output directory and download the artifacts into a common directory in a merge job.
 
-Use the same absolute checkout and output paths on the workers and the merge machine. Trial metadata currently includes absolute artifact paths that the merge writer uses.
+Newly written trial artifact and walkthrough paths are relative to the output directory, so workers and the merge machine can use different checkout and output paths. Preserve the bundle layout when collecting shards. Historical bundles with absolute artifact paths still require those paths to be available.
 
 Then merge the benchmark results:
 

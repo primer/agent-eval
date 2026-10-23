@@ -71,8 +71,10 @@ results/comparison-01/
 ```
 
 Only merge after every expected shard and its complete artifacts are collected.
-Use consistent absolute checkout/output paths across workers and the merge
-machine; artifact metadata contains absolute paths used by the writer.
+Newly written artifact and walkthrough paths are relative to the output directory.
+Workers and the merge machine can use different checkout/output paths as long as
+the bundle layout is preserved. Historical bundles with absolute artifact paths
+still require those paths to be available.
 
 Merge validates manifest IDs, trial ID uniqueness, and shared metadata consistency
 before reading artifacts. Metadata IDs must match their record keys; benchmark

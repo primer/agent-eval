@@ -6,7 +6,7 @@ import {CapabilityOutputSchema, type CapabilityOutput} from '../benchmark/output
 import {DefaultHost, type Host} from '../host'
 import {ModelVariantSchema} from '../model'
 import type {RunPlanResult} from '../plan'
-import {resolveTrialArtifactsPath} from '../result-path'
+import {resolveTrialArtifactsPath, resolveTrialPaths, serializeTrialPaths} from '../result-path'
 import {ScenarioSchema} from '../scenario/scenario'
 import {TreatmentSchema} from '../treatment'
 import {
@@ -312,7 +312,15 @@ async function mergeExperimentOutputFiles({
         throw new Error(`Cannot merge experiment output files: mismatched trial ID for: ${key}`)
       }
 
-      trials.set(key, trialOutput)
+      trials.set(
+        key,
+        trialOutput.type === 'success'
+          ? {
+              ...trialOutput,
+              ...resolveTrialPaths(trialOutput, outputDirectory),
+            }
+          : trialOutput,
+      )
     }
   }
 
@@ -333,10 +341,19 @@ async function writeExperimentOutput({host = DefaultHost, output, outputPath}: W
 
   for (const trial of output.trials.values()) {
     const trialDirectory =
-      trial.type === 'success' ? trial.artifacts.directory : path.join(outputDirectory, 'artifacts', trial.id)
+      trial.type === 'success'
+        ? path.resolve(outputDirectory, trial.artifacts.directory)
+        : path.join(outputDirectory, 'artifacts', trial.id)
     const trialFilePath = path.join(trialDirectory, `${trial.id}.json`)
+    const persistedTrial =
+      trial.type === 'success'
+        ? {
+            ...trial,
+            ...serializeTrialPaths(trial, outputDirectory),
+          }
+        : trial
     await host.fs.promises.mkdir(path.dirname(trialFilePath), {recursive: true})
-    await host.fs.promises.writeFile(trialFilePath, JSON.stringify(trial, null, 2), 'utf-8')
+    await host.fs.promises.writeFile(trialFilePath, JSON.stringify(persistedTrial, null, 2), 'utf-8')
     trials.set(trial.id, path.relative(outputDirectory, trialFilePath))
   }
 

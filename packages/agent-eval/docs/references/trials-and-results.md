@@ -56,8 +56,18 @@ walkthrough information, and artifact locations. For `type: 'error'`, they
 include `error: {name, message, stack?}` and no evaluation or artifact fields.
 Narrow by `type` before reading success-only fields. Historical trial files
 without `type` parse as successes. Preserve the whole
-bundle when sharing or archiving. Embedded artifact paths can be absolute;
-do not assume every metadata path relocates automatically.
+bundle when sharing or archiving. Newly written benchmark and experiment trials
+store every `artifacts` field and walkthrough file reference relative to the
+directory containing `output.json`, not the trial JSON directory. Resolve those
+paths against the output directory before opening files. Moving the entire bundle
+preserves workspace previews and walkthrough links.
+
+Historical bundles can contain absolute artifact paths and sandbox-relative
+walkthrough references such as `walkthrough/screenshot.png`. Readers continue
+to accept those formats; a sandbox-relative walkthrough reference resolves
+against `artifacts.walkthroughDirectory`. Historical absolute paths are not
+portable by themselves. Scenario metadata, check annotations, and agent-session
+messages are unchanged and can still refer to original source or sandbox paths.
 
 Benchmark-backed experiment trials include `capabilityId`. The package root
 exposes `parseExperimentTrialOutput(json, capabilities)` to check membership

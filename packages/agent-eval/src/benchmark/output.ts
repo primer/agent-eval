@@ -17,7 +17,7 @@ import {TreatmentSchema} from '../treatment'
 import type {Benchmark} from './benchmark'
 import {ModelVariantSchema} from '../model'
 import {DefaultHost, type Host} from '../host'
-import {resolveTrialArtifactsPath} from '../result-path'
+import {resolveTrialArtifactsPath, resolveTrialPaths, serializeTrialPaths} from '../result-path'
 
 const BenchmarkTrialMetadataSchema = z.object({
   capabilityId: z.string(),
@@ -324,7 +324,15 @@ async function mergeBenchmarkOutputFiles({
         throw new Error(`Cannot merge benchmark output files: mismatched trial ID for: ${key}`)
       }
 
-      trials.set(key, trialOutput)
+      trials.set(
+        key,
+        trialOutput.type === 'success'
+          ? {
+              ...trialOutput,
+              ...resolveTrialPaths(trialOutput, outputDirectory),
+            }
+          : trialOutput,
+      )
     }
   }
 
@@ -352,10 +360,19 @@ async function writeBenchmarkOutput({host = DefaultHost, output, outputPath}: Wr
 
   for (const trial of output.trials.values()) {
     const trialDirectory =
-      trial.type === 'success' ? trial.artifacts.directory : path.join(outputDirectory, 'artifacts', trial.id)
+      trial.type === 'success'
+        ? path.resolve(outputDirectory, trial.artifacts.directory)
+        : path.join(outputDirectory, 'artifacts', trial.id)
     const trialFilePath = path.join(trialDirectory, `${trial.id}.json`)
+    const persistedTrial =
+      trial.type === 'success'
+        ? {
+            ...trial,
+            ...serializeTrialPaths(trial, outputDirectory),
+          }
+        : trial
     await host.fs.promises.mkdir(trialDirectory, {recursive: true})
-    await host.fs.promises.writeFile(trialFilePath, JSON.stringify(trial, null, 2), 'utf-8')
+    await host.fs.promises.writeFile(trialFilePath, JSON.stringify(persistedTrial, null, 2), 'utf-8')
 
     trials.set(trial.id, path.relative(outputDirectory, trialFilePath))
   }

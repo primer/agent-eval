@@ -43,10 +43,14 @@ function createResult(
   trial: ExperimentTrial,
   outputTokens: number,
   passed = true,
-): RunPlanResult<ExperimentTrial>['results'][number] {
+): {
+  trial: ExperimentTrial
+  result: Extract<RunPlanResult<ExperimentTrial>['results'][number]['result'], {type: 'success'}>
+} {
   return {
     trial,
     result: {
+      type: 'success',
       trial,
       agent: {
         sessions: [
@@ -114,6 +118,94 @@ function readReportRows(report: string): Array<Record<string, string>> {
 }
 
 describe('createExperimentReport', () => {
+  test.each(['scenario', 'benchmark'] as const)(
+    'marks a mixed %s evaluation incomplete instead of reporting successful groups',
+    async type => {
+      const experiment = await createExperiment(type)
+      const plan = createExperimentPlan({experiment})
+      const succeeded = createResult(plan.trials[0], 20)
+      const otherTreatment = plan.trials.find(trial => {
+        return trial.treatment.id !== succeeded.trial.treatment.id
+      })
+      if (!otherTreatment) {
+        throw new Error('Expected another treatment')
+      }
+      const failedTrial = {
+        ...otherTreatment,
+        id: 'failed-trial',
+      }
+      const failed: RunPlanResult<ExperimentTrial>['results'][number] = {
+        trial: failedTrial,
+        result: {
+          type: 'error',
+          error: {name: 'Error', message: 'Agent failed'},
+        },
+      }
+
+      const report = createExperimentReport({experiment, runPlanResult: {results: [succeeded, failed]}})
+
+      expect(report).toBe(
+        [
+          'Experiment: Example',
+          'Status: Incomplete\nComparative results are unavailable because one or more trials failed.',
+          'Trial "failed-trial" failed: Error: Agent failed',
+        ].join('\n\n'),
+      )
+    },
+  )
+
+  test('lists every trial error for an all-error evaluation without aggregate metrics', async () => {
+    const experiment = await createExperiment('scenario')
+    const plan = createExperimentPlan({experiment})
+
+    const report = createExperimentReport({
+      experiment,
+      runPlanResult: {
+        results: plan.trials.map(trial => {
+          return {
+            trial,
+            result: {
+              type: 'error',
+              error: {name: 'Error', message: 'Image failed'},
+            },
+          }
+        }),
+      },
+    })
+
+    expect(report).toBe(
+      [
+        'Experiment: Example',
+        'Status: Incomplete\nComparative results are unavailable because one or more trials failed.',
+        plan.trials
+          .map(trial => {
+            return `Trial "${trial.id}" failed: Error: Image failed`
+          })
+          .join('\n'),
+      ].join('\n\n'),
+    )
+  })
+
+  test('includes completed trials with failed check outcomes in comparisons', async () => {
+    const experiment = await createExperiment('scenario')
+    const plan = createExperimentPlan({experiment})
+    const runPlanResult: RunPlanResult<ExperimentTrial> = {
+      results: plan.trials.map(trial => {
+        return createResult(trial, 10, false)
+      }),
+    }
+
+    const report = createExperimentReport({experiment, runPlanResult})
+    const rows = readReportRows(report)
+
+    expect(report).not.toContain('Incomplete')
+    expect(rows[0]).toMatchObject({
+      Checks: '0.0%',
+      Runs: '2',
+      'Output Tokens': '20',
+    })
+  })
+
   test('preserves scenario experiment rows without capability or runner columns', async () => {
     const experiment = await createExperiment('scenario')
     const plan = createExperimentPlan({experiment})

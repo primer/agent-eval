@@ -4,11 +4,12 @@ import {Breadcrumbs, Stack} from '@primer/react'
 import {Blankslate, DataTable, Table} from '@primer/react/experimental'
 import type {Route} from 'next'
 import NextLink from 'next/link'
-import type {BenchmarkPageResults} from '../../../../benchmark-results'
+import type {BenchmarkPageResults, CompleteBenchmarkPageResults} from '../../../../benchmark-results'
 import type {Benchmark} from '../../../../benchmarks'
 import {Link} from '../../../../components/Link'
+import {IncompleteEvaluationNotice} from '../../../components/IncompleteEvaluationNotice'
 
-type Comparison = BenchmarkPageResults['comparison']
+type Comparison = CompleteBenchmarkPageResults['comparison']
 
 type TableResult = {
   id: string
@@ -24,10 +25,12 @@ type BenchmarkRun = {
   id: string
   name: string
   resultCount: number
-  checks: string
+  checks: string | null
+  status: 'complete' | 'incomplete'
+  errorCount: number
 }
 
-function createTableResults(results: BenchmarkPageResults): Array<TableResult> {
+function createTableResults(results: CompleteBenchmarkPageResults): Array<TableResult> {
   return [
     {
       id: 'all',
@@ -84,7 +87,7 @@ export function Page({
   results: BenchmarkPageResults | null
   runs: Array<BenchmarkRun>
 }) {
-  const tableResults = results ? createTableResults(results) : []
+  const tableResults = results?.status === 'complete' ? createTableResults(results) : []
 
   return (
     <Stack padding="normal" gap="spacious">
@@ -98,6 +101,12 @@ export function Page({
         <h1>{benchmark.name}</h1>
         <p>{benchmark.description}</p>
       </header>
+      {results?.status === 'incomplete' ? (
+        <IncompleteEvaluationNotice
+          errors={results.errors}
+          href={`/benchmarks/${benchmark.id}/runs/${results.date}` as Route}
+        />
+      ) : null}
       <section>
         <h2 className="text-title-medium pb-4">Runs</h2>
         {runs.length > 0 ? (
@@ -125,10 +134,23 @@ export function Page({
                   align: 'end',
                 },
                 {
+                  id: 'status',
+                  header: 'Status',
+                  field: 'status',
+                  renderCell: row => {
+                    return row.status === 'incomplete'
+                      ? `Incomplete (${row.errorCount} trial ${row.errorCount === 1 ? 'error' : 'errors'})`
+                      : 'Complete'
+                  },
+                },
+                {
                   id: 'checks',
                   header: 'Checks',
                   field: 'checks',
                   align: 'end',
+                  renderCell: row => {
+                    return row.checks ?? 'Unavailable (incomplete evaluation)'
+                  },
                 },
               ]}
               data={runs}
@@ -141,7 +163,7 @@ export function Page({
           </Blankslate>
         )}
       </section>
-      {results ? (
+      {results?.status === 'complete' ? (
         <Table.Container>
           <Table.Title as="h2" id="capability-results-heading">
             Capability performance
@@ -150,7 +172,8 @@ export function Page({
             Capability rows aggregate their scenarios and models. Benchmark results are shown first, followed by the
             percent change from Control in parentheses. Checks average per-check, per-trial pass percentages or
             measurement means, keeping units and directions separate. Skips and errors are excluded from values and
-            shown separately. Latest results:{' '}
+            shown separately. Usage totals include all trials. Evaluations with trial execution errors have no aggregate
+            results. Latest results:{' '}
             <Link href={`/benchmarks/${benchmark.id}/runs/${results.date}` as Route}>
               <time dateTime={results.date}>{results.date}</time>
             </Link>

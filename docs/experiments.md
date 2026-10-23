@@ -75,13 +75,14 @@ variants are grouped separately within each capability, even when a scenario
 appears in more than one capability. Reports keep runner results separate and
 show a `Runner` column when SDK trials are present.
 
-Each level includes run counts, check summaries, and implementation-agent usage
-totals. Partial or sharded runs show only the groups with completed results.
+For evaluations without trial execution errors, each level includes run counts,
+check summaries, and implementation-agent usage totals. Sharded runs show the
+selected groups.
 Scenario-backed experiments retain their existing report format.
 
 On the website, experiment pages show overall treatment summaries, then
 capability summaries with their scenario results. Runner, model, and reasoning
-effort groups remain separate. Website resource usage is averaged per trial.
+effort groups remain separate. Website resource usage is averaged per completed trial.
 Scenario output links open the matching capability and scenario on the run
 detail page, which also supports filtering by capability.
 
@@ -89,3 +90,17 @@ Benchmark-backed result bundles preserve capability metadata in `output.json`
 and a `capabilityId` on each trial. Older experiment bundles without this
 metadata remain readable, but their results stay grouped by scenario because
 capability membership cannot be inferred reliably.
+
+Trial files use `type: 'success'` for completed evaluations and `type: 'error'`
+for exhausted failures. Error results retain trial identifiers and
+`error: {name, message, stack?}`, without success-only fields or artifact paths.
+Historical trial files without `type` parse as successes. Image, sandbox, stage,
+and cleanup failures retry up to three times before being saved as errors;
+they do not abort neighboring trials. Failed check assertions remain successful
+trial executions with failing check outcomes.
+
+Any trial execution error marks the selected evaluation incomplete. Reports
+show the incomplete status and error details instead of comparative summaries,
+scores, rankings, or usage deltas, even for otherwise successful groups.
+Incomplete evaluations are excluded from website trends. Individual trial
+details remain available for diagnosis.

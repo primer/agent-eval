@@ -1,6 +1,6 @@
 import {get as getBenchmark} from './benchmarks'
 import {getBenchmarkOverviewData, getBenchmarkPageResults, listBenchmarkRuns} from './benchmark-results'
-import {formatChecks, summarizeTrials} from './check-results'
+import {getRunSummary} from './evaluation-state'
 
 async function getBenchmarkPageData(id: string) {
   const [benchmark, runs] = await Promise.all([getBenchmark(id), listBenchmarkRuns(id)])
@@ -15,7 +15,7 @@ async function getBenchmarkPageData(id: string) {
         id: run.id,
         name: run.name,
         resultCount: trials.length,
-        checks: formatChecks(summarizeTrials(trials)),
+        ...getRunSummary(trials),
       }
     }),
   }

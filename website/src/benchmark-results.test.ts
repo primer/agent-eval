@@ -1,8 +1,12 @@
 import type {CheckOutput} from '@primer/agent-eval'
 import {expect, test} from 'vitest'
-import {getBenchmarkOverviewData, getBenchmarkPageResults, type BenchmarkRun} from './benchmark-results'
+import {
+  getBenchmarkOverviewData,
+  getBenchmarkPageResults as readBenchmarkPageResults,
+  type BenchmarkRun,
+} from './benchmark-results'
 import {formatChecks, summarizeTrials} from './check-results'
-import {createBenchmarkOutput, createTrial, session} from './test-fixtures'
+import {createBenchmarkOutput, createErrorTrial, createTrial, session} from './test-fixtures'
 
 function outcomes(statuses: Array<'passed' | 'failed' | 'skipped'>): Array<CheckOutput> {
   return [
@@ -20,6 +24,14 @@ function outcomes(statuses: Array<'passed' | 'failed' | 'skipped'>): Array<Check
 
 function run(output = createBenchmarkOutput(), date = '2026-09-15'): BenchmarkRun {
   return {id: date, name: date, date: new Date(date), directory: '/results', output}
+}
+
+function getBenchmarkPageResults(run: Parameters<typeof readBenchmarkPageResults>[0]) {
+  const results = readBenchmarkPageResults(run)
+  if (results?.status === 'incomplete') {
+    throw new Error('Expected complete evaluation')
+  }
+  return results
 }
 
 test('uses equal-weight per-check per-trial means, excluding skips and errors rather than pooling assertions', () => {
@@ -127,12 +139,97 @@ test('isolates capability comparisons and trends when the same scenario appears 
     const a = overview.trends.find(point => {
       return point.capabilityId === 'a' && point.scenarioId === scenarioId
     })
+
     const b = overview.trends.find(point => {
       return point.capabilityId === 'b' && point.scenarioId === scenarioId
     })
     expect(a?.metrics.outputTokens).toMatchObject({value: 100, controlValue: 50, change: 100})
     expect(b?.metrics.outputTokens).toMatchObject({value: 400, controlValue: 300})
   }
+})
+
+test('excludes an entire incomplete evaluation from comparisons and trends without hiding its latest date', () => {
+  const output = createBenchmarkOutput([
+    createTrial({id: 'control', checks: outcomes(['passed'])}),
+    createTrial({id: 'benchmark', treatmentId: 'benchmark', checks: outcomes(['passed'])}),
+    {
+      ...createErrorTrial({
+        id: 'unrelated-error',
+        treatmentId: 'benchmark',
+        scenarioId: 'other-scenario',
+        model: {
+          name: 'claude-opus-5',
+          reasoningEffort: 'medium',
+        },
+      }),
+      capabilityId: 'b',
+    },
+  ])
+  const historical = run(createBenchmarkOutput(), '2026-09-14')
+  const overview = getBenchmarkOverviewData([run(output), historical])
+
+  expect(overview).toMatchObject({
+    status: 'incomplete',
+    date: '2026-09-15',
+    results: [],
+    errors: [{id: 'unrelated-error'}],
+  })
+  expect(overview.trends).toEqual(getBenchmarkOverviewData([historical]).trends)
+  expect(readBenchmarkPageResults(run(output))).toEqual({
+    status: 'incomplete',
+    date: '2026-09-15',
+    errors: overview.errors,
+  })
+})
+
+test('keeps all-error evaluations visible with diagnostics and no trend points', () => {
+  const output = createBenchmarkOutput([createErrorTrial()])
+  const overview = getBenchmarkOverviewData([run(output)])
+
+  expect(overview).toMatchObject({
+    status: 'incomplete',
+    date: '2026-09-15',
+    results: [],
+    trends: [],
+    errors: [{id: 'failed-trial'}],
+  })
+  expect(readBenchmarkPageResults(run(output))).toMatchObject({
+    status: 'incomplete',
+    errors: [{id: 'failed-trial'}],
+  })
+})
+
+test('retains usage totals rather than per-trial averages for complete benchmark evaluations', () => {
+  const output = createBenchmarkOutput([
+    createTrial({
+      id: 'control',
+      agent: {
+        sessions: [{...session, outputTokens: 50, aiCredits: 0.25}],
+      },
+    }),
+    createTrial({
+      id: 'benchmark-first',
+      treatmentId: 'benchmark',
+      checks: outcomes(['failed']),
+    }),
+    createTrial({
+      id: 'benchmark-second',
+      treatmentId: 'benchmark',
+      checks: outcomes(['failed']),
+    }),
+  ])
+  const overview = getBenchmarkOverviewData([run(output)])
+
+  expect(overview.status).toBe('complete')
+  expect(overview.results[0].comparison).toMatchObject({
+    checks: expect.stringContaining('0.0%'),
+    outputTokens: '200 (+300.0%)',
+    aiCredits: '1 (+300.0%)',
+  })
+  expect(overview.trends[0].metrics.outputTokens).toMatchObject({
+    value: 200,
+    controlValue: 50,
+  })
 })
 
 test('compares AI credits and reports sessions without usage totals as unmeasured', () => {

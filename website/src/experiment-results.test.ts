@@ -1,11 +1,20 @@
 import {expect, test} from 'vitest'
-import {getExperimentResults} from './experiment-results'
+import {getExperimentResults as readExperimentResults} from './experiment-results'
 import {createResult, createRun} from './test/experiment'
-import {checks, judges} from './test-fixtures'
+import {checks, createErrorTrial, judges} from './test-fixtures'
+
+function getExperimentResults(run: Parameters<typeof readExperimentResults>[0]) {
+  const results = readExperimentResults(run)
+  if (results?.status === 'incomplete') {
+    throw new Error('Expected complete evaluation')
+  }
+  return results
+}
 
 test('distinguishes missing runs from runs with no trials', () => {
   expect(getExperimentResults(undefined)).toBeNull()
   expect(getExperimentResults(createRun([]))).toEqual({
+    status: 'complete',
     date: '2026-09-10',
     treatments: [],
     capabilities: [],
@@ -78,7 +87,35 @@ test('averages checks and implementation usage per trial, not per scenario or ou
     checks: '62.5%',
     outputTokens: 200,
   })
+
   expect(summary?.scenarios[1].treatments[0]).toMatchObject({trials: 1, checks: '75.0%'})
+})
+
+test('withholds all aggregate results when any trial fails, including unrelated successful groups', () => {
+  const error = createErrorTrial({scenarioId: 'scenario-a'})
+  const successful = createResult({
+    scenarioId: 'scenario-b',
+    treatmentId: 'skill',
+    capabilityId: 'other',
+    model: {
+      name: 'claude-opus-5',
+      reasoningEffort: 'high',
+    },
+  })
+  const expected = {
+    status: 'incomplete',
+    date: '2026-09-10',
+    errors: [
+      {
+        id: error.id,
+        scenarioId: error.scenarioId,
+        error: error.error,
+      },
+    ],
+  }
+
+  expect(readExperimentResults(createRun([successful, error]))).toEqual(expected)
+  expect(readExperimentResults(createRun([error]))).toEqual(expected)
 })
 
 test('keeps treatments, models, and reasoning efforts separate with stable ordering', () => {

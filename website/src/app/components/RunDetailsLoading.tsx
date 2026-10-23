@@ -5,7 +5,7 @@ import type {ReactNode} from 'react'
 import type {RunDetails} from '../../run-details'
 
 type ResultTab = 'walkthrough' | 'checks' | 'judges' | 'transcript' | 'tools'
-type RunResult = Pick<RunDetails['results'][number], 'walkthroughPreview'>
+type RunResult = Pick<Extract<RunDetails['results'][number], {type: 'success'}>, 'walkthroughPreview'>
 
 function BrowserFrame({children}: {children: ReactNode}) {
   return (

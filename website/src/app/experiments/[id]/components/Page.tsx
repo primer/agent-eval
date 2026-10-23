@@ -13,7 +13,9 @@ type ExperimentRun = {
   id: string
   name: string
   resultCount: number
-  checks: string
+  checks: string | null
+  status: 'complete' | 'incomplete'
+  errorCount: number
 }
 
 type Props = {
@@ -63,10 +65,23 @@ export function Page({experiment, runs, results}: Props) {
                   align: 'end',
                 },
                 {
+                  id: 'status',
+                  header: 'Status',
+                  field: 'status',
+                  renderCell: row => {
+                    return row.status === 'incomplete'
+                      ? `Incomplete (${row.errorCount} trial ${row.errorCount === 1 ? 'error' : 'errors'})`
+                      : 'Complete'
+                  },
+                },
+                {
                   id: 'checks',
                   header: 'Checks',
                   field: 'checks',
                   align: 'end',
+                  renderCell: row => {
+                    return row.checks ?? 'Unavailable (incomplete evaluation)'
+                  },
                 },
               ]}
               data={runs}

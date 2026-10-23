@@ -17,6 +17,7 @@ import {
   addTrialResultToSummary,
   createTrialSummaryComparator,
   createTrialSummary,
+  formatTrialErrors,
   type TrialSummary,
 } from '../trial/report'
 import type {Benchmark, Capability} from './benchmark'
@@ -82,13 +83,27 @@ function createBenchmarkReport({benchmark, runPlanResult}: CreateBenchmarkReport
     return `Benchmark: ${benchmark.name}\nNo trial results.`
   }
 
+  const results = runPlanResult.results.flatMap(({trial, result}) => {
+    if (result.type === 'error') {
+      return []
+    }
+    return [{trial, result}]
+  })
+  if (results.length !== runPlanResult.results.length) {
+    return [
+      `Benchmark: ${benchmark.name}`,
+      'Status: Incomplete\nComparative results are unavailable because one or more trials failed.',
+      formatTrialErrors(runPlanResult.results),
+    ].join('\n\n')
+  }
+
   const comparisons = new Map<string, BenchmarkComparison>()
   const benchmarkTreatmentId = getTreatmentId('Benchmark')
-  const showRunner = runPlanResult.results.some(({trial}) => {
+  const showRunner = results.some(({trial}) => {
     return trial.runner === 'copilot-sdk'
   })
 
-  for (const {trial, result} of runPlanResult.results) {
+  for (const {trial, result} of results) {
     if (trial.treatment.id !== ControlTreatment.id && trial.treatment.id !== benchmarkTreatmentId) {
       throw new Error(`Unexpected benchmark treatment for trial "${trial.id}": ${trial.treatment.name}`)
     }

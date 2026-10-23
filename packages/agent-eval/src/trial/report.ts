@@ -1,4 +1,5 @@
 import type {RunTrialResult} from './run'
+import type {Trial} from './trial'
 import {formatCredits, formatDuration, formatNumber, type TableRow} from '../report/format'
 import {
   addCheckResults,
@@ -42,7 +43,7 @@ function createTrialSummary(): TrialSummary {
   }
 }
 
-function addTrialResultToSummary(summary: TrialSummary, result: RunTrialResult): void {
+function addTrialResultToSummary(summary: TrialSummary, result: Extract<RunTrialResult, {type: 'success'}>): void {
   summary.runs += 1
   const scenarioId = result.trial.scenario.id
   summary.scenarioRuns.set(scenarioId, (summary.scenarioRuns.get(scenarioId) ?? 0) + 1)
@@ -125,6 +126,17 @@ function formatTrialSummary(summary: TrialSummary, dimensions: Array<CheckDimens
   }
 }
 
+function formatTrialErrors(results: Array<{trial: Trial; result: RunTrialResult}>): string {
+  return results
+    .flatMap(({trial, result}) => {
+      if (result.type === 'success') {
+        return []
+      }
+      return [`Trial "${trial.id}" failed: ${result.error.name}: ${result.error.message}`]
+    })
+    .join('\n')
+}
+
 export {
   REPORT_CHECKS_NOTE,
   REPORT_USAGE_NOTE,
@@ -134,5 +146,6 @@ export {
   createTrialSummaryComparator,
   createTrialSummary,
   formatTrialSummary,
+  formatTrialErrors,
 }
 export type {TrialSummary}

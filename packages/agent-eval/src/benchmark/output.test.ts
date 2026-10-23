@@ -1,10 +1,16 @@
 import {expect, expectTypeOf, test} from 'vitest'
 import type {CopilotRunner} from '../copilot-runner'
 import {VirtualHost} from '../host'
+import {RunTrialResultSchema} from '../trial/run'
+import {getBenchmark} from './get'
+import {createBenchmarkPlan} from './plan'
 import {
   BenchmarkOutputFileSchema,
+  createBenchmarkOutput,
+  listBenchmarkOutputFiles,
   mergeBenchmarkOutputFiles,
   parseBenchmarkTrialOutput,
+  writeBenchmarkOutput,
   type BenchmarkTrialOutput,
 } from './output'
 
@@ -49,7 +55,78 @@ test('parses legacy benchmark output with a required CLI runner', () => {
   const parsed = parseBenchmarkTrialOutput(trial, capabilities)
 
   expect(parsed.runner).toBe('copilot-cli')
+  expect(parsed.type).toBe('success')
   expectTypeOf<BenchmarkTrialOutput['runner']>().toEqualTypeOf<CopilotRunner>()
+})
+
+test('preserves successful and failed benchmark trials through writing and merging shards', async () => {
+  const host = VirtualHost.create({
+    '/benchmarks/example.ts':
+      'export default {name: "Example", description: "Compare treatments", models: ["gpt-5.5"], capabilities: [{name: "Components", scenarios: ["example"]}]}',
+    '/scenarios/example/package.json': '{}',
+    '/scenarios/example/scenario.config.ts': 'export default {prompt: "Build a page"}',
+  })
+  const benchmark = await getBenchmark({
+    host,
+    name: 'example',
+    benchmarksDirectory: '/benchmarks',
+    scenariosDirectory: '/scenarios',
+  })
+  const plan = createBenchmarkPlan({benchmark})
+  const results = plan.trials.map((entry, index) => {
+    return {
+      trial: entry,
+      result: RunTrialResultSchema.parse(
+        index === 0
+          ? {
+              type: 'error',
+              error: {
+                name: 'TypeError',
+                message: 'Sandbox failed',
+              },
+            }
+          : {
+              type: 'success',
+              trial: entry,
+              agent: trial.agent,
+              artifacts: {
+                ...trial.artifacts,
+                directory: `/results/artifacts/${entry.id}`,
+              },
+              checks: trial.checks,
+              judges: trial.judges,
+              walkthrough: trial.walkthrough,
+            },
+      ),
+    }
+  })
+  const expected = createBenchmarkOutput({benchmark, runPlanResult: {results}})
+
+  for (const [index, result] of results.entries()) {
+    await writeBenchmarkOutput({
+      host,
+      output: createBenchmarkOutput({benchmark, runPlanResult: {results: [result]}}),
+      outputPath: `/results/output-${index + 1}.json`,
+    })
+  }
+  const files = await listBenchmarkOutputFiles({host, outputDirectory: '/results'})
+  const merged = await mergeBenchmarkOutputFiles({
+    host,
+    outputDirectory: '/results',
+    outputs: files.map(([output]) => {
+      return output
+    }),
+  })
+
+  expect(merged).toEqual(expected)
+  const failed = merged.trials.get(results[0].trial.id)
+  expect(failed).toMatchObject({
+    type: 'error',
+    capabilityId: results[0].trial.capability.id,
+    error: {name: 'TypeError', message: 'Sandbox failed'},
+  })
+  expect(failed).not.toHaveProperty('agent')
+  expect(failed).not.toHaveProperty('artifacts')
 })
 
 test('preserves check annotations and locations in serialized benchmark trial output', () => {
@@ -105,6 +182,9 @@ test('preserves check annotations and locations in serialized benchmark trial ou
 
   const parsed = parseBenchmarkTrialOutput(JSON.parse(JSON.stringify({...trial, checks})), capabilities)
 
+  if (parsed.type !== 'success') {
+    throw new Error('Expected successful trial output')
+  }
   expect(parsed.checks).toEqual(checks)
 })
 

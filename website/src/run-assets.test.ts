@@ -5,7 +5,15 @@ import {getBenchmarkRun, listBenchmarkRuns} from './benchmark-results'
 import {list as listBenchmarks} from './benchmarks'
 import {get as getExperimentRun, list as listExperimentRuns} from './runs'
 import {getRunAsset, listRunAssetParams} from './run-assets'
-import {checks, createBenchmarkOutput, createExperimentOutput, createTrial, judges, session} from './test-fixtures'
+import {
+  checks,
+  createBenchmarkOutput,
+  createErrorTrial,
+  createExperimentOutput,
+  createTrial,
+  judges,
+  session,
+} from './test-fixtures'
 
 vi.mock('./benchmark-results', () => {
   return {getBenchmarkRun: vi.fn(), listBenchmarkRuns: vi.fn()}
@@ -124,6 +132,37 @@ test('handles empty run collections without inventing data', async () => {
   expect(await listRunAssetParams()).toEqual([{asset: ['__no-runs__']}])
   expect((await getRunAsset(['__no-runs__'])).status).toBe(404)
 })
+
+test.each(['benchmarks', 'experiments'] as const)(
+  'does not enumerate or read artifacts for failed %s trials',
+  async collection => {
+    const error = createErrorTrial()
+    const metadata = {
+      id: '2026-09-15',
+      name: '2026-09-15',
+      date: new Date('2026-09-15'),
+      directory: '/missing-run-directory',
+    }
+    const output = collection === 'benchmarks' ? createBenchmarkOutput([error]) : createExperimentOutput([error])
+    if (collection === 'benchmarks') {
+      const run = {...metadata, output: createBenchmarkOutput([error])}
+      vi.mocked(listBenchmarks).mockResolvedValue([
+        {id: output.id, name: 'Benchmark', description: '', models: [], capabilities: []},
+      ])
+      vi.mocked(listBenchmarkRuns).mockResolvedValue([run])
+      vi.mocked(getBenchmarkRun).mockResolvedValue(run)
+    } else {
+      const run = {...metadata, experimentId: output.id, output}
+      vi.mocked(listExperimentRuns).mockResolvedValue([run])
+      vi.mocked(getExperimentRun).mockResolvedValue(run)
+    }
+    expect(await listRunAssetParams()).toEqual([{asset: ['__no-runs__']}])
+    for (const filename of ['details.json', 'transcript.json', 'media-0.png']) {
+      const response = await getRunAsset([collection, output.id, metadata.name, error.id, filename])
+      expect(response.status).toBe(404)
+    }
+  },
+)
 
 test.each(['benchmarks', 'experiments'] as const)(
   'rejects escaping media before reading host data for %s',

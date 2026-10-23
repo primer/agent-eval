@@ -1,18 +1,19 @@
 # Focused reruns
 
+## Table of contents
+
+- [Critical](#critical), L:11
+- [Agree on scope](#agree-on-scope), L:18
+- [Preserve the comparison](#preserve-the-comparison), L:24
+- [Plan and execute](#plan-and-execute), L:36
+- [Compare and iterate](#compare-and-iterate), L:46
+
 ## Critical
 
 Do not edit setup or launch an evaluation without the user's approval. Preserve
 the baseline and use a fresh output directory for every run. Isolate one agreed
 intervention, keep grading and unrelated setup fixed, and never leak grading
 answers into instructions. Ask before another change or paid rerun.
-
-## Table of contents
-
-- [Agree on scope](#agree-on-scope)
-- [Preserve the comparison](#preserve-the-comparison)
-- [Plan and execute](#plan-and-execute)
-- [Compare and iterate](#compare-and-iterate)
 
 ## Agree on scope
 
@@ -43,6 +44,9 @@ uncontaminated.
    Run into a fresh output directory, never over the baseline.
 
 ## Compare and iterate
+
+If either evaluation contains a trial execution error, mark it incomplete and
+diagnose the failure instead of comparing partial results.
 
 Compare the targeted behavior, checks/judges, regressions, errors, and usage.
 Verify actual tool use in the new messages rather than relying on installation

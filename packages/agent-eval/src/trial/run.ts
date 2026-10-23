@@ -53,16 +53,37 @@ const TrialChecksSchema = z.array(CheckOutputSchema)
 
 const TrialJudgesSchema = z.array(JudgeOutputSchema)
 
-const RunTrialResultSchema = z.object({
-  agent: TrialAgentSchema,
-  artifacts: TrialArtifactsSchema,
-  checks: TrialChecksSchema,
-  judges: TrialJudgesSchema,
-  trial: TrialSchema,
-  walkthrough: TrialWalkthroughSchema,
+const TrialErrorSchema = z.object({
+  name: z.string(),
+  message: z.string(),
+  stack: z.optional(z.string()),
 })
 
+const RunTrialResultSchema = z.discriminatedUnion('type', [
+  z.strictObject({
+    type: z.literal('success'),
+    agent: TrialAgentSchema,
+    artifacts: TrialArtifactsSchema,
+    checks: TrialChecksSchema,
+    judges: TrialJudgesSchema,
+    trial: TrialSchema,
+    walkthrough: TrialWalkthroughSchema,
+  }),
+  z.strictObject({
+    type: z.literal('error'),
+    error: TrialErrorSchema,
+  }),
+])
+
 type RunTrialResult = z.infer<typeof RunTrialResultSchema>
+
+function serializeTrialError(error: unknown): z.infer<typeof TrialErrorSchema> {
+  return {
+    name: error instanceof Error ? error.name : 'Error',
+    message: error instanceof Error ? error.message : String(error),
+    stack: error instanceof Error ? error.stack : undefined,
+  }
+}
 
 async function runTrial({
   artifactsDirectory,
@@ -74,52 +95,60 @@ async function runTrial({
 }: RunTrialOptions): Promise<RunTrialResult> {
   logger.info('Running trial: %s', trial.id)
 
-  await setupStage.run({
-    sandbox,
-    trial,
-  })
+  try {
+    await setupStage.run({
+      sandbox,
+      trial,
+    })
 
-  const {agent} = await taskStage.run({
-    copilotQueue,
-    copilotToken,
-    sandbox,
-    trial,
-  })
+    const {agent} = await taskStage.run({
+      copilotQueue,
+      copilotToken,
+      sandbox,
+      trial,
+    })
 
-  const {results: checks} = await verifyStage.run({
-    sandbox,
-    trial,
-  })
+    const {results: checks} = await verifyStage.run({
+      sandbox,
+      trial,
+    })
 
-  const {results: judges} = await judgeStage.run({
-    copilotQueue,
-    copilotToken,
-    sandbox,
-    trial,
-  })
+    const {results: judges} = await judgeStage.run({
+      copilotQueue,
+      copilotToken,
+      sandbox,
+      trial,
+    })
 
-  const {walkthrough} = await captureStage.run({
-    copilotQueue,
-    copilotToken,
-    sandbox,
-    trial,
-  })
+    const {walkthrough} = await captureStage.run({
+      copilotQueue,
+      copilotToken,
+      sandbox,
+      trial,
+    })
 
-  const {artifacts} = await saveStage.run({
-    artifactsDirectory,
-    host,
-    sandbox,
-    trial,
-    walkthrough,
-  })
+    const {artifacts} = await saveStage.run({
+      artifactsDirectory,
+      host,
+      sandbox,
+      trial,
+      walkthrough,
+    })
 
-  return {
-    artifacts,
-    agent,
-    checks,
-    trial,
-    judges,
-    walkthrough,
+    return {
+      type: 'success',
+      artifacts,
+      agent,
+      checks,
+      trial,
+      judges,
+      walkthrough,
+    }
+  } catch (error) {
+    return {
+      type: 'error',
+      error: serializeTrialError(error),
+    }
   }
 }
 
@@ -577,8 +606,10 @@ export {
   TrialArtifactsSchema,
   TrialChecksSchema,
   TrialJudgesSchema,
+  TrialErrorSchema,
   TrialWalkthroughSchema,
   runTrial,
+  serializeTrialError,
   RunTrialResultSchema,
 }
 export type {RunTrialResult}

@@ -158,7 +158,11 @@ test.each(['benchmark', 'experiment'] as const)(
       throw new Error('Expected an available bundle')
     }
     const details = await createExperimentRunDetails('2026-09-15', bundle)
-    expect(details.results[0].counts.checks).toEqual([...output.trials.values()][0].checks.length)
+    const trial = [...output.trials.values()][0]
+    if (trial.type !== 'success') {
+      throw new Error('Expected a successful trial')
+    }
+    expect(details.results[0]).toMatchObject({counts: {checks: trial.checks.length}})
   },
 )
 

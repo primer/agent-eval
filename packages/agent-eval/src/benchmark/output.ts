@@ -8,6 +8,7 @@ import {
   TrialAgentSchema,
   TrialArtifactsSchema,
   TrialChecksSchema,
+  TrialErrorSchema,
   TrialJudgesSchema,
   TrialWalkthroughSchema,
 } from '../trial/run'
@@ -18,19 +19,29 @@ import {ModelVariantSchema} from '../model'
 import {DefaultHost, type Host} from '../host'
 import {resolveTrialArtifactsPath} from '../result-path'
 
-const BenchmarkTrialOutputSchema = z.object({
-  agent: TrialAgentSchema,
-  artifacts: TrialArtifactsSchema,
+const BenchmarkTrialMetadataSchema = z.object({
   capabilityId: z.string(),
-  checks: z._default(TrialChecksSchema, []),
   id: z.string(),
-  judges: TrialJudgesSchema,
   model: ModelVariantSchema,
   runner: z._default(CopilotRunnerSchema, 'copilot-cli'),
   scenarioId: z.string(),
   treatmentId: z.string(),
-  walkthrough: TrialWalkthroughSchema,
 })
+
+const BenchmarkTrialOutputSchema = z.discriminatedUnion('type', [
+  z.extend(BenchmarkTrialMetadataSchema, {
+    type: z._default(z.literal('success'), 'success'),
+    agent: TrialAgentSchema,
+    artifacts: TrialArtifactsSchema,
+    checks: z._default(TrialChecksSchema, []),
+    judges: TrialJudgesSchema,
+    walkthrough: TrialWalkthroughSchema,
+  }),
+  z.extend(BenchmarkTrialMetadataSchema, {
+    type: z.literal('error'),
+    error: TrialErrorSchema,
+  }),
+])
 
 type BenchmarkTrialOutput = z.infer<typeof BenchmarkTrialOutputSchema>
 
@@ -242,19 +253,32 @@ function createBenchmarkOutput({benchmark, runPlanResult}: CreateBenchmarkOutput
       })
     }
 
-    result.trials.set(trial.id, {
-      agent: trialResult.agent,
-      artifacts: trialResult.artifacts,
+    const metadata = {
       capabilityId: trial.capability.id,
-      checks: trialResult.checks,
       id: trial.id,
-      judges: trialResult.judges,
       model: trial.model,
       runner: trial.runner,
       scenarioId: trial.scenario.id,
       treatmentId: trial.treatment.id,
-      walkthrough: trialResult.walkthrough,
-    })
+    }
+    result.trials.set(
+      trial.id,
+      trialResult.type === 'error'
+        ? {
+            ...metadata,
+            type: 'error',
+            error: trialResult.error,
+          }
+        : {
+            ...metadata,
+            type: 'success',
+            agent: trialResult.agent,
+            artifacts: trialResult.artifacts,
+            checks: trialResult.checks,
+            judges: trialResult.judges,
+            walkthrough: trialResult.walkthrough,
+          },
+    )
   }
 
   return result
@@ -327,22 +351,11 @@ async function writeBenchmarkOutput({host = DefaultHost, output, outputPath}: Wr
   await host.fs.promises.mkdir(outputDirectory, {recursive: true})
 
   for (const trial of output.trials.values()) {
-    const trialFilePath = path.join(trial.artifacts.directory, `${trial.id}.json`)
-    const trialFile: BenchmarkTrialOutput = {
-      agent: trial.agent,
-      artifacts: trial.artifacts,
-      capabilityId: trial.capabilityId,
-      checks: trial.checks,
-      id: trial.id,
-      judges: trial.judges,
-      model: trial.model,
-      scenarioId: trial.scenarioId,
-      runner: trial.runner,
-      treatmentId: trial.treatmentId,
-      walkthrough: trial.walkthrough,
-    }
-
-    await host.fs.promises.writeFile(trialFilePath, JSON.stringify(trialFile, null, 2), 'utf-8')
+    const trialDirectory =
+      trial.type === 'success' ? trial.artifacts.directory : path.join(outputDirectory, 'artifacts', trial.id)
+    const trialFilePath = path.join(trialDirectory, `${trial.id}.json`)
+    await host.fs.promises.mkdir(trialDirectory, {recursive: true})
+    await host.fs.promises.writeFile(trialFilePath, JSON.stringify(trial, null, 2), 'utf-8')
 
     trials.set(trial.id, path.relative(outputDirectory, trialFilePath))
   }

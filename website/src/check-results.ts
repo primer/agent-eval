@@ -6,11 +6,11 @@ const {addCheckResults, createTrialSummary, createTrialSummaryComparator, format
     '@primer/agent-eval'
   )
 
-function summarizeTrials(trials: Array<ExperimentTrialOutput>): TrialSummary {
+function summarizeTrials(trials: Array<Extract<ExperimentTrialOutput, {type: 'success'}>>): TrialSummary {
   const summary = createTrialSummary()
   for (const trial of trials) {
-    summary.runs += 1
     summary.scenarioRuns.set(trial.scenarioId, (summary.scenarioRuns.get(trial.scenarioId) ?? 0) + 1)
+    summary.runs += 1
     addCheckResults(summary.checks, trial.scenarioId, trial.checks)
     for (const session of trial.agent.sessions) {
       summary.outputTokens += session.outputTokens
@@ -31,7 +31,7 @@ function formatChecks(summary: TrialSummary, control?: TrialSummary): string {
   return String(formatted.Checks ?? 'N/A')
 }
 
-function sortTrialGroups<Trial extends ExperimentTrialOutput>(
+function sortTrialGroups<Trial extends Extract<ExperimentTrialOutput, {type: 'success'}>>(
   groups: Array<Array<Trial>>,
   treatmentId: string,
 ): Array<Array<Trial>> {

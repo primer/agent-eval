@@ -1,6 +1,9 @@
 import type {CopilotRunner, ExperimentTrialOutput} from '@primer/agent-eval'
 import {formatChecks, summarizeTrials} from './check-results'
 import type {Run} from './runs'
+import {getEvaluationTrials, type IncompleteEvaluation} from './evaluation-state'
+
+type SuccessfulTrial = Extract<ExperimentTrialOutput, {type: 'success'}>
 
 export type TreatmentResult = {
   id: string
@@ -11,14 +14,15 @@ export type TreatmentResult = {
   trials: number
   scenarios: number
   checks: string
-  outputTokens: number
-  premiumRequests: number
+  outputTokens: number | null
+  premiumRequests: number | null
   aiCredits: number | null
-  sessionDurationMs: number
-  totalApiDurationMs: number
+  sessionDurationMs: number | null
+  totalApiDurationMs: number | null
 }
 
-export type ExperimentResults = {
+export type CompleteExperimentResults = {
+  status: 'complete'
   date: string
   treatments: Array<TreatmentResult>
   scenarios: Array<{
@@ -29,12 +33,14 @@ export type ExperimentResults = {
     id: string
     name: string
     treatments: Array<TreatmentResult>
-    scenarios: ExperimentResults['scenarios']
+    scenarios: CompleteExperimentResults['scenarios']
   }>
 }
 
-function summarizeTreatments(run: Run, results: Array<ExperimentTrialOutput>): Array<TreatmentResult> {
-  const groups = new Map<string, Array<ExperimentTrialOutput>>()
+export type ExperimentResults = CompleteExperimentResults | IncompleteEvaluation
+
+function summarizeTreatments(run: Run, results: Array<SuccessfulTrial>): Array<TreatmentResult> {
+  const groups = new Map<string, Array<SuccessfulTrial>>()
 
   for (const result of results) {
     const key = JSON.stringify([result.treatmentId, result.runner, result.model.name, result.model.reasoningEffort])
@@ -63,11 +69,11 @@ function summarizeTreatments(run: Run, results: Array<ExperimentTrialOutput>): A
         }),
       ).size,
       checks: formatChecks(totals),
-      outputTokens: totals.outputTokens / trials.length,
-      premiumRequests: totals.premiumRequests / trials.length,
-      aiCredits: totals.aiCredits === null ? null : totals.aiCredits / trials.length,
-      sessionDurationMs: totals.sessionDurationMs / trials.length,
-      totalApiDurationMs: totals.totalApiDurationMs / trials.length,
+      outputTokens: totals.runs === 0 ? null : totals.outputTokens / totals.runs,
+      premiumRequests: totals.runs === 0 ? null : totals.premiumRequests / totals.runs,
+      aiCredits: totals.aiCredits === null || totals.runs === 0 ? null : totals.aiCredits / totals.runs,
+      sessionDurationMs: totals.runs === 0 ? null : totals.sessionDurationMs / totals.runs,
+      totalApiDurationMs: totals.runs === 0 ? null : totals.totalApiDurationMs / totals.runs,
     }
   }).toSorted((first, second) => {
     return (
@@ -82,10 +88,10 @@ function summarizeTreatments(run: Run, results: Array<ExperimentTrialOutput>): A
 
 function summarizeScenarios(
   run: Run,
-  results: Array<ExperimentTrialOutput>,
+  results: Array<SuccessfulTrial>,
   scenarioIds: Iterable<string>,
-): ExperimentResults['scenarios'] {
-  const scenarios = new Map<string, Array<ExperimentTrialOutput>>()
+): CompleteExperimentResults['scenarios'] {
+  const scenarios = new Map<string, Array<SuccessfulTrial>>()
   for (const id of scenarioIds) {
     scenarios.set(id, [])
   }
@@ -109,9 +115,17 @@ export function getExperimentResults(run: Run | undefined): ExperimentResults | 
   if (!run) {
     return null
   }
-  const trials = [...run.output.trials.values()]
+  const evaluation = getEvaluationTrials(run.output.trials.values())
+  if (evaluation.status === 'incomplete') {
+    return {
+      ...evaluation,
+      date: run.name,
+    }
+  }
+  const trials = evaluation.trials
 
   return {
+    status: 'complete',
     date: run.name,
     treatments: summarizeTreatments(run, trials),
     scenarios: run.output.capabilities.size === 0 ? summarizeScenarios(run, trials, run.output.scenarios.keys()) : [],

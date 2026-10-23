@@ -8,6 +8,7 @@ import type {Benchmark} from '../../benchmarks'
 import {Link} from '../../components/Link'
 import {BenchmarkTrends} from './BenchmarkTrends'
 import styles from './BenchmarkOverview.module.css'
+import {IncompleteEvaluationNotice} from './IncompleteEvaluationNotice'
 
 type BenchmarkOverviewResult = BenchmarkOverviewData['results'][number]
 
@@ -54,7 +55,8 @@ function BenchmarkResultsTable({
         Each metric is the Benchmark result across all capabilities, followed by the percent change from Control in
         parentheses. Models use equal-weight ranks across shared checks with complete, error-free values and a scoring
         direction. Implementation-agent usage breaks ties. Checks average per-check, per-trial pass percentages or
-        measurement means; units and directions stay separate. Skips and errors are shown separately.
+        measurement means; units and directions stay separate. Usage totals include all trials. Skips and check errors
+        are shown separately. Evaluations with trial execution errors have no aggregate results.
         {date ? (
           <>
             {' '}
@@ -146,7 +148,18 @@ function BenchmarkResultsTable({
 export function BenchmarkOverview({benchmark, overview}: {benchmark: Benchmark; overview: BenchmarkOverviewData}) {
   return (
     <Stack padding="normal" gap="spacious">
-      <BenchmarkResultsTable benchmark={benchmark} date={overview.date} results={overview.results} />
+      {overview.status === 'incomplete' ? (
+        <>
+          <h1 className="text-title-medium">{benchmark.name} benchmark</h1>
+          <p>Latest run: {overview.date}</p>
+          <IncompleteEvaluationNotice
+            errors={overview.errors}
+            href={`/benchmarks/${benchmark.id}/runs/${overview.date}` as Route}
+          />
+        </>
+      ) : (
+        <BenchmarkResultsTable benchmark={benchmark} date={overview.date} results={overview.results} />
+      )}
       <BenchmarkTrends capabilities={overview.capabilities} metrics={overview.metrics} points={overview.trends} />
     </Stack>
   )

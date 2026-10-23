@@ -1,6 +1,6 @@
 'use client'
 
-import {Breadcrumbs, Button, FormControl, Label, Select, Stack, UnderlineNav} from '@primer/react'
+import {Breadcrumbs, Button, Flash, FormControl, Label, Select, Stack, UnderlineNav} from '@primer/react'
 import {Blankslate, DataTable, Table} from '@primer/react/experimental'
 import type {RunDetails, TranscriptEntry} from '../../run-details'
 import {loadTrialDetails, loadTrialTranscript} from '../../run-data-client'
@@ -15,15 +15,17 @@ import {UiWalkthrough} from './UiWalkthrough'
 import {FileExplorer} from './FileExplorer'
 import type {FilePreviewReference} from '../../file-preview'
 import type {WorkspaceFiles} from '../../workspace-files'
+import {IncompleteEvaluationNotice} from './IncompleteEvaluationNotice'
 
 const Transcript = lazy(async () => {
   const module = await import('./Transcript')
   return {default: module.Transcript}
 })
 
-type RunResult = Omit<RunDetails['results'][number], 'workspace'> & {
+type SuccessfulRunResult = Omit<Extract<RunDetails['results'][number], {type: 'success'}>, 'workspace'> & {
   workspace: WorkspaceFiles<FilePreviewReference>
 }
+type RunResult = SuccessfulRunResult | Extract<RunDetails['results'][number], {type: 'error'}>
 
 type ScenarioResultGroup = {
   id: string
@@ -40,7 +42,7 @@ function formatDuration(milliseconds: number): string {
   return `${(milliseconds / 1000).toFixed(1)} s`
 }
 
-export function ToolBreakdown({tools}: {tools: RunResult['tools']}) {
+export function ToolBreakdown({tools}: {tools: SuccessfulRunResult['tools']}) {
   const headingId = useId()
   const total = tools.reduce((count, tool) => {
     return count + tool.count
@@ -218,7 +220,7 @@ function AsyncContent<T>({
   return children(state.data)
 }
 
-function ResultTabs({index, result}: {index: number; result: RunResult}) {
+function ResultTabs({index, result}: {index: number; result: SuccessfulRunResult}) {
   const [selectedTab, setSelectedTab] = useState<ResultTab | 'code'>('walkthrough')
   const tabIds = {
     walkthrough: `result-${index}-walkthrough-tab`,
@@ -523,6 +525,7 @@ function ScenarioResults({group, index}: {group: ScenarioResultGroup; index: num
                     <Select.Option key={trial.id} value={trial.id}>
                       Trial {trialIndex + 1} ({trial.id}){' - '}
                       {getRunnerLabel(trial)}
+                      {trial.type === 'error' ? ' (failed)' : ''}
                     </Select.Option>
                   )
                 })}
@@ -531,55 +534,73 @@ function ScenarioResults({group, index}: {group: ScenarioResultGroup; index: num
           ) : null}
         </div>
       </header>
-      <div className="flex flex-col gap-4">
-        <section className="bg-default border border-default rounded-lg p-4" aria-labelledby={summaryHeadingId}>
-          <div className="flex items-center flex-wrap gap-2 mb-3">
-            <h3 className="text-title-small m-0" id={summaryHeadingId}>
-              Run summary
-            </h3>
-            <Label aria-label={`Runner: ${getRunnerLabel(selectedResult)}`}>{getRunnerLabel(selectedResult)}</Label>
-          </div>
-          <dl className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3 m-0">
-            <div className="bg-muted rounded-md p-3">
-              <dt className="text-caption text-muted">Checks</dt>
-              <dd className="text-title-small m-0">{selectedResult.checkSummary}</dd>
-            </div>
-            <div className="bg-muted rounded-md p-3">
-              <dt className="text-caption text-muted">Turns</dt>
-              <dd className="text-title-small m-0">{selectedResult.turns}</dd>
-            </div>
-            <div className="bg-muted rounded-md p-3">
-              <dt className="text-caption text-muted">Output tokens</dt>
-              <dd className="text-title-small m-0">{selectedResult.outputTokens.toLocaleString('en-US')}</dd>
-            </div>
-            <div className="bg-muted rounded-md p-3">
-              <dt className="text-caption text-muted">Premium requests</dt>
-              <dd className="text-title-small m-0">{selectedResult.premiumRequests}</dd>
-            </div>
-            <div className="bg-muted rounded-md p-3">
-              <dt className="text-caption text-muted">AI credits</dt>
-              <dd className="text-title-small m-0">
-                {selectedResult.aiCredits === null
-                  ? 'N/A'
-                  : selectedResult.aiCredits.toLocaleString('en-US', {maximumFractionDigits: 3})}
-              </dd>
-            </div>
-            <div className="bg-muted rounded-md p-3">
-              <dt className="text-caption text-muted">API time</dt>
-              <dd className="text-title-small m-0">{formatDuration(selectedResult.totalApiDurationMs)}</dd>
-            </div>
-            <div className="bg-muted rounded-md p-3">
-              <dt className="text-caption text-muted">Session time</dt>
-              <dd className="text-title-small m-0">{formatDuration(selectedResult.sessionDurationMs)}</dd>
-            </div>
-          </dl>
-          <p className="text-caption text-muted mb-0">
-            Checks average per-check pass percentages or measurement means. Skipped outcomes and errors are excluded
-            from values and shown separately. Usage includes implementation sessions only.
+      {selectedResult.type === 'error' ? (
+        <Flash variant="danger">
+          <h3 className="text-title-small">Trial failed</h3>
+          <p>
+            {selectedResult.error.name}: {selectedResult.error.message}
           </p>
-        </section>
-        <ResultTabs index={index} result={selectedResult} />
-      </div>
+          <p>No completed results, usage, or artifacts are available for this trial.</p>
+          {selectedResult.error.stack ? (
+            <details>
+              <summary>Stack trace</summary>
+              <pre className="overflow-auto whitespace-pre-wrap break-words text-body-small">
+                {selectedResult.error.stack}
+              </pre>
+            </details>
+          ) : null}
+        </Flash>
+      ) : (
+        <div className="flex flex-col gap-4">
+          <section className="bg-default border border-default rounded-lg p-4" aria-labelledby={summaryHeadingId}>
+            <div className="flex items-center flex-wrap gap-2 mb-3">
+              <h3 className="text-title-small m-0" id={summaryHeadingId}>
+                Run summary
+              </h3>
+              <Label aria-label={`Runner: ${getRunnerLabel(selectedResult)}`}>{getRunnerLabel(selectedResult)}</Label>
+            </div>
+            <dl className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3 m-0">
+              <div className="bg-muted rounded-md p-3">
+                <dt className="text-caption text-muted">Checks</dt>
+                <dd className="text-title-small m-0">{selectedResult.checkSummary}</dd>
+              </div>
+              <div className="bg-muted rounded-md p-3">
+                <dt className="text-caption text-muted">Turns</dt>
+                <dd className="text-title-small m-0">{selectedResult.turns}</dd>
+              </div>
+              <div className="bg-muted rounded-md p-3">
+                <dt className="text-caption text-muted">Output tokens</dt>
+                <dd className="text-title-small m-0">{selectedResult.outputTokens.toLocaleString('en-US')}</dd>
+              </div>
+              <div className="bg-muted rounded-md p-3">
+                <dt className="text-caption text-muted">Premium requests</dt>
+                <dd className="text-title-small m-0">{selectedResult.premiumRequests}</dd>
+              </div>
+              <div className="bg-muted rounded-md p-3">
+                <dt className="text-caption text-muted">AI credits</dt>
+                <dd className="text-title-small m-0">
+                  {selectedResult.aiCredits === null
+                    ? 'N/A'
+                    : selectedResult.aiCredits.toLocaleString('en-US', {maximumFractionDigits: 3})}
+                </dd>
+              </div>
+              <div className="bg-muted rounded-md p-3">
+                <dt className="text-caption text-muted">API time</dt>
+                <dd className="text-title-small m-0">{formatDuration(selectedResult.totalApiDurationMs)}</dd>
+              </div>
+              <div className="bg-muted rounded-md p-3">
+                <dt className="text-caption text-muted">Session time</dt>
+                <dd className="text-title-small m-0">{formatDuration(selectedResult.sessionDurationMs)}</dd>
+              </div>
+            </dl>
+            <p className="text-caption text-muted mb-0">
+              Checks average per-check pass percentages or measurement means. Skipped outcomes and errors are excluded
+              from values and shown separately. Usage includes implementation sessions only.
+            </p>
+          </section>
+          <ResultTabs index={index} result={selectedResult} />
+        </div>
+      )}
     </article>
   )
 }
@@ -597,6 +618,9 @@ type RunDetailsViewProps = {
 
 export function RunDetailsView({resource, run}: RunDetailsViewProps) {
   const [selectedCapabilityId, setSelectedCapabilityId] = useState('')
+  const errors = run.results.filter(result => {
+    return result.type === 'error'
+  })
   const capabilities = new Map(
     run.results.flatMap(result => {
       return result.capability ? [[result.capability.id, result.capability] as const] : []
@@ -621,6 +645,16 @@ export function RunDetailsView({resource, run}: RunDetailsViewProps) {
           <Breadcrumbs.Item selected>{run.date}</Breadcrumbs.Item>
         </Breadcrumbs>
         <h1 className="sr-only">Run results for {resource.name}</h1>
+        {errors.length > 0 ? <IncompleteEvaluationNotice errors={errors} /> : null}
+        <p className="text-muted">
+          {run.results.length} trials,{' '}
+          {
+            run.results.filter(result => {
+              return result.type === 'error'
+            }).length
+          }{' '}
+          failed.
+        </p>
         {capabilities.size > 0 ? (
           <FormControl>
             <FormControl.Label>Capability</FormControl.Label>

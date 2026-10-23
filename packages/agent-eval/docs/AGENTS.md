@@ -46,7 +46,10 @@ setup improvements and offers focused reruns only with the user's approval.
   described in [Checks](references/checks.md).
 - Inspect the plan's combinations before running. Use a fresh output directory.
 - Finish by reading trial results and reporting outcomes and errors separately.
-  Command completion alone does not establish quality.
+  Narrow trial outputs by `type` before reading success-only fields. Command
+  completion alone does not establish quality. Any trial execution error makes
+  the selected evaluation incomplete; diagnose it without comparing partial
+  results. Completed trials with failing checks remain valid outcomes.
 - Interpret session AI credits using [Trials and results](references/trials-and-results.md);
   missing usage is not the same as zero cost.
 

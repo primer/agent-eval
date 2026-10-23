@@ -3,12 +3,17 @@ import {expect, test, vi} from 'vitest'
 import {VirtualHost} from '../host'
 import {AGENTS_DIR, COPILOT_DIR, VirtualSandbox, type Sandbox} from '../sandbox'
 import {ControlTreatment} from '../treatment'
-import {runTrial} from './run'
+import {RunTrialResultSchema, runTrial} from './run'
 import type {Trial} from './trial'
 
-test.each(['copilot-cli', 'copilot-sdk'] as const)(
-  'withholds check files during the task and restores them for verification (runner: %s)',
-  async runner => {
+test.each([
+  {runner: 'copilot-cli', status: 'passed'},
+  {runner: 'copilot-sdk', status: 'passed'},
+  {runner: 'copilot-cli', status: 'failed'},
+  {runner: 'copilot-cli', status: 'error'},
+] as const)(
+  'withholds check files and preserves a $status check result (runner: $runner)',
+  async ({runner, status}) => {
     const host = VirtualHost.create({
       '/scenarios/example/package.json': '{}',
       '/scenarios/example/scenario.config.ts': '',
@@ -24,7 +29,10 @@ test.each(['copilot-cli', 'copilot-sdk'] as const)(
       await expect(checkSandbox.readFile('vitest.config.scenario.ts')).resolves.toBe('private check config')
       await expect(checkSandbox.readFile('checks/reference.json')).resolves.toBe('private reference')
       await expect(checkSandbox.readFile('src/reference.json')).resolves.toBe('ordinary source')
-      return [{type: 'outcomes', outcomes: [{type: 'outcome', status: 'passed', annotations: []}]}]
+      if (status === 'error') {
+        throw new Error('Verification failed')
+      }
+      return [{type: 'outcomes', outcomes: [{type: 'outcome', status, annotations: []}]}]
     })
     const trial: Trial = {
       id: 'trial',
@@ -114,16 +122,81 @@ test.each(['copilot-cli', 'copilot-sdk'] as const)(
     })
 
     expect(taskCalls).toBe(1)
+    expect(checkRun).toHaveBeenCalledOnce()
+    if (status === 'error') {
+      expect(result).toMatchObject({
+        type: 'error',
+        error: {
+          name: 'Error',
+          message: 'Verification failed',
+        },
+      })
+      expect(result).not.toHaveProperty('checks')
+      return
+    }
+    expect(result.type).toBe('success')
+    if (result.type !== 'success') {
+      throw new Error(result.error.message)
+    }
     expect(result.agent.sessions[0].outputTokens).toBe(runner === 'copilot-cli' ? 42 : 0)
     expect(sandbox.runCommand).toHaveBeenCalledWith(
       'npm',
       ['install', '-g', '--prefix', '/home/node/.npm-global', '--allow-scripts=agent-browser', 'agent-browser'],
       {user: '1000:1000'},
     )
-    expect(checkRun).toHaveBeenCalledOnce()
     expect(result.checks[0]?.result).toEqual({
       type: 'outcomes',
-      outcomes: [{type: 'outcome', status: 'passed', annotations: []}],
+      outcomes: [{type: 'outcome', status, annotations: []}],
     })
   },
 )
+
+test.each([
+  {name: 'an Error with a stack', thrown: new TypeError('Setup failed')},
+  {name: 'a non-Error rejection', thrown: 'Setup failed'},
+])('returns a serializable failure for $name without starting the agent', async ({thrown}) => {
+  const host = VirtualHost.create()
+  await using sandbox = await VirtualSandbox.create({host})
+  const runCommand = vi.spyOn(sandbox, 'runCommand')
+  const trial: Trial = {
+    id: 'failed-trial',
+    runner: 'copilot-cli',
+    model: {name: 'gpt-5.5', reasoningEffort: 'high'},
+    treatment: ControlTreatment,
+    scenario: {
+      id: 'example',
+      directory: '/scenarios/example',
+      prompt: 'Update the example',
+      tags: [],
+      checks: [],
+      judges: [],
+      image: {type: 'Default'},
+      async setup() {
+        throw thrown
+      },
+    },
+  }
+
+  const result = await runTrial({
+    artifactsDirectory: '/artifacts',
+    copilotQueue: new Queue({concurrency: 1}),
+    copilotToken: 'test-token',
+    host,
+    sandbox,
+    trial,
+  })
+
+  expect(result).toEqual({
+    type: 'error',
+    error: {
+      name: thrown instanceof Error ? 'TypeError' : 'Error',
+      message: 'Setup failed',
+      stack: thrown instanceof Error ? thrown.stack : undefined,
+    },
+  })
+  expect(RunTrialResultSchema.parse(JSON.parse(JSON.stringify(result)))).toMatchObject({
+    type: 'error',
+    error: {message: 'Setup failed'},
+  })
+  expect(runCommand).not.toHaveBeenCalled()
+})

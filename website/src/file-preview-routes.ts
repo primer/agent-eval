@@ -107,7 +107,7 @@ async function getTrialWorkspace(params: FilePreviewParams) {
       const trial = [...run.output.trials.values()].find(candidate => {
         return candidate.id === params.trial
       })
-      if (!trial) {
+      if (!trial || trial.type === 'error') {
         return null
       }
       return {directory: run.directory, workspaceDirectory: trial.artifacts.workspaceDirectory}
@@ -117,7 +117,7 @@ async function getTrialWorkspace(params: FilePreviewParams) {
     const trial = [...run.output.trials.values()].find(candidate => {
       return candidate.id === params.trial
     })
-    if (!trial) {
+    if (!trial || trial.type === 'error') {
       return null
     }
     return {directory: run.directory, workspaceDirectory: trial.artifacts.workspaceDirectory}
@@ -182,6 +182,9 @@ async function generateFilePreviewParams(): Promise<Array<FilePreviewParams>> {
     }
     for (const run of await listBenchmarkRuns(benchmark.id)) {
       for (const trial of run.output.trials.values()) {
+        if (trial.type === 'error') {
+          continue
+        }
         await addWorkspace(
           {collection: 'benchmarks', id: benchmark.id, date: run.name, trial: trial.id},
           trial.artifacts.workspaceDirectory,
@@ -192,6 +195,9 @@ async function generateFilePreviewParams(): Promise<Array<FilePreviewParams>> {
   }
   for (const run of await listExperimentRuns()) {
     for (const trial of run.output.trials.values()) {
+      if (trial.type === 'error') {
+        continue
+      }
       await addWorkspace(
         {collection: 'experiments', id: run.output.id, date: run.name, trial: trial.id},
         trial.artifacts.workspaceDirectory,

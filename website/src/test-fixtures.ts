@@ -6,7 +6,9 @@ import type {
   JudgeOutput,
 } from '@primer/agent-eval'
 
-const session: ExperimentTrialOutput['agent']['sessions'][number] = {
+type SuccessfulTrial = Extract<ExperimentTrialOutput, {type: 'success'}>
+
+const session: SuccessfulTrial['agent']['sessions'][number] = {
   turns: 2,
   outputTokens: 100,
   premiumRequests: 1,
@@ -78,8 +80,9 @@ const checks: Array<CheckOutput> = [
   },
 ]
 
-function createTrial(overrides: Partial<ExperimentTrialOutput> = {}): ExperimentTrialOutput {
+function createTrial(overrides: Partial<SuccessfulTrial> = {}): SuccessfulTrial {
   return {
+    type: 'success',
     id: 'trial-1',
     runner: 'copilot-cli',
     model: {name: 'gpt-5.6-sol', reasoningEffort: 'medium'},
@@ -96,6 +99,25 @@ function createTrial(overrides: Partial<ExperimentTrialOutput> = {}): Experiment
     checks,
     walkthrough: {type: 'Unavailable'},
     judges,
+    ...overrides,
+  }
+}
+
+function createErrorTrial(
+  overrides: Partial<Extract<ExperimentTrialOutput, {type: 'error'}>> = {},
+): Extract<ExperimentTrialOutput, {type: 'error'}> {
+  return {
+    type: 'error',
+    id: 'failed-trial',
+    runner: 'copilot-cli',
+    model: {name: 'gpt-5.6-sol', reasoningEffort: 'medium'},
+    scenarioId: 'empty-state',
+    treatmentId: 'control',
+    error: {
+      name: 'Error',
+      message: 'Failed to start sandbox',
+      stack: 'Error: Failed to start sandbox\n    at setup',
+    },
     ...overrides,
   }
 }
@@ -140,4 +162,4 @@ function createBenchmarkOutput(
   }
 }
 
-export {checks, createBenchmarkOutput, createExperimentOutput, createTrial, judges, session}
+export {checks, createBenchmarkOutput, createErrorTrial, createExperimentOutput, createTrial, judges, session}

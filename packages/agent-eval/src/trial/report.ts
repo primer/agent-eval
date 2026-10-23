@@ -12,7 +12,6 @@ import {
 
 type TrialSummary = {
   runs: number
-  errors: number
   checks: Map<string, CheckSummary>
   scenarioRuns: Map<string, number>
   outputTokens: number
@@ -22,28 +21,18 @@ type TrialSummary = {
   totalApiDurationMs: number
 }
 
-const TRIAL_SUMMARY_COLUMNS = [
-  'Runs',
-  'Errors',
-  'Output Tokens',
-  'Premium Requests',
-  'AI Credits',
-  'Session Time',
-  'API Time',
-]
+const TRIAL_SUMMARY_COLUMNS = ['Runs', 'Output Tokens', 'Premium Requests', 'AI Credits', 'Session Time', 'API Time']
 
-const REPORT_USAGE_NOTE =
-  'Runs count completed trials only. Usage totals include completed implementation-agent sessions only (judge sessions and failed trials excluded).'
+const REPORT_USAGE_NOTE = 'Usage totals include implementation-agent sessions only (judge sessions excluded).'
 
 const REPORT_CHECKS_NOTE =
   'Checks average per-check, per-trial pass percentages or measurement means, keeping different units and directions separate. ' +
   'Skipped outcomes and errors are excluded from values and shown separately. ' +
-  'Groups without trial errors sort first. Ordering then uses equal-weight ranks across shared checks with values for every run and no errors; measurements without a direction are not ranked. Usage breaks ties.'
+  'Ordering uses equal-weight ranks across shared checks with values for every run and no errors; measurements without a direction are not ranked. Usage breaks ties.'
 
 function createTrialSummary(): TrialSummary {
   return {
     runs: 0,
-    errors: 0,
     checks: new Map(),
     scenarioRuns: new Map(),
     outputTokens: 0,
@@ -54,15 +43,10 @@ function createTrialSummary(): TrialSummary {
   }
 }
 
-function addTrialResultToSummary(summary: TrialSummary, trial: Trial, result: RunTrialResult): void {
-  const scenarioId = trial.scenario.id
-  summary.scenarioRuns.set(scenarioId, (summary.scenarioRuns.get(scenarioId) ?? 0) + 1)
-  if (result.type === 'error') {
-    summary.errors += 1
-    return
-  }
-
+function addTrialResultToSummary(summary: TrialSummary, result: Extract<RunTrialResult, {type: 'success'}>): void {
   summary.runs += 1
+  const scenarioId = result.trial.scenario.id
+  summary.scenarioRuns.set(scenarioId, (summary.scenarioRuns.get(scenarioId) ?? 0) + 1)
   addCheckResults(summary.checks, scenarioId, result.checks)
 
   for (const session of result.agent.sessions) {
@@ -126,24 +110,19 @@ function createTrialSummaryComparator(summaries: Array<TrialSummary>): (a: Trial
   }
 
   return (a, b) => {
-    return (
-      Number(a.errors > 0) - Number(b.errors > 0) ||
-      (ranks.get(a) ?? 0) - (ranks.get(b) ?? 0) ||
-      compareTrialSummaries(a, b)
-    )
+    return (ranks.get(a) ?? 0) - (ranks.get(b) ?? 0) || compareTrialSummaries(a, b)
   }
 }
 
 function formatTrialSummary(summary: TrialSummary, dimensions: Array<CheckDimension> = []): TableRow {
   return {
     Runs: summary.runs,
-    Errors: summary.errors,
     ...formatCheckSummaries(summary, dimensions),
-    'Output Tokens': summary.runs === 0 ? 'N/A' : formatNumber(summary.outputTokens),
-    'Premium Requests': summary.runs === 0 ? 'N/A' : formatNumber(summary.premiumRequests),
+    'Output Tokens': formatNumber(summary.outputTokens),
+    'Premium Requests': formatNumber(summary.premiumRequests),
     'AI Credits': summary.aiCredits === null ? 'N/A' : formatCredits(summary.aiCredits),
-    'Session Time': summary.runs === 0 ? 'N/A' : formatDuration(summary.sessionDurationMs),
-    'API Time': summary.runs === 0 ? 'N/A' : formatDuration(summary.totalApiDurationMs),
+    'Session Time': formatDuration(summary.sessionDurationMs),
+    'API Time': formatDuration(summary.totalApiDurationMs),
   }
 }
 

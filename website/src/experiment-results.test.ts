@@ -1,11 +1,20 @@
 import {expect, test} from 'vitest'
-import {getExperimentResults} from './experiment-results'
+import {getExperimentResults as readExperimentResults} from './experiment-results'
 import {createResult, createRun} from './test/experiment'
 import {checks, createErrorTrial, judges} from './test-fixtures'
+
+function getExperimentResults(run: Parameters<typeof readExperimentResults>[0]) {
+  const results = readExperimentResults(run)
+  if (results?.status === 'incomplete') {
+    throw new Error('Expected complete evaluation')
+  }
+  return results
+}
 
 test('distinguishes missing runs from runs with no trials', () => {
   expect(getExperimentResults(undefined)).toBeNull()
   expect(getExperimentResults(createRun([]))).toEqual({
+    status: 'complete',
     date: '2026-09-10',
     treatments: [],
     capabilities: [],
@@ -63,7 +72,6 @@ test('averages checks and implementation usage per trial, not per scenario or ou
       model: 'gpt-5.6-sol',
       reasoningEffort: 'medium',
       trials: 3,
-      errors: 0,
       scenarios: 2,
       checks: '66.7%',
       outputTokens: 500 / 3,
@@ -83,34 +91,31 @@ test('averages checks and implementation usage per trial, not per scenario or ou
   expect(summary?.scenarios[1].treatments[0]).toMatchObject({trials: 1, checks: '75.0%'})
 })
 
-test('keeps failed attempts visible without diluting successful usage or complete-check coverage', () => {
+test('withholds all aggregate results when any trial fails, including unrelated successful groups', () => {
   const error = createErrorTrial({scenarioId: 'scenario-a'})
-  const summary = getExperimentResults(createRun([createResult(), error]))
-
-  expect(summary?.treatments[0]).toMatchObject({
-    trials: 2,
-    errors: 1,
-    outputTokens: 100,
-    premiumRequests: 1,
-    aiCredits: 0.5,
-    sessionDurationMs: 2000,
-    totalApiDurationMs: 1000,
+  const successful = createResult({
+    scenarioId: 'scenario-b',
+    treatmentId: 'skill',
+    capabilityId: 'other',
+    model: {
+      name: 'claude-opus-5',
+      reasoningEffort: 'high',
+    },
   })
-  expect(summary?.treatments[0].checks).toContain('1/2 check results with values')
-  expect(summary?.treatments[0].checks).toContain('1 trial error')
+  const expected = {
+    status: 'incomplete',
+    date: '2026-09-10',
+    errors: [
+      {
+        id: error.id,
+        scenarioId: error.scenarioId,
+        error: error.error,
+      },
+    ],
+  }
 
-  const failed = getExperimentResults(createRun([error]))
-  expect(failed?.treatments[0]).toMatchObject({
-    trials: 1,
-    errors: 1,
-    checks: 'N/A [1 trial error]',
-    outputTokens: null,
-    premiumRequests: null,
-    aiCredits: null,
-    sessionDurationMs: null,
-    totalApiDurationMs: null,
-  })
-  expect(failed?.scenarios[0].treatments).toHaveLength(1)
+  expect(readExperimentResults(createRun([successful, error]))).toEqual(expected)
+  expect(readExperimentResults(createRun([error]))).toEqual(expected)
 })
 
 test('keeps treatments, models, and reasoning efforts separate with stable ordering', () => {

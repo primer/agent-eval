@@ -37,15 +37,22 @@ treatment, capability, scenario, then model/effort. Shared scenarios stay
 separate across capabilities. Runner groups remain separate, with a `Runner`
 column when SDK trials are present.
 
-Each level shows completed run counts, trial error counts, check summaries, and
-implementation-agent usage. Partial runs show groups with results, including
-failures, not empty configured capabilities.
+For evaluations without trial execution errors, each level shows run counts,
+check summaries, and implementation-agent usage. Sharded runs show the selected
+groups, not empty configured capabilities.
+
+If any trial fails to execute, the selected evaluation is incomplete. CLI
+reports show that status and trial errors instead of comparative tables,
+including for otherwise successful groups. Failed check assertions in a
+completed trial are valid outcomes, not execution errors.
 
 Website experiment pages show treatment summaries, capability summaries, and
 scenario results within each capability. Usage is averaged per completed trial, with
 runner/model/effort groups kept separate. Output links target the matching
 capability and scenario on the run detail page.
 Failed trials retain their error details and do not expose unavailable artifacts.
+Incomplete evaluations show a diagnostic notice instead of summaries and are
+excluded from historical trends. Successful trial details remain available.
 
 New benchmark-backed experiment bundles include capability metadata and trial
 membership. Older bundles lacking that metadata remain readable as flat

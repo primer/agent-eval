@@ -92,10 +92,14 @@ Trial summaries aggregate `aiCredits` across sessions and reports compare the
 total with control alongside other usage metrics. The summary total is `null`,
 reported as `N/A`, when no session recorded usage totals.
 
-Summary `runs` counts completed trials and `errors` counts failed trials.
-`scenarioRuns` includes both so check completeness reflects missing evaluations.
-Reports display failed trial details separately. Usage excludes failed trials
-and retries; all-error groups have unavailable usage, not zero-cost successes.
+Any trial execution error marks the selected evaluation incomplete. CLI reports
+show `Status: Incomplete` and trial errors instead of aggregate scores, rankings,
+or usage deltas. Website summaries show the incomplete status, and historical
+trends exclude that evaluation. Successful trial details remain available for
+diagnosis, but are not aggregated into partial comparisons.
+
+Failed check assertions in a completed trial remain valid outcomes and do not
+make the evaluation incomplete.
 
 Implementation-session usage is not automatically a full evaluation bill:
 judges, walkthrough capture, setup, and container execution also have costs.

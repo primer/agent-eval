@@ -1,7 +1,7 @@
 import {get as getExperiment, list as listExperiments} from './experiments'
 import {getExperimentResults} from './experiment-results'
 import {getLatestForExperiment, listForExperiment} from './runs'
-import {formatChecks, summarizeTrials} from './check-results'
+import {getRunSummary} from './evaluation-state'
 
 export async function getExperimentPageData(id: string) {
   const [experiment, runs] = await Promise.all([getExperiment(id), listForExperiment(id)])
@@ -14,7 +14,7 @@ export async function getExperimentPageData(id: string) {
         id: run.id,
         name: run.name,
         resultCount: trials.length,
-        checks: formatChecks(summarizeTrials(trials)),
+        ...getRunSummary(trials),
       }
     }),
   }
@@ -31,7 +31,7 @@ export async function getExperimentsOverview() {
         name: experiment.name,
         description: experiment.description,
         date: results?.date ?? null,
-        treatments: results?.treatments ?? [],
+        results,
       }
     }),
   )

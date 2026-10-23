@@ -13,6 +13,24 @@ type ResourceTableProps = {
   standalone?: boolean
 }
 
+type LatestRun = {
+  latestRun?: {
+    date: string
+    status: 'complete' | 'incomplete'
+    errorCount: number
+  } | null
+}
+
+function formatLatestRun(resource: LatestRun): string {
+  if (!resource.latestRun) {
+    return 'No runs'
+  }
+  const run = resource.latestRun
+  return run.status === 'incomplete'
+    ? `${run.date}: Incomplete (${run.errorCount} trial ${run.errorCount === 1 ? 'error' : 'errors'})`
+    : `${run.date}: Complete`
+}
+
 function withStandaloneLayout(content: React.ReactNode, standalone: boolean) {
   return standalone ? <Stack padding="normal">{content}</Stack> : content
 }
@@ -63,7 +81,7 @@ export function ExperimentsTable({
   showViewAll = false,
   standalone = false,
 }: ResourceTableProps & {
-  experiments: Array<Experiment>
+  experiments: Array<Experiment & LatestRun>
 }) {
   return withStandaloneLayout(
     <section>
@@ -90,6 +108,7 @@ export function ExperimentsTable({
             {id: 'description', header: 'Description', field: 'description', maxWidth: '60ch'},
             {id: 'models', header: 'Models', field: 'models', align: 'end'},
             {id: 'scenarios', header: 'Scenarios', field: 'scenarios', align: 'end'},
+            {id: 'latest-run', header: 'Latest run', field: 'latestRun'},
           ]}
           data={experiments.map(experiment => ({
             id: experiment.id,
@@ -97,6 +116,7 @@ export function ExperimentsTable({
             description: experiment.description,
             models: experiment.models.length,
             scenarios: experiment.scenarios.length,
+            latestRun: formatLatestRun(experiment),
           }))}
         />
       </Table.Container>
@@ -111,7 +131,7 @@ export function BenchmarksTable({
   showViewAll = false,
   standalone = false,
 }: ResourceTableProps & {
-  benchmarks: Array<Benchmark>
+  benchmarks: Array<Benchmark & LatestRun>
 }) {
   return withStandaloneLayout(
     <section>
@@ -141,6 +161,7 @@ export function BenchmarksTable({
             {id: 'models', header: 'Models', field: 'models', align: 'end'},
             {id: 'capabilities', header: 'Capabilities', field: 'capabilities', align: 'end'},
             {id: 'scenarios', header: 'Scenarios', field: 'scenarios', align: 'end'},
+            {id: 'latest-run', header: 'Latest run', field: 'latestRun'},
           ]}
           data={benchmarks.map(benchmark => ({
             id: benchmark.id,
@@ -155,6 +176,7 @@ export function BenchmarksTable({
                 })
               }),
             ).size,
+            latestRun: formatLatestRun(benchmark),
           }))}
         />
       </Table.Container>

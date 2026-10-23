@@ -87,16 +87,30 @@ function createExperimentReport({experiment, runPlanResult}: CreateExperimentRep
     return `Experiment: ${experiment.name}\nNo trial results.`
   }
 
+  const results = runPlanResult.results.flatMap(({trial, result}) => {
+    if (result.type === 'error') {
+      return []
+    }
+    return [{trial, result}]
+  })
+  if (results.length !== runPlanResult.results.length) {
+    return [
+      `Experiment: ${experiment.name}`,
+      'Status: Incomplete\nComparative results are unavailable because one or more trials failed.',
+      formatTrialErrors(runPlanResult.results),
+    ].join('\n\n')
+  }
+
   const treatmentSummaries = new Map<string, ExperimentSummary>()
   const capabilitySummaries = new Map<string, ExperimentSummary>()
   const scenarioSummaries = new Map<string, ExperimentSummary>()
   const modelSummaries = new Map<string, ExperimentSummary>()
   const showCapability = experiment.type === 'benchmark'
-  const showRunner = runPlanResult.results.some(({trial}) => {
+  const showRunner = results.some(({trial}) => {
     return trial.runner === 'copilot-sdk'
   })
 
-  for (const {trial, result} of runPlanResult.results) {
+  for (const {trial, result} of results) {
     if (showCapability && !('capability' in trial)) {
       throw new Error(`Capability not found for benchmark experiment trial: ${trial.id}`)
     }
@@ -108,7 +122,7 @@ function createExperimentReport({experiment, runPlanResult}: CreateExperimentRep
     }
     const treatmentKey = JSON.stringify([trial.treatment.id, values.runner])
     const treatmentSummary = treatmentSummaries.get(treatmentKey) ?? {...createTrialSummary(), ...values}
-    addTrialResultToSummary(treatmentSummary, trial, result)
+    addTrialResultToSummary(treatmentSummary, result)
     treatmentSummaries.set(treatmentKey, treatmentSummary)
 
     if (capability) {
@@ -118,14 +132,14 @@ function createExperimentReport({experiment, runPlanResult}: CreateExperimentRep
         ...values,
         capability,
       }
-      addTrialResultToSummary(capabilitySummary, trial, result)
+      addTrialResultToSummary(capabilitySummary, result)
       capabilitySummaries.set(capabilityKey, capabilitySummary)
     }
 
     const scenarioValues = {...values, capability, scenario: trial.scenario.id}
     const scenarioKey = JSON.stringify([trial.treatment.id, values.runner, capability?.id, trial.scenario.id])
     const scenarioSummary = scenarioSummaries.get(scenarioKey) ?? {...createTrialSummary(), ...scenarioValues}
-    addTrialResultToSummary(scenarioSummary, trial, result)
+    addTrialResultToSummary(scenarioSummary, result)
     scenarioSummaries.set(scenarioKey, scenarioSummary)
 
     const modelKey = JSON.stringify([
@@ -141,7 +155,7 @@ function createExperimentReport({experiment, runPlanResult}: CreateExperimentRep
       ...scenarioValues,
       model: trial.model,
     }
-    addTrialResultToSummary(modelSummary, trial, result)
+    addTrialResultToSummary(modelSummary, result)
     modelSummaries.set(modelKey, modelSummary)
   }
 
@@ -201,9 +215,8 @@ function createExperimentReport({experiment, runPlanResult}: CreateExperimentRep
     ]),
     ...(dimensions.length > 0 ? [REPORT_CHECKS_NOTE] : []),
     REPORT_USAGE_NOTE,
-    formatTrialErrors(runPlanResult.results),
   ]
-  return sections.filter(Boolean).join('\n\n')
+  return sections.join('\n\n')
 }
 
 export {createExperimentReport}

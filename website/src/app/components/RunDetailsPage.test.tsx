@@ -253,6 +253,7 @@ test('renders escaped failure details without success metrics or artifact tabs',
   const html = renderToStaticMarkup(<RunDetailsPage resource={resource} run={run} />)
 
   expect(html).toContain('Trial failed')
+  expect(html).toContain('Incomplete evaluation')
   expect(html).toContain('SetupError: &lt;script&gt;startup failed&lt;/script&gt;')
   expect(html).toContain('Stack trace')
   expect(html).toContain('at initialize')
@@ -263,6 +264,26 @@ test('renders escaped failure details without success metrics or artifact tabs',
   expect(html).not.toContain('result-0-code-tab')
   expect(html).not.toContain('result-0-transcript-tab')
   expect(html).not.toContain('<script>startup failed</script>')
+})
+
+test('retains successful trial evidence in unrelated groups of an incomplete evaluation', async () => {
+  const run = await createExperimentRunDetails(
+    '2026-09-15',
+    createExperimentOutput([
+      createErrorTrial(),
+      createTrial({
+        scenarioId: 'successful-scenario',
+      }),
+    ]),
+  )
+  const html = renderToStaticMarkup(<RunDetailsPage resource={resource} run={run} />)
+
+  expect(html).toContain('Incomplete evaluation')
+  expect(html).toContain('Failed to start sandbox')
+  expect(html).toContain('successful-scenario')
+  expect(html).toContain('Output tokens')
+  expect(html).toContain('result-1-transcript-tab')
+  expect(html).toContain('result-1-code-tab')
 })
 
 test.each([

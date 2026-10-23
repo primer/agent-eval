@@ -1,6 +1,10 @@
 import type {CheckOutput} from '@primer/agent-eval'
 import {expect, test} from 'vitest'
-import {getBenchmarkOverviewData, getBenchmarkPageResults, type BenchmarkRun} from './benchmark-results'
+import {
+  getBenchmarkOverviewData,
+  getBenchmarkPageResults as readBenchmarkPageResults,
+  type BenchmarkRun,
+} from './benchmark-results'
 import {formatChecks, summarizeTrials} from './check-results'
 import {createBenchmarkOutput, createErrorTrial, createTrial, session} from './test-fixtures'
 
@@ -20,6 +24,14 @@ function outcomes(statuses: Array<'passed' | 'failed' | 'skipped'>): Array<Check
 
 function run(output = createBenchmarkOutput(), date = '2026-09-15'): BenchmarkRun {
   return {id: date, name: date, date: new Date(date), directory: '/results', output}
+}
+
+function getBenchmarkPageResults(run: Parameters<typeof readBenchmarkPageResults>[0]) {
+  const results = readBenchmarkPageResults(run)
+  if (results?.status === 'incomplete') {
+    throw new Error('Expected complete evaluation')
+  }
+  return results
 }
 
 test('uses equal-weight per-check per-trial means, excluding skips and errors rather than pooling assertions', () => {
@@ -136,97 +148,88 @@ test('isolates capability comparisons and trends when the same scenario appears 
   }
 })
 
-test('preserves successful usage totals alongside failures and keeps failed-only models in results', () => {
+test('excludes an entire incomplete evaluation from comparisons and trends without hiding its latest date', () => {
   const output = createBenchmarkOutput([
     createTrial({id: 'control', checks: outcomes(['passed'])}),
+    createTrial({id: 'benchmark', treatmentId: 'benchmark', checks: outcomes(['passed'])}),
+    {
+      ...createErrorTrial({
+        id: 'unrelated-error',
+        treatmentId: 'benchmark',
+        scenarioId: 'other-scenario',
+        model: {
+          name: 'claude-opus-5',
+          reasoningEffort: 'medium',
+        },
+      }),
+      capabilityId: 'b',
+    },
+  ])
+  const historical = run(createBenchmarkOutput(), '2026-09-14')
+  const overview = getBenchmarkOverviewData([run(output), historical])
+
+  expect(overview).toMatchObject({
+    status: 'incomplete',
+    date: '2026-09-15',
+    results: [],
+    errors: [{id: 'unrelated-error'}],
+  })
+  expect(overview.trends).toEqual(getBenchmarkOverviewData([historical]).trends)
+  expect(readBenchmarkPageResults(run(output))).toEqual({
+    status: 'incomplete',
+    date: '2026-09-15',
+    errors: overview.errors,
+  })
+})
+
+test('keeps all-error evaluations visible with diagnostics and no trend points', () => {
+  const output = createBenchmarkOutput([createErrorTrial()])
+  const overview = getBenchmarkOverviewData([run(output)])
+
+  expect(overview).toMatchObject({
+    status: 'incomplete',
+    date: '2026-09-15',
+    results: [],
+    trends: [],
+    errors: [{id: 'failed-trial'}],
+  })
+  expect(readBenchmarkPageResults(run(output))).toMatchObject({
+    status: 'incomplete',
+    errors: [{id: 'failed-trial'}],
+  })
+})
+
+test('retains usage totals rather than per-trial averages for complete benchmark evaluations', () => {
+  const output = createBenchmarkOutput([
     createTrial({
-      id: 'control-second',
-      checks: outcomes(['passed']),
+      id: 'control',
       agent: {
-        sessions: [
-          {
-            ...session,
-            outputTokens: 50,
-            premiumRequests: 0.5,
-            aiCredits: 0.25,
-            totalApiDurationMs: 100,
-            sessionDurationMs: 150,
-          },
-        ],
+        sessions: [{...session, outputTokens: 50, aiCredits: 0.25}],
       },
     }),
-    createErrorTrial({id: 'control-error'}),
-    createTrial({id: 'benchmark', treatmentId: 'benchmark', checks: outcomes(['passed'])}),
+    createTrial({
+      id: 'benchmark-first',
+      treatmentId: 'benchmark',
+      checks: outcomes(['failed']),
+    }),
     createTrial({
       id: 'benchmark-second',
       treatmentId: 'benchmark',
-      checks: outcomes(['passed']),
-      agent: {
-        sessions: [
-          {
-            ...session,
-            outputTokens: 200,
-            premiumRequests: 2,
-            aiCredits: 1,
-            totalApiDurationMs: 400,
-            sessionDurationMs: 600,
-          },
-        ],
-      },
-    }),
-    createErrorTrial({id: 'benchmark-error', treatmentId: 'benchmark'}),
-    createErrorTrial({
-      id: 'failed-only',
-      treatmentId: 'benchmark',
-      model: {name: 'claude-opus-5', reasoningEffort: 'medium'},
+      checks: outcomes(['failed']),
     }),
   ])
   const overview = getBenchmarkOverviewData([run(output)])
-  const completed = overview.results.find(result => {
-    return result.model === 'gpt-5.6-sol'
-  })
-  const failed = overview.results.find(result => {
-    return result.model === 'claude-opus-5'
-  })
 
-  expect(completed?.comparison).toMatchObject({
-    outputTokens: '300 (+100.0%)',
-    premiumRequests: '3 (+100.0%)',
-    aiCredits: '1.5 (+100.0%)',
-    sessionTime: '0.9s (+100.0%)',
-    apiTime: '0.6s (+100.0%)',
+  expect(overview.status).toBe('complete')
+  expect(overview.results[0].comparison).toMatchObject({
+    checks: expect.stringContaining('0.0%'),
+    outputTokens: '200 (+300.0%)',
+    aiCredits: '1 (+300.0%)',
   })
-  expect(overview.results[0].model).toBe('gpt-5.6-sol')
-  expect(completed?.comparison.checks).toContain('Control: 1 trial error')
-  const completedPoint = overview.trends.find(point => {
-    return point.model === 'gpt-5.6-sol' && point.capabilityId === null && point.scenarioId === null
+  expect(overview.trends[0].metrics.outputTokens).toMatchObject({
+    value: 200,
+    controlValue: 50,
   })
-  expect(completedPoint?.metrics).toMatchObject({
-    outputTokens: {value: 300, controlValue: 150},
-    premiumRequests: {value: 3, controlValue: 1.5},
-    aiCredits: {value: 1.5, controlValue: 0.75},
-    sessionTime: {value: 0.9, controlValue: 0.45},
-    apiTime: {value: 0.6, controlValue: 0.3},
-    trialErrors: {value: 1, controlValue: 1},
-  })
-  expect(getBenchmarkPageResults(run(output))?.capabilities[0].comparison).toMatchObject({
-    outputTokens: '300 (+100.0%)',
-    aiCredits: '1.5 (+100.0%)',
-  })
-  expect(failed?.comparison).toMatchObject({
-    checks: 'N/A [1 trial error]',
-    outputTokens: 'N/A',
-    premiumRequests: 'N/A',
-    aiCredits: 'N/A',
-    sessionTime: 'N/A',
-    apiTime: 'N/A',
-  })
-  const point = overview.trends.find(point => {
-    return point.model === 'claude-opus-5' && point.capabilityId === null && point.scenarioId === null
-  })
-  expect(point?.metrics.outputTokens).toMatchObject({value: null, raw: 'N/A'})
-  expect(point?.metrics.trialErrors).toMatchObject({value: 1, raw: '1', controlValue: 0})
-  expect(getBenchmarkPageResults(run(output))?.capabilities[0].scenarios[0].models).toHaveLength(2)
 })
 
 test('compares AI credits and reports sessions without usage totals as unmeasured', () => {

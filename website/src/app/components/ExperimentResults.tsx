@@ -3,16 +3,17 @@
 import {Blankslate, DataTable, Table} from '@primer/react/experimental'
 import type {Route} from 'next'
 import {useId} from 'react'
-import type {ExperimentResults, TreatmentResult} from '../../experiment-results'
+import type {CompleteExperimentResults, ExperimentResults, TreatmentResult} from '../../experiment-results'
 import {Link} from '../../components/Link'
 import {getScenarioAnchor} from '../../scenario-anchor'
+import {IncompleteEvaluationNotice} from './IncompleteEvaluationNotice'
 
 type ExperimentSummary = {
   id: string
   name: string
   description: string
   date: string | null
-  treatments: Array<TreatmentResult>
+  results: ExperimentResults | null
 }
 
 function formatNumber(value: number): string {
@@ -50,7 +51,6 @@ function TreatmentResultsTable({results, label}: {results: Array<TreatmentResult
           {id: 'model', header: 'Model', field: 'model'},
           {id: 'effort', header: 'Effort', field: 'reasoningEffort'},
           {id: 'trials', header: 'Trials', field: 'trials', align: 'end'},
-          {id: 'errors', header: 'Trial errors', field: 'errors', align: 'end'},
           {id: 'scenarios', header: 'Scenarios', field: 'scenarios', align: 'end'},
           {
             id: 'checks',
@@ -114,9 +114,9 @@ function MetricsDescription() {
   return (
     <p className="text-muted">
       Checks show per-trial pass percentages or measurement means, averaged across trials. Skips, errors, and missing
-      values are reported separately. Trial counts include failed attempts; trial errors have no performance or usage
-      values. Resource usage is the average per successful trial. Treatments are grouped by runner, model, and reasoning
-      effort; compare scenario, trial, and error counts before comparing performance.
+      values are reported separately. Resource usage is the average per trial. Treatments are grouped by runner, model,
+      and reasoning effort; compare scenario and trial counts before comparing performance. Evaluations with trial
+      execution errors are incomplete and have no aggregate results.
     </p>
   )
 }
@@ -147,10 +147,15 @@ export function ExperimentsOverview({experiments}: {experiments: Array<Experimen
                 . <Link href={`/experiments/${experiment.id}`}>View detailed results and run history</Link>
               </p>
             ) : null}
-            {experiment.treatments.length > 0 ? (
+            {experiment.results?.status === 'incomplete' ? (
+              <IncompleteEvaluationNotice
+                errors={experiment.results.errors}
+                href={`/experiments/${experiment.id}/runs/${experiment.results.date}` as Route}
+              />
+            ) : experiment.results && experiment.results.treatments.length > 0 ? (
               <TreatmentResultsTable
                 label={`Latest treatment results for ${experiment.name}`}
-                results={experiment.treatments}
+                results={experiment.results.treatments}
               />
             ) : (
               <p>
@@ -169,6 +174,16 @@ export function ExperimentsOverview({experiments}: {experiments: Array<Experimen
 export function LatestExperimentResults({id, results}: {id: string; results: ExperimentResults | null}) {
   if (!results) {
     return null
+  }
+  if (results.status === 'incomplete') {
+    return (
+      <section className="flex flex-col gap-4" aria-labelledby="latest-results-heading">
+        <h2 className="text-title-medium" id="latest-results-heading">
+          Latest results ({results.date})
+        </h2>
+        <IncompleteEvaluationNotice errors={results.errors} href={`/experiments/${id}/runs/${results.date}` as Route} />
+      </section>
+    )
   }
 
   return (
@@ -224,7 +239,7 @@ function ScenarioResults({
 }: {
   id: string
   date: string
-  scenarios: ExperimentResults['scenarios']
+  scenarios: CompleteExperimentResults['scenarios']
   capability?: {id: string; name: string}
 }) {
   return scenarios.map(scenario => {

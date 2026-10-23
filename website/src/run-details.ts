@@ -389,7 +389,6 @@ async function createExperimentRunDetails(
 
   const results: Array<RunResult> = []
   for (const result of output.trials.values()) {
-    const summary = summarizeTrials([result])
     const treatment = treatments.get(result.treatmentId)
     if (treatment === undefined) {
       throw new Error(`Unknown treatment "${result.treatmentId}" for trial "${result.id}"`)
@@ -415,6 +414,7 @@ async function createExperimentRunDetails(
       })
       continue
     }
+    const summary = summarizeTrials([result])
     const baseUrl = getTrialDataUrl(collection, output.id, date, result.id)
     const tools = new Map<string, number>()
     for (const session of result.agent.sessions) {

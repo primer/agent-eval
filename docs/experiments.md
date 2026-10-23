@@ -75,9 +75,9 @@ variants are grouped separately within each capability, even when a scenario
 appears in more than one capability. Reports keep runner results separate and
 show a `Runner` column when SDK trials are present.
 
-Each level includes completed run counts, trial error counts, check summaries,
-and implementation-agent usage totals. Partial or sharded runs show only the
-groups with results, including failures.
+For evaluations without trial execution errors, each level includes run counts,
+check summaries, and implementation-agent usage totals. Sharded runs show the
+selected groups.
 Scenario-backed experiments retain their existing report format.
 
 On the website, experiment pages show overall treatment summaries, then
@@ -98,3 +98,9 @@ Historical trial files without `type` parse as successes. Image, sandbox, stage,
 and cleanup failures retry up to three times before being saved as errors;
 they do not abort neighboring trials. Failed check assertions remain successful
 trial executions with failing check outcomes.
+
+Any trial execution error marks the selected evaluation incomplete. Reports
+show the incomplete status and error details instead of comparative summaries,
+scores, rankings, or usage deltas, even for otherwise successful groups.
+Incomplete evaluations are excluded from website trends. Individual trial
+details remain available for diagnosis.

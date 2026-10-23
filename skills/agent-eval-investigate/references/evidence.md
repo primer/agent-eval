@@ -3,9 +3,9 @@
 ## Table of contents
 
 - [Critical](#critical), L:10
-- [Read the result bundle](#read-the-result-bundle), L:21
-- [Handle missing or relocated evidence](#handle-missing-or-relocated-evidence), L:52
-- [Diagnose tool use](#diagnose-tool-use), L:60
+- [Read the result bundle](#read-the-result-bundle), L:24
+- [Handle missing or relocated evidence](#handle-missing-or-relocated-evidence), L:55
+- [Diagnose tool use](#diagnose-tool-use), L:63
 
 ## Critical
 
@@ -17,6 +17,9 @@ No recorded call means no observed call, not proof that the tool was available
 and deliberately rejected. Saved artifacts reflect the end of the evaluation,
 not necessarily the context available at the decision point. Explain missing
 evidence rather than claiming access to the model's private reasoning.
+
+An evaluation with any trial execution error is incomplete. Diagnose individual
+trials, but do not compare treatments using its remaining successful results.
 
 ## Read the result bundle
 

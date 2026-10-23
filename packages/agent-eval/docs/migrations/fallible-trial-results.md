@@ -42,16 +42,20 @@ The manifest's trial-file mapping stays unchanged.
 `entry.result.type`; each entry's `trial` now retains `id`, `model`, `runner`,
 `scenarioId`, and `treatmentId`, including when execution fails.
 
-`TrialSummary.runs` counts completed trials, `errors` counts failed trials,
-and `scenarioRuns` includes both for check-completeness reporting. Usage
-aggregates exclude failed trials and their retries; they are not a full cost
-accounting. Update manually constructed summaries to include `errors: 0`, or
-use `createTrialSummary()`.
+Any trial execution error marks the selected evaluation incomplete. CLI reports
+show `Status: Incomplete` and trial errors instead of aggregate scores, rankings,
+or usage comparisons. Website summaries show the incomplete status and exclude
+the evaluation from historical trends. Successful trial evidence stays available
+for diagnosis, but is not used to report a partial comparison.
+
+Failed check assertions in a completed trial remain valid evaluation outcomes,
+not execution errors. Evaluations without trial errors keep their existing
+comparison behavior.
 
 ## Verify
 
 Run your TypeScript checks and read a bundle containing both result types.
 Confirm every planned trial is present, failed trials retain their error and
-identifiers through shard merges, and only successful trials contribute
-sessions or usage. All-error groups should show failures and unavailable
-usage, not successful evaluations with zero cost.
+identifiers through shard merges, and any mixed or all-error evaluation is
+marked incomplete without comparative metrics. Confirm completed evaluations
+with failed check assertions still produce normal reports.

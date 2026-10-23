@@ -15,6 +15,7 @@ import {UiWalkthrough} from './UiWalkthrough'
 import {FileExplorer} from './FileExplorer'
 import type {FilePreviewReference} from '../../file-preview'
 import type {WorkspaceFiles} from '../../workspace-files'
+import {IncompleteEvaluationNotice} from './IncompleteEvaluationNotice'
 
 const Transcript = lazy(async () => {
   const module = await import('./Transcript')
@@ -617,6 +618,9 @@ type RunDetailsViewProps = {
 
 export function RunDetailsView({resource, run}: RunDetailsViewProps) {
   const [selectedCapabilityId, setSelectedCapabilityId] = useState('')
+  const errors = run.results.filter(result => {
+    return result.type === 'error'
+  })
   const capabilities = new Map(
     run.results.flatMap(result => {
       return result.capability ? [[result.capability.id, result.capability] as const] : []
@@ -641,6 +645,7 @@ export function RunDetailsView({resource, run}: RunDetailsViewProps) {
           <Breadcrumbs.Item selected>{run.date}</Breadcrumbs.Item>
         </Breadcrumbs>
         <h1 className="sr-only">Run results for {resource.name}</h1>
+        {errors.length > 0 ? <IncompleteEvaluationNotice errors={errors} /> : null}
         <p className="text-muted">
           {run.results.length} trials,{' '}
           {

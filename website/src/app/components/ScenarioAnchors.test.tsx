@@ -12,14 +12,16 @@ vi.mock('server-only', () => {
   return {}
 })
 
-test('keeps all-error experiment summaries visible with unavailable usage and explicit failures', () => {
+test('keeps all-error experiment evaluations visible with diagnostics instead of comparison tables', () => {
   const results = getExperimentResults(createRun([createErrorTrial({scenarioId: 'scenario-a'})]))
   const overview = renderToStaticMarkup(<LatestExperimentResults id="noop" results={results} />)
 
-  expect(overview).toContain('Trial errors')
-  expect(overview).toContain('1 trial error')
-  expect(overview).toContain('N/A')
-  expect(overview).toContain('View output for scenario-a')
+  expect(overview).toContain('Incomplete evaluation')
+  expect(overview).toContain('1 trial execution')
+  expect(overview).toContain('scenario-a')
+  expect(overview).toContain('View trial errors and raw run details')
+  expect(overview).not.toContain('<table')
+  expect(overview).not.toContain('Output tokens')
   expect(overview).not.toContain('No trial results were recorded in the latest run.')
   expect(overview).not.toContain('NaN')
   expect(overview).not.toContain('Infinity')

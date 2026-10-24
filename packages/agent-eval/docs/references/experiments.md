@@ -11,11 +11,18 @@ plugins, or execution backends on the same tasks. Use a
 | File and import     | `experiments/<id>.ts`; `defineConfig` from `@primer/agent-eval/experiment`           |
 | Export              | Use a default export; named `experiment` also supported                              |
 | Required fields     | `name`, `description`, `models`, `treatments`, and either `scenarios` or `benchmark` |
-| Optional fields     | `setup`, `runners`                                                                   |
+| Optional fields     | `id`, `setup`, `runners`                                                             |
 | CLI identifier      | Filename without extension, not display `name`                                       |
 | Scenario references | Folder IDs; alternatively `{path, name?}`                                            |
 | Benchmark reference | Benchmark filename ID; selects its capabilities and scenarios                        |
 | Runner default      | `copilot-cli`                                                                        |
+
+Set `id` to a nonblank string to pin identity across renames. Otherwise, the ID
+is the local hash of `Experiment:<relative-path-without-extension>`, relative to
+the configured experiments directory, with `/` separators. Explicit IDs are
+used unchanged. IDs must be unique among discovered experiments. CLI selection
+accepts the filename without extension or the resolved ID; resolved IDs take
+precedence.
 
 Top-level `setup` runs for **all trials, including control**. Put only neutral
 prerequisites there. Treatment setup runs afterward and installs the intervention.

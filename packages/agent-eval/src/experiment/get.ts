@@ -1,6 +1,7 @@
 import {DefaultHost, type Host} from '../host'
 import type {Experiment} from './experiment'
 import {listExperiments} from './list'
+import {getConfigPath} from '../path'
 
 type GetExperimentOptions = {
   benchmarksDirectory: string
@@ -23,9 +24,13 @@ async function getExperiment({
     host,
     scenariosDirectory,
   })
-  const experiment = experiments.find(candidate => {
-    return candidate.id === name
-  })
+  const experiment =
+    experiments.find(candidate => {
+      return candidate.id === name
+    }) ??
+    experiments.find(candidate => {
+      return getConfigPath(experimentsDirectory, candidate.filepath) === name
+    })
   if (experiment) {
     return experiment
   }

@@ -10,6 +10,15 @@ As an example, you may want to evaluate how well an agent adds a search feature 
 
 You can add a scenario by creating a folder in `/scenarios` with a `package.json`, the files the agent needs to start the task, and a `scenario.config.ts` file. Use `defineConfig` from `@primer/agent-eval/scenario` to configure the scenario.
 
+An optional `id` pins scenario identity across renames. When omitted, the ID is
+the local hash of `Scenario:<relative-directory>`, relative to the configured
+scenarios directory, using `/` separators. Explicit IDs are used unchanged and
+must be nonblank and unique among discovered scenarios. Directory selectors
+continue to work. Inline `{path, name?}` references resolve to the same identity
+as string references; `name` no longer overrides the ID. See the
+[resource identity migration](../packages/agent-eval/docs/migrations/resource-identity.md)
+when reusing existing plans or result history.
+
 ```ts
 // scenarios/001-agent-scenario/scenario.config.ts
 import {defineConfig} from '@primer/agent-eval/scenario'

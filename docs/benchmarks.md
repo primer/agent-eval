@@ -14,6 +14,14 @@ parts of icon usage that you care about.
 Configuration for benchmarks live in the `/benchmarks` folder. You can add a
 benchmark by adding a file to this folder and using `defineConfig` from `@primer/agent-eval/benchmark`.
 
+An optional `id` pins benchmark identity across renames. When omitted, the ID is
+the local hash of `Benchmark:<relative-path-without-extension>`, relative to the
+configured benchmarks directory, using `/` separators. Explicit IDs are used
+unchanged and must be nonblank and unique among discovered benchmarks. Filename
+selectors continue to work; see the
+[resource identity migration](../packages/agent-eval/docs/migrations/resource-identity.md)
+when reusing existing plans or result history.
+
 ```ts
 // benchmarks/example.ts
 import {defineConfig} from '@primer/agent-eval/benchmark'

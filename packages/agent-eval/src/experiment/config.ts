@@ -5,6 +5,14 @@ import {ControlTreatment, TreatmentConfigSchema, TreatmentSetupSchema} from '../
 import {InlineScenarioConfigSchema} from '../scenario/config'
 
 const BenchmarkExperimentConfig = z.strictObject({
+  id: z.optional(
+    z.string().check(
+      z.minLength(1),
+      z.refine(value => {
+        return value.trim().length > 0
+      }),
+    ),
+  ),
   name: z.string(),
   description: z.string(),
   models: z.array(ModelVariantConfigSchema),
@@ -33,6 +41,14 @@ const BenchmarkExperimentConfig = z.strictObject({
 type BenchmarkExperimentConfig = z.infer<typeof BenchmarkExperimentConfig>
 
 const ScenarioExperimentConfig = z.strictObject({
+  id: z.optional(
+    z.string().check(
+      z.minLength(1),
+      z.refine(value => {
+        return value.trim().length > 0
+      }),
+    ),
+  ),
   name: z.string(),
   description: z.string(),
   models: z.array(ModelVariantConfigSchema),

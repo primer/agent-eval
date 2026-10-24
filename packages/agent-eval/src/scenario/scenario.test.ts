@@ -35,7 +35,7 @@ function createHost() {
 test('getScenario and listScenarios accept an options object with an injected host', async () => {
   const host = createHost()
   const expected = {
-    id: 'example',
+    id: '2770381665',
     directory: '/scenarios/example',
     prompt: 'Create a page',
     description: 'Example',
@@ -60,8 +60,8 @@ test('getScenario and listScenarios use DefaultHost when host is omitted', async
   vi.spyOn(DefaultHost.fs.promises, 'readFile').mockImplementation(host.fs.promises.readFile)
   const loadModule = vi.spyOn(DefaultHost, 'loadModule').mockImplementation(host.loadModule.bind(host))
 
-  await expect(getScenario({directory: '/scenarios', name: 'example'})).resolves.toMatchObject({id: 'example'})
-  await expect(listScenarios({directory: '/scenarios'})).resolves.toMatchObject([{id: 'example'}])
+  await expect(getScenario({directory: '/scenarios', name: 'example'})).resolves.toMatchObject({id: '2770381665'})
+  await expect(listScenarios({directory: '/scenarios'})).resolves.toMatchObject([{id: '2770381665'}])
   expect(loadModule).toHaveBeenCalledWith('/scenarios/example/scenario.config.ts')
 })
 
@@ -69,6 +69,32 @@ test('getScenario reports a missing name with the supplied directory', async () 
   await expect(getScenario({host: createHost(), directory: '/scenarios', name: 'missing'})).rejects.toThrow(
     'Scenario "missing" was not found in: /scenarios',
   )
+})
+
+test('getScenario accepts both the directory locator and an explicit config ID', async () => {
+  const host = VirtualHost.create({
+    '/scenarios/example/package.json': '{}',
+    '/scenarios/example/scenario.config.ts': 'export default {id: "pinned", prompt: "Create a page"}',
+  })
+
+  for (const name of ['example', 'pinned']) {
+    const scenario = await getScenario({host, directory: '/scenarios', name})
+
+    expect(scenario.id).toBe('pinned')
+  }
+})
+
+test('getScenario prioritizes resolved IDs over another resource directory', async () => {
+  const host = VirtualHost.create({
+    '/scenarios/original/package.json': '{}',
+    '/scenarios/original/scenario.config.ts': 'export default {id: "other", prompt: "Original"}',
+    '/scenarios/other/package.json': '{}',
+    '/scenarios/other/scenario.config.ts': 'export default {id: "different", prompt: "Other"}',
+  })
+
+  const scenario = await getScenario({host, directory: '/scenarios', name: 'other'})
+
+  expect(scenario.directory).toBe('/scenarios/original')
 })
 
 test('defaultScenarioSetup uses npm when no package manager is configured', async () => {

@@ -2,7 +2,7 @@ import path from 'node:path'
 import {DefaultHost, type Host} from '../host'
 import {ScenarioConfigSchema, type ScenarioConfigModule} from './config'
 import {loadScenario} from './load'
-import type {Scenario} from './scenario'
+import {assertUniqueScenarioIds, type Scenario} from './scenario'
 
 type ListScenariosOptions = {
   directory: string
@@ -52,8 +52,12 @@ async function listScenarios({directory, host = DefaultHost}: ListScenariosOptio
       continue
     }
 
-    scenarios.push(await loadScenario({host, directory: scenarioDirectory, name: entry.name}))
+    scenarios.push(
+      await loadScenario({host, directory: scenarioDirectory, name: entry.name, scenariosDirectory: directory}),
+    )
   }
+
+  assertUniqueScenarioIds(scenarios)
 
   return scenarios
 }

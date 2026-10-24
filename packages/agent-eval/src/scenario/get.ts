@@ -1,6 +1,7 @@
 import {DefaultHost, type Host} from '../host'
 import {listScenarios} from './list'
 import type {Scenario} from './scenario'
+import {getRelativePath} from '../path'
 
 type GetScenarioOptions = {
   directory: string
@@ -10,9 +11,13 @@ type GetScenarioOptions = {
 
 async function getScenario({directory, host = DefaultHost, name}: GetScenarioOptions): Promise<Scenario> {
   const scenarios = await listScenarios({directory, host})
-  const scenario = scenarios.find(candidate => {
-    return candidate.id === name
-  })
+  const scenario =
+    scenarios.find(candidate => {
+      return candidate.id === name
+    }) ??
+    scenarios.find(candidate => {
+      return getRelativePath(directory, candidate.directory) === name
+    })
   if (scenario) {
     return scenario
   }

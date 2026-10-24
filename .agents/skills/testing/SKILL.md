@@ -1,6 +1,6 @@
 ---
 name: testing
-description: 'Use when adding, updating, or reviewing tests in agent-eval, choosing test coverage, organizing Vitest tests, or isolating filesystem, Docker, and other external dependencies.'
+description: 'Use when adding, updating, or reviewing tests in agent-eval, choosing coverage, testing lifecycle or concurrency behavior, or isolating external dependencies. Do not use for scenario grading or changes that do not involve repository tests.'
 ---
 
 # Testing
@@ -22,6 +22,12 @@ implementation details or external services.
 - Read the relevant references; existing tests are examples, not rules to copy.
 - Use real logic with in-memory dependencies wherever possible.
 - Run the focused tests and confirm they fail when the intended behavior breaks.
+
+## References
+
+| Name                                          | When to use                                                                                              |
+| :-------------------------------------------- | :------------------------------------------------------------------------------------------------------- |
+| [Lifecycle examples](references/lifecycle.md) | Test resource ownership, controlled concurrent work, command failures, and contracts shared by adapters. |
 
 This skill covers repository tests. For grading agent-generated work in a
 scenario, use the [checks reference](../../../packages/agent-eval/docs/references/checks.md).

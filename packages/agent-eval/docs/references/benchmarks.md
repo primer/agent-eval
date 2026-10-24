@@ -15,9 +15,10 @@ time. Use an [experiment](experiments.md) to compare multiple interventions.
 | Automatic treatments | `Control` and `Benchmark`                                                |
 
 Set `id` to a nonblank string to pin identity across renames. Otherwise, the ID
-is the local hash of `Benchmark:<relative-path-without-extension>`, relative to
-the configured benchmarks directory, with `/` separators. Explicit IDs are used
-unchanged. IDs must be unique among discovered benchmarks. CLI selection and
+depends on the file's path relative to the configured benchmarks directory,
+excluding its extension. Changing the display name or moving the entire
+benchmarks directory does not change the ID. Explicit IDs are used unchanged.
+IDs must be unique among discovered benchmarks. CLI selection and
 experiment references accept the filename without extension or the resolved ID;
 resolved IDs take precedence.
 

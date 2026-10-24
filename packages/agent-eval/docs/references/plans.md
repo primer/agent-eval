@@ -24,7 +24,7 @@ saved identifiers. Preserve the source revision, dependency versions, resource
 contents, and directory layout with the plan.
 
 Benchmark, experiment, and scenario IDs use explicit config `id` values when
-provided. Otherwise, IDs hash a resource-kind prefix and a path relative to the
+provided. Otherwise, IDs depend on the path relative to the
 configured resource directory (without the module extension for benchmarks and
 experiments). Pin IDs before moving or renaming resources to keep plans
 resolvable. Capability and treatment IDs still depend on their names.

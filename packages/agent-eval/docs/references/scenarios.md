@@ -5,20 +5,20 @@ evaluation. Benchmarks and experiments reuse the same scenario across treatments
 
 ## Contract
 
-| Item              | Rule                                                              |
-| :---------------- | :---------------------------------------------------------------- |
-| Required files    | `package.json` and `scenario.config.ts`                           |
-| Import and export | `defineConfig` from `@primer/agent-eval/scenario`; default export |
-| Required field    | `prompt`, passed to the implementation agent                      |
-| Optional fields   | `id`, `description`, `tags`, `checks`, `judges`, `image`, `setup` |
-| Defaults          | Empty tags, checks, and judges                                    |
-| Identity          | Explicit config `id`, otherwise a hash of the relative directory  |
-| Evaluation files  | Declare in check/judge `files`; restored during evaluation        |
+| Item              | Rule                                                                |
+| :---------------- | :------------------------------------------------------------------ |
+| Required files    | `package.json` and `scenario.config.ts`                             |
+| Import and export | `defineConfig` from `@primer/agent-eval/scenario`; default export   |
+| Required field    | `prompt`, passed to the implementation agent                        |
+| Optional fields   | `id`, `description`, `tags`, `checks`, `judges`, `image`, `setup`   |
+| Defaults          | Empty tags, checks, and judges                                      |
+| Identity          | Explicit config `id`, otherwise derived from the relative directory |
+| Evaluation files  | Declare in check/judge `files`; restored during evaluation          |
 
 Set `id` to a nonblank string to pin identity across renames. Otherwise, the ID
-is the local hash of `Scenario:<relative-directory>`, relative to the configured
-scenarios directory, with `/` separators. Directory names retain extensions and
-dots; `scenario.config.ts` is not part of the identity. Explicit IDs are used
+depends on the scenario directory's path relative to the configured scenarios
+directory. Moving the entire scenarios directory does not change the ID.
+The ID depends on the directory, not the config filename. Explicit IDs are used
 unchanged. IDs must be unique among discovered scenarios.
 
 CLI selection and string references accept the directory name or resolved ID;

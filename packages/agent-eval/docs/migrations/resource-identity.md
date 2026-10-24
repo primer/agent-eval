@@ -1,9 +1,8 @@
 # Resource identity
 
 In 0.19.0, benchmarks, experiments, and scenarios accept an optional nonblank
-`id`. Without it, identity uses the local hash of `Benchmark:<path>`,
-`Experiment:<path>`, or `Scenario:<path>`. Paths are relative to the configured
-resource root and use `/` separators. Benchmark and experiment paths omit the
+`id`. Without it, identity depends on the path relative to the configured
+resource root. Benchmark and experiment paths omit the
 module extension; scenario paths identify the directory.
 
 Filename and directory selectors continue to work. Explicit IDs are used

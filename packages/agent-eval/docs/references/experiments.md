@@ -18,9 +18,10 @@ plugins, or execution backends on the same tasks. Use a
 | Runner default      | `copilot-cli`                                                                        |
 
 Set `id` to a nonblank string to pin identity across renames. Otherwise, the ID
-is the local hash of `Experiment:<relative-path-without-extension>`, relative to
-the configured experiments directory, with `/` separators. Explicit IDs are
-used unchanged. IDs must be unique among discovered experiments. CLI selection
+depends on the file's path relative to the configured experiments directory,
+excluding its extension. Changing the display name or moving the entire
+experiments directory does not change the ID. Explicit IDs are used unchanged.
+IDs must be unique among discovered experiments. CLI selection
 accepts the filename without extension or the resolved ID; resolved IDs take
 precedence.
 
@@ -121,7 +122,8 @@ treatments. A scenario shared by two capabilities runs once per capability.
 runner and resource confounds their effects; see [models and runners](models-and-runners.md).
 
 For inline scenario references, `path` resolves from the host working directory,
-not the experiment file. `name` optionally overrides the scenario ID.
+not the experiment file. Set `id` in the scenario's config to pin identity;
+inline `name` does not override it.
 
 Repeat close comparisons in separate output directories; there is no repetition
 field. Inspect per-scenario regressions and use held-out tasks before claiming

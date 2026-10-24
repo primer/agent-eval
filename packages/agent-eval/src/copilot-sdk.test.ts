@@ -192,7 +192,13 @@ test('uses the bundled SDK runner and private Node without writing the token to 
     ['/opt/agent-eval/sdk-runner/run.cjs', '/opt/agent-eval/sdk-runner/config.json'],
     {
       user: NODE_USER,
-      env: {COPILOT_GITHUB_TOKEN: 'test-token'},
+      env: {
+        COPILOT_GITHUB_TOKEN: 'test-token',
+        COPILOT_OTEL_ENABLED: 'true',
+        COPILOT_OTEL_EXPORTER_TYPE: 'file',
+        COPILOT_OTEL_FILE_EXPORTER_PATH: expect.stringMatching(new RegExp(`^${COPILOT_DIR}/otel-.*\\.jsonl$`)),
+        OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT: 'false',
+      },
     },
   )
   expect(writeFile).toHaveBeenCalledExactlyOnceWith(

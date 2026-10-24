@@ -71,6 +71,14 @@ session duration, and tool call counts. Judge outputs have their own sessions.
 Use session evidence to establish whether a skill or tool was actually used,
 not simply installed.
 
+Copilot sessions also write OpenTelemetry traces locally as JSON Lines files.
+Each implementation, judge, and walkthrough session gets a separate
+`otel-<uuid>.jsonl` file, saved under `artifacts/<trial-id>/.copilot/` in the
+directory identified by `artifacts.copilotConfigDirectory`. Both the CLI and SDK
+runners collect traces; no collector or additional configuration is required.
+Message-content capture is disabled. Traces can still contain operational
+metadata, so review them before sharing. Older result bundles have no trace files.
+
 `aiCredits` is optional: older sessions and responses without usage totals omit
 it rather than reporting zero. When available, it is the latest session-wide
 `totalNanoAiu` from usage checkpoints or shutdown, divided by 1,000,000,000.

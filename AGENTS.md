@@ -52,6 +52,9 @@
 
 ## Code
 
+- Before changing lifecycle code, identify its observable contract and the
+  consequences for failure and cleanup. Load the architecture skill and the
+  testing skill when changing its tests.
 - Parse, don't validate. Use the type system to gurantee correctness.
   - When possible, use zod/mini to parse as much information as possible from a given input
   - When parsing, use the most specific type possible. For example:

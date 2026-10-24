@@ -10,6 +10,11 @@ import {TreatmentSetupSchema, type TreatmentSetup} from '../treatment'
 import {DEFAULT_DOCKER_IMAGE, NODE_USER} from '../sandbox/constants'
 import {buildImage, getImageReference, type ImageBuild} from '../docker'
 import {parsePackageManager} from './package-manager'
+import {hash} from '../hash'
+
+function getScenarioId(name: string): string {
+  return hash(`Scenario:${name}`)
+}
 
 const PackageJsonSchema = z.object({
   packageManager: z.optional(z.unknown()),
@@ -26,6 +31,18 @@ type Scenario = {
   judges: Array<Judge>
   image: DockerImage
   setup?: TreatmentSetup
+}
+
+function assertUniqueScenarioIds(scenarios: ReadonlyArray<Scenario>): void {
+  const directories = new Map<string, string>()
+  for (const scenario of scenarios) {
+    const directory = path.resolve(scenario.directory)
+    const existing = directories.get(scenario.id)
+    if (existing !== undefined && existing !== directory) {
+      throw new Error(`Duplicate scenario ID: ${scenario.id}`)
+    }
+    directories.set(scenario.id, directory)
+  }
 }
 
 type DockerImage =
@@ -217,5 +234,12 @@ const defaultScenarioSetup: TreatmentSetup = async ({sandbox}) => {
   }
 }
 
-export {ScenarioSchema, getScenarioIgnoreFiles, buildScenarioImage, defaultScenarioSetup}
+export {
+  ScenarioSchema,
+  assertUniqueScenarioIds,
+  getScenarioId,
+  getScenarioIgnoreFiles,
+  buildScenarioImage,
+  defaultScenarioSetup,
+}
 export type {Scenario}

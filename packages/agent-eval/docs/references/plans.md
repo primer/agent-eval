@@ -23,8 +23,13 @@ resource contents. Execution reloads local configurations and resolves the
 saved identifiers. Preserve the source revision, dependency versions, resource
 contents, and directory layout with the plan.
 
-Configuration IDs come from filenames. Capability and treatment IDs depend on
-their names. Renaming or removing referenced entities can invalidate a plan.
+Benchmark, experiment, and scenario IDs use explicit config `id` values when
+provided. Otherwise, IDs depend on the path relative to the
+configured resource directory (without the module extension for benchmarks and
+experiments). Pin IDs before moving or renaming resources to keep plans
+resolvable. Capability and treatment IDs still depend on their names.
+Renaming or removing referenced entities can invalidate a plan. See
+[resource identity migration](../migrations/resource-identity.md) for existing plans.
 
 ## Create and run
 

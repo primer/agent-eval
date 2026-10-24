@@ -14,7 +14,7 @@ for the index format and release handling.
 
 | Reference                              | When to read                                                                                                 |
 | :------------------------------------- | :----------------------------------------------------------------------------------------------------------- |
-| [Migrations](references/migrations.md) | Documenting breaking changes, deprecations, or replacements, and finalizing migration versions for a release |
+| [Migrations](../../../.github/skills/changesets/references/migrations.md) | Documenting breaking changes, deprecations, or replacements, and finalizing migration versions for a release |
 
 Add a changeset when a pull request changes the public API or user-visible
 behavior of the published `@primer/agent-eval` package. Public API includes:
@@ -49,6 +49,10 @@ Describe the public API or behavior that was added, changed, fixed, or removed.
 For breaking changes, state what consumers need to change. Do not describe
 implementation details, internal refactors, file changes, or the development
 process unless they directly affect consumers.
+
+Pin migration-guide links in changesets to a full commit SHA containing the
+guide (`blob/<sha>/...`), never `blob/main/...` or another branch name, so future
+moves cannot break published release notes.
 
 Prefer:
 

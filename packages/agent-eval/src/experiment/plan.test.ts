@@ -147,6 +147,7 @@ test('preserves repeated experiment trial combinations with distinct IDs', async
 test('expands and restores benchmark experiment control, benchmark, and custom treatments', async () => {
   const host = VirtualHost.create({
     '/experiments/example.ts': `export default ${JSON.stringify({
+      id: 'pinned-experiment',
       name: 'Example',
       description: 'Compare benchmark treatments',
       models: ['gpt-5.5'],
@@ -155,6 +156,7 @@ test('expands and restores benchmark experiment control, benchmark, and custom t
       treatments: [{name: 'Skill'}],
     })}`,
     '/benchmarks/design-system.ts': `export default ${JSON.stringify({
+      id: 'pinned-benchmark',
       name: 'Design System',
       description: 'Example benchmark',
       models: ['gpt-5.5'],
@@ -172,6 +174,11 @@ test('expands and restores benchmark experiment control, benchmark, and custom t
   const experiment = await getExperiment({...options, name: 'example'})
   const plan = createExperimentPlan({experiment})
 
+  expect(experiment.id).toBe('pinned-experiment')
+  expect(experiment.type).toBe('benchmark')
+  if (experiment.type === 'benchmark') {
+    expect(experiment.benchmark.id).toBe('pinned-benchmark')
+  }
   expect(plan.trials).toHaveLength(6)
   for (const runner of ['copilot-cli', 'copilot-sdk']) {
     expect(

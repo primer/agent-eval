@@ -1,3 +1,4 @@
+import path from 'node:path'
 import type {ModelVariant} from '../model'
 import type {CopilotRunner} from '../copilot-runner'
 import type {RunPlanResult} from '../plan'
@@ -26,6 +27,7 @@ type BenchmarkComparison = {
   capability: Capability
   runner: CopilotRunner
   scenario?: string
+  scenarioName?: string
   model?: ModelVariant
   control: TrialSummary
   benchmarkTreatment: TrialSummary
@@ -63,7 +65,7 @@ function formatBenchmarkComparison(
     Benchmark: comparison.scenario ? '' : benchmark.name,
     Capability: comparison.scenario ? '' : comparison.capability.name,
     ...(showRunner ? {Runner: comparison.scenario ? '' : comparison.runner} : {}),
-    Scenario: comparison.model ? '' : comparison.scenario ? `  ${comparison.scenario}` : 'All scenarios',
+    Scenario: comparison.model ? '' : comparison.scenario ? `  ${comparison.scenarioName}` : 'All scenarios',
     Model: comparison.model ? `    ${comparison.model.name}` : 'All models',
     'Reasoning Effort': comparison.model?.reasoningEffort ?? '',
     'Control Runs': comparison.control.runs,
@@ -112,6 +114,7 @@ function createBenchmarkReport({benchmark, runPlanResult}: CreateBenchmarkReport
         capability: trial.capability,
         runner,
         ...value,
+        scenarioName: value.scenario === undefined ? undefined : path.basename(trial.scenario.directory),
         control: createTrialSummary(),
         benchmarkTreatment: createTrialSummary(),
       }

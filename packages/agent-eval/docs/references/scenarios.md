@@ -5,15 +5,28 @@ evaluation. Benchmarks and experiments reuse the same scenario across treatments
 
 ## Contract
 
-| Item              | Rule                                                              |
-| :---------------- | :---------------------------------------------------------------- |
-| Required files    | `package.json` and `scenario.config.ts`                           |
-| Import and export | `defineConfig` from `@primer/agent-eval/scenario`; default export |
-| Required field    | `prompt`, passed to the implementation agent                      |
-| Optional fields   | `description`, `tags`, `checks`, `judges`, `image`, `setup`       |
-| Defaults          | Empty tags, checks, and judges                                    |
-| Identity          | Directory name by default                                         |
-| Evaluation files  | Declare in check/judge `files`; restored during evaluation        |
+| Item              | Rule                                                                |
+| :---------------- | :------------------------------------------------------------------ |
+| Required files    | `package.json` and `scenario.config.ts`                             |
+| Import and export | `defineConfig` from `@primer/agent-eval/scenario`; default export   |
+| Required field    | `prompt`, passed to the implementation agent                        |
+| Optional fields   | `id`, `description`, `tags`, `checks`, `judges`, `image`, `setup`   |
+| Defaults          | Empty tags, checks, and judges                                      |
+| Identity          | Explicit config `id`, otherwise derived from the relative directory |
+| Evaluation files  | Declare in check/judge `files`; restored during evaluation          |
+
+Set `id` to a nonblank string to pin identity across renames. Otherwise, the ID
+depends on the scenario directory's path relative to the configured scenarios
+directory. Moving the entire scenarios directory does not change the ID.
+The ID depends on the directory, not the config filename. Explicit IDs are used
+unchanged. IDs must be unique among discovered scenarios.
+
+CLI selection and string references accept the directory name or resolved ID;
+resolved IDs take precedence. Inline `{path, name?}` references use the
+same identity as string references; `name` no longer overrides identity. Paths
+outside the configured scenarios root use a relative path beginning with `../`;
+set an explicit config `id` when that layout may change. Discovery still checks
+immediate child directories, not nested fixtures.
 
 Add [checks](checks.md), [judges](judges.md), or both before treating a run as a
 quality evaluation. Empty graders are valid configuration but provide no

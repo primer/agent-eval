@@ -68,6 +68,14 @@ const DockerImageConfigInputSchema = z.pipe(
 )
 
 const ScenarioConfigSchema = z.object({
+  id: z.optional(
+    z.string().check(
+      z.minLength(1),
+      z.refine(value => {
+        return value.trim().length > 0
+      }),
+    ),
+  ),
   description: z.optional(z.string()),
   prompt: z.string(),
   tags: z._default(z.array(z.string()), []),

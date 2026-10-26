@@ -1,12 +1,14 @@
 import fs from 'node:fs'
 import {pathToFileURL} from 'node:url'
 import {memfs, Volume, type NestedDirectoryJSON} from 'memfs'
+import tarFs from 'tar-fs'
 import {SystemSandbox, VirtualSandbox, type Sandbox, type SandboxCreateOptions} from './sandbox'
 
 type FileSystem = typeof import('node:fs')
 
 interface Host {
   fs: FileSystem
+  archive: Pick<typeof tarFs, 'pack' | 'extract'>
   loadModule<T = unknown>(filepath: string): Promise<T>
   createSandbox: (options?: SandboxCreateOptions) => Promise<Sandbox>
 }
@@ -17,9 +19,11 @@ class SystemHost implements Host {
   }
 
   fs: FileSystem
+  archive: Host['archive']
 
   constructor() {
     this.fs = fs
+    this.archive = createArchive(this.fs)
   }
 
   loadModule<T = unknown>(filepath: string): Promise<T> {
@@ -40,6 +44,7 @@ class VirtualHost implements Host {
   }
 
   fs: FileSystem
+  archive: Host['archive']
   vol: Volume
 
   constructor(json?: NestedDirectoryJSON) {
@@ -48,6 +53,7 @@ class VirtualHost implements Host {
     // @ts-expect-error - not every constant is exposed but memfs should match
     // for our test cases
     this.fs = virtualFs
+    this.archive = createArchive(this.fs)
   }
 
   async loadModule<T = unknown>(filepath: string): Promise<T> {
@@ -62,6 +68,25 @@ class VirtualHost implements Host {
       host: this,
       ...options,
     })
+  }
+}
+
+function createArchive(fs: FileSystem): Host['archive'] {
+  return {
+    pack(directory, options) {
+      const packOptions = {
+        ...options,
+        fs,
+      }
+      return tarFs.pack(directory, packOptions)
+    },
+    extract(directory, options) {
+      const extractOptions = {
+        ...options,
+        fs,
+      }
+      return tarFs.extract(directory, extractOptions)
+    },
   }
 }
 

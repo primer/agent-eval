@@ -60,6 +60,24 @@ const config = defineConfig([
       'no-shadow': 'off',
     },
   },
+  {
+    files: ['packages/agent-eval/src/**/*.ts'],
+    ignores: ['packages/agent-eval/src/host.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: 'tar-fs',
+              allowTypeImports: true,
+              message: 'Use host.archive so archive operations use the host filesystem.',
+            },
+          ],
+        },
+      ],
+    },
+  },
 ])
 
 export default config

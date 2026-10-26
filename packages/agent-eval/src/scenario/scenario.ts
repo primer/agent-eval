@@ -1,5 +1,4 @@
 import path from 'node:path'
-import tarFs from 'tar-fs'
 import * as z from 'zod/mini'
 import {CheckSchema, type Check} from '../check'
 import {JudgeSchema, type Judge} from '../judge'
@@ -161,7 +160,7 @@ async function buildScenarioImage({host = DefaultHost, scenario}: BuildScenarioI
         return ignoreFile.filepath
       }),
     )
-    const context = tarFs.pack(contextDirectory, {
+    const context = host.archive.pack(contextDirectory, {
       finalize: false,
       ignore(filepath) {
         return ignored.has(filepath)

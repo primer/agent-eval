@@ -7,6 +7,7 @@ import {AGENTS_DIR, CONTAINER_WORKDIR, COPILOT_DIR, NODE_USER, SKILLS_DIR, type 
 import {TrialSchema, type Trial} from './trial'
 import {runCopilotCli} from '../copilot-cli'
 import {runCopilotSdk} from '../copilot-sdk'
+import {getCopilotTelemetryEnv} from '../copilot-runner'
 import {
   getJudgeModel,
   getJudgePrompt,
@@ -423,6 +424,7 @@ Only capture the walkthrough, do not make any further code changes.`
           user: NODE_USER,
           env: {
             COPILOT_GITHUB_TOKEN: copilotToken,
+            ...getCopilotTelemetryEnv(),
           },
           allowNonZeroExitCode: true,
         },

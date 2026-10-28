@@ -40,6 +40,98 @@
   doc examples. Keep `skills/agent-eval/SKILL.md` as a pointer to the installed
   package docs.
 
+## Repository profiling
+
+Use the opt-in repository script (Node 26+, no additional dependencies) to
+measure a built CLI directly, not pnpm or Turbo:
+
+```sh
+pnpm exec turbo run build --filter=@primer/agent-eval
+node script/profile.ts -- --help
+node script/profile.ts --no-profiles -- experiment plan create noop --output-path artifacts/noop-plan.json
+node script/profile.ts --interval-ms 500 -- experiment run noop
+node script/profile.ts --docker --output artifacts/profiles -- experiment run noop
+```
+
+Replace the example with an existing experiment and its normal CLI arguments
+(`node packages/agent-eval/bin/agent-eval --help`). Everything after `--` is
+forwarded unchanged. Wrapper options must precede it; `--interval-ms` accepts
+10–60000 ms (default 500). Use `--help` or `experiment plan create noop` as
+local smoke workloads without executing paid agents or requiring Docker.
+`--no-profiles` disables native CPU/heap profiling for repeatable resource
+baselines while retaining process sampling and the JSON report. The report's
+`instrumentation` fields state which collectors were enabled. Docker is never
+contacted unless `--docker` is set.
+Explicit Docker profiling requires a Docker CLI and reachable daemon; failures
+are reported rather than silently omitted. Each Docker command has a 5-second
+timeout and 4 MiB output limit; sampling is serial, with the configured delay
+between completed samples.
+
+Each invocation creates a unique `run-*` directory under the ignored
+`artifacts/profiles/` directory by default. Alternative `--output` paths are
+resolved from the current directory; keep them under `artifacts/` to avoid
+accidental commits. Artifacts:
+
+- `report.json`: versioned machine-readable metadata (argv, cwd, Node/platform,
+  timings, exit code/signal, errors), cumulative target CPU milliseconds,
+  sampled maximum RSS bytes, and Node `resourceUsage` counters. The latter use
+  Node's native units, including CPU microseconds and maxRSS KiB.
+  `metrics.elapsedMs` is target elapsed time from preload startup;
+  `harnessElapsedMs` additionally includes launch, Docker snapshots and sample
+  shutdown overhead. Both are labeled separately in the console summary.
+- `memory.jsonl`: elapsed milliseconds and target `process.memoryUsage()` samples
+  in bytes (`rss`, `heapTotal`, `heapUsed`, `external`, `arrayBuffers`). Sampling
+  starts before CLI import and flushes on exit; it can miss short-lived peaks.
+- Native `.cpuprofile` and `.heapprofile` files: inspect CPU call stacks and
+  allocation sampling in Chrome DevTools' Performance/Memory tools. Heap
+  profiles are sampled allocations, **not heap snapshots** or retained-object
+  graphs. Forced termination can leave native profiles incomplete or absent;
+  the report and last flushed process metrics still help diagnose failures.
+- With `--docker`, `docker-stats.jsonl` contains timestamped Docker JSON rows
+  (CPU percentage, memory usage/limit, block I/O and Docker-provided units).
+  `docker-disk-before.jsonl` and `docker-disk-after.jsonl` contain read-only
+  `docker system df` snapshots; they are not peak disk measurements.
+
+Process metrics describe the target Node process and its threads, not its
+subprocesses, remote agents or containers. Native CPU profiles describe
+JavaScript execution, not total system CPU. RSS and CPU cover process threads;
+heap fields describe the main isolate, not worker heaps. Node forks/workers may
+inherit native profiling flags and produce additional profiles; identify them
+by filename PID/thread ID rather than aggregating them into target totals.
+The metrics preload does not instrument those descendants. Docker metrics are explicitly
+**daemon-wide**, covering all running containers because there is no run label
+filter. Unrelated workloads, removed containers and activity between samples
+prevent attributing these measurements to one trial. No Docker resources are
+created, stopped or pruned by the profiler. SIGINT/SIGTERM are forwarded to the
+target, with SIGKILL escalation after 5 seconds if it ignores shutdown; the
+target remains responsible for its own child/container cleanup. Nonzero target
+exits are preserved; profiling errors make an otherwise successful run fail.
+
+For an optimization:
+
+1. Build each revision before measuring. Record the revision, machine,
+   experiment/scenario, model, concurrency and profiling interval; hold those
+   inputs constant. Avoid unrelated workloads on the host/daemon.
+2. Separate cold and warm measurements. Define cold state explicitly (for
+   example a fresh dedicated workspace/daemon without scenario images or
+   caches); never prune a shared daemon. Warm up once with the same workload,
+   then repeat at least three measured warm runs. Do not mix cold image builds
+   with warm execution results or call a fresh Node process a cold Docker run.
+3. Compare repeated `report.json` values and raw samples across revisions using
+   identical settings; compare `metrics.elapsedMs` rather than
+   `harnessElapsedMs` for target wall time. Use CPU stacks to
+   identify hot code, make one focused change, then rerun the same workload.
+4. Compare resource baselines with `--no-profiles`, keeping sampling settings
+   identical, then confirm the improvement also holds using the CLI directly
+   without the wrapper. Native profiling, synchronous metric writes and Docker
+   polling add overhead; agent/network latency and short workloads can dominate.
+   Don't infer a regression or improvement from a single run.
+
+Reports intentionally do not capture environment variables. Nevertheless argv,
+paths, profile source locations, container names and workload data may be
+sensitive. Do not put credentials in CLI arguments; inspect/redact artifacts
+before sharing and never commit raw profiles by default.
+
 ## Evidence for decisions
 
 - When a decision, recommendation, or review finding relies on a resource,

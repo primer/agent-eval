@@ -40,10 +40,20 @@ setup improvements and offers focused reruns only with the user's approval.
   beyond the automatic control.
 - Keep prompts and fixtures treatment-blind. Put the knowledge being tested in
   treatment setup, not shared setup.
-- Withhold grader files using `files`. Verify the starter fails for the intended
-  reasons and a correct solution passes; restore the starter before execution.
-  For Vitest or ESLint grading, use `createVitestCheck` or `createESLintCheck` as
-  described in [Checks](references/checks.md).
+- Define the precise behavior being evaluated before choosing checks. Separate
+  that target from incidental fixture work. Prefer deterministic checks for
+  observable events; use judges only for criteria needing semantic judgment.
+  Skill invocation alone does not establish offer quality or consent handling.
+- Keep simple reads, parsing, filtering, and event checks directly in
+  `checks[].run` using sandbox APIs. Use `sandbox.runCommand` only for execution
+  inside the sandbox, not to spawn Node for file processing. Vitest and
+  `createVitestCheck` are optional; see [Checks](references/checks.md).
+- Withhold grader-owned files using `files` when needed. Verify only the changed
+  criterion with relevant positive and negative evidence; for implementation
+  checks, confirm intended starter failures and a correct solution, then restore
+  the starter. Do not add a parallel harness or test unrelated fixture behavior.
+- Treat evidence capture as infrastructure, not an agent-behavior score. Inspect
+  available events directly and assert the target signal, not transcript capture.
 - Inspect the plan's combinations before running. Use a fresh output directory.
 - Finish by reading trial results and reporting outcomes and errors separately.
   Command completion alone does not establish quality.

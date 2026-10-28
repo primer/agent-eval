@@ -136,6 +136,17 @@ When adding a scenario, follow these rules:
   for the scenario
 - Add scenarios to `./scenarios` with the next number in the sequence
 - Describe (at a high level) what we are testing for the agent
+- Define the precise target behavior before choosing checks. Separate the
+  evaluated outcome from incidental fixture work; a UI task used to elicit
+  feedback does not justify grading imports, source files, DOM, or geometry
+  unless those are the target.
+- Follow the [scenario](packages/agent-eval/docs/references/scenarios.md) and
+  [check](packages/agent-eval/docs/references/checks.md) guidance. Prefer direct
+  deterministic evidence for observable events and reserve judges for semantic
+  criteria. Inline hooks are valid; the template's Vitest setup is optional.
+- Verify only the changed criterion with relevant positive and negative
+  evidence. Reuse existing infrastructure instead of adding a parallel harness
+  or testing unrelated fixture behavior.
 - When authoring the prompt for the scenario, use general language to describe
   the task. Unless explicitly asked for, do not directly mention Primer or
   include in the prompt instructions on how to access/use Primer. We are testing

@@ -1,5 +1,17 @@
 # Checks
 
+## Table of Contents
+
+- [Contract](#contract), L:19
+- [Direct hooks](#direct-hooks), L:36
+- [Return fragments](#return-fragments), L:81
+- [Annotations](#annotations), L:120
+- [Run](#run), L:161
+- [Vitest](#vitest), L:167
+- [ESLint](#eslint), L:208
+- [Verify](#verify), L:235
+- [Pitfalls](#pitfalls), L:248
+
 **Use when:** verifying deterministic behavior, builds, lint rules, source
 conventions that runtime tests cannot establish, or numeric measurements.
 Use a [judge](judges.md) only for criteria that need model-based judgment.
@@ -15,9 +27,56 @@ Use a [judge](judges.md) only for criteria that need model-based judgment.
 | Return          | One group, or an array of groups with an `id` on every group |
 | Group contents  | Either `outcomes` or `measurements`, never both              |
 
-Keep assertions in test files. Have `run` invoke the tool and translate observed
-results into outcomes or measurements. Throw when evaluation cannot execute;
-do not substitute passing or empty results.
+Choose checks only after defining the precise target behavior. Prefer
+deterministic checks for directly observable events, including tool or skill
+invocations. State what each outcome proves: a skill invocation does not prove
+the quality of an offer or consent handling. Use a judge only for a criterion
+that genuinely requires semantic judgment.
+
+## Direct hooks
+
+`checks[].run` is ordinary TypeScript. Keep simple file reads, parsing,
+filtering, and event checks directly in the hook using `sandbox.readFile`,
+`sandbox.glob`, and other sandbox APIs. Do not spawn Node merely to read or
+process a file. Use `sandbox.runCommand` only when actual execution inside the
+sandbox is needed, such as a build, CLI, or test runner.
+
+For example, this check grades a task whose target is writing `stable` to
+`release-channel.txt`. It needs no test file or test framework:
+
+```ts
+{
+  name: 'release-channel',
+  async run({sandbox}) {
+    let channel = ''
+    if (await sandbox.exists('release-channel.txt')) {
+      channel = await sandbox.readFile('release-channel.txt')
+    }
+
+    return {
+      outcomes: [
+        {
+          type: 'outcome',
+          id: 'stable-channel',
+          status: channel.trim() === 'stable' ? 'passed' : 'failed',
+        },
+      ],
+    }
+  },
+}
+```
+
+For event checks, inspect the relevant implementation-session events using
+their documented format for the selected runner/version. Filter for the target
+invocation, not a transcript mention, installation, or unrelated session.
+Do not assume event paths or formats are portable across runners.
+
+Evidence capture is infrastructure, not an agent-behavior score. Assert the real
+target signal rather than emitting an always-passing "transcript captured"
+outcome. Avoid intermediate artifacts when the hook can inspect events directly.
+Throw when evaluation cannot execute; do not substitute passing or empty
+results. An unreadable event log is an evaluation error, while a readable log
+without the required event is a failed outcome.
 
 ## Return fragments
 
@@ -101,7 +160,14 @@ separate diagnostics, not fragments to combine by array position.
 
 ## Run
 
-Use `createVitestCheck` from `@primer/agent-eval/scenario` for Vitest grading:
+Direct hook logic and inline checks are valid. Vitest and `createVitestCheck`
+are optional; do not add test files, browser infrastructure, or dependencies
+just because a helper exists.
+
+### Vitest
+
+When using Vitest, `createVitestCheck` from `@primer/agent-eval/scenario` is a
+convenience for running tests and translating their results:
 
 ```ts
 createVitestCheck({
@@ -129,13 +195,13 @@ as test helpers, setup files, or fixtures. These are withheld from the agent and
 copied in before the check runs alongside the config and tests, but are not used
 as Vitest test filters. Omitting `files` adds no extra paths.
 
-For custom checks, run Vitest with `allowNonZeroExitCode: true`: assertion failures commonly exit
+For custom Vitest integrations, run Vitest with `allowNonZeroExitCode: true`: assertion failures commonly exit
 with `1`, and you still need the report. Reject unexpected exit codes, missing
 or invalid reports, zero tests, and a nonzero exit without failed assertions
 as evaluation errors. Do not convert them into empty outcomes or a passing
 result.
 
-Return one outcome per assertion, using its full test name as the ID.
+For Vitest results, return one outcome per assertion, using its full test name as the ID.
 This preserves attribution when one part of a task fails. Use runtime behavior
 instead of broad source-string matches when possible.
 
@@ -168,20 +234,23 @@ after the check, including on failure.
 
 ## Verify
 
-- The untouched fixture fails the intended assertions, rather than failing to
-  start the test runner.
-- A correct implementation passes, including plausible alternatives.
-- Each assertion has an attributable outcome; an unrelated missing export does
-  not prevent independent checks from running.
-- Missing or malformed reports, zero tests, and unexpected exits surface as
-  evaluation errors.
+- Scope verification to the changed criterion and relevant positive and negative
+  evidence. For event checks, the target event passes and absent or unrelated
+  events fail; for implementation checks, the untouched fixture fails for the
+  intended reason and a correct solution passes, including plausible alternatives.
+- Reuse existing infrastructure. Do not build a parallel validation harness or
+  test unrelated fixture behavior.
+- Each target signal has an attributable outcome. When using a test runner,
+  an unrelated missing export must not prevent independent checks from running.
+- When using reports or test runners, missing or malformed reports, zero tests,
+  and unexpected exits surface as evaluation errors, not agent failures.
 
 ## Pitfalls
 
 Use dynamic lookup or independent assertions when a missing feature would
 otherwise cause a suite-wide module import failure.
 
-For browser behavior, explicitly configure browser tests and their dependencies.
+When browser behavior is itself the target, configure browser tests and their dependencies.
 A saved screenshot or walkthrough is not an automated behavioral assertion.
 Do not use an expensive judge to enforce a rule a reliable deterministic check
 can already measure.

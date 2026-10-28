@@ -1,7 +1,22 @@
 # Judges
 
+## Table of Contents
+
+- [Contract](#contract), L:21
+- [Configuration fragment](#configuration-fragment), L:44
+- [Run](#run), L:65
+- [Verify](#verify), L:71
+- [Pitfalls](#pitfalls), L:81
+
 **Use when:** evaluating criteria that deterministic checks cannot adequately
 measure, such as visual hierarchy or clarity of an interaction.
+
+Define the precise target behavior first. Use a deterministic [check](checks.md)
+for observable events such as tool or skill invocations, not a judge searching
+for their presence. Invocation alone does not prove offer quality or consent
+handling; if those are the target, evaluate the relevant interaction evidence
+against a semantic rubric. Do not grade incidental UI fixture work unless it
+is itself the target.
 
 ## Contract
 

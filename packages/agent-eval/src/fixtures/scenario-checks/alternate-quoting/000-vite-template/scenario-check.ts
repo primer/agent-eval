@@ -1,0 +1,1 @@
+../../../../../../../scenarios/000-vite-template/scenario.test.ts

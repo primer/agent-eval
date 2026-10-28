@@ -1,0 +1,1 @@
+../../../../../../../scenarios/000-llm-as-a-judge/scenario.test.ts

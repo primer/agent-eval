@@ -1,11 +1,14 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import {afterEach, beforeEach, expect, onTestFinished, test, vi} from 'vitest'
+import {afterEach, beforeEach, expect, test, vi} from 'vitest'
 import {getBenchmarkRun, listBenchmarkRuns} from './benchmark-results'
 import {list as listBenchmarks} from './benchmarks'
 import {get as getExperimentRun, list as listExperimentRuns} from './runs'
 import {getRunAsset, listRunAssetParams} from './run-assets'
 import {checks, createBenchmarkOutput, createExperimentOutput, createTrial, judges, session} from './test-fixtures'
+import {createTestFileSystem} from './test-filesystem'
+
+let memory: typeof fs
 
 vi.mock('./benchmark-results', () => {
   return {getBenchmarkRun: vi.fn(), listBenchmarkRuns: vi.fn()}
@@ -19,29 +22,28 @@ vi.mock('./runs', () => {
 
 beforeEach(() => {
   vi.resetAllMocks()
+  memory = createTestFileSystem()
   vi.mocked(listBenchmarks).mockResolvedValue([])
   vi.mocked(listExperimentRuns).mockResolvedValue([])
 })
 
 afterEach(() => {
+  vi.restoreAllMocks()
   vi.unstubAllEnvs()
 })
 
 test.each(['benchmarks', 'experiments'] as const)(
   'exports separate JSON and exact media bytes for %s with base-path URLs',
   async collection => {
-    const root = path.resolve('.agents/tmp')
-    await fs.mkdir(root, {recursive: true})
-    const directory = await fs.mkdtemp(path.join(root, 'run-assets-'))
-    onTestFinished(async () => {
-      await fs.rm(directory, {recursive: true, force: true})
-    })
+    const directory = path.resolve(import.meta.dirname, '__fixtures__/assets')
     const mediaDirectory = path.join(directory, 'artifacts/trial-1/walkthrough')
-    await fs.mkdir(mediaDirectory, {recursive: true})
+    await memory.mkdir(mediaDirectory, {
+      recursive: true,
+    })
     const image = Buffer.from([0, 255, 1, 2, 3])
     const video = Buffer.from([255, 0, 3, 2, 1])
-    await fs.writeFile(path.join(mediaDirectory, 'image.png'), image)
-    await fs.writeFile(path.join(mediaDirectory, 'video.webm'), video)
+    await memory.writeFile(path.join(mediaDirectory, 'image.png'), image)
+    await memory.writeFile(path.join(mediaDirectory, 'video.webm'), video)
     const trial = createTrial({
       walkthrough: {type: 'Screenshots', screenshots: ['walkthrough/missing.png', 'walkthrough/image.png']},
       agent: {
@@ -115,7 +117,7 @@ test.each(['benchmarks', 'experiments'] as const)(
     expect(Buffer.from(await recording.arrayBuffer())).toEqual(video)
     expect((await getRunAsset([...segments, 'not-declared.png'])).status).toBe(404)
     expect((await getRunAsset([collection, output.id, run.name, 'missing-trial', 'details.json'])).status).toBe(404)
-    await fs.rm(path.join(mediaDirectory, 'image.png'))
+    await memory.rm(path.join(mediaDirectory, 'image.png'))
     expect((await getRunAsset([...segments, 'media-1.png'])).status).toBe(404)
   },
 )
@@ -128,18 +130,15 @@ test('handles empty run collections without inventing data', async () => {
 test.each(['benchmarks', 'experiments'] as const)(
   'rejects escaping media before reading host data for %s',
   async collection => {
-    const root = path.resolve('.agents/tmp')
-    await fs.mkdir(root, {recursive: true})
-    const directory = await fs.mkdtemp(path.join(root, 'run-assets-symlink-'))
-    onTestFinished(async () => {
-      await fs.rm(directory, {recursive: true, force: true})
-    })
+    const directory = path.resolve(import.meta.dirname, '__fixtures__/assets')
     const runDirectory = path.join(directory, 'run')
     const mediaDirectory = path.join(runDirectory, 'artifacts/trial-1/walkthrough')
-    await fs.mkdir(mediaDirectory, {recursive: true})
+    await memory.mkdir(mediaDirectory, {
+      recursive: true,
+    })
     const outsideFile = path.join(directory, 'private.txt')
-    await fs.writeFile(outsideFile, 'HOST_DATA_MUST_NOT_BE_READ')
-    await fs.symlink(outsideFile, path.join(mediaDirectory, 'image.png'))
+    await memory.writeFile(outsideFile, 'HOST_DATA_MUST_NOT_BE_READ')
+    await memory.symlink(outsideFile, path.join(mediaDirectory, 'image.png'))
     const trial = createTrial({walkthrough: {type: 'Screenshot', filepath: 'walkthrough/image.png'}})
     const output = collection === 'benchmarks' ? createBenchmarkOutput([trial]) : createExperimentOutput([trial])
     const run = {id: '2026-09-15', name: '2026-09-15', date: new Date('2026-09-15'), directory: runDirectory, output}
@@ -156,9 +155,6 @@ test.each(['benchmarks', 'experiments'] as const)(
       vi.mocked(listExperimentRuns).mockResolvedValue([experimentRun])
     }
     const readFile = vi.spyOn(fs, 'readFile')
-    onTestFinished(() => {
-      readFile.mockRestore()
-    })
     const segments = [collection, output.id, run.name, trial.id]
 
     await expect(getRunAsset([...segments, 'media-0.png'])).rejects.toThrow('outside its artifacts directory')

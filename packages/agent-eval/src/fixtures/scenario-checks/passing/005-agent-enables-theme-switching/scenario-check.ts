@@ -1,0 +1,1 @@
+../../../../../../../scenarios/005-agent-enables-theme-switching/scenario.test.ts

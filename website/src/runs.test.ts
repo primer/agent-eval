@@ -3,6 +3,7 @@ import path from 'node:path'
 import type {ExperimentOutput} from '@primer/agent-eval'
 import {readExperimentOutput as read} from './result-files'
 import {afterEach, beforeEach, expect, test, vi} from 'vitest'
+import {createTestFileSystem} from './test-filesystem'
 
 vi.mock('./result-files', () => {
   return {readExperimentOutput: vi.fn()}
@@ -10,38 +11,41 @@ vi.mock('./result-files', () => {
 
 let directory: string
 let getLatestForExperiment: (typeof import('./runs'))['getLatestForExperiment']
+let memory: typeof fs
 
 beforeEach(async () => {
   vi.resetAllMocks()
   vi.resetModules()
-  const temporaryDirectory = path.resolve('.agents/tmp')
-  await fs.mkdir(temporaryDirectory, {recursive: true})
-  directory = await fs.mkdtemp(path.join(temporaryDirectory, 'experiment-runs-'))
+  memory = createTestFileSystem()
+  directory = path.resolve(import.meta.dirname, '__fixtures__/runs')
   const cwd = vi.spyOn(process, 'cwd').mockReturnValue(path.join(directory, 'website'))
   try {
     getLatestForExperiment = (await import('./runs')).getLatestForExperiment
   } finally {
     cwd.mockRestore()
   }
-  vi.mocked(read).mockResolvedValue({
+  const output: ExperimentOutput = {
     id: 'example',
     capabilities: new Map(),
     scenarios: new Map(),
     treatments: new Map(),
     trials: new Map(),
-  } satisfies ExperimentOutput)
+  }
+  vi.mocked(read).mockResolvedValue(output)
 })
 
-afterEach(async () => {
-  await fs.rm(directory, {recursive: true, force: true})
+afterEach(() => {
+  vi.restoreAllMocks()
 })
 
 async function createRunDirectory(date: string, withOutput = true): Promise<string> {
   const runDirectory = path.join(directory, 'results/experiments/example', date)
-  await fs.mkdir(runDirectory, {recursive: true})
+  await memory.mkdir(runDirectory, {
+    recursive: true,
+  })
   const outputPath = path.join(runDirectory, 'output.json')
   if (withOutput) {
-    await fs.writeFile(outputPath, '{}')
+    await memory.writeFile(outputPath, '{}')
   }
   return outputPath
 }
@@ -65,7 +69,7 @@ test('skips invalid dates, files, and directories without a result manifest', as
   await createRunDirectory('2026-02-30')
   await createRunDirectory('not-a-date')
   const latest = await createRunDirectory('2026-09-10')
-  await fs.writeFile(path.join(directory, 'results/experiments/example/2026-09-11'), '')
+  await memory.writeFile(path.join(directory, 'results/experiments/example/2026-09-11'), '')
 
   expect(await getLatestForExperiment('example')).toMatchObject({name: '2026-09-10'})
   expect(read).toHaveBeenCalledTimes(1)

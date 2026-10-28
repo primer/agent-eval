@@ -1,0 +1,1 @@
+../../../../../../../scenarios/002-agent-uses-octicon-from-primer/scenario.test.ts

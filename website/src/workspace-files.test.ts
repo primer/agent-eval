@@ -5,27 +5,31 @@ import {getWorkspaceFiles, type WorkspaceEntry, type WorkspaceFile} from './work
 import * as artifacts from './artifacts'
 import {createBenchmarkRunDetails, createExperimentRunDetails} from './run-details'
 import {createBenchmarkOutput, createExperimentOutput, createTrial} from './test-fixtures'
+import {createTestFileSystem} from './test-filesystem'
 
 let directory: string
 let workspace: string
+let memory: typeof fs
 
 beforeEach(async () => {
-  const temporaryDirectory = path.resolve('.agents/tmp')
-  await fs.mkdir(temporaryDirectory, {recursive: true})
-  directory = await fs.mkdtemp(path.join(temporaryDirectory, 'workspace-files-'))
+  memory = createTestFileSystem()
+  directory = path.resolve(import.meta.dirname, '__fixtures__/workspace')
   workspace = path.join(directory, 'artifacts/trial/workspace')
-  await fs.mkdir(workspace, {recursive: true})
+  await memory.mkdir(workspace, {
+    recursive: true,
+  })
 })
 
-afterEach(async () => {
+afterEach(() => {
   vi.restoreAllMocks()
-  await fs.rm(directory, {recursive: true, force: true})
 })
 
 async function writeFile(name: string, content: string | Buffer) {
   const filepath = path.join(workspace, name)
-  await fs.mkdir(path.dirname(filepath), {recursive: true})
-  await fs.writeFile(filepath, content)
+  await memory.mkdir(path.dirname(filepath), {
+    recursive: true,
+  })
+  await memory.writeFile(filepath, content)
 }
 
 async function loadEntries(): Promise<Array<WorkspaceEntry>> {
@@ -135,9 +139,9 @@ test('rejects paths outside artifact roots and sibling paths with matching prefi
 
 test('does not follow workspace symlinks outside the artifact root', async () => {
   const outside = path.join(directory, 'outside')
-  await fs.mkdir(outside)
-  await fs.writeFile(path.join(outside, 'private.txt'), 'not part of the bundle')
-  await fs.symlink(outside, path.join(directory, 'artifacts/linked'))
+  await memory.mkdir(outside)
+  await memory.writeFile(path.join(outside, 'private.txt'), 'not part of the bundle')
+  await memory.symlink(outside, path.join(directory, 'artifacts/linked'))
   expect(await getWorkspaceFiles('artifacts/linked', directory)).toEqual({
     type: 'unavailable',
     reason: 'The generated workspace path contains a symbolic link.',
@@ -145,8 +149,8 @@ test('does not follow workspace symlinks outside the artifact root', async () =>
 })
 
 test('does not follow a symlinked artifacts directory', async () => {
-  await fs.rename(path.join(directory, 'artifacts'), path.join(directory, 'outside'))
-  await fs.symlink(path.join(directory, 'outside'), path.join(directory, 'artifacts'))
+  await memory.rename(path.join(directory, 'artifacts'), path.join(directory, 'outside'))
+  await memory.symlink(path.join(directory, 'outside'), path.join(directory, 'artifacts'))
   expect(await getWorkspaceFiles('artifacts/trial/workspace', directory)).toMatchObject({
     type: 'unavailable',
     reason: 'The generated workspace path contains a symbolic link.',
@@ -154,9 +158,9 @@ test('does not follow a symlinked artifacts directory', async () => {
 })
 
 test('does not follow file links, directory links, or symlink loops', async () => {
-  await fs.writeFile(path.join(directory, 'private.txt'), 'not part of the workspace')
-  await fs.symlink(path.join(directory, 'private.txt'), path.join(workspace, 'linked.txt'))
-  await fs.symlink(workspace, path.join(workspace, 'loop'))
+  await memory.writeFile(path.join(directory, 'private.txt'), 'not part of the workspace')
+  await memory.symlink(path.join(directory, 'private.txt'), path.join(workspace, 'linked.txt'))
+  await memory.symlink(workspace, path.join(workspace, 'loop'))
   const entries = await loadEntries()
   expect(entries).toHaveLength(2)
   for (const entry of entries) {
@@ -171,7 +175,7 @@ test.each(['workspace', 'ancestor', 'dangling', 'loop'])(
     await writeFile('private.txt', 'another trial')
     let candidate = 'artifacts/linked'
     if (kind === 'ancestor') {
-      await fs.symlink(path.dirname(workspace), path.join(directory, candidate))
+      await memory.symlink(path.dirname(workspace), path.join(directory, candidate))
       candidate += '/workspace'
     } else {
       const target =
@@ -180,7 +184,7 @@ test.each(['workspace', 'ancestor', 'dangling', 'loop'])(
           : kind === 'loop'
             ? path.join(directory, candidate)
             : path.join(directory, 'missing')
-      await fs.symlink(target, path.join(directory, candidate))
+      await memory.symlink(target, path.join(directory, candidate))
     }
     const readFile = vi.spyOn(fs, 'readFile')
     const readDirectory = vi.spyOn(fs, 'readdir')
@@ -197,9 +201,9 @@ test.each(['symlink', 'file'])('tries later relocation candidates after an inval
   await writeFile('README.md', 'portable')
   const invalid = path.join(directory, 'artifacts/invalid')
   if (kind === 'symlink') {
-    await fs.symlink(workspace, invalid)
+    await memory.symlink(workspace, invalid)
   } else {
-    await fs.writeFile(invalid, 'not a directory')
+    await memory.writeFile(invalid, 'not a directory')
   }
   vi.spyOn(artifacts, 'getArtifactCandidates').mockReturnValue([invalid, workspace])
   expect(await getWorkspaceFiles('/old/runner/artifacts/trial/workspace', directory)).toMatchObject({

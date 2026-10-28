@@ -34,28 +34,17 @@ const cases: Array<{
   id: string
   outcomes: Array<string>
   baselinePassed: Array<string>
-  solution: Record<string, string>
 }> = [
   {
     id: '000-nextjs-template',
     outcomes: ['src/app/page.tsx example test'],
     baselinePassed: ['src/app/page.tsx example test'],
-    solution: {
-      'src/app/page.tsx': `export default function IndexPage() {
-  return <main>Hello world</main>
-}`,
-    },
   },
   ...['000-vite-template', '000-llm-as-a-judge'].map(id => {
     return {
       id,
       outcomes: ['src/App.tsx exports the example app'],
       baselinePassed: ['src/App.tsx exports the example app'],
-      solution: {
-        'src/App.tsx': `export function App() {
-  return <main><h1>No projects yet</h1><p>Create your first project to get started.</p></main>
-}`,
-      },
     }
   }),
   {
@@ -67,23 +56,11 @@ const cases: Array<{
       'src/app/page.tsx button has text submit',
     ],
     baselinePassed: [],
-    solution: {
-      'src/app/page.tsx': `import {Button} from '@primer/react'
-export default function IndexPage() {
-  return <Button variant="primary">Submit</Button>
-}`,
-    },
   },
   {
     id: '002-agent-uses-octicon-from-primer',
     outcomes: ['src/app/page.tsx imports Primer SearchIcon', 'src/app/page.tsx uses Primer SearchIcon'],
     baselinePassed: [],
-    solution: {
-      'src/app/page.tsx': `import {SearchIcon} from '@primer/octicons-react'
-export default function IndexPage() {
-  return <SearchIcon />
-}`,
-    },
   },
   {
     id: '003-agent-uses-form-from-primer',
@@ -97,20 +74,6 @@ export default function IndexPage() {
       'src/app/page.tsx uses Primer Button with type submit',
     ],
     baselinePassed: [],
-    solution: {
-      'src/app/page.tsx': `import {FormControl, TextInput, Button} from '@primer/react'
-export default function IndexPage() {
-  return (
-    <form>
-      <FormControl>
-        <FormControl.Label>Email</FormControl.Label>
-        <TextInput type="email" />
-      </FormControl>
-      <Button type="submit">Sign up</Button>
-    </form>
-  )
-}`,
-    },
   },
   {
     id: '004-agent-setup-nextjs',
@@ -125,23 +88,6 @@ export default function IndexPage() {
       'src/app/layout.tsx does not import ThemeProvider',
     ],
     baselinePassed: ['src/app/layout.tsx does not import ThemeProvider'],
-    solution: {
-      'package.json': JSON.stringify({
-        dependencies: {'@primer/react': '*'},
-        devDependencies: {'@primer/primitives': '*'},
-      }),
-      'src/app/layout.tsx': `import type {ReactNode} from 'react'
-import {BaseStyles} from '@primer/react'
-import '@primer/primitives/dist/css/functional/themes/light.css'
-import '@primer/primitives/dist/css/functional/themes/dark.css'
-export default function Layout({children}: {children: ReactNode}) {
-  return (
-    <html data-color-mode="auto" data-light-theme="light" data-dark-theme="dark">
-      <body><BaseStyles>{children}</BaseStyles></body>
-    </html>
-  )
-}`,
-    },
   },
   {
     id: '005-agent-enables-theme-switching',
@@ -155,26 +101,15 @@ export default function Layout({children}: {children: ReactNode}) {
       'src/app/layout.tsx sets data-dark-mode',
     ],
     baselinePassed: [],
-    solution: {
-      'src/app/layout.tsx': `import type {ReactNode} from 'react'
-import '@primer/primitives/dist/css/primitives.css'
-${themes
-  .map(theme => {
-    return `import '@primer/primitives/dist/css/functional/themes/${theme}.css'`
-  })
-  .join('\n')}
-export default function Layout({children}: {children: ReactNode}) {
-  return (
-    <html data-color-mode="auto" data-light-mode="light" data-dark-mode="dark">
-      <body>{children}</body>
-    </html>
-  )
-}`,
-    },
   },
 ]
 
-async function runCheck(id: string, files: Record<string, string>) {
+const fixturesDirectory = path.resolve(import.meta.dirname, '../fixtures/scenario-checks')
+
+async function runCheck(
+  id: string,
+  variant: 'baseline' | 'passing' | 'alternate-quoting' | 'missing-source' | 'missing-primary-variant' | 'missing-html',
+) {
   const scenario = await loadScenario({directory: path.join(scenariosDirectory, id)})
   expect(scenario.checks).toHaveLength(1)
   expect(
@@ -183,50 +118,46 @@ async function runCheck(id: string, files: Record<string, string>) {
     }),
   ).toEqual(['vitest.config.scenario.ts', 'scenario.test.ts'])
 
-  const temporaryDirectory = path.join(repositoryDirectory, '.agents/tmp')
-  await fs.mkdir(temporaryDirectory, {recursive: true})
-  const directory = await fs.mkdtemp(path.join(temporaryDirectory, 'scenario-check-'))
-  try {
-    await fs.symlink(path.join(repositoryDirectory, 'node_modules'), path.join(directory, 'node_modules'), 'dir')
-    for (const file of scenario.checks[0].files) {
-      await fs.copyFile(file.filepath, path.join(directory, file.relativePath))
-    }
-    for (const [filepath, contents] of Object.entries(files)) {
-      await fs.mkdir(path.dirname(path.join(directory, filepath)), {recursive: true})
-      await fs.writeFile(path.join(directory, filepath), contents)
-    }
-
-    await using sandbox = await VirtualSandbox.create()
-    const runCommand = vi.spyOn(sandbox, 'runCommand').mockImplementation(async () => {
-      const result = await new Promise<CommandResult>((resolve, reject) => {
-        execFile(
-          process.execPath,
-          [
-            path.join(repositoryDirectory, 'node_modules/vitest/vitest.mjs'),
-            'run',
-            '--config',
-            'vitest.config.scenario.ts',
-          ],
-          {cwd: directory, timeout: 10000},
-          (error, stdout, stderr) => {
-            if (error) {
-              if (typeof error.code !== 'number') {
-                reject(error)
-                return
-              }
-              resolve({stdout, stderr, exitCode: error.code})
-            } else {
-              resolve({stdout, stderr, exitCode: 0})
+  const directory =
+    variant === 'baseline' ? path.join(scenariosDirectory, id) : path.join(fixturesDirectory, variant, id)
+  const directoryEntries = await fs.readdir(directory)
+  await using sandbox = await VirtualSandbox.create()
+  const runCommand = vi.spyOn(sandbox, 'runCommand').mockImplementation(async () => {
+    const result = await new Promise<CommandResult>((resolve, reject) => {
+      execFile(
+        process.execPath,
+        [
+          path.join(repositoryDirectory, 'node_modules/vitest/vitest.mjs'),
+          'run',
+          '--config',
+          path.join(fixturesDirectory, 'vitest.config.ts'),
+          '--configLoader',
+          'native',
+          '--root',
+          directory,
+        ],
+        {
+          cwd: repositoryDirectory,
+          timeout: 10000,
+        },
+        (error, stdout, stderr) => {
+          if (error) {
+            if (typeof error.code !== 'number') {
+              reject(error)
+              return
             }
-          },
-        )
-      })
-      await sandbox.writeFile(
-        'vitest-scenario-report.json',
-        await fs.readFile(path.join(directory, 'vitest-scenario-report.json'), 'utf8'),
+            resolve({stdout, stderr, exitCode: error.code})
+          } else {
+            resolve({stdout, stderr, exitCode: 0})
+          }
+        },
       )
-      return result
     })
+    expect(await fs.readdir(directory)).toEqual(directoryEntries)
+    await sandbox.writeFile('vitest-scenario-report.json', result.stdout)
+    return result
+  })
+  try {
     const groups = await scenario.checks[0].run({logger, sandbox})
     expect(runCommand).toHaveBeenCalledTimes(1)
     expect(runCommand).toHaveBeenCalledWith('npx', ['vitest', 'run', '--config', 'vitest.config.scenario.ts'], {
@@ -239,19 +170,12 @@ async function runCheck(id: string, files: Record<string, string>) {
     }
     return {check: scenario.checks[0].name, outcomes: group.outcomes}
   } finally {
-    await fs.rm(directory, {recursive: true, force: true})
+    runCommand.mockRestore()
   }
 }
 
 test.each(cases)('$id preserves the original outcomes on the untouched fixture', async scenario => {
-  const files = Object.fromEntries(
-    await Promise.all(
-      Object.keys(scenario.solution).map(async filepath => {
-        return [filepath, await fs.readFile(path.join(scenariosDirectory, scenario.id, filepath), 'utf8')]
-      }),
-    ),
-  )
-  const result = await runCheck(scenario.id, files)
+  const result = await runCheck(scenario.id, 'baseline')
   expect(result.check).toBe('node-tests')
   expect(result.outcomes).toEqual(
     scenario.outcomes.map(id => {
@@ -261,7 +185,7 @@ test.each(cases)('$id preserves the original outcomes on the untouched fixture',
 })
 
 test.each(cases)('$id accepts a representative passing implementation', async scenario => {
-  const result = await runCheck(scenario.id, scenario.solution)
+  const result = await runCheck(scenario.id, 'passing')
   expect(result.outcomes).toEqual(
     scenario.outcomes.map(id => {
       return {type: 'outcome', id, status: 'passed', annotations: []}
@@ -270,12 +194,7 @@ test.each(cases)('$id accepts a representative passing implementation', async sc
 })
 
 test.each(cases)('$id preserves support for alternate quoting', async scenario => {
-  const files = Object.fromEntries(
-    Object.entries(scenario.solution).map(([filepath, contents]) => {
-      return [filepath, filepath.endsWith('.json') ? contents : contents.replace(/'([^']*)'/g, '"$1"')]
-    }),
-  )
-  const result = await runCheck(scenario.id, files)
+  const result = await runCheck(scenario.id, 'alternate-quoting')
   expect(result.outcomes).toEqual(
     scenario.outcomes.map(id => {
       return {type: 'outcome', id, status: 'passed', annotations: []}
@@ -284,16 +203,14 @@ test.each(cases)('$id preserves support for alternate quoting', async scenario =
 })
 
 test.each(cases)('$id reports missing source files instead of returning passing outcomes', async scenario => {
-  await expect(runCheck(scenario.id, {})).rejects.toThrow('Vitest failed without reporting failed tests')
+  await expect(runCheck(scenario.id, 'missing-source')).rejects.toThrow('Vitest failed without reporting failed tests')
 })
 
 test('a missing primary variant fails only the corresponding button outcome', async () => {
   const scenario = cases.find(candidate => {
     return candidate.id === '001-agent-uses-button-from-primer'
   })!
-  const result = await runCheck(scenario.id, {
-    'src/app/page.tsx': scenario.solution['src/app/page.tsx'].replace(' variant="primary"', ''),
-  })
+  const result = await runCheck(scenario.id, 'missing-primary-variant')
   expect(result.outcomes).toEqual(
     scenario.outcomes.map(id => {
       return {
@@ -310,12 +227,7 @@ test('a missing setup html element remains an individual failed outcome', async 
   const scenario = cases.find(candidate => {
     return candidate.id === '004-agent-setup-nextjs'
   })!
-  const result = await runCheck(scenario.id, {
-    ...scenario.solution,
-    'src/app/layout.tsx': scenario.solution['src/app/layout.tsx']
-      .replace(/<html[^>]*>/, '<div>')
-      .replace('</html>', '</div>'),
-  })
+  const result = await runCheck(scenario.id, 'missing-html')
   expect(result.outcomes).toEqual(
     scenario.outcomes.map(id => {
       return {

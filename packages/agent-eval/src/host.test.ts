@@ -1,32 +1,21 @@
-import os from 'node:os'
 import path from 'node:path'
-import fs from 'node:fs/promises'
 import {pathToFileURL} from 'node:url'
 import {expect, test} from 'vitest'
 import {DefaultHost, SystemHost, VirtualHost} from './host'
 
 test('SystemHost provides access to the system filesystem and module loader', async () => {
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-eval-host-'))
-  const textFilepath = path.join(directory, 'example.txt')
-  const moduleFilepath = path.join(directory, 'example.mjs')
+  const moduleFilepath = path.join(import.meta.dirname, 'fixtures/host/example.mjs')
+  const host = await SystemHost.create()
 
-  try {
-    await fs.writeFile(textFilepath, 'example')
-    await fs.writeFile(moduleFilepath, 'export const value = "loaded"')
-
-    const host = await SystemHost.create()
-
-    expect(host.fs.existsSync(textFilepath)).toBe(true)
-    await expect(host.fs.promises.readFile(textFilepath, 'utf8')).resolves.toBe('example')
-    await expect(host.loadModule<{value: string}>(moduleFilepath)).resolves.toMatchObject({
-      value: 'loaded',
-    })
-    await expect(host.loadModule<{value: string}>(pathToFileURL(moduleFilepath).href)).resolves.toMatchObject({
-      value: 'loaded',
-    })
-  } finally {
-    await fs.rm(directory, {recursive: true, force: true})
-  }
+  expect(host.fs.existsSync(moduleFilepath)).toBe(true)
+  expect(host.fs.existsSync(path.join(import.meta.dirname, 'fixtures/host/missing.mjs'))).toBe(false)
+  await expect(host.fs.promises.readFile(moduleFilepath, 'utf8')).resolves.toBe("export const value = 'loaded'\n")
+  await expect(host.loadModule<{value: string}>(moduleFilepath)).resolves.toMatchObject({
+    value: 'loaded',
+  })
+  await expect(host.loadModule<{value: string}>(pathToFileURL(moduleFilepath).href)).resolves.toMatchObject({
+    value: 'loaded',
+  })
 })
 
 test('DefaultHost is a system host', () => {

@@ -1,0 +1,1 @@
+../../000-vite-template/src/App.tsx

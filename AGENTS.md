@@ -6,6 +6,17 @@
 - Add repository automation scripts to the `script` directory
 - For tests, use `pnpm exec turbo run test -- --run`. You can optionally apply a filter to filter
   by test name, path, etc
+- Tests requiring a real Docker daemon use native Vitest options
+  `test('behavior', {tags: ['docker'], timeout: 30_000}, async () => { ... })`.
+  Keep Docker-boundary spies untagged. Docker tests require a running, accessible
+  Docker daemon, unique resource names, bounded execution, and `finally` cleanup,
+  including after build or assertion failures. Never silently pass without Docker.
+  Select Docker tests with
+  `pnpm exec turbo run test -- --run --tags-filter docker`; run without Docker with
+  `pnpm exec turbo run test -- --run --tags-filter '!docker'`.
+  Unfiltered runs include Docker tests and require Docker.
+  Add a file path after `--run` for focused checks and confirm the intended tests
+  actually ran.
 - For linting, use `pnpm exec turbo run lint lint:npm`
 - For formatting, use `pnpm format`. This will format all files in the project
 - For type checks, use `pnpm exec turbo run type-check`. You can use Turbo's

@@ -1,0 +1,1 @@
+../../../../../../../scenarios/000-nextjs-template/scenario.test.ts

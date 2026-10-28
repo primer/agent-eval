@@ -1,11 +1,17 @@
 import fs from 'node:fs/promises'
-import os from 'node:os'
 import path from 'node:path'
 import type {BenchmarkOutput, ExperimentOutput} from '@primer/agent-eval'
-import {afterEach, expect, onTestFinished, test, vi} from 'vitest'
+import {afterEach, beforeEach, expect, test, vi} from 'vitest'
 import {readBenchmarkOutput, readExperimentOutput} from './result-files'
 import {createBenchmarkOutput, createExperimentOutput, createTrial} from './test-fixtures'
 import {createExperimentRunDetails, getWalkthroughAssets} from './run-details'
+import {createTestFileSystem} from './test-filesystem'
+
+let memory: typeof fs
+
+beforeEach(() => {
+  memory = createTestFileSystem()
+})
 
 afterEach(() => {
   vi.restoreAllMocks()
@@ -13,9 +19,9 @@ afterEach(() => {
 })
 
 async function createDirectory(): Promise<string> {
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'website-results-'))
-  onTestFinished(async () => {
-    await fs.rm(directory, {recursive: true, force: true})
+  const directory = path.resolve(import.meta.dirname, '__fixtures__/results')
+  await memory.mkdir(directory, {
+    recursive: true,
   })
   return directory
 }
@@ -25,15 +31,15 @@ async function writeBundle(
   output: ExperimentOutput & {capabilities?: BenchmarkOutput['capabilities']},
 ): Promise<string> {
   const trialPaths = new Map<string, string>()
-  await fs.mkdir(directory, {recursive: true})
+  await memory.mkdir(directory, {recursive: true})
   for (const [id, trial] of output.trials) {
     const trialPath = `artifacts/${id}/${id}.json`
-    await fs.mkdir(path.dirname(path.join(directory, trialPath)), {recursive: true})
-    await fs.writeFile(path.join(directory, trialPath), JSON.stringify(trial))
+    await memory.mkdir(path.dirname(path.join(directory, trialPath)), {recursive: true})
+    await memory.writeFile(path.join(directory, trialPath), JSON.stringify(trial))
     trialPaths.set(id, trialPath)
   }
   const filepath = path.join(directory, 'output.json')
-  await fs.writeFile(
+  await memory.writeFile(
     filepath,
     JSON.stringify({
       id: output.id,
@@ -52,7 +58,7 @@ test('getBenchmarkRun reads only the requested date, not broken historical bundl
   const results = path.join(directory, 'results/benchmarks', output.id)
   await writeBundle(path.join(results, '2026-09-15'), output)
   const broken = await writeBundle(path.join(results, '2026-09-14'), output)
-  await fs.rm(path.join(path.dirname(broken), 'artifacts'), {recursive: true})
+  await memory.rm(path.join(path.dirname(broken), 'artifacts'), {recursive: true})
   vi.spyOn(process, 'cwd').mockReturnValue(path.join(directory, 'website'))
   vi.resetModules()
   const {getBenchmarkRun} = await import('./benchmark-results')
@@ -73,7 +79,7 @@ test.each(['benchmark', 'experiment'] as const)(
     vi.resetModules()
     const readers = await import('./result-files')
     const read = kind === 'benchmark' ? readers.readBenchmarkOutput : readers.readExperimentOutput
-    const readFile = vi.spyOn(fs, 'readFile')
+    const readFile = vi.spyOn(fs, 'readFile').mockClear()
 
     expect(await Promise.all([read(filepath), read(filepath), read(filepath)])).toEqual([output, output, output])
     expect(await read(filepath)).toEqual(output)
@@ -97,7 +103,7 @@ test.each(['benchmark', 'experiment'] as const)(
     await read(second)
     await read(first)
     await read(third)
-    const readFile = vi.spyOn(fs, 'readFile')
+    const readFile = vi.spyOn(fs, 'readFile').mockClear()
 
     expect(await read(first)).toEqual(output)
     expect(readFile).not.toHaveBeenCalled()
@@ -119,7 +125,7 @@ test.each(['benchmark', 'experiment'] as const)(
     vi.spyOn(console, 'warn').mockImplementation(() => {})
 
     await expect(read(filepath)).rejects.toThrow('ENOENT')
-    await fs.writeFile(filepath, '{}')
+    await memory.writeFile(filepath, '{}')
     expect(await read(filepath)).toBeNull()
     await writeBundle(directory, output)
     expect(await read(filepath)).toEqual(output)
@@ -194,7 +200,7 @@ test('reads a legacy experiment manifest without inventing capability membership
   const filepath = await writeBundle(directory, output)
   const manifest = JSON.parse(await fs.readFile(filepath, 'utf8'))
   delete manifest.capabilities
-  await fs.writeFile(filepath, JSON.stringify(manifest))
+  await memory.writeFile(filepath, JSON.stringify(manifest))
 
   expect(await readExperimentOutput(filepath)).toEqual(output)
 })
@@ -215,7 +221,7 @@ test.each([
   const directory = await createDirectory()
   const filepath = path.join(directory, 'output.json')
   const contents = JSON.stringify({[key]: 'legacy-run', trials: {}})
-  await fs.writeFile(filepath, contents)
+  await memory.writeFile(filepath, contents)
   expect(await read(filepath)).toBeNull()
   expect(warn).toHaveBeenCalledWith(expect.stringContaining(`incompatible data in "${filepath}"`))
   expect(await fs.readFile(filepath, 'utf8')).toBe(contents)
@@ -231,7 +237,7 @@ test.each(['benchmark', 'experiment'] as const)(
     const legacy: Record<string, unknown> = {...output.trials.get('trial-1')}
     delete legacy.runner
     const contents = JSON.stringify(legacy)
-    await fs.writeFile(trialPath, contents)
+    await memory.writeFile(trialPath, contents)
     const read = kind === 'benchmark' ? readBenchmarkOutput : readExperimentOutput
 
     const parsed = await read(filepath)
@@ -245,10 +251,10 @@ test('skips invalid current schemas and malformed JSON with distinct warnings', 
   const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
   const directory = await createDirectory()
   const filepath = path.join(directory, 'output.json')
-  await fs.writeFile(filepath, JSON.stringify({id: 'current'}))
+  await memory.writeFile(filepath, JSON.stringify({id: 'current'}))
   expect(await readExperimentOutput(filepath)).toBeNull()
   expect(warn).toHaveBeenLastCalledWith(expect.stringContaining('incompatible data'))
-  await fs.writeFile(filepath, '{')
+  await memory.writeFile(filepath, '{')
   expect(await readExperimentOutput(filepath)).toBeNull()
   expect(warn).toHaveBeenLastCalledWith(expect.stringContaining('invalid JSON'))
 })
@@ -262,7 +268,7 @@ test.each(['benchmark', 'experiment'] as const)(
     const output = kind === 'benchmark' ? createBenchmarkOutput(trials) : createExperimentOutput(trials)
     const filepath = await writeBundle(directory, output)
     const invalidPath = path.join(directory, 'artifacts/invalid/invalid.json')
-    await fs.writeFile(invalidPath, JSON.stringify({id: 'invalid'}))
+    await memory.writeFile(invalidPath, JSON.stringify({id: 'invalid'}))
     const read = kind === 'benchmark' ? readBenchmarkOutput : readExperimentOutput
     expect(await read(filepath)).toBeNull()
     expect(warn).toHaveBeenCalledWith(expect.stringContaining(await fs.realpath(invalidPath)))
@@ -278,7 +284,7 @@ test('does not infer omitted capability IDs even when only one capability matche
   const filepath = await writeBundle(directory, output)
   const json: Record<string, unknown> = {...output.trials.get('trial-1')}
   delete json.capabilityId
-  await fs.writeFile(path.join(directory, 'artifacts/trial-1/trial-1.json'), JSON.stringify(json))
+  await memory.writeFile(path.join(directory, 'artifacts/trial-1/trial-1.json'), JSON.stringify(json))
   expect(await readBenchmarkOutput(filepath)).toBeNull()
   expect(warn).toHaveBeenCalledWith(expect.stringContaining('capabilityId'))
 })
@@ -291,8 +297,8 @@ test.each(['benchmarks', 'experiments'] as const)(
     const output = collection === 'benchmarks' ? createBenchmarkOutput() : createExperimentOutput()
     const results = path.join(directory, 'results', collection, output.id)
     await writeBundle(path.join(results, '2026-09-15'), output)
-    await fs.mkdir(path.join(results, '2026-09-16'))
-    await fs.writeFile(path.join(results, '2026-09-16/output.json'), '{"oldShape":true}')
+    await memory.mkdir(path.join(results, '2026-09-16'))
+    await memory.writeFile(path.join(results, '2026-09-16/output.json'), '{"oldShape":true}')
     vi.spyOn(process, 'cwd').mockReturnValue(path.join(directory, 'website'))
     vi.resetModules()
     const runs =
@@ -311,7 +317,7 @@ test.each(['benchmarks', 'experiments'] as const)(
 test('rejects missing trial files, mismatched IDs, and paths outside the bundle', async () => {
   const directory = await createDirectory()
   const bundle = path.join(directory, 'bundle')
-  await fs.mkdir(bundle)
+  await memory.mkdir(bundle)
   const filepath = path.join(bundle, 'output.json')
   const output = createExperimentOutput()
   const manifest = {
@@ -320,30 +326,30 @@ test('rejects missing trial files, mismatched IDs, and paths outside the bundle'
     treatments: Object.fromEntries(output.treatments),
     trials: {'trial-1': 'missing.json'},
   }
-  await fs.writeFile(filepath, JSON.stringify(manifest))
+  await memory.writeFile(filepath, JSON.stringify(manifest))
   await expect(readExperimentOutput(filepath)).rejects.toThrow('ENOENT')
   const trial = [...output.trials.values()][0]
-  await fs.writeFile(path.join(bundle, 'trial.json'), JSON.stringify({...trial, id: 'wrong'}))
+  await memory.writeFile(path.join(bundle, 'trial.json'), JSON.stringify({...trial, id: 'wrong'}))
   manifest.trials['trial-1'] = 'trial.json'
-  await fs.writeFile(filepath, JSON.stringify(manifest))
+  await memory.writeFile(filepath, JSON.stringify(manifest))
   await expect(readExperimentOutput(filepath)).rejects.toThrow('does not match manifest ID')
-  await fs.writeFile(path.join(directory, 'outside.json'), JSON.stringify(trial))
+  await memory.writeFile(path.join(directory, 'outside.json'), JSON.stringify(trial))
   for (const relativePath of ['../outside.json', path.join(directory, 'outside.json')]) {
     manifest.trials['trial-1'] = relativePath
-    await fs.writeFile(filepath, JSON.stringify(manifest))
+    await memory.writeFile(filepath, JSON.stringify(manifest))
     await expect(readExperimentOutput(filepath)).rejects.toThrow(/outside the result bundle|bundle-relative path/)
   }
-  await fs.symlink(path.join(directory, 'outside.json'), path.join(bundle, 'linked.json'))
+  await memory.symlink(path.join(directory, 'outside.json'), path.join(bundle, 'linked.json'))
   manifest.trials['trial-1'] = 'linked.json'
-  await fs.writeFile(filepath, JSON.stringify(manifest))
+  await memory.writeFile(filepath, JSON.stringify(manifest))
   await expect(readExperimentOutput(filepath)).rejects.toThrow('outside the result bundle')
 })
 
 test('references screenshot and video files relative to a relocated run without embedding their contents', async () => {
   const directory = await createDirectory()
   const media = 'artifacts/trial-1/walkthrough/image.jpg'
-  await fs.mkdir(path.dirname(path.join(directory, media)), {recursive: true})
-  await fs.writeFile(path.join(directory, media), 'image')
+  await memory.mkdir(path.dirname(path.join(directory, media)), {recursive: true})
+  await memory.writeFile(path.join(directory, media), 'image')
   const baseUrl = '/run-data/benchmarks/example/2026-09-15/trial-1'
   const assets = await getWalkthroughAssets({type: 'Screenshot', filepath: media}, directory, baseUrl)
   expect(assets.walkthrough).toEqual({
@@ -368,7 +374,7 @@ test('references screenshot and video files relative to a relocated run without 
     screenshots: [`${baseUrl}/media-0.jpg`],
   })
   const video = 'artifacts/trial-1/walkthrough/video.webm'
-  await fs.writeFile(path.join(directory, video), 'video')
+  await memory.writeFile(path.join(directory, video), 'video')
   expect((await getWalkthroughAssets({type: 'Video', filepath: video}, directory, baseUrl)).walkthrough).toEqual({
     type: 'Video',
     video: `${baseUrl}/media-0.webm`,
@@ -413,18 +419,18 @@ test.each([
   const filename = type === 'Video' ? 'media.webm' : 'media.png'
   const relativePath = `artifacts/trial-1/walkthrough/${filename}`
   const outsideFile = path.join(outsideDirectory, 'trial-1/walkthrough', filename)
-  await fs.mkdir(path.dirname(outsideFile), {recursive: true})
-  await fs.writeFile(outsideFile, 'outside media')
+  await memory.mkdir(path.dirname(outsideFile), {recursive: true})
+  await memory.writeFile(outsideFile, 'outside media')
 
   if (symlinkKind === 'artifacts') {
-    await fs.mkdir(runDirectory)
-    await fs.symlink(outsideDirectory, path.join(runDirectory, 'artifacts'))
+    await memory.mkdir(runDirectory)
+    await memory.symlink(outsideDirectory, path.join(runDirectory, 'artifacts'))
   } else if (symlinkKind === 'parent') {
-    await fs.mkdir(path.join(runDirectory, 'artifacts/trial-1'), {recursive: true})
-    await fs.symlink(path.dirname(outsideFile), path.join(runDirectory, 'artifacts/trial-1/walkthrough'))
+    await memory.mkdir(path.join(runDirectory, 'artifacts/trial-1'), {recursive: true})
+    await memory.symlink(path.dirname(outsideFile), path.join(runDirectory, 'artifacts/trial-1/walkthrough'))
   } else {
-    await fs.mkdir(path.dirname(path.join(runDirectory, relativePath)), {recursive: true})
-    await fs.symlink(outsideFile, path.join(runDirectory, relativePath))
+    await memory.mkdir(path.dirname(path.join(runDirectory, relativePath)), {recursive: true})
+    await memory.symlink(outsideFile, path.join(runDirectory, relativePath))
   }
 
   await expect(getWalkthroughAssets({type, filepath: relativePath}, runDirectory, '/run-data/example')).rejects.toThrow(
@@ -439,18 +445,18 @@ test.each(['file', 'parent', 'run'] as const)(
     let runDirectory = path.join(directory, 'run')
     const mediaDirectory = path.join(runDirectory, 'artifacts/trial-1/walkthrough')
     const filepath = path.join(mediaDirectory, 'image.png')
-    await fs.mkdir(mediaDirectory, {recursive: true})
-    await fs.writeFile(filepath, 'image')
+    await memory.mkdir(mediaDirectory, {recursive: true})
+    await memory.writeFile(filepath, 'image')
     let media = 'artifacts/trial-1/walkthrough/image.png'
     if (kind === 'file') {
-      await fs.symlink(filepath, path.join(mediaDirectory, 'linked.png'))
+      await memory.symlink(filepath, path.join(mediaDirectory, 'linked.png'))
       media = 'artifacts/trial-1/walkthrough/linked.png'
     } else if (kind === 'parent') {
-      await fs.symlink(mediaDirectory, path.join(runDirectory, 'artifacts/linked'))
+      await memory.symlink(mediaDirectory, path.join(runDirectory, 'artifacts/linked'))
       media = 'artifacts/linked/image.png'
     } else {
       const alias = path.join(directory, 'run-alias')
-      await fs.symlink(runDirectory, alias)
+      await memory.symlink(runDirectory, alias)
       runDirectory = alias
     }
 
@@ -462,14 +468,20 @@ test.each(['file', 'parent', 'run'] as const)(
 
 test.each([false, true])('enforces legacy artifacts containment (escaping: %s)', async escaping => {
   const directory = await createDirectory()
-  const sampleFile = path.join(directory, 'sample.png')
-  await fs.writeFile(sampleFile, 'image')
-  const stats = await fs.stat(sampleFile)
   const legacyDirectory = path.resolve(process.cwd(), '..', 'artifacts')
   const candidate = path.join(legacyDirectory, 'trial-1/walkthrough/image.png')
   const resolved = escaping ? `${legacyDirectory}-outside/image.png` : candidate
-  vi.spyOn(fs, 'realpath').mockResolvedValueOnce(path.dirname(legacyDirectory)).mockResolvedValueOnce(resolved)
-  const stat = vi.spyOn(fs, 'stat').mockResolvedValue(stats)
+  await memory.mkdir(path.dirname(candidate), {
+    recursive: true,
+  })
+  await memory.mkdir(path.dirname(resolved), {
+    recursive: true,
+  })
+  await memory.writeFile(resolved, 'image')
+  if (escaping) {
+    await memory.symlink(resolved, candidate)
+  }
+  const stat = vi.spyOn(fs, 'stat').mockClear()
 
   const assets = getWalkthroughAssets({type: 'Screenshot', filepath: candidate}, directory, '/run-data/example')
   if (escaping) {

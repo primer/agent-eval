@@ -1,0 +1,1 @@
+../../../../../../../scenarios/004-agent-setup-nextjs/scenario.test.ts

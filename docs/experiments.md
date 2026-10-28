@@ -19,6 +19,16 @@ which approach performed best given the specific scenario, model, and treatment.
 Configuration for experiments live in the `/experiments` folder. You can add a
 experiment by adding a file to this folder and using `defineConfig` from `@primer/agent-eval/experiment`.
 
+Set an optional `id` to keep an experiment's identity stable across file renames
+and moves. Otherwise, its ID depends on the file's path relative to the
+configured experiments directory, excluding the file extension. Changing the
+display `name` or moving the entire experiments directory does not change that ID.
+
+Explicit IDs must be nonblank and unique among discovered experiments. You can
+still select experiments by filename without the extension. See the
+[resource identity migration](../packages/agent-eval/docs/migrations/resource-identity.md)
+when reusing existing plans or result history.
+
 ```ts
 // experiments/example.ts
 import {defineConfig} from '@primer/agent-eval/experiment'

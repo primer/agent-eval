@@ -3,6 +3,7 @@ import {expect, test, vi} from 'vitest'
 import {VirtualHost} from '../host'
 import {AGENTS_DIR, COPILOT_DIR, VirtualSandbox, type Sandbox} from '../sandbox'
 import {ControlTreatment} from '../treatment'
+import {getJudgeReportFilename} from '../judge'
 import {runTrial} from './run'
 import type {Trial} from './trial'
 
@@ -233,7 +234,13 @@ test.each(['copilot-cli', 'copilot-sdk'] as const)(
         directory: '/scenarios/example',
         prompt: 'Update the example',
         tags: [],
-        judges: [],
+        judges: [
+          {
+            name: 'Verification behavior',
+            files: [],
+            scores: [{value: 1, description: 'Verified the change'}],
+          },
+        ],
         image: {type: 'Default'},
         checks: [
           {
@@ -280,6 +287,18 @@ test.each(['copilot-cli', 'copilot-sdk'] as const)(
         await expect(sandbox.exists('scenario.test.ts')).resolves.toBe(false)
         await expect(sandbox.readFile('src/reference.json')).resolves.toBe('ordinary source')
       }
+      if (
+        command === '/opt/agent-eval/copilot/bin/copilot' &&
+        args.some(arg => arg.includes('## Judge configuration'))
+      ) {
+        await sandbox.writeFile(args[args.indexOf('--usage-output-file') + 1], JSON.stringify({modelMetrics: {}}))
+        const prompt = args[args.indexOf('--prompt') + 1]
+        expect(prompt).toContain('Locate only the sessions with these IDs: ["session"]')
+        await sandbox.writeFile(
+          getJudgeReportFilename(trial.scenario.judges[0]),
+          JSON.stringify({score: 1, rationale: 'Session evidence supports verification', findings: []}),
+        )
+      }
       return {
         exitCode: 0,
         stderr: '',
@@ -311,6 +330,12 @@ test.each(['copilot-cli', 'copilot-sdk'] as const)(
     })
 
     expect(taskCalls).toBe(1)
+    expect(result.judges[0].result).toEqual({
+      type: 'result',
+      score: 1,
+      rationale: 'Session evidence supports verification',
+      findings: [],
+    })
     expect(result.agent.sessions[0].outputTokens).toBe(runner === 'copilot-cli' ? 42 : 0)
     expect(sandbox.runCommand).toHaveBeenCalledWith(
       'npm',

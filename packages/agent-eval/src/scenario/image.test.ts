@@ -1,5 +1,6 @@
 import path from 'node:path'
-import tarFs from 'tar-fs'
+import {Readable} from 'node:stream'
+import {pipeline} from 'node:stream/promises'
 import {afterEach, expect, test, vi} from 'vitest'
 import {buildImage} from '../docker'
 import {VirtualHost} from '../host'
@@ -11,6 +12,7 @@ vi.mock('../docker', async importOriginal => {
   return {
     ...original,
     buildImage: vi.fn<typeof original.buildImage>(async (_context, options) => {
+      await Readable.from(_context).toArray()
       return {tagName: options.t}
     }),
   }
@@ -21,16 +23,24 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
-test('the default scenario Dockerfile uses the shared sandbox image', async () => {
-  const context = tarFs.pack('.', {entries: [], finalize: false})
-  const entry = vi.spyOn(context, 'entry')
-  vi.spyOn(tarFs, 'pack').mockImplementation((_directory, options) => {
-    options?.finish?.(context)
-    return context
+test('scenario image archives use host files and exclude ignored paths', async () => {
+  const host = VirtualHost.create({
+    '/scenarios/example': {
+      'package.json': '{"name":"example"}',
+      'scenario.config.ts': 'Scenario configuration',
+      '.dockerignore': 'Original ignore rules',
+      Dockerfile: 'Original Dockerfile',
+      src: {'index.ts': 'export const value = 1'},
+      node_modules: {'dependency.js': 'Dependency'},
+    },
+  })
+  vi.mocked(buildImage).mockImplementationOnce(async (context, options) => {
+    await pipeline(context, host.archive.extract('/image-context'))
+    return {tagName: options.t}
   })
 
   await buildScenarioImage({
-    host: VirtualHost.create(),
+    host,
     scenario: {
       id: 'example',
       directory: '/scenarios/example',
@@ -42,10 +52,20 @@ test('the default scenario Dockerfile uses the shared sandbox image', async () =
     },
   })
 
-  expect(entry).toHaveBeenCalledWith(
-    expect.objectContaining({name: 'Dockerfile'}),
-    expect.stringContaining(`FROM ${DEFAULT_DOCKER_IMAGE}\n`),
+  await expect(host.fs.promises.readFile('/image-context/Dockerfile', 'utf8')).resolves.toContain(
+    `FROM ${DEFAULT_DOCKER_IMAGE}\n`,
   )
+  await expect(host.fs.promises.readFile('/image-context/.dockerignore', 'utf8')).resolves.toBe(
+    'Dockerfile\n.dockerignore\n',
+  )
+  await expect(host.fs.promises.readFile('/image-context/package.json', 'utf8')).resolves.toBe('{"name":"example"}')
+  await expect(host.fs.promises.readFile('/image-context/src/index.ts', 'utf8')).resolves.toBe('export const value = 1')
+  expect((await host.fs.promises.readdir('/image-context')).sort()).toEqual([
+    '.dockerignore',
+    'Dockerfile',
+    'package.json',
+    'src',
+  ])
 })
 
 test.each(['Default', 'Reference', 'Build'] as const)(
@@ -54,10 +74,6 @@ test.each(['Default', 'Reference', 'Build'] as const)(
     const host = VirtualHost.create({
       '/first/example/Dockerfile': 'FROM node:26-slim\nCOPY . .\n',
       '/second/example/Dockerfile': 'FROM node:26-slim\nCOPY . .\n',
-    })
-    const createArchive = tarFs.pack
-    const pack = vi.spyOn(tarFs, 'pack').mockImplementation(() => {
-      return createArchive('.', {entries: []})
     })
     const createScenario = (directory: string): Scenario => {
       return {
@@ -85,8 +101,6 @@ test.each(['Default', 'Reference', 'Build'] as const)(
     expect(first.tagName).toMatch(/^agent-eval\/scenarios\/example:[a-f0-9]{16}$/)
     expect(first.tagName).not.toBe(second.tagName)
     expect(repeated.tagName).toBe(first.tagName)
-    expect(pack).toHaveBeenCalledWith('/first/example', expect.any(Object))
-    expect(pack).toHaveBeenCalledWith('/second/example', expect.any(Object))
     expect(buildImage).toHaveBeenCalledTimes(3)
 
     if (type === 'Build') {

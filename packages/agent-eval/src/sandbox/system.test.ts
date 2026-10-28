@@ -1,8 +1,9 @@
 import path from 'node:path'
 import {PassThrough, Readable} from 'node:stream'
+import {pipeline} from 'node:stream/promises'
 import Docker from 'dockerode'
 import {afterEach, expect, test, vi} from 'vitest'
-import {createContainer} from '../docker'
+import * as docker from '../docker'
 import {VirtualHost} from '../host'
 import {SystemSandbox} from './system'
 import {VirtualSandbox} from './virtual'
@@ -17,13 +18,68 @@ async function createSandbox(host = VirtualHost.create()) {
   vi.spyOn(Docker.prototype, 'createContainer').mockResolvedValue(container)
   vi.spyOn(container, 'start').mockResolvedValue(undefined)
   vi.spyOn(container, 'remove').mockResolvedValue(undefined)
-  const running = await createContainer({image: {tagName: 'test'}})
+  const running = await docker.createContainer({image: {tagName: 'test'}})
 
   return {
     container,
     sandbox: new SystemSandbox(host, running),
   }
 }
+
+test('copy and download use host archives while preserving renaming and exclusions', async () => {
+  const sourcePath = path.resolve('archive-source')
+  const host = VirtualHost.create({
+    [sourcePath]: {
+      'example.txt': 'Example',
+      nested: {'included.txt': 'Included', 'ignored.txt': 'Ignored on download'},
+      excluded: {'secret.txt': 'Excluded on copy'},
+    },
+  })
+  const containerHost = VirtualHost.create()
+  const {container, sandbox} = await createSandbox(host)
+  await using resource = sandbox
+  vi.spyOn(docker, 'exec').mockResolvedValue({
+    stdout: '',
+    stderr: '',
+    exitCode: 0,
+  })
+  vi.spyOn(container, 'putArchive').mockImplementation(async stream => {
+    if (typeof stream === 'string' || Buffer.isBuffer(stream)) {
+      throw new TypeError('Expected an archive stream')
+    }
+    await pipeline(
+      stream,
+      containerHost.archive.extract('/container', {
+        map(header) {
+          return {...header, uid: process.getuid?.() ?? header.uid, gid: process.getgid?.() ?? header.gid}
+        },
+      }),
+    )
+    return new PassThrough()
+  })
+  vi.spyOn(container, 'getArchive').mockImplementation(async () => {
+    return containerHost.archive.pack('/container', {
+      entries: ['renamed'],
+      map(header) {
+        return {...header, uid: process.getuid?.() ?? header.uid, gid: process.getgid?.() ?? header.gid}
+      },
+    })
+  })
+
+  await resource.copy(sourcePath, 'renamed', {exclude: ['excluded']})
+  await resource.download('renamed', '/downloaded', {
+    ignore(filepath) {
+      return path.basename(filepath) === 'ignored.txt'
+    },
+  })
+
+  await expect(containerHost.fs.promises.readFile('/container/renamed/example.txt', 'utf8')).resolves.toBe('Example')
+  expect(containerHost.fs.existsSync('/container/renamed/excluded')).toBe(false)
+  await expect(host.fs.promises.readFile('/downloaded/example.txt', 'utf8')).resolves.toBe('Example')
+  await expect(host.fs.promises.readFile('/downloaded/nested/included.txt', 'utf8')).resolves.toBe('Included')
+  expect(host.fs.existsSync('/downloaded/nested/ignored.txt')).toBe(false)
+  expect(host.fs.existsSync('/downloaded/excluded')).toBe(false)
+})
 
 test.each([
   {label: 'empty include', include: [], expected: []},

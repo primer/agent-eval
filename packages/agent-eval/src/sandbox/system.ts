@@ -3,7 +3,6 @@ import path from 'node:path'
 import {Readable, Writable} from 'node:stream'
 import {pipeline} from 'node:stream/promises'
 import {glob} from 'glob'
-import tarFs from 'tar-fs'
 import type {Headers} from 'tar-fs'
 import tarStream from 'tar-stream'
 import * as z from 'zod/mini'
@@ -98,7 +97,7 @@ class SystemSandbox implements Sandbox {
     const sourceDirectory = path.dirname(source)
     const sourceName = path.basename(source)
     const excludedPaths = new Set(options.exclude?.map(filepath => normalizeExcludedPath(filepath, source)))
-    const archive = tarFs.pack(sourceDirectory, {
+    const archive = this.#host.archive.pack(sourceDirectory, {
       entries: [sourceName],
       ignore(name) {
         const absolutePath = path.isAbsolute(name) ? name : path.resolve(sourceDirectory, name)
@@ -129,7 +128,7 @@ class SystemSandbox implements Sandbox {
 
     await pipeline(
       archive,
-      tarFs.extract(hostDestinationPath, {
+      this.#host.archive.extract(hostDestinationPath, {
         readable: true,
         writable: true,
         map(header) {

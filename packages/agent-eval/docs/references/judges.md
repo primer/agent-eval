@@ -5,15 +5,15 @@ measure, such as visual hierarchy or clarity of an interaction.
 
 ## Contract
 
-| Item            | Rule                                                         |
-| :-------------- | :----------------------------------------------------------- |
-| Location        | Scenario `judges` array                                      |
-| Required fields | `name`, nonempty `scores` array                              |
-| Optional fields | `description`, `model`, `instructions`, `files`              |
-| Model shape     | `{name, reasoningEffort}`, not a string                      |
-| Model default   | Selected by the harness based on implementation model family |
-| Private inputs  | Scenario-contained `files`, withheld until evaluation        |
-| Score           | Exactly one configured numeric value                         |
+| Item            | Rule                                                               |
+| :-------------- | :----------------------------------------------------------------- |
+| Location        | Scenario `judges` array                                            |
+| Required fields | `name`, nonempty `scores` array                                    |
+| Optional fields | `description`, `model`, `instructions`, `files`                    |
+| Model shape     | `{name, reasoningEffort}`, not a string                            |
+| Model default   | Selected by the harness based on implementation model family       |
+| Private inputs  | Scenario-contained `files`, withheld until evaluation              |
+| Score           | Exactly one configured value, preserving its number or string type |
 
 Set the judge model explicitly for a stable comparison. Check files and judge
 references share the same path-containment and no-symlink rules.
@@ -22,8 +22,10 @@ Judges run after checks but **before** automatic walkthrough capture. Arrange
 required visual evidence before judging; do not assume the later walkthrough
 already exists.
 
-Anchor numeric values to observable evidence. The judge selects one configured
-value, without interpolation. Do not assume larger values are always better.
+Use all numbers or all strings for a judge's score values; do not mix types.
+String values can be labels such as `'fail'` and `'pass'`.
+Anchor values to observable evidence. The judge selects one configured
+value, without interpolation or type coercion. Do not assume larger numbers are always better.
 Use separate judges for independent criteria that need separate diagnoses.
 
 ## Configuration fragment
@@ -61,7 +63,7 @@ records its agent session.
 
 Require a configured score supported by rationale and inspected evidence.
 Invalid reports and unconfigured scores are errors. Review findings, not only
-the number, and do not treat an `error` or `unknown` result as a low score.
+the score, and do not treat an `error` or `unknown` result as a low score.
 
 ## Pitfalls
 

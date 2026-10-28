@@ -22,11 +22,13 @@ tools:
 steps:
   - name: configure pnpm
     run: |
-      mkdir -p "$HOME/.npm-global/bin"
-      corepack enable --install-directory "$HOME/.npm-global/bin"
+      mkdir -p "$RUNNER_TOOL_CACHE/pnpm/bin"
+      export COREPACK_HOME=/tmp/gh-aw/corepack
+      corepack enable --install-directory "$RUNNER_TOOL_CACHE/pnpm/bin"
       corepack install
       corepack install --global pnpm@latest
-      echo "$HOME/.npm-global/bin" >> "$GITHUB_PATH"
+      echo "$RUNNER_TOOL_CACHE/pnpm/bin" >> "$GITHUB_PATH"
+      echo "COREPACK_HOME=$COREPACK_HOME" >> "$GITHUB_ENV"
 safe-outputs:
   create-pull-request:
     title-prefix: 'chore: '

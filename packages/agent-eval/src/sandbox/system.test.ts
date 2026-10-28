@@ -47,11 +47,23 @@ test('copy and download use host archives while preserving renaming and exclusio
     if (typeof stream === 'string' || Buffer.isBuffer(stream)) {
       throw new TypeError('Expected an archive stream')
     }
-    await pipeline(stream, containerHost.archive.extract('/container'))
+    await pipeline(
+      stream,
+      containerHost.archive.extract('/container', {
+        map(header) {
+          return {...header, uid: process.getuid?.() ?? header.uid, gid: process.getgid?.() ?? header.gid}
+        },
+      }),
+    )
     return new PassThrough()
   })
   vi.spyOn(container, 'getArchive').mockImplementation(async () => {
-    return containerHost.archive.pack('/container', {entries: ['renamed']})
+    return containerHost.archive.pack('/container', {
+      entries: ['renamed'],
+      map(header) {
+        return {...header, uid: process.getuid?.() ?? header.uid, gid: process.getgid?.() ?? header.gid}
+      },
+    })
   })
 
   await resource.copy(sourcePath, 'renamed', {exclude: ['excluded']})

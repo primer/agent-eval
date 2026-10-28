@@ -37,7 +37,15 @@ export function Page({scenario, experiments}: Props) {
             <h2 className="text-title-medium mb-3" id="prompt-heading">
               Prompt
             </h2>
-            <p className="text-body-large text-default m-0 max-w-[80ch]">{scenario.prompt}</p>
+            <Stack gap="normal">
+              {scenario.prompt.map((prompt, index) => {
+                return (
+                  <p className="text-body-large text-default m-0 max-w-[80ch]" key={index}>
+                    {prompt}
+                  </p>
+                )
+              })}
+            </Stack>
           </section>
           <section aria-labelledby="checks-heading">
             <h2 className="text-title-medium mb-3" id="checks-heading">

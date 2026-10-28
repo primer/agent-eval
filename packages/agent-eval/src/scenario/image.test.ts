@@ -44,7 +44,7 @@ test('scenario image archives use host files and exclude ignored paths', async (
     scenario: {
       id: 'example',
       directory: '/scenarios/example',
-      prompt: 'Update the example',
+      prompt: ['Update the example'],
       tags: [],
       checks: [],
       judges: [],
@@ -79,7 +79,7 @@ test.each(['Default', 'Reference', 'Build'] as const)(
       return {
         id: 'example',
         directory,
-        prompt: 'Update the example',
+        prompt: ['Update the example'],
         tags: [],
         checks: [],
         judges: [],

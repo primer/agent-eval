@@ -47,17 +47,21 @@ test.each([false, true])('executes the SDK script and surfaces failures (failed:
   const config = {
     model: 'gpt-5.5',
     reasoningEffort: 'high',
-    prompt: 'Build a page',
+    prompt: ['Build a page', 'Add search', 'Handle empty results'],
     copilotHome: COPILOT_DIR,
     timeoutMs: 1000,
   }
   const output: Array<string> = []
   const exit = vi.fn()
   const error = vi.fn()
-  const sendAndWait = vi.fn(async () => {
-    if (failed) {
+  const completed: Array<string> = []
+  const sendAndWait = vi.fn(async ({prompt}: {prompt: string}) => {
+    expect(prompt).toBe(config.prompt[completed.length])
+    await Promise.resolve()
+    if (failed && completed.length === 1) {
       throw new Error('SDK request failed')
     }
+    completed.push(prompt)
   })
   const disconnect = vi.fn()
   const createSession = vi.fn(async () => {
@@ -147,9 +151,11 @@ test.each([false, true])('executes the SDK script and surfaces failures (failed:
     reasoningEffort: 'high',
     onPermissionRequest: approveAll,
   })
-  expect(sendAndWait).toHaveBeenCalledWith({prompt: config.prompt, agentMode: 'autopilot'}, 1000)
+  expect(sendAndWait).toHaveBeenNthCalledWith(1, {prompt: config.prompt[0], agentMode: 'autopilot'}, 1000)
   expect(stop).toHaveBeenCalledOnce()
   if (failed) {
+    expect(completed).toEqual(config.prompt.slice(0, 1))
+    expect(sendAndWait).toHaveBeenCalledTimes(2)
     expect(exit).toHaveBeenCalledWith(1)
     expect(error).toHaveBeenCalledWith(expect.stringContaining('SDK request failed'))
     expect(
@@ -158,6 +164,11 @@ test.each([false, true])('executes the SDK script and surfaces failures (failed:
       }),
     ).toBe(false)
   } else {
+    expect(completed).toEqual(config.prompt)
+    expect(createSession).toHaveBeenCalledOnce()
+    expect(sendAndWait).toHaveBeenCalledTimes(config.prompt.length)
+    expect(sendAndWait).toHaveBeenNthCalledWith(2, {prompt: config.prompt[1], agentMode: 'autopilot'}, 1000)
+    expect(sendAndWait).toHaveBeenNthCalledWith(3, {prompt: config.prompt[2], agentMode: 'autopilot'}, 1000)
     expect(disconnect).toHaveBeenCalledOnce()
     expect(exit).not.toHaveBeenCalled()
     const messages = output.flatMap(line => {
@@ -184,7 +195,7 @@ test('uses the bundled SDK runner and private Node without writing the token to 
   const messages = await runCopilotSdk({
     sandbox,
     copilotToken: 'test-token',
-    prompt: 'Build a page',
+    prompt: ['Build a page'],
     model: {name: 'gpt-5.5', reasoningEffort: 'high'},
   })
   expect(runCommand).toHaveBeenCalledExactlyOnceWith(
@@ -200,7 +211,7 @@ test('uses the bundled SDK runner and private Node without writing the token to 
     JSON.stringify({
       copilotHome: COPILOT_DIR,
       model: 'gpt-5.5',
-      prompt: 'Build a page',
+      prompt: ['Build a page'],
       reasoningEffort: 'high',
       timeoutMs: 60 * 60 * 1000,
     }),
@@ -229,7 +240,7 @@ test('propagates bundled runner failures', async () => {
     runCopilotSdk({
       sandbox,
       copilotToken: 'test-token',
-      prompt: 'Build a page',
+      prompt: ['Build a page'],
       model: {name: 'gpt-5.5', reasoningEffort: 'high'},
     }),
   ).rejects.toBe(error)

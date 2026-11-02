@@ -21,6 +21,7 @@ test.each(['copilot-cli', 'copilot-sdk'] as const)(
     })
     await using sandbox: Sandbox = await VirtualSandbox.create({host})
     let taskCalls = 0
+    let sessionId = 'session'
     const checkRun = vi.fn<Trial['scenario']['checks'][number]['run']>(async ({sandbox: checkSandbox}) => {
       expect(taskCalls).toBe(1)
       await expect(checkSandbox.readFile('vitest.config.scenario.ts')).resolves.toBe('private check config')
@@ -86,12 +87,19 @@ test.each(['copilot-cli', 'copilot-sdk'] as const)(
           runner === 'copilot-sdk' ? '/opt/agent-eval/node/bin/node' : '/opt/agent-eval/copilot/bin/copilot',
         )
         if (runner === 'copilot-sdk') {
-          expect(JSON.parse(await sandbox.readFile(args[1]))).toMatchObject({
+          const runnerConfig = JSON.parse(await sandbox.readFile(args[1]))
+          expect(runnerConfig).toMatchObject({
             model: trial.model.name,
             reasoningEffort: trial.model.reasoningEffort,
             prompt: [taskCalls === 1 ? 'Update the example' : 'Add search'],
-            ...(taskCalls > 1 ? {sessionId: 'session'} : {}),
+            resume: taskCalls > 1,
           })
+          if (taskCalls === 1) {
+            expect(runnerConfig.sessionId).toEqual(expect.any(String))
+          } else {
+            expect(runnerConfig.sessionId).toBe(sessionId)
+          }
+          sessionId = runnerConfig.sessionId
         } else {
           expect(args[1]).toBe(taskCalls === 1 ? 'Update the example' : 'Add search')
           if (taskCalls > 1) {
@@ -117,7 +125,7 @@ test.each(['copilot-cli', 'copilot-sdk'] as const)(
             ? JSON.stringify({
                 type: 'result',
                 timestamp: '2026-09-15T00:00:00.000Z',
-                sessionId: 'session',
+                sessionId,
                 exitCode: 0,
                 usage: {
                   premiumRequests: 0,

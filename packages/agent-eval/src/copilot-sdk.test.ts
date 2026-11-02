@@ -49,7 +49,8 @@ test.each([false, true])('executes the SDK script and surfaces failures (failed:
     reasoningEffort: 'high',
     prompt: ['Build a page', 'Add search', 'Handle empty results'],
     copilotHome: COPILOT_DIR,
-    sessionId: failed ? undefined : 'existing-session',
+    sessionId: failed ? 'new-session' : 'existing-session',
+    resume: !failed,
     timeoutMs: 1000,
   }
   const output: Array<string> = []
@@ -155,6 +156,7 @@ test.each([false, true])('executes the SDK script and surfaces failures (failed:
       model: config.model,
       reasoningEffort: 'high',
       onPermissionRequest: approveAll,
+      sessionId: config.sessionId,
     })
     expect(completed).toEqual(config.prompt.slice(0, 1))
     expect(sendAndWait).toHaveBeenCalledTimes(2)
@@ -214,16 +216,17 @@ test('uses the bundled SDK runner and private Node without writing the token to 
       env: {COPILOT_GITHUB_TOKEN: 'test-token'},
     },
   )
-  expect(writeFile).toHaveBeenCalledExactlyOnceWith(
-    '/opt/agent-eval/sdk-runner/config.json',
-    JSON.stringify({
-      copilotHome: COPILOT_DIR,
-      model: 'gpt-5.5',
-      prompt: ['Build a page'],
-      reasoningEffort: 'high',
-      timeoutMs: 60 * 60 * 1000,
-    }),
-  )
+  expect(writeFile).toHaveBeenCalledOnce()
+  expect(writeFile.mock.calls[0]?.[0]).toBe('/opt/agent-eval/sdk-runner/config.json')
+  expect(JSON.parse(writeFile.mock.calls[0]![1])).toMatchObject({
+    copilotHome: COPILOT_DIR,
+    model: 'gpt-5.5',
+    prompt: ['Build a page'],
+    reasoningEffort: 'high',
+    sessionId: expect.any(String),
+    resume: false,
+    timeoutMs: 60 * 60 * 1000,
+  })
   for (const [, contents] of writeFile.mock.calls) {
     expect(contents).not.toContain('test-token')
   }

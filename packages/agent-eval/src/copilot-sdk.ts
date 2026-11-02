@@ -1,3 +1,4 @@
+import {randomUUID} from 'node:crypto'
 import {parseMessage, type Message} from './copilot-cli'
 import type {ModelVariant} from './model'
 import {COPILOT_DIR, NODE_USER} from './sandbox/constants'
@@ -99,9 +100,9 @@ async function main() {
       sessionConfig.reasoningEffort = config.reasoningEffort
     }
 
-    const session = config.sessionId
+    const session = config.resume
       ? await client.resumeSession(config.sessionId, sessionConfig)
-      : await client.createSession(sessionConfig)
+      : await client.createSession({...sessionConfig, sessionId: config.sessionId})
     sessionId = session.sessionId
     session.on(event => {
       if (event.type === 'assistant.usage') {
@@ -164,6 +165,9 @@ async function runCopilotSdk({
   copilotToken: string
   sessionId?: string
 }): Promise<Array<Message>> {
+  const resume = sessionId !== undefined
+  const currentSessionId = sessionId ?? randomUUID()
+
   await sandbox.writeFile(
     COPILOT_SDK_RUNNER_CONFIG_PATH,
     JSON.stringify({
@@ -171,7 +175,8 @@ async function runCopilotSdk({
       model: model.name,
       prompt,
       reasoningEffort: model.reasoningEffort,
-      sessionId,
+      sessionId: currentSessionId,
+      resume,
       timeoutMs: 60 * 60 * 1000,
     }),
   )

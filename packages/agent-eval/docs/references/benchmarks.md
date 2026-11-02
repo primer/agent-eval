@@ -10,9 +10,17 @@ time. Use an [experiment](experiments.md) to compare multiple interventions.
 | File and import      | `benchmarks/<id>.ts`; `defineConfig` from `@primer/agent-eval/benchmark` |
 | Export               | Named `benchmark` or default                                             |
 | Required fields      | `name`, `description`, `models`, `capabilities`                          |
-| Optional fields      | `setup`, `runners`                                                       |
+| Optional fields      | `id`, `setup`, `runners`                                                 |
 | CLI identifier       | Filename without extension, not display `name`                           |
 | Automatic treatments | `Control` and `Benchmark`                                                |
+
+Set `id` to a nonblank string to pin identity across renames. Otherwise, the ID
+depends on the file's path relative to the configured benchmarks directory,
+excluding its extension. Changing the display name or moving the entire
+benchmarks directory does not change the ID. Explicit IDs are used unchanged.
+IDs must be unique among discovered benchmarks. CLI selection and
+experiment references accept the filename without extension or the resolved ID;
+resolved IDs take precedence.
 
 Benchmark-level `setup` runs only for `Benchmark`. Capability-level setup
 runs for **both** treatments, before treatment setup. Put neutral prerequisites

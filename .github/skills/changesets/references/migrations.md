@@ -6,9 +6,9 @@ Author concise guides with the implementation, even when no changeset is needed.
 
 ## Contents
 
-- [Index](#index)
-- [Guides](#guides)
-- [Release handling](#release-handling)
+- [Index](#index), L:13
+- [Guides](#guides), L:24
+- [Release handling](#release-handling), L:43
 
 ## Index
 
@@ -31,6 +31,10 @@ Include only what is needed to perform and verify the migration:
   configuration. Use npm/npx for consumer commands.
 - Verification steps using existing project checks or observable outcomes.
 
+Describe public behavior and what consumers need to change, not internal
+mechanisms. For derived values, explain their dependencies and stability rather
+than algorithms or internal representations.
+
 Add explicit migration steps or compatibility notes only when the examples
 are insufficient. Verify examples against the relevant releases and link
 supporting evidence inline rather than adding a separate evidence section.
@@ -43,4 +47,7 @@ While the package is pre-1.0, use the next minor version from
 (for example, `0.16.0` → `0.17.0`). Revisit this policy at 1.0 when the semver
 policy changes.
 Preserve released examples and stable guide filenames. Link the guide from the
-changeset when one is needed.
+changeset when one is needed, using a full commit SHA containing that version
+of the guide: `https://github.com/<owner>/<repo>/blob/<sha>/<path>`. Do not link
+to `main` or another branch: the guide may move or change after release.
+Commit the guide first, then use that commit's SHA in the changeset link.

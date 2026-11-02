@@ -7,9 +7,11 @@ import {getScenario} from '../scenario/get'
 import {loadScenario} from '../scenario/load'
 import {createTreatment} from '../treatment'
 import {ExperimentConfigSchema} from './config'
-import type {Experiment} from './experiment'
+import {getExperimentId, type Experiment} from './experiment'
 import {exhaustiveCheck} from '../exhaustive'
 import {getBenchmark} from '../benchmark/get'
+import {getConfigPath} from '../path'
+import {assertUniqueScenarioIds} from '../scenario/scenario'
 
 const EXPERIMENT_FILE_EXTENSIONS = new Set(['.cjs', '.js', '.mjs', '.ts'])
 
@@ -75,13 +77,15 @@ async function listExperiments({
           }
 
           const directory = path.resolve(scenario.path)
-          return loadScenario({host, directory, name: scenario.name})
+          return loadScenario({host, directory, name: scenario.name, scenariosDirectory})
         }),
       )
 
+      assertUniqueScenarioIds(scenarios)
+
       experiments.push({
         type: 'scenario',
-        id: getExperimentId(filename),
+        id: config.id ?? getExperimentId(getConfigPath(experimentsDirectory, filepath)),
         filepath,
         name: config.name,
         description: config.description,
@@ -103,7 +107,7 @@ async function listExperiments({
 
       experiments.push({
         type: 'benchmark',
-        id: getExperimentId(filename),
+        id: config.id ?? getExperimentId(getConfigPath(experimentsDirectory, filepath)),
         filepath,
         name: config.name,
         description: config.description,
@@ -120,11 +124,15 @@ async function listExperiments({
     }
   }
 
-  return experiments
-}
+  const ids = new Set<string>()
+  for (const experiment of experiments) {
+    if (ids.has(experiment.id)) {
+      throw new Error(`Duplicate experiment ID: ${experiment.id}`)
+    }
+    ids.add(experiment.id)
+  }
 
-function getExperimentId(filename: string): string {
-  return path.basename(filename, path.extname(filename))
+  return experiments
 }
 
 function isExperimentFile(filename: string): boolean {

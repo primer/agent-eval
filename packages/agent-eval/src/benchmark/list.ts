@@ -1,5 +1,5 @@
 import path from 'node:path'
-import {getCapabilityId, type Benchmark} from './benchmark'
+import {getBenchmarkId, getCapabilityId, type Benchmark} from './benchmark'
 import {BenchmarkConfigSchema} from './config'
 import {DefaultHost, type Host} from '../host'
 import {logger} from '../logger'
@@ -7,6 +7,8 @@ import {getModelVariants} from '../model'
 import {getScenario} from '../scenario/get'
 import {prettifyError} from 'zod/mini'
 import {loadScenario} from '../scenario/load'
+import {getConfigPath} from '../path'
+import {assertUniqueScenarioIds} from '../scenario/scenario'
 
 const BENCHMARK_FILE_EXTENSIONS = new Set(['.cjs', '.js', '.mjs', '.ts'])
 
@@ -77,7 +79,7 @@ async function listBenchmarks({
             }
 
             const directory = path.resolve(scenario.path)
-            return loadScenario({host, directory, name: scenario.name})
+            return loadScenario({host, directory, name: scenario.name, scenariosDirectory})
           }),
         )
 
@@ -90,8 +92,14 @@ async function listBenchmarks({
       }),
     )
 
+    assertUniqueScenarioIds(
+      capabilities.flatMap(capability => {
+        return capability.scenarios
+      }),
+    )
+
     benchmarks.push({
-      id: getBenchmarkId(filename),
+      id: config.id ?? getBenchmarkId(getConfigPath(benchmarksDirectory, filepath)),
       filepath,
       name: config.name,
       description: config.description,
@@ -102,11 +110,15 @@ async function listBenchmarks({
     })
   }
 
-  return benchmarks
-}
+  const ids = new Set<string>()
+  for (const benchmark of benchmarks) {
+    if (ids.has(benchmark.id)) {
+      throw new Error(`Duplicate benchmark ID: ${benchmark.id}`)
+    }
+    ids.add(benchmark.id)
+  }
 
-function getBenchmarkId(filename: string): string {
-  return path.basename(filename, path.extname(filename))
+  return benchmarks
 }
 
 function isBenchmarkFile(filename: string): boolean {

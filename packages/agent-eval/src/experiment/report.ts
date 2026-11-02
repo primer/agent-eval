@@ -1,3 +1,4 @@
+import path from 'node:path'
 import type {ModelVariant} from '../model'
 import type {CopilotRunner} from '../copilot-runner'
 import type {Capability} from '../benchmark/benchmark'
@@ -22,6 +23,7 @@ type ExperimentSummary = TrialSummary & {
   treatment: string
   capability?: Capability
   scenario?: string
+  scenarioName?: string
   model?: ModelVariant
   runner: CopilotRunner
 }
@@ -36,7 +38,7 @@ function compareExperimentNames(a: ExperimentSummary, b: ExperimentSummary): num
     a.treatment.localeCompare(b.treatment) ||
     a.runner.localeCompare(b.runner) ||
     (a.capability?.name ?? '').localeCompare(b.capability?.name ?? '') ||
-    (a.scenario ?? '').localeCompare(b.scenario ?? '') ||
+    (a.scenarioName ?? '').localeCompare(b.scenarioName ?? '') ||
     (a.model?.name ?? '').localeCompare(b.model?.name ?? '') ||
     (a.model?.reasoningEffort ?? '').localeCompare(b.model?.reasoningEffort ?? '')
   )
@@ -73,7 +75,7 @@ function formatExperimentSummary(
       level === 'treatment' || level === 'capability'
         ? 'All scenarios'
         : level === 'scenario'
-          ? `${scenarioIndent}${summary.scenario}`
+          ? `${scenarioIndent}${summary.scenarioName}`
           : '',
     Model: level === 'model' ? `${modelIndent}${summary.model?.name}` : 'All models',
     'Reasoning Effort': level === 'model' ? (summary.model?.reasoningEffort ?? '') : '',
@@ -121,7 +123,12 @@ function createExperimentReport({experiment, runPlanResult}: CreateExperimentRep
       capabilitySummaries.set(capabilityKey, capabilitySummary)
     }
 
-    const scenarioValues = {...values, capability, scenario: trial.scenario.id}
+    const scenarioValues = {
+      ...values,
+      capability,
+      scenario: trial.scenario.id,
+      scenarioName: path.basename(trial.scenario.directory),
+    }
     const scenarioKey = JSON.stringify([trial.treatment.id, values.runner, capability?.id, trial.scenario.id])
     const scenarioSummary = scenarioSummaries.get(scenarioKey) ?? {...createTrialSummary(), ...scenarioValues}
     addTrialResultToSummary(scenarioSummary, result)

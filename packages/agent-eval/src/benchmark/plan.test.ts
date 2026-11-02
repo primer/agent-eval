@@ -102,13 +102,13 @@ test.each(['Design System', 'Renamed Design System'])(
     const benchmark = await getBenchmark({...options, name: 'design-system'})
     const plan = createBenchmarkPlan({benchmark})
     const manifest = createBenchmarkPlanManifest({benchmark, plan})
-    expect(manifest).toMatchObject({id: 'design-system', name: 'Design System'})
+    expect(manifest).toMatchObject({id: '3269514887', name: 'Design System'})
     expect(manifest.trials).toHaveLength(2)
 
     await host.fs.promises.writeFile('/benchmarks/design-system.ts', benchmarkConfig(name))
     const parsed = await parseBenchmarkPlanManifest({...options, contents: JSON.stringify(manifest)})
 
-    expect(parsed.benchmark).toMatchObject({id: 'design-system', name})
+    expect(parsed.benchmark).toMatchObject({id: '3269514887', name})
     expect(parsed.trials).toEqual(plan.trials)
   },
 )

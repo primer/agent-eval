@@ -21,7 +21,7 @@ test('loadScenario selects the default image and setup without requiring a packa
   const scenario = await loadScenario({host, directory: '/scenarios/example'})
 
   expect(scenario).toMatchObject({
-    id: 'example',
+    id: '2770381665',
     directory: '/scenarios/example',
     prompt: 'Create a page',
     image: {type: 'Default'},
@@ -60,7 +60,7 @@ test('loadScenario uses DefaultHost when host is omitted', async () => {
 
   const scenario = await loadScenario({directory: '/scenarios/example'})
 
-  expect(scenario).toMatchObject({id: 'example', prompt: 'Create a page'})
+  expect(scenario).toMatchObject({id: '2770381665', prompt: 'Create a page'})
 })
 
 test('loadScenario preserves metadata when an explicit name overrides the directory basename', async () => {
@@ -71,12 +71,54 @@ test('loadScenario preserves metadata when an explicit name overrides the direct
   const scenario = await loadScenario({host, directory: '/scenarios/example', name: 'custom'})
 
   expect(scenario).toMatchObject({
-    id: 'custom',
+    id: '2770381665',
     directory: '/scenarios/example',
     prompt: 'Create a page',
     description: 'Example',
     tags: ['forms', 'accessibility'],
   })
+})
+
+test('loadScenario derives identity from the scenario directory relative to the configured root', async () => {
+  const host = VirtualHost.create({
+    '/project/scenarios/forms/login/scenario.config.ts': 'export default {prompt: "Create a login form"}',
+    '/moved/scenarios/forms/login/scenario.config.ts': 'export default {prompt: "Create a login form"}',
+  })
+
+  for (const root of ['/project/scenarios', '/moved/scenarios']) {
+    const scenario = await loadScenario({
+      host,
+      directory: `${root}/forms/login`,
+      scenariosDirectory: root,
+    })
+
+    expect(scenario.id).toBe('2160171273')
+  }
+})
+
+test('loadScenario preserves an explicit config ID across renames and inline name overrides', async () => {
+  const config = 'export default {id: "pinned-task", prompt: "Create a page"}'
+  const host = VirtualHost.create({
+    '/scenarios/original/scenario.config.ts': config,
+    '/scenarios/renamed/scenario.config.ts': config,
+  })
+
+  for (const name of ['original', 'renamed']) {
+    const scenario = await loadScenario({
+      host,
+      directory: `/scenarios/${name}`,
+      scenariosDirectory: '/scenarios',
+      name: 'inline-alias',
+    })
+
+    expect(scenario.id).toBe('pinned-task')
+  }
+})
+
+test.each(['""', '"   "', '42', 'null'])('loadScenario rejects an invalid explicit ID: %s', async id => {
+  const host = createHost(`export default {id: ${id}, prompt: "Create a page"}`)
+
+  await expect(loadScenario({host, directory: '/scenarios/example'})).rejects.toThrow()
 })
 
 test('loadScenario omits default setup when a custom image is configured', async () => {

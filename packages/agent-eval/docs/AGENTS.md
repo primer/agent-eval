@@ -22,7 +22,7 @@ not a prerequisite for every operation.
 | Read results or diagnose agent behavior                     | [Trials and results](references/trials-and-results.md), [experiment reports](references/experiments.md#reports) |
 | Start the unstable, feature-flagged UI or find CLI help     | [CLI](references/cli.md)                                                                                        |
 | Enable or disable unstable features                         | [Feature flags](references/feature-flags.md)                                                                    |
-| Upgrade existing APIs, configuration, or workflows          | [Migrations](migrations/README.md)                                                                              |
+| Upgrade existing APIs, configuration, or workflows          | [Migrations](migrations/README.md), [resource identity](migrations/resource-identity.md)                        |
 
 For an evidence-driven investigation of why a model behaved a certain way, use
 the `agent-eval-investigate` skill (installed separately with

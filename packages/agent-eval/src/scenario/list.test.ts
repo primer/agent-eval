@@ -27,8 +27,8 @@ describe('listScenarios', () => {
         return {id, directory, prompt}
       }),
     ).toEqual([
-      {id: 'a-first', directory: '/scenarios/a-first', prompt: 'First task'},
-      {id: 'z-last', directory: '/scenarios/z-last', prompt: 'Last task'},
+      {id: '3111604611', directory: '/scenarios/a-first', prompt: 'First task'},
+      {id: '2865203240', directory: '/scenarios/z-last', prompt: 'Last task'},
     ])
   })
 
@@ -51,7 +51,7 @@ describe('listScenarios', () => {
       scenarios.map(scenario => {
         return scenario.id
       }),
-    ).toEqual(['visible'])
+    ).toEqual(['2813803039'])
   })
 
   test('skips invalid or missing default configs without dropping valid neighbors', async () => {
@@ -72,7 +72,7 @@ describe('listScenarios', () => {
       scenarios.map(scenario => {
         return scenario.id
       }),
-    ).toEqual(['a-valid', 'z-valid'])
+    ).toEqual(['1994760848', '3659063486'])
   })
 
   test('returns an empty list for an empty directory', async () => {
@@ -96,13 +96,24 @@ describe('listScenarios', () => {
       scenarios.map(({id, prompt}) => {
         return {id, prompt}
       }),
-    ).toEqual([{id: 'example', prompt: 'Relative task'}])
+    ).toEqual([{id: '2770381665', prompt: 'Relative task'}])
   })
 
   test('rejects a missing directory rather than returning an empty list', async () => {
     const host = VirtualHost.create()
 
     await expect(listScenarios({host, directory: '/missing'})).rejects.toThrow(/ENOENT/)
+  })
+
+  test('rejects duplicate IDs across distinct scenario directories', async () => {
+    const host = VirtualHost.create({
+      '/scenarios/first/package.json': '{}',
+      '/scenarios/first/scenario.config.ts': 'export default {id: "same", prompt: "First"}',
+      '/scenarios/second/package.json': '{}',
+      '/scenarios/second/scenario.config.ts': 'export default {id: "same", prompt: "Second"}',
+    })
+
+    await expect(listScenarios({host, directory: '/scenarios'})).rejects.toThrow('Duplicate scenario ID: same')
   })
 
   test('rejects a file used as the scenarios directory', async () => {

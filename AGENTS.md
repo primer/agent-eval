@@ -12,6 +12,11 @@
   `--filter` option to target individual workspaces
 - README files are public-facing and should only contain information about
   using the package. Keep contributor and agent instructions elsewhere
+- The top-level `docs/` directory documents public API concepts, abstractions,
+  and user-facing flows. Explain what behavior depends on and when it changes,
+  not its internal mechanism. For example, document which paths determine an
+  ID and how renames affect it, not hash algorithms, input prefixes, or encoding.
+  Keep implementation details in contributor or agent references when needed.
 - Do not create changesets for updates to features, fixes, or other changes
   that have not been released yet
 - For backwards-incompatible public API or behavior changes, deprecations, or

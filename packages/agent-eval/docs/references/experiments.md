@@ -11,11 +11,19 @@ plugins, or execution backends on the same tasks. Use a
 | File and import     | `experiments/<id>.ts`; `defineConfig` from `@primer/agent-eval/experiment`           |
 | Export              | Use a default export; named `experiment` also supported                              |
 | Required fields     | `name`, `description`, `models`, `treatments`, and either `scenarios` or `benchmark` |
-| Optional fields     | `setup`, `runners`                                                                   |
+| Optional fields     | `id`, `setup`, `runners`                                                             |
 | CLI identifier      | Filename without extension, not display `name`                                       |
 | Scenario references | Folder IDs; alternatively `{path, name?}`                                            |
 | Benchmark reference | Benchmark filename ID; selects its capabilities and scenarios                        |
 | Runner default      | `copilot-cli`                                                                        |
+
+Set `id` to a nonblank string to pin identity across renames. Otherwise, the ID
+depends on the file's path relative to the configured experiments directory,
+excluding its extension. Changing the display name or moving the entire
+experiments directory does not change the ID. Explicit IDs are used unchanged.
+IDs must be unique among discovered experiments. CLI selection
+accepts the filename without extension or the resolved ID; resolved IDs take
+precedence.
 
 Top-level `setup` runs for **all trials, including control**. Put only neutral
 prerequisites there. Treatment setup runs afterward and installs the intervention.
@@ -114,7 +122,8 @@ treatments. A scenario shared by two capabilities runs once per capability.
 runner and resource confounds their effects; see [models and runners](models-and-runners.md).
 
 For inline scenario references, `path` resolves from the host working directory,
-not the experiment file. `name` optionally overrides the scenario ID.
+not the experiment file. Set `id` in the scenario's config to pin identity;
+inline `name` does not override it.
 
 Repeat close comparisons in separate output directories; there is no repetition
 field. Inspect per-scenario regressions and use held-out tasks before claiming

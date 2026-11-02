@@ -1,6 +1,7 @@
 import {DefaultHost, type Host} from '../host'
 import type {Benchmark} from './benchmark'
 import {listBenchmarks} from './list'
+import {getConfigPath} from '../path'
 
 type GetBenchmarkOptions = {
   /**
@@ -19,8 +20,7 @@ type GetBenchmarkOptions = {
   scenariosDirectory: string
 
   /**
-   * The name of the benchmark, corresponds to the filename without the
-   * extension
+   * The benchmark ID or filename without the extension
    */
   name: string
 }
@@ -39,7 +39,13 @@ async function getBenchmark({
     benchmarksDirectory,
     scenariosDirectory,
   })
-  const benchmark = benchmarks.find(candidate => candidate.id === name)
+  const benchmark =
+    benchmarks.find(candidate => {
+      return candidate.id === name
+    }) ??
+    benchmarks.find(candidate => {
+      return getConfigPath(benchmarksDirectory, candidate.filepath) === name
+    })
   if (benchmark) {
     return benchmark
   }

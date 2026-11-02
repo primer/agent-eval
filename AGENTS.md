@@ -116,6 +116,10 @@
 - Fill out the pull request template for the repo
 - Always run the tasks in ci.yml before committing so that ci is green,
   except for agentic workflow compilation steps
+- When updating `github/gh-aw-actions`, align the gh-aw compiler version in
+  `.github/workflows/ci.yml` with the updated action version. Use that compiler
+  version to run `gh aw compile --validate` and commit all regenerated files.
+  Run compilation a second time and confirm that it produces no further changes.
 - When making a change to the website, include before and after screenshots in the Pull Request description.
   ```md
   <details>

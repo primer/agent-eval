@@ -48,21 +48,23 @@ export async function get(id: string): Promise<Scenario> {
     tags: scenario.tags,
     config: await fs.readFile(path.join(scenario.directory, 'scenario.config.ts'), 'utf8'),
     checks: await Promise.all(
-      scenario.checks.map(async check => {
-        return {
-          name: check.name,
-          description: check.description,
-          files: await Promise.all(
-            check.files.map(async file => {
-              const textFile = /\.(?:[cm]?[jt]sx?|json|md|ya?ml|css|html|txt)$/.test(file.relativePath)
-              return {
-                path: file.relativePath,
-                contents: textFile ? await fs.readFile(file.filepath, 'utf8') : null,
-              }
-            }),
-          ),
-        }
-      }),
+      [...scenario.checks, ...scenario.prompt.flatMap(prompt => (typeof prompt === 'string' ? [] : prompt.checks))].map(
+        async check => {
+          return {
+            name: check.name,
+            description: check.description,
+            files: await Promise.all(
+              check.files.map(async file => {
+                const textFile = /\.(?:[cm]?[jt]sx?|json|md|ya?ml|css|html|txt)$/.test(file.relativePath)
+                return {
+                  path: file.relativePath,
+                  contents: textFile ? await fs.readFile(file.filepath, 'utf8') : null,
+                }
+              }),
+            ),
+          }
+        },
+      ),
     ),
   }
 }

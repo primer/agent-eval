@@ -7,7 +7,7 @@ import {DefaultHost, type Host} from '../host'
 import {ModelVariantSchema} from '../model'
 import type {RunPlanResult} from '../plan'
 import {resolveTrialArtifactsPath} from '../result-path'
-import {ScenarioSchema} from '../scenario/scenario'
+import {ScenarioPromptsOutputSchema, ScenarioSchema} from '../scenario/scenario'
 import {TreatmentSchema} from '../treatment'
 import {
   TrialAgentSchema,
@@ -35,14 +35,18 @@ const ExperimentTrialOutputSchema = z.object({
 
 type ExperimentTrialOutput = z.infer<typeof ExperimentTrialOutputSchema>
 
-const ScenarioOutputSchema = z.pick(ScenarioSchema, {
-  id: true,
-  directory: true,
-  prompt: true,
-  description: true,
-  tags: true,
-  judges: true,
-})
+const ScenarioOutputSchema = z.extend(
+  z.pick(ScenarioSchema, {
+    id: true,
+    directory: true,
+    description: true,
+    tags: true,
+    judges: true,
+  }),
+  {
+    prompt: ScenarioPromptsOutputSchema,
+  },
+)
 
 type ScenarioOutput = z.infer<typeof ScenarioOutputSchema>
 

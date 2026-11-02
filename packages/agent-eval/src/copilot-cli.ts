@@ -440,14 +440,16 @@ async function runCopilotCli({
   prompt,
   model,
   copilotToken,
+  sessionId: initialSessionId,
 }: {
   sandbox: Sandbox
   prompt: Array<string>
   model: ModelVariant
   copilotToken: string
+  sessionId?: string
 }): Promise<Array<Message>> {
   const messages: Array<Message> = []
-  let sessionId: string | undefined
+  let sessionId = initialSessionId
   for (const turn of prompt) {
     const usagePath = `${COPILOT_DIR}/usage-${randomUUID()}.json`
     try {

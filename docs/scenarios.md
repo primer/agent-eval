@@ -39,9 +39,33 @@ export default defineConfig({
 })
 ```
 
-Prompts run in order in the same sandbox and conversation, waiting for each turn to finish before starting the next. Checks and judges run after all prompts complete. Both the CLI and SDK runners support this behavior.
+Prompts run in order in the same sandbox and conversation, waiting for each turn to finish before starting the next. Scenario-level checks and judges run after all prompts complete. Both the CLI and SDK runners support this behavior.
 
 A string remains valid input and is normalized to a single-element array. Parsed scenario configurations, loaded scenarios, and result metadata always expose `prompt` as an array.
+
+Use a prompt config object to run checks or judges immediately after a particular turn:
+
+```ts
+import {createVitestCheck, defineConfig} from '@primer/agent-eval/scenario'
+
+export default defineConfig({
+  prompt: [
+    {
+      prompt: 'Add project search.',
+      checks: [
+        createVitestCheck({
+          name: 'search',
+          configPath: 'vitest.config.scenario.ts',
+          testPaths: ['scenario.test.ts'],
+        }),
+      ],
+    },
+    'Now add an empty state when no projects match.',
+  ],
+})
+```
+
+Prompt-level checks and judges use the same configuration as scenario-level checks and judges. Their files remain withheld until that prompt finishes; the next prompt starts after its checks and judges complete.
 
 ### Checks
 

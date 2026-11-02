@@ -176,17 +176,26 @@ const scenarioCommand = defineCommand({
         })
 
         if (args.check) {
-          const check = scenario.checks.find(scenarioCheck => {
+          const checks = [
+            ...scenario.checks,
+            ...scenario.prompt.flatMap(prompt => (typeof prompt === 'string' ? [] : prompt.checks)),
+          ]
+          const check = checks.find(scenarioCheck => {
             return scenarioCheck.name === args.check
           })
 
           if (!check) {
             throw new Error(
-              `Check "${args.check}" not found in scenario "${args.name}". Available checks: ${scenario.checks.map(scenarioCheck => scenarioCheck.name).join(', ')}`,
+              `Check "${args.check}" not found in scenario "${args.name}". Available checks: ${checks.map(scenarioCheck => scenarioCheck.name).join(', ')}`,
             )
           }
 
-          scenario.checks = [check]
+          scenario.checks = scenario.checks.filter(scenarioCheck => scenarioCheck === check)
+          scenario.prompt = scenario.prompt.map(prompt => {
+            return typeof prompt === 'string'
+              ? prompt
+              : {...prompt, checks: prompt.checks.filter(scenarioCheck => scenarioCheck === check)}
+          })
         }
 
         const plan = createScenarioPlan({

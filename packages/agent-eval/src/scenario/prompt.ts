@@ -1,10 +1,20 @@
 import * as z from 'zod/mini'
+import {CheckConfigSchema} from '../check'
+import {JudgeConfigSchema} from '../judge'
+
+const PromptConfigSchema = z.object({
+  prompt: z.string(),
+  checks: z._default(z.array(CheckConfigSchema), []),
+  judges: z._default(z.array(JudgeConfigSchema), []),
+})
+
+const PromptItemSchema = z.union([z.string(), PromptConfigSchema])
 
 const PromptSchema = z.pipe(
-  z.union([z.string(), z.array(z.string()).check(z.minLength(1))]),
+  z.union([PromptItemSchema, z.array(PromptItemSchema).check(z.minLength(1))]),
   z.transform(prompt => {
-    return typeof prompt === 'string' ? [prompt] : prompt
+    return Array.isArray(prompt) ? prompt : [prompt]
   }),
 )
 
-export {PromptSchema}
+export {PromptConfigSchema, PromptSchema}

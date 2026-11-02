@@ -49,6 +49,7 @@ test.each([false, true])('executes the SDK script and surfaces failures (failed:
     reasoningEffort: 'high',
     prompt: ['Build a page', 'Add search', 'Handle empty results'],
     copilotHome: COPILOT_DIR,
+    sessionId: failed ? undefined : 'existing-session',
     timeoutMs: 1000,
   }
   const output: Array<string> = []
@@ -64,37 +65,37 @@ test.each([false, true])('executes the SDK script and surfaces failures (failed:
     completed.push(prompt)
   })
   const disconnect = vi.fn()
-  const createSession = vi.fn(async () => {
-    return {
-      sessionId: 'session',
-      on(callback: (event: object) => void) {
-        callback({
-          type: 'assistant.usage',
-          id: 'usage',
-          timestamp: '2026-01-01T00:00:00.000Z',
-          parentId: null,
-          ephemeral: true,
-          data: {model: config.model, duration: 123, outputTokens: 42},
-        })
-        callback({
-          type: 'session.usage_checkpoint',
-          id: 'checkpoint',
-          timestamp: '2026-01-01T00:00:00.000Z',
-          parentId: null,
-          data: {totalNanoAiu: 2_839_800_000},
-        })
-        callback({
-          type: 'assistant.message',
-          id: 'message',
-          timestamp: '2026-01-01T00:00:00.000Z',
-          parentId: null,
-          data: {messageId: 'assistant-message', content: 'Done'},
-        })
-      },
-      sendAndWait,
-      disconnect,
-    }
-  })
+  const session = {
+    sessionId: 'session',
+    on(callback: (event: object) => void) {
+      callback({
+        type: 'assistant.usage',
+        id: 'usage',
+        timestamp: '2026-01-01T00:00:00.000Z',
+        parentId: null,
+        ephemeral: true,
+        data: {model: config.model, duration: 123, outputTokens: 42},
+      })
+      callback({
+        type: 'session.usage_checkpoint',
+        id: 'checkpoint',
+        timestamp: '2026-01-01T00:00:00.000Z',
+        parentId: null,
+        data: {totalNanoAiu: 2_839_800_000},
+      })
+      callback({
+        type: 'assistant.message',
+        id: 'message',
+        timestamp: '2026-01-01T00:00:00.000Z',
+        parentId: null,
+        data: {messageId: 'assistant-message', content: 'Done'},
+      })
+    },
+    sendAndWait,
+    disconnect,
+  }
+  const createSession = vi.fn(async () => session)
+  const resumeSession = vi.fn(async () => session)
   const stop = vi.fn(async () => {
     return []
   })
@@ -108,6 +109,7 @@ test.each([false, true])('executes the SDK script and surfaces failures (failed:
       return undefined
     }
     createSession = createSession
+    resumeSession = resumeSession
     stop = stop
   }
   await runInNewContext(getCopilotSdkRunnerScript(), {
@@ -146,14 +148,14 @@ test.each([false, true])('executes the SDK script and surfaces failures (failed:
     useLoggedInUser: false,
     logLevel: 'none',
   })
-  expect(createSession).toHaveBeenCalledWith({
-    model: config.model,
-    reasoningEffort: 'high',
-    onPermissionRequest: approveAll,
-  })
   expect(sendAndWait).toHaveBeenNthCalledWith(1, {prompt: config.prompt[0], agentMode: 'autopilot'}, 1000)
   expect(stop).toHaveBeenCalledOnce()
   if (failed) {
+    expect(createSession).toHaveBeenCalledWith({
+      model: config.model,
+      reasoningEffort: 'high',
+      onPermissionRequest: approveAll,
+    })
     expect(completed).toEqual(config.prompt.slice(0, 1))
     expect(sendAndWait).toHaveBeenCalledTimes(2)
     expect(exit).toHaveBeenCalledWith(1)
@@ -165,7 +167,13 @@ test.each([false, true])('executes the SDK script and surfaces failures (failed:
     ).toBe(false)
   } else {
     expect(completed).toEqual(config.prompt)
-    expect(createSession).toHaveBeenCalledOnce()
+    expect(createSession).not.toHaveBeenCalled()
+    expect(resumeSession).toHaveBeenCalledOnce()
+    expect(resumeSession).toHaveBeenCalledWith('existing-session', {
+      model: config.model,
+      reasoningEffort: config.reasoningEffort,
+      onPermissionRequest: approveAll,
+    })
     expect(sendAndWait).toHaveBeenCalledTimes(config.prompt.length)
     expect(sendAndWait).toHaveBeenNthCalledWith(2, {prompt: config.prompt[1], agentMode: 'autopilot'}, 1000)
     expect(sendAndWait).toHaveBeenNthCalledWith(3, {prompt: config.prompt[2], agentMode: 'autopilot'}, 1000)

@@ -10,17 +10,22 @@ import {TreatmentSetupSchema, type TreatmentSetup} from '../treatment'
 import {DEFAULT_DOCKER_IMAGE, NODE_USER} from '../sandbox/constants'
 import {buildImage, getImageReference, type ImageBuild} from '../docker'
 import {parsePackageManager} from './package-manager'
-import {PromptSchema} from './prompt'
 
 const PackageJsonSchema = z.object({
   packageManager: z.optional(z.unknown()),
   scripts: z.optional(z.record(z.string(), z.string())),
 })
 
+type ScenarioPrompt = {
+  prompt: string
+  checks: Array<Check>
+  judges: Array<Judge>
+}
+
 type Scenario = {
   id: string
   directory: string
-  prompt: Array<string>
+  prompt: Array<string | ScenarioPrompt>
   description?: string
   tags: Array<string>
   checks: Array<Check>
@@ -47,10 +52,29 @@ const DockerImageSchema = z.discriminatedUnion('type', [
   }),
 ]) satisfies z.ZodMiniType<DockerImage>
 
+const ScenarioPromptSchema = z.object({
+  prompt: z.string(),
+  checks: z.array(CheckSchema),
+  judges: z.array(JudgeSchema),
+})
+
+const ScenarioPromptOutputSchema = z.object({
+  prompt: z.string(),
+  checks: z.array(z.omit(CheckSchema, {run: true})),
+  judges: z.array(JudgeSchema),
+})
+
+const ScenarioPromptsSchema = z.array(z.union([z.string(), ScenarioPromptSchema])).check(z.minLength(1))
+const ScenarioPromptItemOutputSchema = z.union([z.string(), ScenarioPromptOutputSchema])
+const ScenarioPromptsOutputSchema = z.pipe(
+  z.union([ScenarioPromptItemOutputSchema, z.array(ScenarioPromptItemOutputSchema).check(z.minLength(1))]),
+  z.transform(prompt => (Array.isArray(prompt) ? prompt : [prompt])),
+)
+
 const ScenarioSchema = z.object({
   id: z.string(),
   directory: z.string(),
-  prompt: PromptSchema,
+  prompt: ScenarioPromptsSchema,
   description: z.optional(z.string()),
   tags: z._default(z.array(z.string()), []),
   checks: z._default(z.array(CheckSchema), []),
@@ -78,6 +102,24 @@ function getScenarioIgnoreFiles(scenario: Scenario): Array<{filepath: string; re
   for (const check of scenario.checks) {
     for (const file of check.files) {
       ignored.set(file.filepath, file.relativePath)
+    }
+  }
+
+  for (const prompt of scenario.prompt) {
+    if (typeof prompt === 'string') {
+      continue
+    }
+
+    for (const check of prompt.checks) {
+      for (const file of check.files) {
+        ignored.set(file.filepath, file.relativePath)
+      }
+    }
+
+    for (const judge of prompt.judges) {
+      for (const file of judge.files) {
+        ignored.set(file.filepath, file.relativePath)
+      }
     }
   }
 
@@ -219,4 +261,5 @@ const defaultScenarioSetup: TreatmentSetup = async ({sandbox}) => {
 }
 
 export {ScenarioSchema, getScenarioIgnoreFiles, buildScenarioImage, defaultScenarioSetup}
-export type {Scenario}
+export {ScenarioPromptsOutputSchema}
+export type {Scenario, ScenarioPrompt}

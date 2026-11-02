@@ -99,7 +99,9 @@ async function main() {
       sessionConfig.reasoningEffort = config.reasoningEffort
     }
 
-    const session = await client.createSession(sessionConfig)
+    const session = config.sessionId
+      ? await client.resumeSession(config.sessionId, sessionConfig)
+      : await client.createSession(sessionConfig)
     sessionId = session.sessionId
     session.on(event => {
       if (event.type === 'assistant.usage') {
@@ -154,11 +156,13 @@ async function runCopilotSdk({
   prompt,
   model,
   copilotToken,
+  sessionId,
 }: {
   sandbox: Sandbox
   prompt: Array<string>
   model: ModelVariant
   copilotToken: string
+  sessionId?: string
 }): Promise<Array<Message>> {
   await sandbox.writeFile(
     COPILOT_SDK_RUNNER_CONFIG_PATH,
@@ -167,6 +171,7 @@ async function runCopilotSdk({
       model: model.name,
       prompt,
       reasoningEffort: model.reasoningEffort,
+      sessionId,
       timeoutMs: 60 * 60 * 1000,
     }),
   )

@@ -41,7 +41,7 @@ export function Page({scenario, experiments}: Props) {
               {scenario.prompt.map((prompt, index) => {
                 return (
                   <p className="text-body-large text-default m-0 max-w-[80ch]" key={index}>
-                    {prompt}
+                    {typeof prompt === 'string' ? prompt : prompt.prompt}
                   </p>
                 )
               })}

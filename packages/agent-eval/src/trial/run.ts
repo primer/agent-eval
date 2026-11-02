@@ -5,7 +5,7 @@ import {DefaultHost, type Host} from '../host'
 import {logger} from '../logger'
 import {AGENTS_DIR, CONTAINER_WORKDIR, COPILOT_DIR, NODE_USER, SKILLS_DIR, type Sandbox} from '../sandbox'
 import {TrialSchema, type Trial} from './trial'
-import {runCopilotCli} from '../copilot-cli'
+import {isMessageType, runCopilotCli, type Message} from '../copilot-cli'
 import {runCopilotSdk} from '../copilot-sdk'
 import {
   getJudgeModel,
@@ -79,24 +79,30 @@ async function runTrial({
     trial,
   })
 
-  const {agent} = await taskStage.run({
+  const {
+    agent,
+    checks: promptChecks,
+    judges: promptJudges,
+  } = await taskStage.run({
     copilotQueue,
     copilotToken,
     sandbox,
     trial,
   })
 
-  const {results: checks} = await verifyStage.run({
+  const {results: scenarioChecks} = await verifyStage.run({
     sandbox,
     trial,
   })
 
-  const {results: judges} = await judgeStage.run({
+  const {results: scenarioJudges} = await judgeStage.run({
     copilotQueue,
     copilotToken,
     sandbox,
     trial,
   })
+  const checks = [...promptChecks, ...scenarioChecks]
+  const judges = [...promptJudges, ...scenarioJudges]
 
   const {walkthrough} = await captureStage.run({
     copilotQueue,
@@ -168,45 +174,82 @@ const taskStage = {
   async run({copilotQueue, copilotToken, sandbox, trial}: RunStageOptions) {
     logger.info('[%s] Running agent', trial.id)
 
-    const messages = await copilotQueue.add(async () => {
-      if (trial.runner === 'copilot-sdk') {
-        return runCopilotSdk({
+    const messages: Array<Message> = []
+    const checks: Array<CheckOutput> = []
+    const judges: Array<JudgeOutput> = []
+    let sessionId: string | undefined
+
+    for (const prompt of trial.scenario.prompt) {
+      const text = typeof prompt === 'string' ? prompt : prompt.prompt
+      const turnMessages = await copilotQueue.add(async () => {
+        if (trial.runner === 'copilot-sdk') {
+          return runCopilotSdk({
+            sandbox,
+            prompt: [text],
+            model: trial.model,
+            copilotToken,
+            sessionId,
+          })
+        }
+
+        return runCopilotCli({
           sandbox,
-          prompt: trial.scenario.prompt,
+          prompt: [text],
           model: trial.model,
           copilotToken,
+          sessionId,
         })
-      }
-
-      return runCopilotCli({
-        sandbox,
-        prompt: trial.scenario.prompt,
-        model: trial.model,
-        copilotToken,
       })
-    })
+      messages.push(...turnMessages)
+      const result = turnMessages.findLast(message => isMessageType(message, 'result'))
+      if (!result) {
+        throw new Error('No result message found in copilot output')
+      }
+      sessionId = result.sessionId
+
+      if (typeof prompt !== 'string') {
+        const {results: promptCheckResults} = await verifyStage.run({
+          sandbox,
+          trial,
+          checks: prompt.checks,
+        })
+        checks.push(...promptCheckResults)
+
+        const {results: promptJudgeResults} = await judgeStage.run({
+          copilotQueue,
+          copilotToken,
+          sandbox,
+          trial,
+          judges: prompt.judges,
+        })
+        judges.push(...promptJudgeResults)
+      }
+    }
 
     return {
       agent: {
         sessions: [getAgentSession(messages)],
       },
+      checks,
+      judges,
     }
   },
 }
 
 type VerifyStageOptions = {
+  checks?: Trial['scenario']['checks']
   sandbox: Sandbox
   trial: Trial
 }
 
 const verifyStage = {
   name: 'Verify',
-  async run({sandbox, trial}: VerifyStageOptions) {
+  async run({sandbox, trial, checks = trial.scenario.checks}: VerifyStageOptions) {
     logger.info('[%s] Running checks', trial.id)
 
     const results: Array<CheckOutput> = []
 
-    for (const check of trial.scenario.checks) {
+    for (const check of checks) {
       const copied = new Set<string>()
 
       for (const {filepath, relativePath} of check.files) {
@@ -261,18 +304,19 @@ const verifyStage = {
 type JudgeStageOptions = {
   copilotQueue: Queue
   copilotToken: string
+  judges?: Trial['scenario']['judges']
   sandbox: Sandbox
   trial: Trial
 }
 
 const judgeStage = {
   name: 'Judge',
-  async run({copilotQueue, copilotToken, sandbox, trial}: JudgeStageOptions) {
+  async run({copilotQueue, copilotToken, sandbox, trial, judges = trial.scenario.judges}: JudgeStageOptions) {
     logger.debug('Running judge stage for: %s', trial.id)
 
     const results: Array<JudgeOutput> = []
 
-    if (trial.scenario.judges.length < 1) {
+    if (judges.length < 1) {
       return {
         results,
       }
@@ -280,7 +324,7 @@ const judgeStage = {
 
     logger.info('[%s] Running judges', trial.id)
 
-    for (const judge of trial.scenario.judges) {
+    for (const judge of judges) {
       logger.info('[%s] Running judge: %s', trial.id, judge.name)
 
       for (const file of judge.files) {
@@ -513,10 +557,11 @@ const saveStage = {
     logger.debug('[%s] Downloading agent workspace to: %s', trial.id, workspaceDirectory)
     const judgeFiles = Array.from(
       new Set(
-        trial.scenario.judges.flatMap(judge => {
-          return judge.files.map(file => {
-            return file.relativePath
-          })
+        [
+          ...trial.scenario.judges,
+          ...trial.scenario.prompt.flatMap(prompt => (typeof prompt === 'string' ? [] : prompt.judges)),
+        ].flatMap(judge => {
+          return judge.files.map(file => file.relativePath)
         }),
       ),
     )

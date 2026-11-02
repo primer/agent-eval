@@ -22,7 +22,7 @@ export async function generateMetadata(props: ScenarioPageProps): Promise<Metada
 
   return {
     title: scenario.id,
-    description: scenario.prompt.join('\n\n'),
+    description: scenario.prompt.map(prompt => (typeof prompt === 'string' ? prompt : prompt.prompt)).join('\n\n'),
   }
 }
 

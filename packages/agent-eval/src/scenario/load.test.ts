@@ -154,6 +154,39 @@ test('loadScenario wires configured checks and judges into a usable scenario in 
   )
 })
 
+test('loadScenario parses prompt-level checks and judges', async () => {
+  const host = createHost(`export default {
+    prompt: [{
+      prompt: 'Create a page',
+      checks: [{
+        name: 'build',
+        async run() {
+          return {outcomes: [{type: 'outcome', status: 'passed'}]}
+        },
+      }],
+      judges: [{name: 'visual', files: ['reference.txt'], scores: [{value: 1, description: 'Matches'}]}],
+    }],
+  }`)
+  await host.fs.promises.writeFile('/scenarios/example/reference.txt', 'Expected appearance')
+  await using sandbox = await VirtualSandbox.create({host})
+
+  const scenario = ScenarioSchema.parse(await loadScenario({host, directory: '/scenarios/example'}))
+
+  expect(scenario.prompt).toMatchObject([
+    {
+      prompt: 'Create a page',
+      checks: [{name: 'build'}],
+      judges: [{name: 'visual', files: [{relativePath: 'reference.txt'}]}],
+    },
+  ])
+  if (typeof scenario.prompt[0] === 'string') {
+    throw new Error('Expected prompt configuration')
+  }
+  await expect(scenario.prompt[0].checks[0]!.run({logger, sandbox})).resolves.toEqual([
+    {type: 'outcomes', outcomes: [{type: 'outcome', status: 'passed'}]},
+  ])
+})
+
 test('loadScenario reports a missing directory using the default name', async () => {
   const host = VirtualHost.create()
 

@@ -4,7 +4,7 @@ import {CheckConfigSchema} from '../check'
 import {JudgeConfigSchema} from '../judge'
 import type {Host} from '../host'
 import {TreatmentSetupSchema} from '../treatment'
-import {PromptSchema} from './prompt'
+import {PromptConfigSchema, PromptSchema} from './prompt'
 
 const InlineScenarioConfigSchema = z.strictObject({
   name: z.optional(z.string()),
@@ -150,6 +150,7 @@ export {
   DefaultDockerImageConfig,
   DockerImageConfigSchema,
   InlineScenarioConfigSchema,
+  PromptConfigSchema,
   ScenarioConfigSchema,
   defineConfig,
   parseScenarioConfig,

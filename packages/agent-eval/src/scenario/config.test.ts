@@ -2,7 +2,7 @@ import {describe, expect, expectTypeOf, test} from 'vitest'
 import {VirtualHost} from '../host'
 import {logger} from '../logger'
 import {VirtualSandbox} from '../sandbox'
-import {defineConfig, parseScenarioConfig} from './config'
+import {defineConfig, parseScenarioConfig, type ScenarioConfig} from './config'
 
 describe('defineConfig', () => {
   test.each([
@@ -12,8 +12,35 @@ describe('defineConfig', () => {
     const config = defineConfig({prompt})
 
     expect(config.prompt).toEqual(expected)
-    expectTypeOf(config.prompt).toEqualTypeOf<Array<string>>()
+    expectTypeOf(config.prompt).toEqualTypeOf<ScenarioConfig['prompt']>()
     expect(parseScenarioConfig(VirtualHost.create(), '/scenarios/example', config).prompt).toEqual(expected)
+  })
+
+  test('preserves prompt-level checks and judges', () => {
+    const config = defineConfig({
+      prompt: [
+        {
+          prompt: 'Create a page',
+          checks: [
+            {
+              name: 'build',
+              async run() {
+                return {outcomes: []}
+              },
+            },
+          ],
+          judges: [{name: 'visual', scores: [{value: 1, description: 'Matches'}]}],
+        },
+      ],
+    })
+
+    expect(config.prompt).toMatchObject([
+      {
+        prompt: 'Create a page',
+        checks: [{name: 'build'}],
+        judges: [{name: 'visual'}],
+      },
+    ])
   })
 
   test('leaves omitted setup undefined', () => {

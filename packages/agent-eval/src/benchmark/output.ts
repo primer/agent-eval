@@ -11,7 +11,7 @@ import {
   TrialJudgesSchema,
   TrialWalkthroughSchema,
 } from '../trial/run'
-import {ScenarioSchema} from '../scenario/scenario'
+import {ScenarioPromptsOutputSchema, ScenarioSchema} from '../scenario/scenario'
 import {TreatmentSchema} from '../treatment'
 import type {Benchmark} from './benchmark'
 import {ModelVariantSchema} from '../model'
@@ -51,14 +51,18 @@ const CapabilityOutputSchema = z.object({
 
 type CapabilityOutput = z.infer<typeof CapabilityOutputSchema>
 
-const ScenarioOutputSchema = z.pick(ScenarioSchema, {
-  id: true,
-  directory: true,
-  prompt: true,
-  description: true,
-  tags: true,
-  judges: true,
-})
+const ScenarioOutputSchema = z.extend(
+  z.pick(ScenarioSchema, {
+    id: true,
+    directory: true,
+    description: true,
+    tags: true,
+    judges: true,
+  }),
+  {
+    prompt: ScenarioPromptsOutputSchema,
+  },
+)
 
 type ScenarioOutput = z.infer<typeof ScenarioOutputSchema>
 

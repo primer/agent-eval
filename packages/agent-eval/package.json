@@ -42,7 +42,7 @@
   },
   "dependencies": {
     "@primer/primitives": "^11.10.0",
-    "@primer/react": "^38.41.0",
+    "@primer/react": "^38.42.0",
     "@primer/tailwind-config": "^1.0.0",
     "@tailwindcss/postcss": "^4.3.3",
     "citty": "^0.2.2",

@@ -239,8 +239,8 @@ importers:
         specifier: ^11.10.0
         version: 11.10.0
       '@primer/react':
-        specifier: ^38.41.0
-        version: 38.41.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react-is@19.3.1)(react@19.3.1)
+        specifier: ^38.42.0
+        version: 38.42.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react-is@19.3.1)(react@19.3.1)
       '@primer/tailwind-config':
         specifier: ^1.0.0
         version: 1.0.0(tailwindcss@4.3.3)
@@ -512,8 +512,8 @@ importers:
   scenarios/002-agent-uses-octicon-from-primer:
     dependencies:
       '@primer/octicons-react':
-        specifier: ^19.40.0
-        version: 19.40.0(react@19.3.1)
+        specifier: ^19.41.0
+        version: 19.41.0(react@19.3.1)
       next:
         specifier: ^16
         version: 16.3.1(@playwright/test@1.64.0)(@types/node@26.6.4)(babel-plugin-react-compiler@1.0.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -549,8 +549,8 @@ importers:
   scenarios/003-agent-uses-form-from-primer:
     dependencies:
       '@primer/react':
-        specifier: ^38.41.0
-        version: 38.41.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react-is@19.3.1)(react@19.3.1)
+        specifier: ^38.42.0
+        version: 38.42.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react-is@19.3.1)(react@19.3.1)
       next:
         specifier: ^16
         version: 16.3.1(@playwright/test@1.64.0)(@types/node@26.6.4)(babel-plugin-react-compiler@1.0.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -660,14 +660,14 @@ importers:
         specifier: workspace:*
         version: link:../packages/agent-eval
       '@primer/octicons-react':
-        specifier: ^19.40.0
-        version: 19.40.0(react@19.3.1)
+        specifier: ^19.41.0
+        version: 19.41.0(react@19.3.1)
       '@primer/primitives':
         specifier: ^11.10.0
         version: 11.10.0
       '@primer/react':
-        specifier: ^38.41.0
-        version: 38.41.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react-is@19.3.1)(react@19.3.1)
+        specifier: ^38.42.0
+        version: 38.42.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react-is@19.3.1)(react@19.3.1)
       '@primer/tailwind-config':
         specifier: ^1.0.0
         version: 1.0.0(tailwindcss@4.3.3)
@@ -1563,16 +1563,16 @@ packages:
   '@primer/live-region-element@0.8.1':
     resolution: {integrity: sha512-g7bNs9R2A2LfETMOWYsvtT0b5Q/QLM1Fz1vrTcWa5r2LbEhrPm7cZV5pEOleFKiGybrYWmdXteV2sBAQLXuxvg==}
 
-  '@primer/octicons-react@19.40.0':
-    resolution: {integrity: sha512-z1yyW2WaZxf9t+295e1Ajqj0KXWAg3ZaNk5Q7jMYYsz2e1Pzbya4bkpip+pd1ndmlaYh4kInlmCOAgyDFU+ncw==}
+  '@primer/octicons-react@19.41.0':
+    resolution: {integrity: sha512-xCZBbQLQ84L4VuLJWH3OC52AyJg7gdbkhcfunIv428HpXxwGceU3XvEuCbufsoyXN7p0UI5PU5i3Pttob9284g==}
     peerDependencies:
       react: '>=16.3'
 
   '@primer/primitives@11.10.0':
     resolution: {integrity: sha512-ihZxIst4Izry284StKFjpbYvX6R/IBFTLu+qiuAmR93PsKF2hdjoabhSYwKI8iCxOUx94jVP55bI3NoY7STjYQ==}
 
-  '@primer/react@38.41.0':
-    resolution: {integrity: sha512-P7Gpnd/UMVmUQThI2UrO04Jjff5RrTr/t5oD8CAJI5CIg1joBIjD2wQ3ZSuf2bKIsbHoywX+6BCNo4YsjkXiow==}
+  '@primer/react@38.42.0':
+    resolution: {integrity: sha512-hPcc/QGjHrAPBsAXGUkhgCJB91pYiWdxCMwoWNBDZk8MC9P6W3YzrFyPNy7a2YTT/bUwpHbyVbK5eitAjuGVAA==}
     engines: {node: '>=12', npm: '>=7'}
     peerDependencies:
       '@types/react': 18.x || 19.x
@@ -5293,13 +5293,13 @@ snapshots:
     dependencies:
       '@lit-labs/ssr-dom-shim': 1.6.0
 
-  '@primer/octicons-react@19.40.0(react@19.3.1)':
+  '@primer/octicons-react@19.41.0(react@19.3.1)':
     dependencies:
       react: 19.3.1
 
   '@primer/primitives@11.10.0': {}
 
-  '@primer/react@38.41.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react-is@19.3.1)(react@19.3.1)':
+  '@primer/react@38.42.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react-is@19.3.1)(react@19.3.1)':
     dependencies:
       '@github/mini-throttle': 2.1.1
       '@github/relative-time-element': 5.3.0
@@ -5307,7 +5307,7 @@ snapshots:
       '@oddbird/popover-polyfill': 0.5.2
       '@primer/behaviors': 1.10.3
       '@primer/live-region-element': 0.8.1
-      '@primer/octicons-react': 19.40.0(react@19.3.1)
+      '@primer/octicons-react': 19.41.0(react@19.3.1)
       '@primer/primitives': 11.10.0
       '@tanstack/react-virtual': 3.14.6(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       clsx: 2.1.1

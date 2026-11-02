@@ -23,7 +23,7 @@ test('loadScenario selects the default image and setup without requiring a packa
   expect(scenario).toMatchObject({
     id: 'example',
     directory: '/scenarios/example',
-    prompt: 'Create a page',
+    prompt: ['Create a page'],
     image: {type: 'Default'},
     setup: defaultScenarioSetup,
   })
@@ -60,7 +60,7 @@ test('loadScenario uses DefaultHost when host is omitted', async () => {
 
   const scenario = await loadScenario({directory: '/scenarios/example'})
 
-  expect(scenario).toMatchObject({id: 'example', prompt: 'Create a page'})
+  expect(scenario).toMatchObject({id: 'example', prompt: ['Create a page']})
 })
 
 test('loadScenario preserves metadata when an explicit name overrides the directory basename', async () => {
@@ -73,7 +73,7 @@ test('loadScenario preserves metadata when an explicit name overrides the direct
   expect(scenario).toMatchObject({
     id: 'custom',
     directory: '/scenarios/example',
-    prompt: 'Create a page',
+    prompt: ['Create a page'],
     description: 'Example',
     tags: ['forms', 'accessibility'],
   })
@@ -152,6 +152,39 @@ test('loadScenario wires configured checks and judges into a usable scenario in 
   await expect(host.fs.promises.readFile(scenario.judges[0]!.files[0]!.filepath, 'utf8')).resolves.toBe(
     'Expected appearance',
   )
+})
+
+test('loadScenario parses prompt-level checks and judges', async () => {
+  const host = createHost(`export default {
+    prompt: [{
+      prompt: 'Create a page',
+      checks: [{
+        name: 'build',
+        async run() {
+          return {outcomes: [{type: 'outcome', status: 'passed'}]}
+        },
+      }],
+      judges: [{name: 'visual', files: ['reference.txt'], scores: [{value: 1, description: 'Matches'}]}],
+    }],
+  }`)
+  await host.fs.promises.writeFile('/scenarios/example/reference.txt', 'Expected appearance')
+  await using sandbox = await VirtualSandbox.create({host})
+
+  const scenario = ScenarioSchema.parse(await loadScenario({host, directory: '/scenarios/example'}))
+
+  expect(scenario.prompt).toMatchObject([
+    {
+      prompt: 'Create a page',
+      checks: [{name: 'build'}],
+      judges: [{name: 'visual', files: [{relativePath: 'reference.txt'}]}],
+    },
+  ])
+  if (typeof scenario.prompt[0] === 'string') {
+    throw new Error('Expected prompt configuration')
+  }
+  await expect(scenario.prompt[0].checks[0]!.run({logger, sandbox})).resolves.toEqual([
+    {type: 'outcomes', outcomes: [{type: 'outcome', status: 'passed'}]},
+  ])
 })
 
 test('loadScenario reports a missing directory using the default name', async () => {

@@ -60,7 +60,7 @@ function getAgentSession(messages: Array<Message>): AgentSession {
     }
   }
 
-  const result = messages.find(message => isMessageType(message, 'result'))
+  const result = messages.findLast(message => isMessageType(message, 'result'))
   if (!result) {
     throw new Error('No result message found in copilot output')
   }

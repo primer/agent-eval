@@ -36,7 +36,27 @@ async function loadScenario({
   const scenario: Scenario = {
     id: name,
     directory,
-    prompt: config.prompt,
+    prompt: await Promise.all(
+      config.prompt.map(async prompt => {
+        if (typeof prompt === 'string') {
+          return prompt
+        }
+
+        return {
+          prompt: prompt.prompt,
+          checks: await Promise.all(
+            prompt.checks.map(checkConfig => {
+              return parseCheckConfig(host, directory, checkConfig)
+            }),
+          ),
+          judges: await Promise.all(
+            prompt.judges.map(judgeConfig => {
+              return parseJudgeConfig(host, directory, judgeConfig)
+            }),
+          ),
+        }
+      }),
+    ),
     tags: config.tags,
     checks: await Promise.all(
       config.checks.map(checkConfig => {

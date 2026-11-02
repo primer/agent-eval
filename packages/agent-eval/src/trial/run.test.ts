@@ -217,7 +217,10 @@ test.each(['copilot-cli', 'copilot-sdk'] as const)(
       [`${AGENTS_DIR}/config.json`]: '{}',
     })
     await using sandbox: Sandbox = await VirtualSandbox.create({host})
+    let taskCalls = 0
+    let sessionId = 'session'
     const checkRun = vi.fn<Trial['scenario']['checks'][number]['run']>(async ({sandbox: checkSandbox}) => {
+      expect(taskCalls).toBe(1)
       await expect(checkSandbox.readFile('vitest.config.scenario.ts')).resolves.toBe('private check config')
       await expect(checkSandbox.readFile('checks/reference.json')).resolves.toBe('private reference')
       await expect(checkSandbox.readFile('src/reference.json')).resolves.toBe('ordinary source')
@@ -231,33 +234,48 @@ test.each(['copilot-cli', 'copilot-sdk'] as const)(
       scenario: {
         id: 'example',
         directory: '/scenarios/example',
-        prompt: 'Update the example',
+        prompt: [
+          {
+            prompt: 'Update the example',
+            checks: [
+              {
+                name: 'custom-check',
+                files: [
+                  {
+                    filepath: '/scenarios/example/vitest.config.scenario.ts',
+                    relativePath: 'vitest.config.scenario.ts',
+                  },
+                  {
+                    filepath: '/scenarios/example/checks/reference.json',
+                    relativePath: 'checks/reference.json',
+                  },
+                ],
+                run: checkRun,
+              },
+            ],
+            judges: [],
+          },
+          'Add search',
+        ],
         tags: [],
         judges: [],
         image: {type: 'Default'},
-        checks: [
-          {
-            name: 'custom-check',
-            files: [
-              {
-                filepath: '/scenarios/example/vitest.config.scenario.ts',
-                relativePath: 'vitest.config.scenario.ts',
-              },
-              {
-                filepath: '/scenarios/example/checks/reference.json',
-                relativePath: 'checks/reference.json',
-              },
-            ],
-            run: checkRun,
-          },
-        ],
+        checks: [],
       },
     }
-    let taskCalls = 0
     const copilotQueue = new Queue({concurrency: 1})
     vi.spyOn(sandbox, 'runCommand').mockImplementation(async (command, args = []) => {
+      if (command === 'rm' && args[0] === '-rf') {
+        await Promise.all(
+          args.slice(1).map(relativePath => {
+            return host.fs.promises.rm(`/home/sandbox/workspace/${relativePath}`, {recursive: true, force: true})
+          }),
+        )
+      }
+
       if (
-        (command === '/opt/agent-eval/copilot/bin/copilot' && args.includes(trial.scenario.prompt)) ||
+        (command === '/opt/agent-eval/copilot/bin/copilot' &&
+          trial.scenario.prompt.some(prompt => (typeof prompt === 'string' ? prompt : prompt.prompt) === args[1])) ||
         (command === '/opt/agent-eval/node/bin/node' && args[0] === '/opt/agent-eval/sdk-runner/run.cjs')
       ) {
         taskCalls++
@@ -266,14 +284,30 @@ test.each(['copilot-cli', 'copilot-sdk'] as const)(
           runner === 'copilot-sdk' ? '/opt/agent-eval/node/bin/node' : '/opt/agent-eval/copilot/bin/copilot',
         )
         if (runner === 'copilot-sdk') {
-          expect(JSON.parse(await sandbox.readFile(args[1]))).toMatchObject({
+          const runnerConfig = JSON.parse(await sandbox.readFile(args[1]))
+          expect(runnerConfig).toMatchObject({
             model: trial.model.name,
             reasoningEffort: trial.model.reasoningEffort,
-            prompt: trial.scenario.prompt,
+            prompt: [taskCalls === 1 ? 'Update the example' : 'Add search'],
+            resume: taskCalls > 1,
           })
+          if (taskCalls === 1) {
+            expect(runnerConfig.sessionId).toEqual(expect.any(String))
+          } else {
+            expect(runnerConfig.sessionId).toBe(sessionId)
+          }
+          sessionId = runnerConfig.sessionId
         } else {
+          expect(args[1]).toBe(taskCalls === 1 ? 'Update the example' : 'Add search')
+          if (taskCalls > 1) {
+            expect(args).toContain('--resume')
+            expect(args[args.indexOf('--resume') + 1]).toBe('session')
+          }
           const usagePath = args[args.indexOf('--usage-output-file') + 1]
-          await sandbox.writeFile(usagePath, JSON.stringify({modelMetrics: {'gpt-5.5': {usage: {outputTokens: 42}}}}))
+          await sandbox.writeFile(
+            usagePath,
+            JSON.stringify({modelMetrics: {'gpt-5.5': {usage: {outputTokens: 42 * taskCalls}}}}),
+          )
         }
         await expect(sandbox.exists('vitest.config.scenario.ts')).resolves.toBe(false)
         await expect(sandbox.exists('checks/reference.json')).resolves.toBe(false)
@@ -288,7 +322,7 @@ test.each(['copilot-cli', 'copilot-sdk'] as const)(
             ? JSON.stringify({
                 type: 'result',
                 timestamp: '2026-09-15T00:00:00.000Z',
-                sessionId: 'session',
+                sessionId,
                 exitCode: 0,
                 usage: {
                   premiumRequests: 0,
@@ -310,8 +344,8 @@ test.each(['copilot-cli', 'copilot-sdk'] as const)(
       trial,
     })
 
-    expect(taskCalls).toBe(1)
-    expect(result.agent.sessions[0].outputTokens).toBe(runner === 'copilot-cli' ? 42 : 0)
+    expect(taskCalls).toBe(2)
+    expect(result.agent.sessions[0].outputTokens).toBe(runner === 'copilot-cli' ? 84 : 0)
     expect(sandbox.runCommand).toHaveBeenCalledWith(
       'npm',
       ['install', '-g', '--prefix', '/home/node/.npm-global', '--allow-scripts=agent-browser', 'agent-browser'],

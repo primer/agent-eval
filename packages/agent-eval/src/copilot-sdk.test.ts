@@ -47,50 +47,56 @@ test.each([false, true])('executes the SDK script and surfaces failures (failed:
   const config = {
     model: 'gpt-5.5',
     reasoningEffort: 'high',
-    prompt: 'Build a page',
+    prompt: ['Build a page', 'Add search', 'Handle empty results'],
     copilotHome: COPILOT_DIR,
+    sessionId: failed ? 'new-session' : 'existing-session',
+    resume: !failed,
     timeoutMs: 1000,
   }
   const output: Array<string> = []
   const exit = vi.fn()
   const error = vi.fn()
-  const sendAndWait = vi.fn(async () => {
-    if (failed) {
+  const completed: Array<string> = []
+  const sendAndWait = vi.fn(async ({prompt}: {prompt: string}) => {
+    expect(prompt).toBe(config.prompt[completed.length])
+    await Promise.resolve()
+    if (failed && completed.length === 1) {
       throw new Error('SDK request failed')
     }
+    completed.push(prompt)
   })
   const disconnect = vi.fn()
-  const createSession = vi.fn(async () => {
-    return {
-      sessionId: 'session',
-      on(callback: (event: object) => void) {
-        callback({
-          type: 'assistant.usage',
-          id: 'usage',
-          timestamp: '2026-01-01T00:00:00.000Z',
-          parentId: null,
-          ephemeral: true,
-          data: {model: config.model, duration: 123, outputTokens: 42},
-        })
-        callback({
-          type: 'session.usage_checkpoint',
-          id: 'checkpoint',
-          timestamp: '2026-01-01T00:00:00.000Z',
-          parentId: null,
-          data: {totalNanoAiu: 2_839_800_000},
-        })
-        callback({
-          type: 'assistant.message',
-          id: 'message',
-          timestamp: '2026-01-01T00:00:00.000Z',
-          parentId: null,
-          data: {messageId: 'assistant-message', content: 'Done'},
-        })
-      },
-      sendAndWait,
-      disconnect,
-    }
-  })
+  const session = {
+    sessionId: 'session',
+    on(callback: (event: object) => void) {
+      callback({
+        type: 'assistant.usage',
+        id: 'usage',
+        timestamp: '2026-01-01T00:00:00.000Z',
+        parentId: null,
+        ephemeral: true,
+        data: {model: config.model, duration: 123, outputTokens: 42},
+      })
+      callback({
+        type: 'session.usage_checkpoint',
+        id: 'checkpoint',
+        timestamp: '2026-01-01T00:00:00.000Z',
+        parentId: null,
+        data: {totalNanoAiu: 2_839_800_000},
+      })
+      callback({
+        type: 'assistant.message',
+        id: 'message',
+        timestamp: '2026-01-01T00:00:00.000Z',
+        parentId: null,
+        data: {messageId: 'assistant-message', content: 'Done'},
+      })
+    },
+    sendAndWait,
+    disconnect,
+  }
+  const createSession = vi.fn(async () => session)
+  const resumeSession = vi.fn(async () => session)
   const stop = vi.fn(async () => {
     return []
   })
@@ -104,6 +110,7 @@ test.each([false, true])('executes the SDK script and surfaces failures (failed:
       return undefined
     }
     createSession = createSession
+    resumeSession = resumeSession
     stop = stop
   }
   await runInNewContext(getCopilotSdkRunnerScript(), {
@@ -142,14 +149,17 @@ test.each([false, true])('executes the SDK script and surfaces failures (failed:
     useLoggedInUser: false,
     logLevel: 'none',
   })
-  expect(createSession).toHaveBeenCalledWith({
-    model: config.model,
-    reasoningEffort: 'high',
-    onPermissionRequest: approveAll,
-  })
-  expect(sendAndWait).toHaveBeenCalledWith({prompt: config.prompt, agentMode: 'autopilot'}, 1000)
+  expect(sendAndWait).toHaveBeenNthCalledWith(1, {prompt: config.prompt[0], agentMode: 'autopilot'}, 1000)
   expect(stop).toHaveBeenCalledOnce()
   if (failed) {
+    expect(createSession).toHaveBeenCalledWith({
+      model: config.model,
+      reasoningEffort: 'high',
+      onPermissionRequest: approveAll,
+      sessionId: config.sessionId,
+    })
+    expect(completed).toEqual(config.prompt.slice(0, 1))
+    expect(sendAndWait).toHaveBeenCalledTimes(2)
     expect(exit).toHaveBeenCalledWith(1)
     expect(error).toHaveBeenCalledWith(expect.stringContaining('SDK request failed'))
     expect(
@@ -158,6 +168,17 @@ test.each([false, true])('executes the SDK script and surfaces failures (failed:
       }),
     ).toBe(false)
   } else {
+    expect(completed).toEqual(config.prompt)
+    expect(createSession).not.toHaveBeenCalled()
+    expect(resumeSession).toHaveBeenCalledOnce()
+    expect(resumeSession).toHaveBeenCalledWith('existing-session', {
+      model: config.model,
+      reasoningEffort: config.reasoningEffort,
+      onPermissionRequest: approveAll,
+    })
+    expect(sendAndWait).toHaveBeenCalledTimes(config.prompt.length)
+    expect(sendAndWait).toHaveBeenNthCalledWith(2, {prompt: config.prompt[1], agentMode: 'autopilot'}, 1000)
+    expect(sendAndWait).toHaveBeenNthCalledWith(3, {prompt: config.prompt[2], agentMode: 'autopilot'}, 1000)
     expect(disconnect).toHaveBeenCalledOnce()
     expect(exit).not.toHaveBeenCalled()
     const messages = output.flatMap(line => {
@@ -184,7 +205,7 @@ test('uses the bundled SDK runner and private Node without writing the token to 
   const messages = await runCopilotSdk({
     sandbox,
     copilotToken: 'test-token',
-    prompt: 'Build a page',
+    prompt: ['Build a page'],
     model: {name: 'gpt-5.5', reasoningEffort: 'high'},
   })
   expect(runCommand).toHaveBeenCalledExactlyOnceWith(
@@ -195,16 +216,17 @@ test('uses the bundled SDK runner and private Node without writing the token to 
       env: {COPILOT_GITHUB_TOKEN: 'test-token'},
     },
   )
-  expect(writeFile).toHaveBeenCalledExactlyOnceWith(
-    '/opt/agent-eval/sdk-runner/config.json',
-    JSON.stringify({
-      copilotHome: COPILOT_DIR,
-      model: 'gpt-5.5',
-      prompt: 'Build a page',
-      reasoningEffort: 'high',
-      timeoutMs: 60 * 60 * 1000,
-    }),
-  )
+  expect(writeFile).toHaveBeenCalledOnce()
+  expect(writeFile.mock.calls[0]?.[0]).toBe('/opt/agent-eval/sdk-runner/config.json')
+  expect(JSON.parse(writeFile.mock.calls[0]![1])).toMatchObject({
+    copilotHome: COPILOT_DIR,
+    model: 'gpt-5.5',
+    prompt: ['Build a page'],
+    reasoningEffort: 'high',
+    sessionId: expect.any(String),
+    resume: false,
+    timeoutMs: 60 * 60 * 1000,
+  })
   for (const [, contents] of writeFile.mock.calls) {
     expect(contents).not.toContain('test-token')
   }
@@ -229,7 +251,7 @@ test('propagates bundled runner failures', async () => {
     runCopilotSdk({
       sandbox,
       copilotToken: 'test-token',
-      prompt: 'Build a page',
+      prompt: ['Build a page'],
       model: {name: 'gpt-5.5', reasoningEffort: 'high'},
     }),
   ).rejects.toBe(error)

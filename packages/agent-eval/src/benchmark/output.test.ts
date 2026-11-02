@@ -146,7 +146,7 @@ function createOutputFile(trials: Record<string, string> = {}) {
       example: {
         id: 'example',
         directory: '/scenarios/example',
-        prompt: 'Create a page',
+        prompt: ['Create a page'],
         tags: [],
         judges: [],
       },
@@ -160,6 +160,52 @@ function createOutputFile(trials: Record<string, string> = {}) {
     trials,
   }
 }
+
+test('normalizes legacy string prompts when reading benchmark manifests', () => {
+  const input = createOutputFile()
+  const parsed = BenchmarkOutputFileSchema.parse({
+    ...input,
+    scenarios: {example: {...input.scenarios.example, prompt: 'Create a page'}},
+  })
+
+  expect(parsed.scenarios.example.prompt).toEqual(['Create a page'])
+})
+
+test('preserves prompt checks and judges in benchmark manifests without serializing check functions', () => {
+  const input = createOutputFile()
+  const parsed = BenchmarkOutputFileSchema.parse({
+    ...input,
+    scenarios: {
+      example: {
+        ...input.scenarios.example,
+        prompt: [
+          {
+            prompt: 'Create a page',
+            checks: [
+              {
+                name: 'build',
+                files: [],
+                run() {
+                  return Promise.resolve([])
+                },
+              },
+            ],
+            judges: [{name: 'visual', files: [], scores: [{value: 1, description: 'Matches'}]}],
+          },
+        ],
+      },
+    },
+  })
+
+  expect(parsed.scenarios.example.prompt).toMatchObject([
+    {
+      prompt: 'Create a page',
+      checks: [{name: 'build'}],
+      judges: [{name: 'visual'}],
+    },
+  ])
+  expect(parsed.scenarios.example.prompt[0]).not.toHaveProperty('checks.0.run')
+})
 
 test('rejects an empty benchmark output collection through the schema', async () => {
   await expect(
@@ -259,7 +305,7 @@ test.each(['capabilities', 'scenarios', 'treatments'] as const)(
     if (field === 'capabilities') {
       second.capabilities.components.name = 'Other components'
     } else if (field === 'scenarios') {
-      second.scenarios.example.prompt = 'A different task'
+      second.scenarios.example.prompt = ['A different task']
     } else {
       second.treatments.control.name = 'A different treatment'
     }

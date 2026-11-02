@@ -331,6 +331,88 @@ describe(parseMessage, () => {
 })
 
 describe(runCopilotCli, () => {
+  test.each(['success', 'command failure', 'missing result'] as const)(
+    'runs turns in order in the same conversation and stops on failure: %s',
+    async outcome => {
+      const host = VirtualHost.create()
+      await using sandbox: Sandbox = await VirtualSandbox.create({host})
+      const prompts = ['Build a page', 'Add search', 'Handle empty results']
+      const completed: Array<string> = []
+      const usagePaths: Array<string> = []
+      const runCommand = vi.spyOn(sandbox, 'runCommand').mockImplementation(async (command, args = []) => {
+        if (command === 'rm') {
+          await host.fs.promises.rm(args[2], {force: true})
+          return {exitCode: 0, stderr: '', stdout: ''}
+        }
+
+        expect(command).toBe('/opt/agent-eval/copilot/bin/copilot')
+        const turn = completed.length
+        expect(args[1]).toBe(prompts[turn])
+        if (turn === 0) {
+          expect(args).not.toContain('--resume')
+        } else {
+          expect(args[args.indexOf('--resume') + 1]).toBe('shared-session')
+          expect(await sandbox.exists(usagePaths[turn - 1])).toBe(false)
+        }
+        const usagePath = args[args.indexOf('--usage-output-file') + 1]
+        usagePaths.push(usagePath)
+        await sandbox.writeFile(
+          usagePath,
+          JSON.stringify({modelMetrics: {main: {usage: {outputTokens: 42 * (turn + 1)}}}}),
+        )
+        await Promise.resolve()
+        completed.push(args[1])
+        if (turn === 1 && outcome === 'command failure') {
+          throw new Error('Turn failed')
+        }
+        return {
+          exitCode: 0,
+          stderr: '',
+          stdout:
+            turn === 1 && outcome === 'missing result'
+              ? ''
+              : JSON.stringify({
+                  type: 'result',
+                  timestamp: '2026-10-05T00:00:00.000Z',
+                  sessionId: 'shared-session',
+                  exitCode: 0,
+                  usage: {
+                    premiumRequests: turn + 1,
+                    totalApiDurationMs: 123 * (turn + 1),
+                    sessionDurationMs: 456 * (turn + 1),
+                    codeChanges: {linesAdded: 0, linesRemoved: 0, filesModified: []},
+                  },
+                }),
+        }
+      })
+
+      const run = runCopilotCli({
+        sandbox,
+        copilotToken: 'test-token',
+        prompt: prompts,
+        model: {name: 'gpt-5.5', reasoningEffort: 'high'},
+      })
+
+      if (outcome === 'success') {
+        const messages = await run
+        expect(completed).toEqual(prompts)
+        expect(getAgentSession(messages)).toMatchObject({
+          outputTokens: 126,
+          premiumRequests: 3,
+          totalApiDurationMs: 369,
+          sessionDurationMs: 1368,
+        })
+      } else {
+        await expect(run).rejects.toThrow(outcome === 'command failure' ? 'Turn failed' : 'No result message found')
+        expect(completed).toEqual(prompts.slice(0, 2))
+      }
+      for (const usagePath of usagePaths) {
+        expect(await sandbox.exists(usagePath)).toBe(false)
+      }
+      expect(runCommand).toHaveBeenLastCalledWith('rm', ['-f', '--', usagePaths.at(-1)], {user: NODE_USER})
+    },
+  )
+
   test.each([
     {
       name: 'multiple models',
@@ -390,7 +472,7 @@ describe(runCopilotCli, () => {
     const messages = await runCopilotCli({
       sandbox,
       copilotToken: 'test-token',
-      prompt: 'Build a page',
+      prompt: ['Build a page'],
       model: {name: 'gpt-5.5', reasoningEffort: 'high'},
     })
 
@@ -418,7 +500,7 @@ describe(runCopilotCli, () => {
       runCopilotCli({
         sandbox,
         copilotToken: 'test-token',
-        prompt: 'Build a page',
+        prompt: ['Build a page'],
         model: {name: 'gpt-5.5', reasoningEffort: 'high'},
       }),
     ).rejects.toThrow()

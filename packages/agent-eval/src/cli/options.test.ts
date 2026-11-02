@@ -22,7 +22,7 @@ test.each([
     scenario: {
       id: 'example',
       directory: '/scenarios/example',
-      prompt: 'Create a page',
+      prompt: ['Create a page'],
       tags: [],
       checks: [],
       judges: [],

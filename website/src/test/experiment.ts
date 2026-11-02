@@ -39,7 +39,7 @@ export function createRun(results: Array<ExperimentTrialOutput> = [createResult(
       id: 'example',
       scenarios: new Map(
         ['scenario-b', 'scenario-a'].map(id => {
-          return [id, {id, directory: `/scenarios/${id}`, prompt: 'Build a page', tags: [], judges: []}]
+          return [id, {id, directory: `/scenarios/${id}`, prompt: ['Build a page'], tags: [], judges: []}]
         }),
       ),
       treatments: new Map([

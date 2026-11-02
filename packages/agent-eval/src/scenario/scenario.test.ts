@@ -37,7 +37,7 @@ test('getScenario and listScenarios accept an options object with an injected ho
   const expected = {
     id: 'example',
     directory: '/scenarios/example',
-    prompt: 'Create a page',
+    prompt: ['Create a page'],
     description: 'Example',
     tags: [],
     checks: [],

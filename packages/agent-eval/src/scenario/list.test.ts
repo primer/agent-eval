@@ -27,8 +27,8 @@ describe('listScenarios', () => {
         return {id, directory, prompt}
       }),
     ).toEqual([
-      {id: 'a-first', directory: '/scenarios/a-first', prompt: 'First task'},
-      {id: 'z-last', directory: '/scenarios/z-last', prompt: 'Last task'},
+      {id: 'a-first', directory: '/scenarios/a-first', prompt: ['First task']},
+      {id: 'z-last', directory: '/scenarios/z-last', prompt: ['Last task']},
     ])
   })
 
@@ -96,7 +96,7 @@ describe('listScenarios', () => {
       scenarios.map(({id, prompt}) => {
         return {id, prompt}
       }),
-    ).toEqual([{id: 'example', prompt: 'Relative task'}])
+    ).toEqual([{id: 'example', prompt: ['Relative task']}])
   })
 
   test('rejects a missing directory rather than returning an empty list', async () => {

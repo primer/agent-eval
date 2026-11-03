@@ -1,5 +1,17 @@
 # Scenarios
 
+## Table of Contents
+
+- [Contract](#contract), L:18
+- [Define the target](#define-the-target), L:34
+- [Runnable example](#runnable-example), L:47
+- [Build the starting workspace](#build-the-starting-workspace), L:57
+- [Customize the image](#customize-the-image), L:84
+- [Keep grading private](#keep-grading-private), L:114
+- [Run](#run), L:131
+- [Verify](#verify), L:160
+- [Pitfalls](#pitfalls), L:173
+
 **Use when:** creating or changing an agent task, its starting workspace, or its
 evaluation. Benchmarks and experiments reuse the same scenario across treatments.
 
@@ -19,12 +31,28 @@ Add [checks](checks.md), [judges](judges.md), or both before treating a run as a
 quality evaluation. Empty graders are valid configuration but provide no
 quality verdict. `scenario.test.ts` is needed only when a check uses it.
 
+## Define the target
+
+State the precise behavior being evaluated before selecting graders. Separate
+the target outcome from incidental work in the prompt or fixture. A UI task
+used to elicit feedback does not justify grading Button imports, source files,
+DOM, or geometry unless those are themselves the target.
+
+Use deterministic checks for directly observable events, such as a tool or skill
+invocation. Name outcomes for what they prove: invocation does not establish
+offer quality or consent handling. Use a judge only when the target genuinely
+requires semantic judgment, with a rubric and evidence for that criterion.
+Evidence capture is infrastructure, not an agent-behavior score.
+
 ## Runnable example
 
-Use the complete `001-labels` fixture in [getting started](getting-started.md):
+For a Vitest-based example, use the complete `001-labels` fixture in
+[getting started](getting-started.md):
 package manifest, starter implementation, private tests, Vitest configuration,
 and scenario configuration with the `node-tests` check. The commands below
 refer to that fixture; a prompt-only configuration is not an equivalent substitute.
+Vitest is optional. [Direct hooks](checks.md#direct-hooks) and inline checks are
+valid without separate test files or a test framework.
 
 ## Build the starting workspace
 
@@ -34,8 +62,10 @@ For a modification task, include only the realistic pre-change behavior.
 
 The upstream default is
 [000-nextjs-template](https://github.com/primer/agent-eval/tree/main/scenarios/000-nextjs-template).
-When adding scenarios there, use the next available numbered directory and
-retain the Vitest check pattern. In another repository, copy or scaffold a
+When adding scenarios there, use the next available numbered directory.
+Keep or replace the template's Vitest check according to the evaluation target;
+do not retain unrelated grading just because it is in the template.
+In another repository, copy or scaffold a
 self-contained fixture; do not assume the upstream template exists locally.
 Replace upstream-only `workspace:*` dependency references before installing
 the fixture outside that workspace.
@@ -112,10 +142,10 @@ Evaluation runs build the image automatically. Use
 scenario. See [CLI image commands](cli.md#scenario-images) for directory options
 and the broader cleanup scope when the name is omitted.
 
-Use `scenario.test.ts` and `vitest.config.scenario.ts` for the standard
-deterministic-check pattern in [getting started](getting-started.md). Validate
-baseline failures and a representative correct implementation before spending
-on agent runs.
+The [getting started](getting-started.md) example uses `scenario.test.ts` and
+`vitest.config.scenario.ts`; other scenarios need neither unless they use Vitest.
+Verify the selected criterion with relevant positive and negative evidence before
+spending on agent runs.
 
 ```sh
 npx agent-eval scenario run 001-labels --output-dir ./results/labels-smoke
@@ -130,7 +160,12 @@ npx agent-eval scenario run 001-labels --check node-tests --output-dir ./results
 ## Verify
 
 - The fixture installs independently and builds before the agent runs.
-- The grader reports intended starter failures and accepts a correct solution.
+- Verification covers the changed criterion, not unrelated fixture behavior.
+  For event checks, target events pass and absent or unrelated events fail.
+  For implementation checks, the grader reports intended starter failures and
+  accepts a correct solution, including plausible alternatives.
+- Reuse existing tools; do not build a parallel validation harness or introduce
+  browser infrastructure or dependencies unless the target requires them.
   Restore the starter and remove local reports before execution.
 - The run's `output.json` contains a scenario result with individual check
   outcomes. Inspect failures and evaluation errors separately.

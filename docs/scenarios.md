@@ -6,6 +6,14 @@ Each scenario defines a prompt for the agent, a starting workspace, and checks o
 
 As an example, you may want to evaluate how well an agent adds a search feature to an existing application. The scenario provides the application and a prompt describing the task. Checks can verify that search works, while a judge can evaluate how well the result fits the rest of the application.
 
+## Choose the evaluation target
+
+Define the precise behavior being evaluated before choosing checks. Separate that target from work included only to elicit it. For example, a UI task used to elicit feedback does not justify grading Button imports, source files, DOM, or geometry unless those are themselves the evaluation target.
+
+Prefer deterministic checks for directly observable events, such as a tool or skill invocation. State what the evidence proves: invoking a skill does not establish the quality of a feedback offer or whether consent was handled correctly. Use a judge only when the target genuinely requires semantic judgment, with evidence and a rubric for that criterion.
+
+Evidence capture is infrastructure, not an agent-behavior score. Assert the target signal rather than returning an always-passing "transcript captured" outcome. Inspect available events directly instead of creating intermediate artifacts solely to read them back.
+
 ## Config
 
 You can add a scenario by creating a folder in `/scenarios` with a `package.json`, the files the agent needs to start the task, and a `scenario.config.ts` file. Use `defineConfig` from `@primer/agent-eval/scenario` to configure the scenario.
@@ -28,7 +36,11 @@ Add `checks` for deterministic verification, `judges` for model-based evaluation
 
 Checks are used to deterministically evaluate how well an agent performed on a task. They can run tools like Vitest or ESLint, compare files to a baseline, or collect measurements about the result.
 
-Each check has a name and a `run` function that receives the sandbox. For Vitest tests, use `createVitestCheck` to report one outcome per assertion:
+Each check has a name and a `run` function that receives the sandbox. `checks[].run` is ordinary TypeScript: keep simple file reads, parsing, filtering, and event checks directly in the hook using `sandbox.readFile`, `sandbox.glob`, and other sandbox APIs. Do not spawn Node merely to read or process a file. Use `sandbox.runCommand` only when actual execution inside the sandbox is needed, such as running a build or test runner.
+
+Direct hooks and inline checks are valid without test files or a test framework. Vitest is optional; `createVitestCheck` is a convenience when using Vitest, not a requirement for every scenario. Do not add test files, browser infrastructure, or dependencies just because a helper exists. See the [direct hook example](../packages/agent-eval/docs/references/checks.md#direct-hooks).
+
+For a scenario that uses Vitest, `createVitestCheck` reports one outcome per assertion:
 
 ```ts
 import {createVitestCheck, defineConfig} from '@primer/agent-eval/scenario'
@@ -206,6 +218,10 @@ Files declared in a check's or judge's `files` option are excluded from the buil
 Setting `image` disables the default scenario setup. Install dependencies and build the starting project in your Dockerfile or in a scenario `setup` callback. An explicit `setup` callback also replaces the default setup when `image` is omitted.
 
 Agent-eval adds its Copilot tools and sandbox configuration on top of the scenario image. The current sandbox expects a Debian-compatible base with `apt-get`, npm, and a `node` user and group with UID/GID `1000`. It also installs Corepack for pnpm or Yarn selected through `package.json`. The Debian-based official Node.js images are a starting point; Alpine images are not supported by this setup.
+
+## Verify the criterion
+
+Scope verification to the changed criterion and relevant positive and negative evidence. For an event check, confirm that the target event passes and its absence or an unrelated event fails. For an implementation check, confirm the intended starter failure and a representative correct solution, including valid alternatives. Reuse existing tools rather than building a parallel validation harness or testing unrelated fixture behavior. Restore the starter before running an agent.
 
 ## CLI
 

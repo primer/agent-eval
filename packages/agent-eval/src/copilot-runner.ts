@@ -1,4 +1,6 @@
+import {randomUUID} from 'node:crypto'
 import * as z from 'zod/mini'
+import {COPILOT_DIR} from './sandbox/constants'
 
 const CopilotRunnerSchema = z.enum(['copilot-cli', 'copilot-sdk'])
 
@@ -29,5 +31,14 @@ const CopilotRunnerConfigSchema = z._default(
 
 type CopilotRunnerConfig = z.infer<typeof CopilotRunnerConfigSchema>
 
-export {CopilotRunnerSchema, CopilotRunnerConfigSchema}
+function getCopilotTelemetryEnv(): Record<string, string> {
+  return {
+    COPILOT_OTEL_ENABLED: 'true',
+    COPILOT_OTEL_EXPORTER_TYPE: 'file',
+    COPILOT_OTEL_FILE_EXPORTER_PATH: `${COPILOT_DIR}/otel-${randomUUID()}.jsonl`,
+    OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT: 'false',
+  }
+}
+
+export {CopilotRunnerSchema, CopilotRunnerConfigSchema, getCopilotTelemetryEnv}
 export type {CopilotRunner, CopilotRunnerConfig}

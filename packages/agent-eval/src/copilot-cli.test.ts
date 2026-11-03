@@ -360,7 +360,16 @@ describe(runCopilotCli, () => {
           '--usage-output-file',
           expect.stringMatching(new RegExp(`^${COPILOT_DIR}/usage-.*\\.json$`)),
         ])
-        expect(options).toEqual({user: NODE_USER, env: {COPILOT_GITHUB_TOKEN: 'test-token'}})
+        expect(options).toEqual({
+          user: NODE_USER,
+          env: {
+            COPILOT_GITHUB_TOKEN: 'test-token',
+            COPILOT_OTEL_ENABLED: 'true',
+            COPILOT_OTEL_EXPORTER_TYPE: 'file',
+            COPILOT_OTEL_FILE_EXPORTER_PATH: expect.stringMatching(new RegExp(`^${COPILOT_DIR}/otel-.*\\.jsonl$`)),
+            OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT: 'false',
+          },
+        })
         usagePath = args[args.indexOf('--usage-output-file') + 1]
         await sandbox.writeFile(usagePath, JSON.stringify({modelMetrics, lastCallOutputTokens: 999}))
         return {

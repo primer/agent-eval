@@ -1,5 +1,6 @@
 import {randomUUID} from 'node:crypto'
 import * as z from 'zod/mini'
+import {getCopilotTelemetryEnv} from './copilot-runner'
 import type {ModelVariant} from './model'
 import {COPILOT_DIR, NODE_USER} from './sandbox/constants'
 import type {Sandbox} from './sandbox/types'
@@ -467,7 +468,7 @@ async function runCopilotCli({
       ],
       {
         user: NODE_USER,
-        env: {COPILOT_GITHUB_TOKEN: copilotToken},
+        env: {COPILOT_GITHUB_TOKEN: copilotToken, ...getCopilotTelemetryEnv()},
       },
     )
     const usage = UsageOutputSchema.parse(JSON.parse(await sandbox.readFile(usagePath)))

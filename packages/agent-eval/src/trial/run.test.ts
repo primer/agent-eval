@@ -1,3 +1,4 @@
+import path from 'node:path'
 import Queue from 'p-queue'
 import {expect, test, vi} from 'vitest'
 import {VirtualHost} from '../host'
@@ -322,5 +323,83 @@ test.each(['copilot-cli', 'copilot-sdk'] as const)(
       type: 'outcomes',
       outcomes: [{type: 'outcome', status: 'passed', annotations: []}],
     })
+  },
+)
+
+test.each(['copilot-cli', 'copilot-sdk'] as const)(
+  'preserves separate task, judge, and walkthrough traces in trial artifacts (runner: %s)',
+  async runner => {
+    const host = VirtualHost.create({
+      [`${COPILOT_DIR}/config.json`]: '{}',
+      [`${AGENTS_DIR}/config.json`]: '{}',
+      '/home/sandbox/workspace/package.json': '{}',
+    })
+    await using sandbox: Sandbox = await VirtualSandbox.create({host})
+    const traces = new Map<string, string>()
+    vi.spyOn(sandbox, 'runCommand').mockImplementation(async (command, args = [], options) => {
+      if (command === '/opt/agent-eval/copilot/bin/copilot' || command === '/opt/agent-eval/node/bin/node') {
+        const env = options?.env ?? {}
+        expect(env).toMatchObject({
+          COPILOT_OTEL_ENABLED: 'true',
+          COPILOT_OTEL_EXPORTER_TYPE: 'file',
+          OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT: 'false',
+        })
+        const filepath = env.COPILOT_OTEL_FILE_EXPORTER_PATH
+        expect(filepath).toMatch(new RegExp(`^${COPILOT_DIR}/otel-.*\\.jsonl$`))
+        expect(traces.has(filepath)).toBe(false)
+        const contents = `${JSON.stringify({name: `session-${traces.size}`})}\n`
+        traces.set(filepath, contents)
+        await sandbox.writeFile(filepath, contents)
+        if (args.includes('--usage-output-file')) {
+          await sandbox.writeFile(args[args.indexOf('--usage-output-file') + 1], '{"modelMetrics":{}}')
+        }
+        return {
+          exitCode: 0,
+          stderr: '',
+          stdout: JSON.stringify({
+            type: 'result',
+            timestamp: '2026-10-24T00:00:00.000Z',
+            sessionId: `session-${traces.size}`,
+            exitCode: 0,
+            usage: {
+              premiumRequests: 0,
+              totalApiDurationMs: 0,
+              sessionDurationMs: 0,
+              codeChanges: {linesAdded: 0, linesRemoved: 0, filesModified: []},
+            },
+          }),
+        }
+      }
+      return {exitCode: 0, stderr: '', stdout: ''}
+    })
+
+    const result = await runTrial({
+      artifactsDirectory: '/artifacts',
+      copilotQueue: new Queue({concurrency: 1}),
+      copilotToken: 'test-token',
+      host,
+      sandbox,
+      trial: {
+        id: 'trial',
+        model: {name: 'gpt-5.5', reasoningEffort: 'high'},
+        runner,
+        treatment: ControlTreatment,
+        scenario: {
+          id: 'example',
+          directory: '/scenarios/example',
+          prompt: 'Build a page',
+          tags: [],
+          checks: [],
+          judges: [{name: 'quality', files: [], scores: [{value: 1, description: 'Good'}]}],
+          image: {type: 'Default'},
+        },
+      },
+    })
+
+    expect(traces.size).toBe(3)
+    for (const [filepath, contents] of traces) {
+      const savedPath = path.join(result.artifacts.copilotConfigDirectory, path.basename(filepath))
+      await expect(host.fs.promises.readFile(savedPath, 'utf8')).resolves.toBe(contents)
+    }
   },
 )

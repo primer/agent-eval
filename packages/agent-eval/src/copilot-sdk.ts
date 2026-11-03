@@ -1,4 +1,5 @@
 import {parseMessage, type Message} from './copilot-cli'
+import {getCopilotTelemetryEnv} from './copilot-runner'
 import type {ModelVariant} from './model'
 import {COPILOT_DIR, NODE_USER} from './sandbox/constants'
 import type {Sandbox} from './sandbox/types'
@@ -175,6 +176,7 @@ async function runCopilotSdk({
       user: NODE_USER,
       env: {
         COPILOT_GITHUB_TOKEN: copilotToken,
+        ...getCopilotTelemetryEnv(),
       },
     },
   )

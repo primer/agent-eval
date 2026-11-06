@@ -47,7 +47,7 @@
     "@tailwindcss/postcss": "^4.3.3",
     "citty": "^0.2.2",
     "dockerode": "^5.0.1",
-    "glob": "^13.0.6",
+    "glob": "^14.0.2",
     "memfs": "^4.68.1",
     "next": "^16.4.0",
     "p-queue": "^9.3.3",

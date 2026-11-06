@@ -1,5 +1,11 @@
 # @primer/agent-eval
 
+## 0.19.0
+
+### Minor Changes
+
+- 15811dc: Include per-session OpenTelemetry trace files in trial artifacts for Copilot CLI and SDK runs, judges, and walkthrough capture, with message-content capture disabled.
+
 ## 0.18.1
 
 ### Patch Changes

@@ -3,7 +3,7 @@ import Docker from 'dockerode'
 import {defineCommand} from 'citty'
 import {getScenario} from '../../scenario/get'
 import {DefaultHost as host} from '../../host'
-import {logger} from '../../logger'
+import {debug, info} from '../../logger'
 import {createScenarioPlan} from '../../scenario/plan'
 import {buildScenarioImage} from '../../scenario/scenario'
 import {runPlan} from '../../plan'
@@ -45,7 +45,7 @@ const scenarioCommand = defineCommand({
             scenarios: scenariosOption,
           },
           async run({args}) {
-            logger.info('Building Docker image for scenario: %s', args.name)
+            info('Building Docker image for scenario: %s', args.name)
 
             const scenariosDirectory = path.resolve(args.scenarios)
             const scenario = await getScenario({
@@ -76,7 +76,7 @@ const scenarioCommand = defineCommand({
             const docker = new Docker()
 
             if (args.name) {
-              logger.info('Removing Docker images for scenario: %s', args.name)
+              info('Removing Docker images for scenario: %s', args.name)
               const images = await docker.listImages().then(images => {
                 return images.filter(image => {
                   return image.RepoTags?.some(tag => {
@@ -92,14 +92,14 @@ const scenarioCommand = defineCommand({
 
                 const [tag] = image.RepoTags
 
-                logger.info('Removing image with tag: %s', tag)
+                info('Removing image with tag: %s', tag)
                 const dockerImage = docker.getImage(tag)
                 await dockerImage.remove({
                   force: true,
                 })
               }
             } else {
-              logger.info('Removing all Docker images for scenarios in directory: %s', scenariosDirectory)
+              info('Removing all Docker images for scenarios in directory: %s', scenariosDirectory)
               const tagGroups = ['agent-eval/tools', 'agent-eval/sandbox', 'agent-eval/scenarios']
               const images = await docker.listImages().then(images => {
                 return images.filter(image => {
@@ -118,7 +118,7 @@ const scenarioCommand = defineCommand({
 
                 const [tag] = image.RepoTags
 
-                logger.info('Removing image with tag: %s', tag)
+                info('Removing image with tag: %s', tag)
                 const dockerImage = docker.getImage(tag)
                 await dockerImage.remove({
                   force: true,
@@ -152,7 +152,7 @@ const scenarioCommand = defineCommand({
         token: githubCopilotTokenOption,
       },
       async run({args}) {
-        logger.info('Running scenario: %s', args.name)
+        info('Running scenario: %s', args.name)
 
         const copilotConcurrency = getConcurrencyValue(args['copilot-concurrency'], 'copilot-concurrency')
         const containerConcurrency = getConcurrencyValue(args['container-concurrency'], 'container-concurrency')
@@ -162,7 +162,7 @@ const scenarioCommand = defineCommand({
         const outputPath = getOutputPath(resultsDirectory)
         const copilotToken = getCopilotToken(args.token)
 
-        logger.debug({
+        debug({
           artifactsDirectory,
           copilotConcurrency,
           containerConcurrency,

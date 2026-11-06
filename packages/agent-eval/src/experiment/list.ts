@@ -1,7 +1,7 @@
 import path from 'node:path'
 import {prettifyError} from 'zod/mini'
 import {DefaultHost, type Host} from '../host'
-import {logger} from '../logger'
+import {warn} from '../logger'
 import {getModelVariants} from '../model'
 import {getScenario} from '../scenario/get'
 import {loadScenario} from '../scenario/load'
@@ -61,7 +61,7 @@ async function listExperiments({
 
     const parseResult = ExperimentConfigSchema.safeParse(data)
     if (!parseResult.success) {
-      logger.warn(`Failed to parse experiment config for file: ${filepath}. Error: ${prettifyError(parseResult.error)}`)
+      warn(`Failed to parse experiment config for file: ${filepath}. Error: ${prettifyError(parseResult.error)}`)
       continue
     }
 

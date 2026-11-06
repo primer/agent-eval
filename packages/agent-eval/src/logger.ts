@@ -50,34 +50,32 @@ function withLogger<T>(context: LoggerContext, callback: () => T): T {
   return contexts.run(context, callback)
 }
 
-type Args = Parameters<LogFn>
-
-function trace(...args: Args): void {
+const trace: LogFn = (...args: Parameters<LogFn>): void => {
   const {logger} = getLogger()
   logger.trace(...args)
 }
 
-function debug(...args: Args): void {
+const debug: LogFn = (...args: Parameters<LogFn>): void => {
   const {logger} = getLogger()
   logger.debug(...args)
 }
 
-function info(...args: Args): void {
+const info: LogFn = (...args: Parameters<LogFn>): void => {
   const {logger} = getLogger()
   logger.info(...args)
 }
 
-function warn(...args: Args): void {
+const warn: LogFn = (...args: Parameters<LogFn>): void => {
   const {logger} = getLogger()
   logger.warn(...args)
 }
 
-function error(...args: Args): void {
+const error: LogFn = (...args: Parameters<LogFn>): void => {
   const {logger} = getLogger()
   logger.error(...args)
 }
 
-function fatal(...args: Args): void {
+const fatal: LogFn = (...args: Parameters<LogFn>): void => {
   const {logger} = getLogger()
   logger.fatal(...args)
 }

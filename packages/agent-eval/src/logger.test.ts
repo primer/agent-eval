@@ -1,5 +1,5 @@
-import pino from 'pino'
-import {describe, expect, test, vi} from 'vitest'
+import pino, {type LogFn} from 'pino'
+import {describe, expect, expectTypeOf, test, vi} from 'vitest'
 import {debug, error, fatal, getLogger, info, span, trace, warn, withLogger} from './logger'
 
 describe('getLogger', () => {
@@ -92,8 +92,7 @@ describe('span', () => {
 
     withLogger(context, () => {
       {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Disposal manages the logging context.
-        using scope = span({
+        using _scope = span({
           trial: 'first',
         })
 
@@ -112,14 +111,14 @@ describe('span', () => {
     const failure = new Error('Span failed')
 
     expect(() => {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Disposal manages the logging context.
-      using scope = span({
+      using _scope = span({
         trial: 'first',
       })
 
       expect(getLogger().logger.bindings()).toEqual({
         trial: 'first',
       })
+
       throw failure
     }).toThrow(failure)
 
@@ -130,15 +129,13 @@ describe('span', () => {
     const previous = getLogger()
 
     {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Disposal manages the logging context.
-      using outerScope = span({
+      using _outerScope = span({
         experiment: 'example',
       })
       const outer = getLogger()
 
       {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Disposal manages the logging context.
-        using innerScope = span({
+        using _innerScope = span({
           trial: 'first',
         })
 
@@ -159,6 +156,32 @@ describe('span', () => {
 })
 
 describe('logging functions', () => {
+  test('error forwards structured errors to the scoped logger', () => {
+    const logger = pino({enabled: false})
+    const write = vi.spyOn(logger, 'error')
+    const fields = {
+      err: new Error('Trial failed'),
+    }
+
+    withLogger({logger}, () => {
+      error(fields, 'Failed to run trial')
+    })
+
+    expect(write).toHaveBeenCalledWith(fields, 'Failed to run trial')
+  })
+
+  test('debug forwards message-only formatting arguments', () => {
+    const logger = pino({enabled: false})
+    const write = vi.spyOn(logger, 'debug')
+    const trials = ['first', 'second']
+
+    withLogger({logger}, () => {
+      debug('Running %s trials: %o', trials.length, trials)
+    })
+
+    expect(write).toHaveBeenCalledWith('Running %s trials: %o', trials.length, trials)
+  })
+
   test.each([
     ['trace', trace],
     ['debug', debug],
@@ -167,6 +190,8 @@ describe('logging functions', () => {
     ['error', error],
     ['fatal', fatal],
   ] as const)('%s forwards arguments to the scoped logger', (level, log) => {
+    expectTypeOf(log).toEqualTypeOf<LogFn>()
+
     const logger = pino({enabled: false})
     const write = vi.spyOn(logger, level)
     const fields = {

@@ -1,7 +1,7 @@
 import Queue from 'p-queue'
 import type {CopilotRunner} from './copilot-runner'
 import {DefaultHost, type Host} from './host'
-import {logger} from './logger'
+import {debug, error as logError} from './logger'
 import type {Trial} from './trial/trial'
 import type {RunTrialResult} from './trial/run'
 import {runTrial} from './trial/run'
@@ -97,7 +97,7 @@ async function runPlan<T extends Trial>({
   host = DefaultHost,
   plan,
 }: RunPlanOptions<T>): Promise<RunPlanResult<T>> {
-  logger.debug(
+  debug(
     'Running plan with %s trials: %o',
     plan.trials.length,
     plan.trials.map(trial => trial.id),
@@ -160,7 +160,7 @@ async function retry<T>(fn: () => Promise<T>, retries: number = 3): Promise<T> {
     return await fn()
   } catch (error) {
     if (retries > 0) {
-      logger.error({err: error}, 'Retrying')
+      logError({err: error}, 'Retrying')
       return retry(fn, retries - 1)
     }
     throw error

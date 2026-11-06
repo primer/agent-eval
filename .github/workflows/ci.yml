@@ -28,7 +28,7 @@ jobs:
       - name: set up gh-aw
         uses: github/gh-aw-actions/setup-cli@221ba4f4319de6b8e809d1a15528b3ae6a818aa5 # v1.0.1
         with:
-          version: v0.93.2
+          version: v1.0.1
       - name: check agentic workflows
         run: |
           gh aw compile --validate

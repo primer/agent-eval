@@ -4,7 +4,7 @@ import {CheckSchema, type Check} from '../check'
 import {JudgeSchema, type Judge} from '../judge'
 import {isPathInside} from '../path'
 import {DefaultHost, type Host} from '../host'
-import {logger} from '../logger'
+import {info} from '../logger'
 import {TreatmentSetupSchema, type TreatmentSetup} from '../treatment'
 import {DEFAULT_DOCKER_IMAGE, NODE_USER} from '../sandbox/constants'
 import {buildImage, getImageReference, type ImageBuild} from '../docker'
@@ -145,7 +145,7 @@ async function buildScenarioImage({host = DefaultHost, scenario}: BuildScenarioI
       context: path.resolve(contextDirectory),
     })
 
-    logger.info('Building image: %s', imageTag)
+    info('Building image: %s', imageTag)
 
     const ignoreFiles = getScenarioIgnoreFiles(scenario)
     if (scenario.image.type === 'Build' && isPathInside(scenario.directory, scenario.image.dockerfile)) {
@@ -191,24 +191,24 @@ const defaultScenarioSetup: TreatmentSetup = async ({sandbox}) => {
   const command = packageManager.specifier ? 'corepack' : 'npm'
   const commandArgs = packageManager.specifier ? [packageManager.specifier] : []
 
-  logger.info('Obfuscating package name')
+  info('Obfuscating package name')
   await sandbox.runCommand('npm', ['pkg', 'set', `name=example`], {
     user: NODE_USER,
   })
 
-  logger.info('Removing workspace dependency')
+  info('Removing workspace dependency')
   await sandbox.runCommand('npm', ['pkg', 'delete', 'devDependencies.@primer/agent-eval'], {
     user: NODE_USER,
   })
 
-  logger.info('Installing dependencies')
+  info('Installing dependencies')
   await sandbox.runCommand(command, [...commandArgs, 'install'], {
     ...(command === 'corepack' ? {env: {COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'}} : {}),
     user: NODE_USER,
   })
 
   if (packageJson.scripts?.build) {
-    logger.info('Running build script')
+    info('Running build script')
     await sandbox.runCommand(command, [...commandArgs, 'run', 'build'], {
       ...(command === 'corepack' ? {env: {COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'}} : {}),
       user: NODE_USER,

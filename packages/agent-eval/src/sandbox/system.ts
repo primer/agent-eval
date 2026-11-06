@@ -41,7 +41,7 @@ import type {
 import {DefaultHost, type Host} from '../host'
 import {VirtualSandbox} from './virtual'
 import {resolveContainerPath} from './path'
-import {logger} from '../logger'
+import {debug, info} from '../logger'
 import {createContainer, removeContainer, exec, type RunningContainer} from '../docker'
 import {getSandboxImageBuild} from './images/sandbox'
 import {globInContainer} from './glob'
@@ -56,7 +56,7 @@ class SystemSandbox implements Sandbox {
       baseImage: options.dockerImage?.tagName ?? DEFAULT_DOCKER_IMAGE,
     })
 
-    logger.info('Creating container: %s', sandboxImage.tagName)
+    info('Creating container: %s', sandboxImage.tagName)
     const container = await createContainer({
       image: sandboxImage,
     })
@@ -206,7 +206,7 @@ class SystemSandbox implements Sandbox {
   }
 
   async runCommand(command: string, args: Array<string> = [], options?: RunOptions): Promise<CommandResult> {
-    logger.debug('[sandbox] Running command: %s %s', command, args.join(' '))
+    debug('[sandbox] Running command: %s %s', command, args.join(' '))
     return execCommand(this.#container, command, args, {
       env: {
         HOME: options?.user === 'root' ? '/root' : '/home/node',

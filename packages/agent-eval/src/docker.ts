@@ -1,7 +1,7 @@
 import {PassThrough, Readable} from 'node:stream'
 import Docker from 'dockerode'
 import tarStream from 'tar-stream'
-import {logger} from './logger'
+import {debug, error as logError} from './logger'
 import {createHash} from 'node:crypto'
 
 const docker = new Docker()
@@ -32,7 +32,7 @@ async function buildImage(context: NodeJS.ReadableStream, options: ImageBuildOpt
           // Trim trailing newlines
           const message = event.stream.replace(/[\r\n]+$/, '')
           if (message) {
-            logger.debug('[docker] %s', message)
+            debug('[docker] %s', message)
           }
         }
       },
@@ -188,7 +188,7 @@ const terminationHandlers = {
   SIGINT: () => {
     cleanupActiveContainers()
       .catch(error => {
-        logger.error({err: error}, 'Failed to clean up containers during termination')
+        logError({err: error}, 'Failed to clean up containers during termination')
       })
       .finally(() => {
         process.exit(130)
@@ -197,7 +197,7 @@ const terminationHandlers = {
   SIGTERM: () => {
     cleanupActiveContainers()
       .catch(error => {
-        logger.error({err: error}, 'Failed to clean up containers during termination')
+        logError({err: error}, 'Failed to clean up containers during termination')
       })
       .finally(() => {
         process.exit(143)
@@ -272,13 +272,13 @@ async function exec({container, ...rest}: ExecOptions): Promise<CommandResult> {
 
   stdout.setEncoding('utf8').on('data', (text: string) => {
     // Trim trailing newlines
-    logger.debug('[exec] %s', text.replace(/[\r\n]+$/, ''))
+    debug('[exec] %s', text.replace(/[\r\n]+$/, ''))
     capturedStdout += text
   })
 
   stderr.setEncoding('utf8').on('data', (text: string) => {
     // Trim trailing newlines
-    logger.debug('[exec] %s', text.replace(/[\r\n]+$/, ''))
+    debug('[exec] %s', text.replace(/[\r\n]+$/, ''))
     capturedStderr += text
   })
 

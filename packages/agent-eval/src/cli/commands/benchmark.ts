@@ -11,7 +11,7 @@ import {
 } from '../../benchmark/output'
 import {createPlanFromManifest, selectPlanTrials, runPlan} from '../../plan'
 import {DefaultHost as host} from '../../host'
-import {logger} from '../../logger'
+import {debug, info} from '../../logger'
 import {parseShard} from '../../shard'
 import {
   benchmarksOption,
@@ -45,7 +45,7 @@ const benchmarkCommand = defineCommand({
         const outputDirectory = path.resolve(args['output-dir'])
         const outputPath = getOutputPath(outputDirectory)
 
-        logger.debug({
+        debug({
           outputDirectory,
           outputPath,
         })
@@ -69,11 +69,11 @@ const benchmarkCommand = defineCommand({
         })
 
         for (const outputFilePath of outputFilePaths) {
-          logger.debug('Deleting benchmark shard output file: %s', path.relative(process.cwd(), outputFilePath))
+          debug('Deleting benchmark shard output file: %s', path.relative(process.cwd(), outputFilePath))
           await host.fs.promises.unlink(outputFilePath)
         }
 
-        logger.info('Successfully merged benchmark results into: %s', path.relative(process.cwd(), outputPath))
+        info('Successfully merged benchmark results into: %s', path.relative(process.cwd(), outputPath))
       },
     }),
     plan: defineCommand({
@@ -102,13 +102,13 @@ const benchmarkCommand = defineCommand({
             scenarios: scenariosOption,
           },
           async run({args}) {
-            logger.info(`Planning benchmark: %s`, args.name)
+            info(`Planning benchmark: %s`, args.name)
 
             const benchmarksDirectory = path.resolve(args.benchmarks)
             const scenariosDirectory = path.resolve(args.scenarios)
             const outputPath = path.resolve(args['output-path'])
 
-            logger.debug({
+            debug({
               benchmarksDirectory,
               scenariosDirectory,
               outputPath,
@@ -133,7 +133,7 @@ const benchmarkCommand = defineCommand({
             })
             await host.fs.promises.writeFile(outputPath, contents, 'utf-8')
 
-            logger.info('Wrote benchmark plan to: %s', path.relative(process.cwd(), outputPath))
+            info('Wrote benchmark plan to: %s', path.relative(process.cwd(), outputPath))
           },
         }),
         run: defineCommand({
@@ -168,7 +168,7 @@ const benchmarkCommand = defineCommand({
             const copilotToken = getCopilotToken(args.token)
             const planPath = path.resolve(args['plan-path'])
 
-            logger.debug({
+            debug({
               artifactsDirectory,
               benchmarksDirectory,
               copilotConcurrency,
@@ -179,7 +179,7 @@ const benchmarkCommand = defineCommand({
               shard,
             })
 
-            logger.info('Parsing plan manifest from: %s', path.relative(process.cwd(), planPath))
+            info('Parsing plan manifest from: %s', path.relative(process.cwd(), planPath))
             if (!host.fs.existsSync(planPath)) {
               throw new Error(`Plan file does not exist: ${planPath}`)
             }
@@ -191,11 +191,7 @@ const benchmarkCommand = defineCommand({
               scenariosDirectory,
             })
 
-            logger.info(
-              'Running benchmark: %s %s',
-              manifest.benchmark.name,
-              shard ? `(${shard.order}/${shard.total})` : '',
-            )
+            info('Running benchmark: %s %s', manifest.benchmark.name, shard ? `(${shard.order}/${shard.total})` : '')
 
             const plan = createPlanFromManifest({
               trials: selectPlanTrials({
@@ -243,7 +239,7 @@ const benchmarkCommand = defineCommand({
         token: githubCopilotTokenOption,
       },
       async run({args}) {
-        logger.info(`Running benchmark: %s`, args.name)
+        info(`Running benchmark: %s`, args.name)
 
         const benchmarksDirectory = path.resolve(args.benchmarks)
         const copilotConcurrency = getConcurrencyValue(args['copilot-concurrency'], 'copilot-concurrency')
@@ -254,7 +250,7 @@ const benchmarkCommand = defineCommand({
         const outputPath = getOutputPath(resultsDirectory)
         const copilotToken = getCopilotToken(args.token)
 
-        logger.debug({
+        debug({
           artifactsDirectory,
           benchmarksDirectory,
           copilotConcurrency,

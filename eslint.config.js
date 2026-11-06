@@ -40,6 +40,14 @@ const config = defineConfig([
     rules: {
       '@typescript-eslint/array-type': 'off',
       '@typescript-eslint/no-shadow': 'off',
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+        },
+      ],
       'eslint-comments/no-unlimited-disable': 'off',
       'eslint-comments/no-use': 'off',
       'filenames/match-regex': 'off',

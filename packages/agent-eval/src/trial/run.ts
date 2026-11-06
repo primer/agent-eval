@@ -2,7 +2,7 @@ import path from 'node:path'
 import type Queue from 'p-queue'
 import * as z from 'zod/mini'
 import {DefaultHost, type Host} from '../host'
-import {logger} from '../logger'
+import {logger, debug, info, warn} from '../logger'
 import {AGENTS_DIR, CONTAINER_WORKDIR, COPILOT_DIR, NODE_USER, SKILLS_DIR, type Sandbox} from '../sandbox'
 import {TrialSchema, type Trial} from './trial'
 import {runCopilotCli} from '../copilot-cli'
@@ -73,7 +73,7 @@ async function runTrial({
   sandbox,
   trial,
 }: RunTrialOptions): Promise<RunTrialResult> {
-  logger.info('Running trial: %s', trial.id)
+  info('Running trial: %s', trial.id)
 
   await setupStage.run({
     sandbox,
@@ -132,24 +132,24 @@ type SetupStageOptions = {
 const setupStage = {
   name: 'Setup',
   async run({sandbox, trial}: SetupStageOptions) {
-    logger.info('[%s] Running setup', trial.id)
+    info('[%s] Running setup', trial.id)
 
     if (trial.scenario.setup) {
-      logger.info('[%s] Running scenario setup', trial.id)
+      info('[%s] Running scenario setup', trial.id)
       await trial.scenario.setup?.({
         sandbox,
       })
     }
 
     if (trial.setup) {
-      logger.info('[%s] Running trial setup', trial.id)
+      info('[%s] Running trial setup', trial.id)
       await trial.setup({
         sandbox,
       })
     }
 
     if (trial.treatment.setup) {
-      logger.info('[%s] Running treatment setup', trial.id)
+      info('[%s] Running treatment setup', trial.id)
       await trial.treatment.setup({
         sandbox,
       })
@@ -167,7 +167,7 @@ type RunStageOptions = {
 const taskStage = {
   name: 'Task',
   async run({copilotQueue, copilotToken, sandbox, trial}: RunStageOptions) {
-    logger.info('[%s] Running agent', trial.id)
+    info('[%s] Running agent', trial.id)
 
     const messages = await copilotQueue.add(async () => {
       if (trial.runner === 'copilot-sdk') {
@@ -203,7 +203,7 @@ type VerifyStageOptions = {
 const verifyStage = {
   name: 'Verify',
   async run({sandbox, trial}: VerifyStageOptions) {
-    logger.info('[%s] Running checks', trial.id)
+    info('[%s] Running checks', trial.id)
 
     const results: Array<CheckOutput> = []
 
@@ -211,7 +211,7 @@ const verifyStage = {
       const copied = new Set<string>()
 
       for (const {filepath, relativePath} of check.files) {
-        logger.debug('[%s] Copying check file: %s to %s', trial.id, filepath, relativePath)
+        debug('[%s] Copying check file: %s to %s', trial.id, filepath, relativePath)
         await sandbox.copy(filepath, relativePath)
         copied.add(relativePath)
       }
@@ -222,7 +222,7 @@ const verifyStage = {
         })
       }
 
-      logger.info('[%s] Running check: %s', trial.id, check.name)
+      info('[%s] Running check: %s', trial.id, check.name)
 
       const checkRunResults = await check.run({
         logger: logger.child({
@@ -246,7 +246,7 @@ const verifyStage = {
       )
 
       if (copied.size > 0) {
-        logger.debug('[%s] Cleaning up check files: %o', trial.id, Array.from(copied))
+        debug('[%s] Cleaning up check files: %o', trial.id, Array.from(copied))
         await sandbox.runCommand('rm', ['-rf', ...Array.from(copied)], {
           user: NODE_USER,
         })
@@ -269,7 +269,7 @@ type JudgeStageOptions = {
 const judgeStage = {
   name: 'Judge',
   async run({copilotQueue, copilotToken, sandbox, trial}: JudgeStageOptions) {
-    logger.debug('Running judge stage for: %s', trial.id)
+    debug('Running judge stage for: %s', trial.id)
 
     const results: Array<JudgeOutput> = []
 
@@ -279,13 +279,13 @@ const judgeStage = {
       }
     }
 
-    logger.info('[%s] Running judges', trial.id)
+    info('[%s] Running judges', trial.id)
 
     for (const judge of trial.scenario.judges) {
-      logger.info('[%s] Running judge: %s', trial.id, judge.name)
+      info('[%s] Running judge: %s', trial.id, judge.name)
 
       for (const file of judge.files) {
-        logger.debug('[%s] Copying judge file: %s to %s', trial.id, file.filepath, file.relativePath)
+        debug('[%s] Copying judge file: %s to %s', trial.id, file.filepath, file.relativePath)
         await sandbox.copy(file.filepath, file.relativePath)
       }
 
@@ -318,20 +318,20 @@ const judgeStage = {
       if (await sandbox.exists(judgeReportPath)) {
         result = parseJudgeReport(judge, await sandbox.readFile(judgeReportPath))
         if (result.type === 'error') {
-          logger.warn('[%s] Judge "%s" report is invalid: %s', trial.id, judge.name, result.message)
+          warn('[%s] Judge "%s" report is invalid: %s', trial.id, judge.name, result.message)
         }
 
-        logger.debug('[%s] Cleaning up judge report: %s', trial.id, judgeReportPath)
+        debug('[%s] Cleaning up judge report: %s', trial.id, judgeReportPath)
         await sandbox.runCommand('rm', ['-rf', judgeReportPath], {
           user: NODE_USER,
         })
       } else {
-        logger.warn('[%s] Judge "%s" did not write its report: %s', trial.id, judge.name, judgeReportPath)
+        warn('[%s] Judge "%s" did not write its report: %s', trial.id, judge.name, judgeReportPath)
         result = {type: 'unknown'}
       }
 
       for (const file of judge.files) {
-        logger.debug('[%s] Cleaning up judge file: %s', trial.id, file.relativePath)
+        debug('[%s] Cleaning up judge file: %s', trial.id, file.relativePath)
         await sandbox.runCommand('rm', ['-rf', file.relativePath], {
           user: NODE_USER,
         })
@@ -368,7 +368,7 @@ type CaptureStageOptions = {
 const captureStage = {
   name: 'Capture',
   async run({copilotQueue, copilotToken, sandbox, trial}: CaptureStageOptions) {
-    logger.info('[%s] Capturing walkthrough', trial.id)
+    info('[%s] Capturing walkthrough', trial.id)
 
     await sandbox.runCommand(
       'npm',
@@ -432,10 +432,10 @@ Only capture the walkthrough, do not make any further code changes.`
     })
 
     if (walkthroughResult.exitCode !== 0) {
-      logger.warn('[%s] Unable to capture walkthrough: %s', trial.id, walkthroughResult.stderr)
+      warn('[%s] Unable to capture walkthrough: %s', trial.id, walkthroughResult.stderr)
     }
 
-    logger.debug('[%s] Removing walkthrough skill...', trial.id)
+    debug('[%s] Removing walkthrough skill...', trial.id)
     await sandbox.runCommand('rm', ['-rf', AGENT_BROWSER_SKILL_DIRECTORY], {
       user: NODE_USER,
     })
@@ -491,7 +491,7 @@ type SaveStageOptions = {
 const saveStage = {
   name: 'Save',
   async run({artifactsDirectory, host, sandbox, trial, walkthrough}: SaveStageOptions) {
-    logger.info('[%s] Saving trial results', trial.id)
+    info('[%s] Saving trial results', trial.id)
 
     const artifactDirectory = path.join(artifactsDirectory, trial.id)
     const workspaceDirectory = path.join(artifactDirectory, 'workspace')
@@ -500,19 +500,19 @@ const saveStage = {
     const skillsConfigDirectory = path.join(artifactDirectory, '.agents')
 
     if (host.fs.existsSync(artifactDirectory)) {
-      logger.debug('[%s] Cleaning up artifact directory: %s', trial.id, artifactDirectory)
+      debug('[%s] Cleaning up artifact directory: %s', trial.id, artifactDirectory)
       await host.fs.promises.rm(artifactDirectory, {recursive: true, force: true})
     }
 
-    logger.debug('[%s] Creating artifact directory: %s', trial.id, artifactDirectory)
+    debug('[%s] Creating artifact directory: %s', trial.id, artifactDirectory)
     await host.fs.promises.mkdir(artifactDirectory, {recursive: true})
 
-    logger.debug('[%s] Creating workspace directory: %s', trial.id, workspaceDirectory)
+    debug('[%s] Creating workspace directory: %s', trial.id, workspaceDirectory)
     await host.fs.promises.mkdir(workspaceDirectory, {recursive: true})
 
-    logger.info('[%s] Downloading artifacts to: %s', trial.id, artifactDirectory)
+    info('[%s] Downloading artifacts to: %s', trial.id, artifactDirectory)
 
-    logger.debug('[%s] Downloading agent workspace to: %s', trial.id, workspaceDirectory)
+    debug('[%s] Downloading agent workspace to: %s', trial.id, workspaceDirectory)
     const judgeFiles = Array.from(
       new Set(
         trial.scenario.judges.flatMap(judge => {
@@ -548,10 +548,10 @@ const saveStage = {
       },
     })
 
-    logger.debug('[%s] Downloading copilot config to: %s', trial.id, copilotConfigDirectory)
+    debug('[%s] Downloading copilot config to: %s', trial.id, copilotConfigDirectory)
     await sandbox.download(COPILOT_DIR, copilotConfigDirectory)
 
-    logger.debug('[%s] Downloading skills config to: %s', trial.id, skillsConfigDirectory)
+    debug('[%s] Downloading skills config to: %s', trial.id, skillsConfigDirectory)
     await sandbox.download(AGENTS_DIR, skillsConfigDirectory)
 
     if (walkthrough.type !== 'Unavailable') {

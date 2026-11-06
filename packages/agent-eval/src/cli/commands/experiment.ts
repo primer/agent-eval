@@ -10,7 +10,7 @@ import {
 } from '../../experiment/output'
 import {createExperimentPlan, createExperimentPlanManifest, parseExperimentPlanManifest} from '../../experiment/plan'
 import {DefaultHost as host} from '../../host'
-import {logger} from '../../logger'
+import {debug, info} from '../../logger'
 import {createPlanFromManifest, selectPlanTrials, runPlan} from '../../plan'
 import {parseShard} from '../../shard'
 import {
@@ -46,7 +46,7 @@ const experimentCommand = defineCommand({
         const outputDirectory = path.resolve(args['output-dir'])
         const outputPath = getOutputPath(outputDirectory)
 
-        logger.debug({
+        debug({
           outputDirectory,
           outputPath,
         })
@@ -64,11 +64,11 @@ const experimentCommand = defineCommand({
         })
 
         for (const [, outputFilePath] of outputs) {
-          logger.debug('Deleting experiment shard output file: %s', path.relative(process.cwd(), outputFilePath))
+          debug('Deleting experiment shard output file: %s', path.relative(process.cwd(), outputFilePath))
           await host.fs.promises.unlink(outputFilePath)
         }
 
-        logger.info('Successfully merged experiment results into: %s', path.relative(process.cwd(), outputPath))
+        info('Successfully merged experiment results into: %s', path.relative(process.cwd(), outputPath))
       },
     }),
     plan: defineCommand({
@@ -98,14 +98,14 @@ const experimentCommand = defineCommand({
             scenarios: scenariosOption,
           },
           async run({args}) {
-            logger.info('Planning experiment: %s', args.name)
+            info('Planning experiment: %s', args.name)
 
             const benchmarksDirectory = path.resolve(args.benchmarks)
             const experimentsDirectory = path.resolve(args.experiments)
             const scenariosDirectory = path.resolve(args.scenarios)
             const outputPath = path.resolve(args['output-path'])
 
-            logger.debug({
+            debug({
               benchmarksDirectory,
               experimentsDirectory,
               scenariosDirectory,
@@ -131,7 +131,7 @@ const experimentCommand = defineCommand({
             })
             await host.fs.promises.writeFile(outputPath, JSON.stringify(manifest, null, 2), 'utf-8')
 
-            logger.info('Wrote experiment plan to: %s', path.relative(process.cwd(), outputPath))
+            info('Wrote experiment plan to: %s', path.relative(process.cwd(), outputPath))
           },
         }),
         run: defineCommand({
@@ -168,7 +168,7 @@ const experimentCommand = defineCommand({
             const copilotToken = getCopilotToken(args.token)
             const planPath = path.resolve(args['plan-path'])
 
-            logger.debug({
+            debug({
               artifactsDirectory,
               benchmarksDirectory,
               experimentsDirectory,
@@ -180,7 +180,7 @@ const experimentCommand = defineCommand({
               shard,
             })
 
-            logger.info('Parsing plan manifest from: %s', path.relative(process.cwd(), planPath))
+            info('Parsing plan manifest from: %s', path.relative(process.cwd(), planPath))
             if (!host.fs.existsSync(planPath)) {
               throw new Error(`Plan file does not exist: ${planPath}`)
             }
@@ -193,11 +193,7 @@ const experimentCommand = defineCommand({
               scenariosDirectory,
             })
 
-            logger.info(
-              'Running experiment: %s %s',
-              manifest.experiment.name,
-              shard ? `(${shard.order}/${shard.total})` : '',
-            )
+            info('Running experiment: %s %s', manifest.experiment.name, shard ? `(${shard.order}/${shard.total})` : '')
 
             const plan = createPlanFromManifest({
               trials: selectPlanTrials({
@@ -240,7 +236,7 @@ const experimentCommand = defineCommand({
         token: githubCopilotTokenOption,
       },
       async run({args}) {
-        logger.info('Running experiment: %s', args.name)
+        info('Running experiment: %s', args.name)
 
         const benchmarksDirectory = path.resolve(args.benchmarks)
         const experimentsDirectory = path.resolve(args.experiments)
@@ -252,7 +248,7 @@ const experimentCommand = defineCommand({
         const outputPath = getOutputPath(resultsDirectory)
         const copilotToken = getCopilotToken(args.token)
 
-        logger.debug({
+        debug({
           artifactsDirectory,
           benchmarksDirectory,
           experimentsDirectory,

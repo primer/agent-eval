@@ -2,7 +2,7 @@ import path from 'node:path'
 import {getCapabilityId, type Benchmark} from './benchmark'
 import {BenchmarkConfigSchema} from './config'
 import {DefaultHost, type Host} from '../host'
-import {logger} from '../logger'
+import {warn} from '../logger'
 import {getModelVariants} from '../model'
 import {getScenario} from '../scenario/get'
 import {prettifyError} from 'zod/mini'
@@ -63,7 +63,7 @@ async function listBenchmarks({
 
     const parseResult = BenchmarkConfigSchema.safeParse(data)
     if (!parseResult.success) {
-      logger.warn(`Failed to parse benchmark config for file: ${filepath}. Error: ${prettifyError(parseResult.error)}`)
+      warn(`Failed to parse benchmark config for file: ${filepath}. Error: ${prettifyError(parseResult.error)}`)
       continue
     }
 

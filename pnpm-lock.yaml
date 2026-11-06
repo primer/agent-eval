@@ -658,7 +658,7 @@ importers:
     dependencies:
       '@primer/agent-eval':
         specifier: workspace:*
-        version: file:packages/agent-eval(@playwright/test@1.64.0)(@types/node@26.6.4)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(babel-plugin-react-compiler@1.0.0)(react-is@19.3.1)
+        version: link:../packages/agent-eval
       '@primer/octicons-react':
         specifier: ^19.42.0
         version: 19.42.0(react@19.3.1)

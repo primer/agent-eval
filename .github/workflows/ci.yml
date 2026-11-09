@@ -18,6 +18,38 @@ permissions:
   contents: read
 
 jobs:
+  internal-mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check lockfiles for internal package feed URLs
+        shell: bash
+        run: |
+          if git grep -nE '(pkgs\.visualstudio\.com|pkgs\.dev\.azure\.com|packagefeedproxy\.microsoft\.io)' -- \
+              '*pnpm-lock.yaml' '*package-lock.json' '*npm-shrinkwrap.json'; then
+            echo "::error::A lockfile contains internal package feed URLs. Replace them with public registry URLs."
+            exit 1
+          else
+            status=$?
+            if [ "$status" -ne 1 ]; then
+              exit "$status"
+            fi
+          fi
+      - name: Set up pnpm
+        uses: pnpm/setup@fa36a5ef7dcdefc3a7cb25655c122e00cf6e636e # v3.1.2
+        with:
+          cache: true
+          node-version-file: '.nvmrc'
+          require-lockfile: true
+      - name: Check new locked packages are at least 7 days old
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
+        run: node script/check-package-release-age.ts --diff "$BASE_REF"
+
   agentic-workflows:
     runs-on: ubuntu-latest
     steps:

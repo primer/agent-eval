@@ -10,6 +10,10 @@ const models = [
     reasoningEfforts: ['low', 'medium', 'high', 'xhigh', 'max'],
   },
   {
+    name: 'claude-fable-5.2',
+    reasoningEfforts: ['low', 'medium', 'high', 'xhigh', 'max'],
+  },
+  {
     name: 'claude-haiku-5.5',
     reasoningEfforts: ['low', 'medium', 'high', 'xhigh', 'max'],
   },
@@ -225,6 +229,10 @@ const ModelVariantConfigSchema = z.union([
   z.object({
     name: z.literal(models[22].name),
     reasoningEfforts: z.optional(z.array(z.enum(models[22].reasoningEfforts))),
+  }),
+  z.object({
+    name: z.literal(models[23].name),
+    reasoningEfforts: z.optional(z.array(z.enum(models[23].reasoningEfforts))),
   }),
 ])
 

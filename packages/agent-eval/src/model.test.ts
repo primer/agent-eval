@@ -28,6 +28,8 @@ test.each([
   'gpt-6-luna',
   'gpt-6-sol',
   'gpt-6.1-sol',
+  'gpt-6.2-astra',
+  'gpt-6.2-sol',
 ] as const)('%s supports configuration and variant expansion', name => {
   const reasoningEfforts = ['low', 'medium', 'high', 'xhigh', 'max'] as const
   const config = {name, reasoningEfforts: [...reasoningEfforts]}

@@ -93,6 +93,14 @@ const models = [
     name: 'gpt-6.1-sol',
     reasoningEfforts: ['low', 'medium', 'high', 'xhigh', 'max'],
   },
+  {
+    name: 'gpt-6.2-astra',
+    reasoningEfforts: ['low', 'medium', 'high', 'xhigh', 'max'],
+  },
+  {
+    name: 'gpt-6.2-sol',
+    reasoningEfforts: ['low', 'medium', 'high', 'xhigh', 'max'],
+  },
 ] as const
 
 const reasoningEffortsByModel = new Map<string, ReadonlySet<string>>(
@@ -225,6 +233,14 @@ const ModelVariantConfigSchema = z.union([
   z.object({
     name: z.literal(models[22].name),
     reasoningEfforts: z.optional(z.array(z.enum(models[22].reasoningEfforts))),
+  }),
+  z.object({
+    name: z.literal(models[23].name),
+    reasoningEfforts: z.optional(z.array(z.enum(models[23].reasoningEfforts))),
+  }),
+  z.object({
+    name: z.literal(models[24].name),
+    reasoningEfforts: z.optional(z.array(z.enum(models[24].reasoningEfforts))),
   }),
 ])
 

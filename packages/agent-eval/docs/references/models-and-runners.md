@@ -20,6 +20,9 @@ Model names and allowed efforts must be supported by the installed package
 [upstream model definitions](https://github.com/primer/agent-eval/blob/main/packages/agent-eval/src/model.ts);
 do not assume arbitrary Copilot model names are accepted.
 
+Claude Fable 5.2 uses `claude-fable-5.2` and supports `low`, `medium`, `high`,
+`xhigh`, and `max` reasoning efforts.
+
 There is no `--model` flag. Use an experiment with one model variant when model
 selection matters. Judge and walkthrough sessions use the CLI even when
 implementation uses the SDK.

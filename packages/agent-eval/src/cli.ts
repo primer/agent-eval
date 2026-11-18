@@ -41,4 +41,4 @@ const cli = defineCommand({
   },
 })
 
-runMain(cli)
+void runMain(cli)

@@ -3,6 +3,7 @@ import {defineConfig} from 'oxlint'
 export default defineConfig({
   plugins: ['typescript', 'import', 'promise'],
   jsPlugins: ['eslint-plugin-github'],
+  options: {typeAware: true},
   categories: {correctness: 'error'},
   env: {browser: true, node: true, es2026: true},
   ignorePatterns: [
@@ -24,6 +25,13 @@ export default defineConfig({
     'github/no-dynamic-script-tag': 'error',
     'github/no-implicit-buggy-globals': 'error',
     'import/no-duplicates': 'error',
+    'typescript/no-floating-promises': 'error',
+    'typescript/no-misused-promises': 'error',
+    'typescript/no-duplicate-type-constituents': 'off',
+    'typescript/no-misused-spread': 'off',
+    'typescript/no-useless-default-assignment': 'off',
+    'typescript/restrict-template-expressions': 'off',
+    'typescript/unbound-method': 'off',
   },
   overrides: [
     {

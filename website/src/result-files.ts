@@ -29,7 +29,7 @@ function cacheResultReader<T>(read: (filepath: string) => Promise<T | null>) {
     }
     const key = path.resolve(filepath)
     const cached = bundles.get(key)
-    if (cached) {
+    if (cached !== undefined) {
       bundles.delete(key)
       bundles.set(key, cached)
       return cached

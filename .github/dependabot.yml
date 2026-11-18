@@ -13,15 +13,13 @@ updates:
         patterns:
           - '@babel/*'
           - 'babel-plugin-*'
-      eslint:
+      oxc:
         patterns:
-          - '@eslint/*'
-          - 'eslint'
-          - 'eslint-plugin-*'
+          - 'oxlint'
+          - 'oxfmt'
       primer:
         patterns:
           - '@primer/*'
-          - 'eslint-plugin-primer-react'
       react:
         patterns:
           - 'react'

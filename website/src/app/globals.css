@@ -39,7 +39,7 @@ body {
 }
 
 body {
-  --header-height: calc(var(--spacing) /* var(--base-size-4) */ * 16);
+  --header-height: calc(var(--spacing) * 16 /* var(--base-size-4) */);
   color: var(--fgColor-default);
   background-color: var(--bgColor-default);
 }

@@ -7,7 +7,7 @@ const transcriptCache = new Map<string, Promise<Array<TranscriptEntry>>>()
 
 function loadJson<T>(url: string, cache: Map<string, Promise<T>>): Promise<T> {
   const cached = cache.get(url)
-  if (cached) {
+  if (cached !== undefined) {
     return cached
   }
   const pending: Promise<T> = fetch(url)

@@ -62,7 +62,7 @@ async function getWorkspaceIndex(
   const cacheKey = JSON.stringify([runDirectory, workspaceDirectory])
   const cacheEnabled = process.env.NODE_ENV === 'production'
   const cached = cacheEnabled ? workspaceIndexes.get(cacheKey) : undefined
-  if (cached) {
+  if (cached !== undefined) {
     workspaceIndexes.delete(cacheKey)
     workspaceIndexes.set(cacheKey, cached)
     return cached

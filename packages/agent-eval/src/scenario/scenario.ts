@@ -28,7 +28,9 @@ type Scenario = {
 }
 
 type DockerImage =
-  {type: 'Reference'; name: string} | {type: 'Build'; dockerfile: string; context: string} | {type: 'Default'}
+  | {type: 'Reference'; name: string}
+  | {type: 'Build'; dockerfile: string; context: string}
+  | {type: 'Default'}
 
 const DockerImageSchema = z.discriminatedUnion('type', [
   z.object({

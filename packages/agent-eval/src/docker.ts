@@ -285,23 +285,25 @@ async function exec({container, ...rest}: ExecOptions): Promise<CommandResult> {
   docker.modem.demuxStream(stream, stdout, stderr)
 
   return new Promise((resolve, reject) => {
-    stream.on('end', async () => {
+    stream.on('end', () => {
       stdout.end()
       stderr.end()
 
-      try {
-        const inspectInfo = await exec.inspect()
-        const exitCode = inspectInfo.ExitCode ?? 0
-        const result = {
-          stdout: capturedStdout,
-          stderr: capturedStderr,
-          exitCode,
-        }
+      void (async () => {
+        try {
+          const inspectInfo = await exec.inspect()
+          const exitCode = inspectInfo.ExitCode ?? 0
+          const result = {
+            stdout: capturedStdout,
+            stderr: capturedStderr,
+            exitCode,
+          }
 
-        resolve(result)
-      } catch (error) {
-        reject(error)
-      }
+          resolve(result)
+        } catch (error) {
+          reject(error)
+        }
+      })()
     })
 
     stream.on('error', error => {

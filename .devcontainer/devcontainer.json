@@ -3,7 +3,7 @@
   "image": "mcr.microsoft.com/vscode/devcontainers/typescript-node:26",
   "customizations": {
     "vscode": {
-      "extensions": ["esbenp.prettier-vscode", "dbaeumer.vscode-eslint", "ZixuanChen.vitest-explorer"]
+      "extensions": ["oxc.oxc-vscode", "ZixuanChen.vitest-explorer"]
     }
   },
   "forwardPorts": [],

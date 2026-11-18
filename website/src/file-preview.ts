@@ -10,7 +10,9 @@ type FilePreviewData =
   | {type: 'highlighted'; content: string; tokens: Array<FilePreviewToken>}
 
 type FilePreviewReference =
-  {type: 'remote'; url: string} | {type: 'text'; content: string} | {type: 'unavailable'; reason: string}
+  | {type: 'remote'; url: string}
+  | {type: 'text'; content: string}
+  | {type: 'unavailable'; reason: string}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null

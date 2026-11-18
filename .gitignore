@@ -22,8 +22,6 @@ out
 # TypeScript
 *.tsbuildinfo
 
-# ESLint
-.eslintcache
 
 # Vitest
 **/__screenshots__/**

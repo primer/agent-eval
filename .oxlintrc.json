@@ -1,0 +1,46 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "import", "promise"],
+  "categories": {"correctness": "error"},
+  "env": {"browser": true, "node": true, "es2026": true},
+  "ignorePatterns": [
+    "**/node_modules/**",
+    "**/.next/**",
+    "**/dist/**",
+    "**/next-env.d.ts",
+    "**/generated/**",
+    "**/artifacts/**",
+    "**/.agents/**",
+    "**/out/**"
+  ],
+  "rules": {
+    "no-unused-vars": [
+      "error",
+      {"argsIgnorePattern": "^_", "caughtErrorsIgnorePattern": "^_", "varsIgnorePattern": "^_"}
+    ],
+    "no-var": "error",
+    "prefer-const": "error",
+    "eqeqeq": "error",
+    "import/no-duplicates": "error"
+  },
+  "overrides": [
+    {
+      "files": ["packages/agent-eval/src/**/*.ts"],
+      "excludeFiles": ["packages/agent-eval/src/host.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "tar-fs",
+                "allowTypeImports": true,
+                "message": "Use host.archive so archive operations use the host filesystem."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

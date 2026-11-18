@@ -169,6 +169,9 @@ importers:
       '@changesets/cli':
         specifier: ^3.0.3
         version: 3.0.3
+      '@github/prettier-config':
+        specifier: ^0.0.6
+        version: 0.0.6
       '@types/node':
         specifier: ^26.6.4
         version: 26.6.4
@@ -906,6 +909,9 @@ packages:
 
   '@github/mini-throttle@2.1.1':
     resolution: {integrity: sha512-KtOPaB+FiKJ6jcKm9UKyaM5fPURHGf+xcp+b4Mzoi81hOc6M1sIGpMZMAVbNzfa2lW5+RPGKq888Px0j76OZ/A==}
+
+  '@github/prettier-config@0.0.6':
+    resolution: {integrity: sha512-Sdb089z+QbGnFF2NivbDeaJ62ooPlD31wE6Fkb/ESjAOXSjNJo+gjqzYYhlM7G3ERJmKFZRUJYMlsqB7Tym8lQ==}
 
   '@github/relative-time-element@5.3.0':
     resolution: {integrity: sha512-Kz50+pULwLLaVuVkWmROvoYATF5LEA8WNaNOEedisEpORGOodXcxyFDPW0ji5b4b+f3D17rl1nrtksnSiVCbcw==}
@@ -4929,6 +4935,8 @@ snapshots:
   '@github/browserslist-config@1.0.0': {}
 
   '@github/mini-throttle@2.1.1': {}
+
+  '@github/prettier-config@0.0.6': {}
 
   '@github/relative-time-element@5.3.0': {}
 

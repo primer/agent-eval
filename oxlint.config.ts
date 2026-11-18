@@ -2,6 +2,7 @@ import {defineConfig} from 'oxlint'
 
 export default defineConfig({
   plugins: ['typescript', 'import', 'promise'],
+  jsPlugins: ['eslint-plugin-github'],
   categories: {correctness: 'error'},
   env: {browser: true, node: true, es2026: true},
   ignorePatterns: [
@@ -19,6 +20,9 @@ export default defineConfig({
     'no-var': 'error',
     'prefer-const': 'error',
     eqeqeq: 'error',
+    'github/array-foreach': 'error',
+    'github/no-dynamic-script-tag': 'error',
+    'github/no-implicit-buggy-globals': 'error',
     'import/no-duplicates': 'error',
   },
   overrides: [

@@ -18,7 +18,7 @@
     "@vitest/browser-playwright": "^5.1.0",
     "eslint": "^10.14.0",
     "typescript": "^6",
-    "typescript-eslint": "^8.71.0",
+    "typescript-eslint": "^8.72.2",
     "vite": "^8",
     "vitest": "^5.1.0"
   }

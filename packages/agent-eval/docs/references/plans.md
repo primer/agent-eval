@@ -42,6 +42,13 @@ Inspect the trial count, IDs, and dimensions before running:
 npx agent-eval experiment plan run --plan-path ./comparison-plan.json --output-dir ./results/comparison-01
 ```
 
+A failed trial does not stop the others: completed trials are saved to
+`artifacts/<trial-id>`, then the command fails and lists the failed trials.
+Rerun the same command with `--resume` and the same output directory (and
+shard) to reuse saved trials and run only the remaining ones. Without
+`--resume`, every selected trial runs again and replaces its saved artifacts
+once it succeeds.
+
 ## Shard and merge
 
 As an alternative to the whole-plan run, execute on separate workers using the

@@ -1,10 +1,10 @@
 import path from 'node:path'
-import Queue from 'p-queue'
+import {Effect, Semaphore} from 'effect'
 import {expect, test, vi} from 'vitest'
 import {VirtualHost} from '../host'
 import {AGENTS_DIR, COPILOT_DIR, VirtualSandbox, type Sandbox} from '../sandbox'
 import {ControlTreatment} from '../treatment'
-import {runTrial} from './run'
+import {runTrial, TrialStageError} from './run'
 import type {Trial} from './trial'
 
 async function createLifecycleFixture(runner: Trial['runner'] = 'copilot-sdk') {
@@ -61,8 +61,8 @@ async function createLifecycleFixture(runner: Trial['runner'] = 'copilot-sdk') {
   })
 
   return {
-    artifactsDirectory: '/artifacts',
-    copilotQueue: new Queue({concurrency: 1}),
+    artifacts: {directory: '/artifacts/trial', stagingDirectory: '/staging/trial/attempt'},
+    copilotSemaphore: Semaphore.makeUnsafe(1),
     copilotToken: 'test-token',
     host,
     sandbox,
@@ -84,11 +84,19 @@ test('runTrial stops after setup rejection and leaves sandbox disposal to its ca
   {
     await using sandbox = fixture.sandbox
 
-    await expect(runTrial({...fixture, sandbox})).rejects.toBe(error)
+    const failure = await Effect.runPromise(Effect.flip(runTrial({...fixture, sandbox})))
+
+    expect(failure).toBeInstanceOf(TrialStageError)
+    expect(failure).toMatchObject({
+      trialId: 'trial',
+      stage: 'Setup',
+      message: 'Trial trial failed during Setup: setup failed',
+    })
+    expect(failure.cause).toBe(error)
 
     expect(laterSetup).not.toHaveBeenCalled()
     expect(fixture.runCommand).not.toHaveBeenCalled()
-    expect(fixture.host.fs.existsSync('/artifacts/trial')).toBe(false)
+    expect(fixture.host.fs.existsSync('/staging/trial/attempt')).toBe(false)
     expect(dispose).not.toHaveBeenCalled()
   }
   expect(dispose).toHaveBeenCalledOnce()
@@ -107,10 +115,13 @@ test.each(['copilot-cli', 'copilot-sdk'] as const)(
     {
       await using sandbox = fixture.sandbox
 
-      await expect(runTrial({...fixture, sandbox})).rejects.toBe(error)
+      const failure = await Effect.runPromise(Effect.flip(runTrial({...fixture, sandbox})))
+
+      expect(failure).toMatchObject({trialId: 'trial', stage: 'Task'})
+      expect(failure.cause).toBe(error)
 
       expect(check).not.toHaveBeenCalled()
-      expect(fixture.host.fs.existsSync('/artifacts/trial')).toBe(false)
+      expect(fixture.host.fs.existsSync('/staging/trial/attempt')).toBe(false)
       expect(dispose).not.toHaveBeenCalled()
     }
     expect(dispose).toHaveBeenCalledOnce()
@@ -141,7 +152,7 @@ test('runTrial preserves failed evaluation data and saves artifacts when walkthr
     },
   ]
 
-  const result = await runTrial({...fixture, sandbox})
+  const result = await Effect.runPromise(runTrial({...fixture, sandbox}))
 
   expect(result.walkthrough).toEqual({type: 'Unavailable'})
   expect(result.checks).toEqual([
@@ -151,8 +162,37 @@ test('runTrial preserves failed evaluation data and saves artifacts when walkthr
     },
   ])
   await expect(
-    fixture.host.fs.promises.readFile(`${result.artifacts.workspaceDirectory}/package.json`, 'utf8'),
+    fixture.host.fs.promises.readFile('/staging/trial/attempt/workspace/package.json', 'utf8'),
   ).resolves.toBe('{}')
+})
+
+test('runTrial downloads artifacts into the staging directory and records their final paths', async () => {
+  const fixture = await createLifecycleFixture()
+  await using sandbox = fixture.sandbox
+  await sandbox.writeFile('walkthrough/screenshot.png', 'screenshot')
+
+  const result = await Effect.runPromise(runTrial({...fixture, sandbox}))
+
+  expect(result.walkthrough).toEqual({type: 'Screenshot', filepath: 'walkthrough/screenshot.png'})
+  expect(result.artifacts).toEqual({
+    directory: '/artifacts/trial',
+    copilotConfigDirectory: '/artifacts/trial/.copilot',
+    skillsConfigDirectory: '/artifacts/trial/.agents',
+    walkthroughDirectory: '/artifacts/trial/walkthrough',
+    workspaceDirectory: '/artifacts/trial/workspace',
+  })
+  await expect(
+    fixture.host.fs.promises.readdir('/staging/trial/attempt').then(entries => {
+      return entries.toSorted()
+    }),
+  ).resolves.toEqual(['.agents', '.copilot', 'walkthrough', 'workspace'])
+  await expect(fixture.host.fs.promises.readFile('/staging/trial/attempt/.copilot/config.json', 'utf8')).resolves.toBe(
+    '{}',
+  )
+  await expect(
+    fixture.host.fs.promises.readFile('/staging/trial/attempt/walkthrough/screenshot.png', 'utf8'),
+  ).resolves.toBe('screenshot')
+  expect(fixture.host.fs.existsSync('/artifacts/trial')).toBe(false)
 })
 
 test('runTrial admits task commands through the shared concurrency limit', async () => {
@@ -169,20 +209,20 @@ test('runTrial admits task commands through the shared concurrency limit', async
     await release.promise
     return command(...args)
   })
-  const queued = () => {
-    if (first.copilotQueue.size === 1) {
-      secondQueued.resolve()
-    }
-  }
-  first.copilotQueue.on('add', queued)
-  const running: Array<ReturnType<typeof runTrial>> = []
-  const firstRun = runTrial({...first, sandbox: firstSandbox})
+  const semaphore = first.copilotSemaphore
+  const withPermits = semaphore.withPermits.bind(semaphore)
+  const running: Array<Promise<unknown>> = []
+  const firstRun = Effect.runPromise(runTrial({...first, sandbox: firstSandbox}))
   running.push(firstRun)
   const firstSettled = Promise.allSettled([firstRun])
 
   try {
     await started.promise
-    const secondRun = runTrial({...second, sandbox: secondSandbox, copilotQueue: first.copilotQueue})
+    vi.spyOn(semaphore, 'withPermits').mockImplementation(permits => {
+      secondQueued.resolve()
+      return withPermits(permits)
+    })
+    const secondRun = Effect.runPromise(runTrial({...second, sandbox: secondSandbox, copilotSemaphore: semaphore}))
     running.push(secondRun)
     const secondSettled = Promise.allSettled([secondRun])
     await secondQueued.promise
@@ -200,7 +240,6 @@ test('runTrial admits task commands through the shared concurrency limit', async
   } finally {
     release.resolve()
     await Promise.allSettled(running)
-    first.copilotQueue.off('add', queued)
   }
 })
 
@@ -255,14 +294,14 @@ test.each(['copilot-cli', 'copilot-sdk'] as const)(
       },
     }
     let taskCalls = 0
-    const copilotQueue = new Queue({concurrency: 1})
+    const copilotSemaphore = Semaphore.makeUnsafe(1)
     vi.spyOn(sandbox, 'runCommand').mockImplementation(async (command, args = []) => {
       if (
         (command === '/opt/agent-eval/copilot/bin/copilot' && args.includes(trial.scenario.prompt)) ||
         (command === '/opt/agent-eval/node/bin/node' && args[0] === '/opt/agent-eval/sdk-runner/run.cjs')
       ) {
         taskCalls++
-        expect(copilotQueue.pending).toBe(1)
+        expect(Effect.runSync(copilotSemaphore.takeIfAvailable(1))).toBe(false)
         expect(command).toBe(
           runner === 'copilot-sdk' ? '/opt/agent-eval/node/bin/node' : '/opt/agent-eval/copilot/bin/copilot',
         )
@@ -302,14 +341,16 @@ test.each(['copilot-cli', 'copilot-sdk'] as const)(
       }
     })
 
-    const result = await runTrial({
-      artifactsDirectory: '/artifacts',
-      copilotQueue,
-      copilotToken: 'test-token',
-      host,
-      sandbox,
-      trial,
-    })
+    const result = await Effect.runPromise(
+      runTrial({
+        artifacts: {directory: '/artifacts/trial', stagingDirectory: '/staging/trial/attempt'},
+        copilotSemaphore,
+        copilotToken: 'test-token',
+        host,
+        sandbox,
+        trial,
+      }),
+    )
 
     expect(taskCalls).toBe(1)
     expect(result.agent.sessions[0].outputTokens).toBe(runner === 'copilot-cli' ? 42 : 0)
@@ -373,32 +414,35 @@ test.each(['copilot-cli', 'copilot-sdk'] as const)(
       return {exitCode: 0, stderr: '', stdout: ''}
     })
 
-    const result = await runTrial({
-      artifactsDirectory: '/artifacts',
-      copilotQueue: new Queue({concurrency: 1}),
-      copilotToken: 'test-token',
-      host,
-      sandbox,
-      trial: {
-        id: 'trial',
-        model: {name: 'gpt-5.5', reasoningEffort: 'high'},
-        runner,
-        treatment: ControlTreatment,
-        scenario: {
-          id: 'example',
-          directory: '/scenarios/example',
-          prompt: 'Build a page',
-          tags: [],
-          checks: [],
-          judges: [{name: 'quality', files: [], scores: [{value: 1, description: 'Good'}]}],
-          image: {type: 'Default'},
+    const result = await Effect.runPromise(
+      runTrial({
+        artifacts: {directory: '/artifacts/trial', stagingDirectory: '/staging/trial/attempt'},
+        copilotSemaphore: Semaphore.makeUnsafe(1),
+        copilotToken: 'test-token',
+        host,
+        sandbox,
+        trial: {
+          id: 'trial',
+          model: {name: 'gpt-5.5', reasoningEffort: 'high'},
+          runner,
+          treatment: ControlTreatment,
+          scenario: {
+            id: 'example',
+            directory: '/scenarios/example',
+            prompt: 'Build a page',
+            tags: [],
+            checks: [],
+            judges: [{name: 'quality', files: [], scores: [{value: 1, description: 'Good'}]}],
+            image: {type: 'Default'},
+          },
         },
-      },
-    })
+      }),
+    )
 
+    expect(result.artifacts.copilotConfigDirectory).toBe('/artifacts/trial/.copilot')
     expect(traces.size).toBe(3)
     for (const [filepath, contents] of traces) {
-      const savedPath = path.join(result.artifacts.copilotConfigDirectory, path.basename(filepath))
+      const savedPath = path.join('/staging/trial/attempt/.copilot', path.basename(filepath))
       await expect(host.fs.promises.readFile(savedPath, 'utf8')).resolves.toBe(contents)
     }
   },

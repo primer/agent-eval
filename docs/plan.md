@@ -38,6 +38,19 @@ For an experiment plan, replace `benchmark` with `experiment`.
 
 Without `--shard`, the command runs the whole plan and writes `output.json` and an `artifacts/` directory to the output directory. No merge step is needed.
 
+### Resume a run
+
+If a trial fails after its retries, the command still finishes the other trials and saves each completed trial to `artifacts/<trial-id>`, then fails and lists the failed trials. To continue, rerun the same command with `--resume`:
+
+```bash
+agent-eval benchmark plan run \
+  --plan-path ./plan.json \
+  --output-dir ./results/example \
+  --resume
+```
+
+With `--resume`, trials already saved in the output directory are reused and only the remaining trials run. Use the same output directory and, when sharding, the same `--shard`. Without `--resume`, every selected trial runs again and replaces its saved artifacts once it succeeds.
+
 ### Split the work into shards
 
 Use `--shard <order>/<total>` to run one part of the plan. Shard numbers start at `1`. For two workers, run the following commands on separate workers using the same plan:

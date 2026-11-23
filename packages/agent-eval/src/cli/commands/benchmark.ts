@@ -22,6 +22,7 @@ import {
   githubCopilotTokenOption,
   getCopilotToken,
   outputDirectoryOption,
+  resumeOption,
   scenariosOption,
   runnerFilterOption,
   shardOption,
@@ -151,6 +152,7 @@ const benchmarkCommand = defineCommand({
               description: 'The path to the plan to run',
               default: './plan.json',
             },
+            resume: resumeOption,
             scenarios: scenariosOption,
             runner: runnerFilterOption,
             shard: shardOption,
@@ -162,19 +164,18 @@ const benchmarkCommand = defineCommand({
             const containerConcurrency = getConcurrencyValue(args['container-concurrency'], 'container-concurrency')
             const scenariosDirectory = path.resolve(args.scenarios)
             const resultsDirectory = path.resolve(args['output-dir'])
-            const artifactsDirectory = path.join(resultsDirectory, 'artifacts')
             const shard = args.shard ? parseShard(args.shard) : undefined
             const outputPath = getOutputPath(resultsDirectory, shard)
             const copilotToken = getCopilotToken(args.token)
             const planPath = path.resolve(args['plan-path'])
 
             debug({
-              artifactsDirectory,
               benchmarksDirectory,
               copilotConcurrency,
               containerConcurrency,
               outputPath,
               resultsDirectory,
+              resume: args.resume,
               scenariosDirectory,
               shard,
             })
@@ -201,11 +202,12 @@ const benchmarkCommand = defineCommand({
               }),
             })
             const runPlanResult = await runPlan({
-              artifactsDirectory,
               copilotConcurrency,
               containerConcurrency,
               copilotToken,
+              outputDirectory: resultsDirectory,
               plan,
+              resume: args.resume,
             })
             const output = createBenchmarkOutput({
               benchmark: manifest.benchmark,
@@ -246,12 +248,10 @@ const benchmarkCommand = defineCommand({
         const containerConcurrency = getConcurrencyValue(args['container-concurrency'], 'container-concurrency')
         const scenariosDirectory = path.resolve(args.scenarios)
         const resultsDirectory = path.resolve(args['output-dir'])
-        const artifactsDirectory = path.join(resultsDirectory, 'artifacts')
         const outputPath = getOutputPath(resultsDirectory)
         const copilotToken = getCopilotToken(args.token)
 
         debug({
-          artifactsDirectory,
           benchmarksDirectory,
           copilotConcurrency,
           containerConcurrency,
@@ -269,10 +269,10 @@ const benchmarkCommand = defineCommand({
           benchmark,
         })
         const runPlanResult = await runPlan({
-          artifactsDirectory,
           copilotConcurrency,
           containerConcurrency,
           copilotToken,
+          outputDirectory: resultsDirectory,
           plan,
         })
         const output = createBenchmarkOutput({

@@ -14,6 +14,7 @@ jobs:
       pull-requests: write
     steps:
       - name: Close older pull requests from this updater
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           WORKFLOW_ID: ${{ github.workflow }}

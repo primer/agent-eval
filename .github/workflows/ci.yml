@@ -60,6 +60,7 @@ jobs:
       - name: set up gh-aw
         uses: github/gh-aw-actions/setup-cli@53d0749e19424a918acd82b4d140264ce48f2f14 # v1.2.2
         with:
+          # Keep this version aligned with the setup-cli action pin above.
           version: v1.2.2
       - name: check agentic workflows
         run: |

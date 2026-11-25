@@ -85,6 +85,12 @@ const planOption = {
   description: 'The path to a plan for a benchmark or experiment run',
 } as const
 
+const resumeOption = {
+  type: 'boolean',
+  description: 'Reuse trials already saved in the output directory and run only the remaining trials',
+  default: false,
+} as const
+
 const scenariosOption = {
   type: 'string',
   description: 'The directory containing scenario directories',
@@ -121,6 +127,7 @@ export {
   outputDirectoryOption,
   getOutputPath,
   planOption,
+  resumeOption,
   scenariosOption,
   runnerOption,
   runnerFilterOption,

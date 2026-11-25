@@ -69,6 +69,7 @@ Docker or a Copilot token.
 | `--output-path <file>`            | Plan create only; `plan.json`                        |
 | `--plan-path <file>`              | Plan run only; `./plan.json`                         |
 | `--shard <order>/<total>`         | Plan run only; omitted means all trials              |
+| `--resume`                        | Plan run only; reuses saved trials; off              |
 | `--runner <runner>`               | Scenario run and plan run; see below                 |
 | `--check <name>`                  | Scenario run only; selects one configured check      |
 | `--copilot-concurrency <n>`, `-c` | Run and plan run; `1`                                |

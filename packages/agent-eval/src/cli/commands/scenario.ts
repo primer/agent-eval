@@ -158,12 +158,10 @@ const scenarioCommand = defineCommand({
         const containerConcurrency = getConcurrencyValue(args['container-concurrency'], 'container-concurrency')
         const scenariosDirectory = path.resolve(args.scenarios)
         const resultsDirectory = path.resolve(args['output-dir'])
-        const artifactsDirectory = path.join(resultsDirectory, 'artifacts')
         const outputPath = getOutputPath(resultsDirectory)
         const copilotToken = getCopilotToken(args.token)
 
         debug({
-          artifactsDirectory,
           copilotConcurrency,
           containerConcurrency,
           resultsDirectory,
@@ -195,10 +193,10 @@ const scenarioCommand = defineCommand({
         })
 
         const {results} = await runPlan({
-          artifactsDirectory,
           copilotConcurrency,
           containerConcurrency,
           copilotToken,
+          outputDirectory: resultsDirectory,
           plan,
         })
 

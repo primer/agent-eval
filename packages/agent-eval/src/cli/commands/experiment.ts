@@ -23,6 +23,7 @@ import {
   getOutputPath,
   githubCopilotTokenOption,
   outputDirectoryOption,
+  resumeOption,
   scenariosOption,
   runnerFilterOption,
   shardOption,
@@ -150,6 +151,7 @@ const experimentCommand = defineCommand({
               description: 'The path to the plan to run',
               default: './plan.json',
             },
+            resume: resumeOption,
             scenarios: scenariosOption,
             runner: runnerFilterOption,
             shard: shardOption,
@@ -162,20 +164,19 @@ const experimentCommand = defineCommand({
             const containerConcurrency = getConcurrencyValue(args['container-concurrency'], 'container-concurrency')
             const scenariosDirectory = path.resolve(args.scenarios)
             const resultsDirectory = path.resolve(args['output-dir'])
-            const artifactsDirectory = path.join(resultsDirectory, 'artifacts')
             const shard = args.shard ? parseShard(args.shard) : undefined
             const outputPath = getOutputPath(resultsDirectory, shard)
             const copilotToken = getCopilotToken(args.token)
             const planPath = path.resolve(args['plan-path'])
 
             debug({
-              artifactsDirectory,
               benchmarksDirectory,
               experimentsDirectory,
               copilotConcurrency,
               containerConcurrency,
               outputPath,
               resultsDirectory,
+              resume: args.resume,
               scenariosDirectory,
               shard,
             })
@@ -203,11 +204,12 @@ const experimentCommand = defineCommand({
               }),
             })
             const runPlanResult = await runPlan({
-              artifactsDirectory,
               copilotConcurrency,
               containerConcurrency,
               copilotToken,
+              outputDirectory: resultsDirectory,
               plan,
+              resume: args.resume,
             })
             const output = createExperimentOutput({experiment: manifest.experiment, runPlanResult})
             await writeExperimentOutput({output, outputPath})
@@ -244,12 +246,10 @@ const experimentCommand = defineCommand({
         const containerConcurrency = getConcurrencyValue(args['container-concurrency'], 'container-concurrency')
         const scenariosDirectory = path.resolve(args.scenarios)
         const resultsDirectory = path.resolve(args['output-dir'])
-        const artifactsDirectory = path.join(resultsDirectory, 'artifacts')
         const outputPath = getOutputPath(resultsDirectory)
         const copilotToken = getCopilotToken(args.token)
 
         debug({
-          artifactsDirectory,
           benchmarksDirectory,
           experimentsDirectory,
           copilotConcurrency,
@@ -267,10 +267,10 @@ const experimentCommand = defineCommand({
         })
         const plan = createExperimentPlan({experiment})
         const runPlanResult = await runPlan({
-          artifactsDirectory,
           copilotConcurrency,
           containerConcurrency,
           copilotToken,
+          outputDirectory: resultsDirectory,
           plan,
         })
         const output = createExperimentOutput({experiment, runPlanResult})

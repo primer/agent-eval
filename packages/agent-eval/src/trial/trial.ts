@@ -4,7 +4,6 @@ import {ScenarioSchema} from '../scenario/scenario'
 import {ModelVariantSchema} from '../model'
 import {TreatmentSchema, TreatmentSetupSchema} from '../treatment'
 // import type {Host} from '../host'
-// import type Queue from 'p-queue'
 // import type {Sandbox} from '../sandbox'
 // import {logger} from '../logger'
 //

@@ -4,8 +4,8 @@
 
 - [Lifecycle and ownership](#lifecycle-and-ownership), L:10
 - [Controlled concurrent work](#controlled-concurrent-work), L:22
-- [Explicit command failures](#explicit-command-failures), L:51
-- [Shared adapter contracts](#shared-adapter-contracts), L:65
+- [Explicit command failures](#explicit-command-failures), L:53
+- [Shared adapter contracts](#shared-adapter-contracts), L:67
 
 ## Lifecycle and ownership
 
@@ -22,24 +22,26 @@ an incidental call sequence or introduce a seam just to count private steps.
 ## Controlled concurrent work
 
 For a concurrency contract, gate actual work and observe its admission rather
-than sleeping. For example, with two trial tasks sharing a queue of capacity one:
+than sleeping. For example, with two trial tasks sharing a Copilot semaphore
+with one permit:
 
 ```ts
 const started = Promise.withResolvers<void>()
 const release = Promise.withResolvers<void>()
 const secondQueued = Promise.withResolvers<void>()
-queue.on('add', () => {
-  if (queue.size === 1) {
-    secondQueued.resolve()
-  }
+const withPermits = semaphore.withPermits.bind(semaphore)
+vi.spyOn(semaphore, 'withPermits').mockImplementation(permits => {
+  secondQueued.resolve()
+  return withPermits(permits)
 })
 ```
 
 Have the first task's external boundary resolve `started` and await
-`release.promise`. Start the second trial after `await started.promise`, then
-await `secondQueued.promise` and assert its task has not started. Release the
-first task, await both results, and assert both ran. Observe task commands, not
-capture commands that may use the same queue.
+`release.promise`. Install the spy and start the second trial after
+`await started.promise`, then await `secondQueued.promise` and assert its task
+has not started. Release the first task, await both results, and assert both
+ran. Observe task commands, not capture commands that may use the same
+semaphore.
 
 Put release and settlement in `finally`: resolve the gate and await
 `Promise.allSettled` for all started operations even if an assertion fails.

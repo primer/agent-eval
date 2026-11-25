@@ -10,6 +10,7 @@ treatments. Each trial has its own ID, sandbox, execution, and evidence.
 | Trial identity              | Scenario, treatment, model variant, runner; also capability for benchmarks |
 | Benchmark/experiment output | `output.json` manifest with `trials` mapping IDs to relative file paths    |
 | Trial result location       | `artifacts/<trial-id>/<trial-id>.json`                                     |
+| Committed trial             | `artifacts/<trial-id>/` containing `.agent-eval-trial.json`                |
 | Scenario output             | `{id, results}`, with embedded results rather than a trial-file manifest   |
 | Quality evidence            | Check outcomes/measurements and judge results, not command exit alone      |
 
@@ -21,6 +22,7 @@ treatments. Each trial has its own ID, sandbox, execution, and evidence.
 4. Restore check files and execute checks.
 5. Run judges against their rubrics.
 6. Attempt visual walkthrough capture, then save artifacts.
+7. Commit the trial by publishing its directory to `artifacts/<trial-id>/`.
 
 The pre-task build does not verify the agent's finished implementation.
 Configure a check for that. The walkthrough is additional review evidence, not
@@ -35,9 +37,24 @@ Benchmark and experiment output directories contain:
 output.json
 artifacts/
   <trial-id>/
+    .agent-eval-trial.json
     <trial-id>.json
     ...saved workspace, configuration, and walkthrough files
 ```
+
+Each attempt saves its files to a private staging directory under
+`.agent-eval/staging/` in the output directory. Only a successful attempt is
+published, by atomically renaming its directory to `artifacts/<trial-id>/`
+with a `.agent-eval-trial.json` commit record (format version, commit time,
+trial identity, and result). A failed attempt is retried and writes nothing to
+`artifacts/`. Bundles from earlier versions have no commit records; resume
+treats any trial directory without one as uncommitted and runs it again.
+
+A trial that fails after its retries does not stop the others. Completed
+trials are still committed, then the command fails and lists the failed trial
+IDs; no output manifest is written for that run. Plan runs accept `--resume` to
+reuse committed trials from the same output directory; see
+[plans](plans.md#create-and-run).
 
 `output.json` is a manifest. Its `trials` object maps IDs to relative trial JSON
 paths, not embedded trial results. It includes scenario and treatment metadata;

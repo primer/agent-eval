@@ -54,7 +54,8 @@ setup improvements and offers focused reruns only with the user's approval.
   the starter. Do not add a parallel harness or test unrelated fixture behavior.
 - Treat evidence capture as infrastructure, not an agent-behavior score. Inspect
   available events directly and assert the target signal, not transcript capture.
-- Inspect the plan's combinations before running. Use a fresh output directory.
+- Inspect the plan's combinations before running. Use a fresh output directory
+  unless resuming a plan run with `--resume`.
 - Finish by reading trial results and reporting outcomes and errors separately.
   Command completion alone does not establish quality.
 - Interpret session AI credits using [Trials and results](references/trials-and-results.md);

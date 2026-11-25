@@ -99,6 +99,9 @@ async function main() {
     if (config.reasoningEffort) {
       sessionConfig.reasoningEffort = config.reasoningEffort
     }
+    if (config.fusionTier) {
+      sessionConfig.capi = {fusionTier: config.fusionTier}
+    }
 
     const session = await client.createSession(sessionConfig)
     sessionId = session.sessionId
@@ -165,7 +168,7 @@ async function runCopilotSdk({
       copilotHome: COPILOT_DIR,
       model: model.name,
       prompt,
-      reasoningEffort: model.reasoningEffort,
+      ...(model.name === 'fusion' ? {fusionTier: model.reasoningEffort} : {reasoningEffort: model.reasoningEffort}),
       timeoutMs: 60 * 60 * 1000,
     }),
   )

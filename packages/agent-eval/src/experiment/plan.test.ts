@@ -60,6 +60,47 @@ test.each([
   },
 )
 
+test('preserves Fusion tiers across both runners in saved plans', async () => {
+  const host = VirtualHost.create({
+    '/experiments/example.ts': `export default ${JSON.stringify({
+      name: 'Example',
+      description: 'Compare Fusion tiers',
+      models: ['fusion', {name: 'fusion', reasoningEfforts: ['high', 'max']}],
+      runners: ['copilot-cli', 'copilot-sdk'],
+      scenarios: ['example'],
+      treatments: [],
+    })}`,
+    '/scenarios/example/package.json': '{}',
+    '/scenarios/example/scenario.config.ts': 'export default {prompt: "Create a page"}',
+  })
+  const options = {
+    host,
+    benchmarksDirectory: '/benchmarks',
+    experimentsDirectory: '/experiments',
+    scenariosDirectory: '/scenarios',
+  }
+  const experiment = await getExperiment({...options, name: 'example'})
+  const plan = createExperimentPlan({experiment})
+
+  const combinations = plan.trials.map(({model, runner}) => {
+    return {model, runner}
+  })
+  expect(combinations).toHaveLength(6)
+  expect(combinations).toEqual(
+    expect.arrayContaining([
+      {model: {name: 'fusion', reasoningEffort: 'standard'}, runner: 'copilot-cli'},
+      {model: {name: 'fusion', reasoningEffort: 'standard'}, runner: 'copilot-sdk'},
+      {model: {name: 'fusion', reasoningEffort: 'high'}, runner: 'copilot-cli'},
+      {model: {name: 'fusion', reasoningEffort: 'high'}, runner: 'copilot-sdk'},
+      {model: {name: 'fusion', reasoningEffort: 'max'}, runner: 'copilot-cli'},
+      {model: {name: 'fusion', reasoningEffort: 'max'}, runner: 'copilot-sdk'},
+    ]),
+  )
+  const manifest = createExperimentPlanManifest({experiment, plan})
+  const parsed = await parseExperimentPlanManifest({...options, contents: JSON.stringify(manifest)})
+  expect(parsed.trials).toEqual(plan.trials)
+})
+
 test('restores legacy plans without a runner as CLI trials', async () => {
   const options = {
     host: createHost(),

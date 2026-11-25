@@ -67,7 +67,7 @@ and its scenarios:
 treatment
   capability
     scenario
-      model / reasoning effort
+      model / reasoning effort or Fusion tier
 ```
 
 Treatment totals include all completed capabilities. Scenarios and model

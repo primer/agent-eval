@@ -331,6 +331,45 @@ describe(parseMessage, () => {
 })
 
 describe(runCopilotCli, () => {
+  test('passes Fusion tiers to the CLI instead of reasoning efforts', async () => {
+    await using sandbox: Sandbox = await VirtualSandbox.create()
+    const runCommand = vi.spyOn(sandbox, 'runCommand').mockImplementation(async (command, args = []) => {
+      if (command === '/opt/agent-eval/copilot/bin/copilot') {
+        const usagePath = args[args.indexOf('--usage-output-file') + 1]
+        await sandbox.writeFile(usagePath, JSON.stringify({modelMetrics: {}}))
+      }
+      return {exitCode: 0, stderr: '', stdout: ''}
+    })
+
+    await runCopilotCli({
+      sandbox,
+      copilotToken: 'test-token',
+      prompt: 'Build a page',
+      model: {name: 'fusion', reasoningEffort: 'max'},
+    })
+
+    expect(runCommand).toHaveBeenNthCalledWith(
+      1,
+      '/opt/agent-eval/copilot/bin/copilot',
+      [
+        '--prompt',
+        'Build a page',
+        '--model',
+        'fusion',
+        '--fusion-tier',
+        'max',
+        '--mode',
+        'autopilot',
+        '--allow-all',
+        '--output-format',
+        'json',
+        '--usage-output-file',
+        expect.stringMatching(new RegExp(`^${COPILOT_DIR}/usage-.*\\.json$`)),
+      ],
+      expect.objectContaining({user: NODE_USER}),
+    )
+  })
+
   test.each([
     {
       name: 'multiple models',

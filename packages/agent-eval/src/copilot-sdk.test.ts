@@ -43,10 +43,31 @@ test.each([true, false])('normalizes partial SDK tool results (success: %s)', su
   })
 })
 
-test.each([false, true])('executes the SDK script and surfaces failures (failed: %s)', async failed => {
-  const config = {
+const sessionCases = [
+  {
     model: 'gpt-5.5',
-    reasoningEffort: 'high',
+    options: {reasoningEffort: 'high'},
+    expected: {reasoningEffort: 'high'},
+    failed: false,
+  },
+  {
+    model: 'gpt-5.5',
+    options: {reasoningEffort: 'high'},
+    expected: {reasoningEffort: 'high'},
+    failed: true,
+  },
+  {
+    model: 'fusion',
+    options: {fusionTier: 'max'},
+    expected: {capi: {fusionTier: 'max'}},
+    failed: false,
+  },
+]
+
+test.each(sessionCases)('runs SDK script for $model (failure: $failed)', async ({model, options, expected, failed}) => {
+  const config = {
+    model,
+    ...options,
     prompt: 'Build a page',
     copilotHome: COPILOT_DIR,
     timeoutMs: 1000,
@@ -144,7 +165,7 @@ test.each([false, true])('executes the SDK script and surfaces failures (failed:
   })
   expect(createSession).toHaveBeenCalledWith({
     model: config.model,
-    reasoningEffort: 'high',
+    ...expected,
     onPermissionRequest: approveAll,
   })
   expect(sendAndWait).toHaveBeenCalledWith({prompt: config.prompt, agentMode: 'autopilot'}, 1000)
@@ -167,7 +188,18 @@ test.each([false, true])('executes the SDK script and surfaces failures (failed:
   }
 })
 
-test('uses the bundled SDK runner and private Node without writing the token to disk', async () => {
+test.each([
+  {
+    name: 'reasoning effort',
+    model: {name: 'gpt-5.5', reasoningEffort: 'high'},
+    options: {reasoningEffort: 'high'},
+  },
+  {
+    name: 'Fusion tier',
+    model: {name: 'fusion', reasoningEffort: 'max'},
+    options: {fusionTier: 'max'},
+  },
+] as const)('uses the bundled SDK runner with $name without writing the token to disk', async ({model, options}) => {
   await using sandbox = await VirtualSandbox.create()
   const runCommand = vi.spyOn(sandbox, 'runCommand').mockResolvedValue({
     stdout: `\n${JSON.stringify({
@@ -185,7 +217,7 @@ test('uses the bundled SDK runner and private Node without writing the token to 
     sandbox,
     copilotToken: 'test-token',
     prompt: 'Build a page',
-    model: {name: 'gpt-5.5', reasoningEffort: 'high'},
+    model,
   })
   expect(runCommand).toHaveBeenCalledExactlyOnceWith(
     '/opt/agent-eval/node/bin/node',
@@ -205,9 +237,9 @@ test('uses the bundled SDK runner and private Node without writing the token to 
     '/opt/agent-eval/sdk-runner/config.json',
     JSON.stringify({
       copilotHome: COPILOT_DIR,
-      model: 'gpt-5.5',
+      model: model.name,
       prompt: 'Build a page',
-      reasoningEffort: 'high',
+      ...options,
       timeoutMs: 60 * 60 * 1000,
     }),
   )

@@ -18,6 +18,32 @@ test('ModelVariantConfigSchema rejects arrays and invalid model configs', () => 
   expect(ModelVariantConfigSchema.safeParse({name: 'gpt-5.4', reasoningEfforts: ['max']}).success).toBe(false)
 })
 
+test('Fusion defaults to the standard tier', () => {
+  for (const input of ['fusion', {name: 'fusion'}, {name: 'fusion', reasoningEfforts: []}]) {
+    const config = ModelVariantConfigSchema.parse(input)
+    expect(getModelVariants([config])).toEqual([{name: 'fusion', reasoningEffort: 'standard'}])
+  }
+})
+
+test('Fusion expands its supported tiers and rejects other efforts', () => {
+  const config = ModelVariantConfigSchema.parse({name: 'fusion', reasoningEfforts: ['standard', 'high', 'max']})
+  const variants = [
+    {name: 'fusion', reasoningEffort: 'standard'},
+    {name: 'fusion', reasoningEffort: 'high'},
+    {name: 'fusion', reasoningEffort: 'max'},
+  ]
+  expect(getModelVariants([config])).toEqual(variants)
+  for (const variant of variants) {
+    expect(ModelVariantSchema.parse(variant)).toEqual(variant)
+  }
+  for (const reasoningEffort of ['low', 'medium', 'xhigh', 'unknown']) {
+    expect(ModelVariantConfigSchema.safeParse({name: 'fusion', reasoningEfforts: [reasoningEffort]}).success).toBe(
+      false,
+    )
+    expect(ModelVariantSchema.safeParse({name: 'fusion', reasoningEffort}).success).toBe(false)
+  }
+})
+
 test.each([
   'claude-fable-5',
   'claude-fable-5.1',

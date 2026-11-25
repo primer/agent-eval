@@ -50,6 +50,10 @@ const models = [
     reasoningEfforts: ['low', 'medium', 'high', 'xhigh', 'max'],
   },
   {
+    name: 'fusion',
+    reasoningEfforts: ['standard', 'high', 'max'],
+  },
+  {
     name: 'gemini-3.1-pro-preview',
     reasoningEfforts: ['low', 'medium', 'high'],
   },
@@ -250,6 +254,10 @@ const ModelVariantConfigSchema = z.union([
     name: z.literal(models[25].name),
     reasoningEfforts: z.optional(z.array(z.enum(models[25].reasoningEfforts))),
   }),
+  z.object({
+    name: z.literal(models[26].name),
+    reasoningEfforts: z.optional(z.array(z.enum(models[26].reasoningEfforts))),
+  }),
 ])
 
 type ModelVariantConfig = z.infer<typeof ModelVariantConfigSchema>
@@ -257,15 +265,11 @@ type ModelVariantConfig = z.infer<typeof ModelVariantConfigSchema>
 function getModelVariants(input: Array<ModelVariantConfig>): Array<ModelVariant<Model>> {
   return input.flatMap(config => {
     if (typeof config === 'string') {
-      return [{name: config, reasoningEffort: 'medium'}]
+      return [{name: config, reasoningEffort: config === 'fusion' ? 'standard' : 'medium'}]
     }
 
-    if (!config.reasoningEfforts) {
-      return [{name: config.name, reasoningEffort: 'medium'}]
-    }
-
-    if (config.reasoningEfforts.length === 0) {
-      return [{name: config.name, reasoningEffort: 'medium'}]
+    if (!config.reasoningEfforts?.length) {
+      return [{name: config.name, reasoningEffort: config.name === 'fusion' ? 'standard' : 'medium'}]
     }
 
     return config.reasoningEfforts.map(effort => {

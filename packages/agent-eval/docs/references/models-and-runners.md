@@ -1,19 +1,19 @@
 # Models and runners
 
-**Use when:** selecting models, reasoning effort, or implementation backends.
-A model variant is one model/effort pair; a runner is a separate dimension.
+**Use when:** selecting models, effort, or implementation backends. A model
+variant is one model/effort pair; a runner is a separate dimension.
 
 ## Contract
 
-| Location                            | Shape or default                                     |
-| :---------------------------------- | :--------------------------------------------------- |
-| Benchmark/experiment `models`       | Model strings or `{name, reasoningEfforts?}` objects |
-| Omitted or empty `reasoningEfforts` | One variant with `medium` effort                     |
-| Model string                        | One variant with `medium` effort                     |
-| Judge `model`                       | `{name, reasoningEffort}` (singular)                 |
-| Benchmark/experiment `runners`      | `copilot-cli`, `copilot-sdk`, or both                |
-| Default implementation runner       | `copilot-cli`                                        |
-| Standalone `scenario run` model     | Currently `gpt-5.6-luna`, `low`                      |
+| Location                            | Shape or default                                         |
+| :---------------------------------- | :------------------------------------------------------- |
+| Benchmark/experiment `models`       | Model strings or `{name, reasoningEfforts?}` objects     |
+| Omitted or empty `reasoningEfforts` | One variant with `medium` effort (`standard` for Fusion) |
+| Model string                        | One variant with `medium` effort (`standard` for Fusion) |
+| Judge `model`                       | `{name, reasoningEffort}` (singular)                     |
+| Benchmark/experiment `runners`      | `copilot-cli`, `copilot-sdk`, or both                    |
+| Default implementation runner       | `copilot-cli`                                            |
+| Standalone `scenario run` model     | Currently `gpt-5.6-luna`, `low`                          |
 
 Model names and allowed efforts must be supported by the installed package
 **and** authorized for the token. Check configuration types or
@@ -22,6 +22,11 @@ do not assume arbitrary Copilot model names are accepted.
 
 Claude Fable 5.2 uses `claude-fable-5.2` and supports `low`, `medium`, `high`,
 `xhigh`, and `max` reasoning efforts.
+
+Use `fusion` for [Copilot Fusion](https://docs.github.com/en/copilot/concepts/models/copilot-fusion),
+which selects models dynamically. Its `reasoningEfforts` are Fusion tiers:
+`standard`, `high`, and `max`. The default is `standard`; a judge's singular
+`reasoningEffort` accepts the same tiers.
 
 There is no `--model` flag. Use an experiment with one model variant when model
 selection matters. Judge and walkthrough sessions use the CLI even when
@@ -37,6 +42,12 @@ models: ['gpt-5.4', {name: 'gpt-5.4', reasoningEfforts: ['low', 'high']}]
 
 This expands to three variants: `medium` from the string, then `low` and `high`.
 For a quick run, use only one explicit effort.
+
+For Fusion, this expands to `standard`, `high`, and `max`:
+
+```ts
+models: ['fusion', {name: 'fusion', reasoningEfforts: ['high', 'max']}]
+```
 
 Inside a judge definition, use a resolved variant instead:
 

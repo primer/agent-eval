@@ -456,7 +456,7 @@ async function runCopilotCli({
         prompt,
         '--model',
         model.name,
-        '--reasoning-effort',
+        model.name === 'fusion' ? '--fusion-tier' : '--reasoning-effort',
         model.reasoningEffort,
         '--mode',
         'autopilot',

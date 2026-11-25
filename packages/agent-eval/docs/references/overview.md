@@ -38,9 +38,10 @@ flowchart TD
 ```
 
 A scenario owns the task and evaluation. A treatment changes the environment.
-A model variant selects the model and reasoning effort; a runner selects the
-implementation backend. A trial is one combination of those dimensions. A plan
-is the list of trials to execute. Results contain evidence, not just a score.
+A model variant selects the model and effort (a Fusion tier for `fusion`); a
+runner selects the implementation backend. A trial is one combination of those
+dimensions. A plan is the list of trials to execute. Results contain evidence,
+not just a score.
 
 ## Methodology
 

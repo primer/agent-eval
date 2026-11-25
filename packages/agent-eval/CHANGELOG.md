@@ -1,5 +1,13 @@
 # @primer/agent-eval
 
+## 0.19.0
+
+### Minor Changes
+
+- 3709708: Add support for Claude Fable 5.2 in benchmarks, experiments, and judges with low, medium, high, xhigh, and max reasoning efforts.
+- 1c78a38: Add support for `gpt-6.2-astra` and `gpt-6.2-sol` with `low`, `medium`, `high`, `xhigh`, and `max` reasoning efforts.
+- 15811dc: Include per-session OpenTelemetry trace files in trial artifacts for Copilot CLI and SDK runs, judges, and walkthrough capture, with message-content capture disabled.
+
 ## 0.18.1
 
 ### Patch Changes

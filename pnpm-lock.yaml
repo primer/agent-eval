@@ -251,8 +251,8 @@ importers:
         specifier: ^11.10.0
         version: 11.10.0
       '@primer/react':
-        specifier: ^38.45.0
-        version: 38.45.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react-is@19.3.1)(react@19.3.1)
+        specifier: ^38.46.0
+        version: 38.46.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react-is@19.3.1)(react@19.3.1)
       '@primer/tailwind-config':
         specifier: ^1.0.0
         version: 1.0.0(tailwindcss@4.3.3)
@@ -561,8 +561,8 @@ importers:
   scenarios/003-agent-uses-form-from-primer:
     dependencies:
       '@primer/react':
-        specifier: ^38.45.0
-        version: 38.45.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react-is@19.3.1)(react@19.3.1)
+        specifier: ^38.46.0
+        version: 38.46.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react-is@19.3.1)(react@19.3.1)
       next:
         specifier: ^16
         version: 16.4.5(@playwright/test@1.64.0)(@types/node@26.6.4)(babel-plugin-react-compiler@1.0.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -678,8 +678,8 @@ importers:
         specifier: ^11.10.0
         version: 11.10.0
       '@primer/react':
-        specifier: ^38.45.0
-        version: 38.45.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react-is@19.3.1)(react@19.3.1)
+        specifier: ^38.46.0
+        version: 38.46.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react-is@19.3.1)(react@19.3.1)
       '@primer/tailwind-config':
         specifier: ^1.0.0
         version: 1.0.0(tailwindcss@4.3.3)
@@ -1347,8 +1347,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@oddbird/popover-polyfill@0.5.2':
-    resolution: {integrity: sha512-iFrvar5SOMtKFOSjYvs4z9UlLqDdJbMx0mgISLcPedv+g0ac5sgeETLGtipHCVIae6HJPclNEH5aCyD1RZaEHw==}
+  '@oddbird/popover-polyfill@0.7.3':
+    resolution: {integrity: sha512-uOY7RLqS1M12u+EzZHQ8vPSh3NjwDlb4qwJ1WDzQ0inZ14+47Vv0NNs+1Lh4PtX1nLiiCbfJyIxPRHsgBTvhvg==}
 
   '@oxc-project/types@0.156.0':
     resolution: {integrity: sha512-1Duyg48TdJNdyhEB8Xn1L36bT9Pv6GUtlKjHxOys8xkaF/rQq3XJE+bAurSK/AgIz5mGFsb77cn9Pb20+WCScw==}
@@ -1389,8 +1389,8 @@ packages:
   '@primer/primitives@11.10.0':
     resolution: {integrity: sha512-ihZxIst4Izry284StKFjpbYvX6R/IBFTLu+qiuAmR93PsKF2hdjoabhSYwKI8iCxOUx94jVP55bI3NoY7STjYQ==}
 
-  '@primer/react@38.45.0':
-    resolution: {integrity: sha512-pklVgCk1Vs5w8oUMYUpOY97xdFQmXi6quxxNgb0fOk2UMcpXieAPuoS3Tu6dPKzZ880vyrGmUlJVpxw3uP/QFw==}
+  '@primer/react@38.46.0':
+    resolution: {integrity: sha512-cHkBli/WDDM4SCHLtaBjVo2yVHRMGmFy7//SJrGr/4Hm+MZLSD4BDfBdqIhoX7wOKtbKMpQQP0qhUkNiM+YZkg==}
     engines: {node: '>=12', npm: '>=7'}
     peerDependencies:
       '@types/react': 18.x || 19.x
@@ -5016,7 +5016,7 @@ snapshots:
   '@next/swc-win32-x64-msvc@16.4.5':
     optional: true
 
-  '@oddbird/popover-polyfill@0.5.2': {}
+  '@oddbird/popover-polyfill@0.7.3': {}
 
   '@oxc-project/types@0.156.0': {}
 
@@ -5046,12 +5046,12 @@ snapshots:
 
   '@primer/primitives@11.10.0': {}
 
-  '@primer/react@38.45.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react-is@19.3.1)(react@19.3.1)':
+  '@primer/react@38.46.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react-is@19.3.1)(react@19.3.1)':
     dependencies:
       '@github/mini-throttle': 2.1.1
       '@github/relative-time-element': 5.3.0
       '@lit-labs/react': 1.2.1
-      '@oddbird/popover-polyfill': 0.5.2
+      '@oddbird/popover-polyfill': 0.7.3
       '@primer/behaviors': 1.10.3
       '@primer/live-region-element': 0.8.1
       '@primer/octicons-react': 19.42.0(react@19.3.1)

@@ -60,6 +60,23 @@ test.each(models)('$name has an object schema for every registered reasoning eff
   expect(ModelVariantConfigSchema.parse(config)).toEqual(config)
 })
 
+test('gemini-4-neon supports up to xhigh reasoning effort', () => {
+  const name = 'gemini-4-neon' as const
+  const reasoningEfforts = ['low', 'medium', 'high', 'xhigh'] as const
+  const config = {name, reasoningEfforts: [...reasoningEfforts]}
+  expect(ModelVariantConfigSchema.parse(name)).toBe(name)
+  expect(getModelVariants([name])).toEqual([{name, reasoningEffort: 'medium'}])
+  expect(getModelVariants([config])).toEqual(
+    reasoningEfforts.map(reasoningEffort => {
+      return {name, reasoningEffort}
+    }),
+  )
+  for (const reasoningEffort of ['minimal', 'max']) {
+    expect(ModelVariantConfigSchema.safeParse({name, reasoningEfforts: [reasoningEffort]}).success).toBe(false)
+    expect(ModelVariantSchema.safeParse({name, reasoningEffort}).success).toBe(false)
+  }
+})
+
 test('getModelVariants', () => {
   expect(getModelVariants([])).toEqual([])
 

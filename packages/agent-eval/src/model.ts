@@ -58,6 +58,10 @@ const models = [
     reasoningEfforts: ['minimal', 'low', 'medium', 'high'],
   },
   {
+    name: 'gemini-4-neon',
+    reasoningEfforts: ['low', 'medium', 'high', 'xhigh'],
+  },
+  {
     name: 'gpt-5.4',
     reasoningEfforts: ['low', 'medium', 'high', 'xhigh'],
   },
@@ -249,6 +253,10 @@ const ModelVariantConfigSchema = z.union([
   z.object({
     name: z.literal(models[25].name),
     reasoningEfforts: z.optional(z.array(z.enum(models[25].reasoningEfforts))),
+  }),
+  z.object({
+    name: z.literal(models[26].name),
+    reasoningEfforts: z.optional(z.array(z.enum(models[26].reasoningEfforts))),
   }),
 ])
 
